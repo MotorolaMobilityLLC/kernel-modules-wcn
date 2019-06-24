@@ -63,7 +63,7 @@
 extern struct fmdrv_ops *fmdev;
 
 int fm_open(struct inode *inode, struct file *filep);
-int fm_powerup(void *);
+int fm_powerup(struct fm_tune_parm *);
 int fm_powerdown(void);
 int fm_tune(void *);
 int fm_seek(void *);

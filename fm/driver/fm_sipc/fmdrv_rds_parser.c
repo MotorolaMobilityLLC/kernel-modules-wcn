@@ -837,8 +837,13 @@ void rds_get_ps(unsigned char *buf)
 			rds_ps_cmp(ps_addr, fmdev->rds_data.ps_data.PS[0],
 				fmdev->rds_data.ps_data.PS[1],
 				fmdev->rds_data.ps_data.PS[2], &valid);
-			if (valid == fm_true)
+			if (valid == fm_true) {
 				ps_bm.bm_set(&ps_bm, ps_addr);
+			} else {
+			   pr_info("before PS[2] is %s\n", fmdev->rds_data.ps_data.PS[2]);
+			   memset(fmdev->rds_data.ps_data.PS[2], 0x20, 8);
+			   ps_bm.bm_clr(&ps_bm);
+			}
 			state_set(&ps_sm, RDS_PS_DECISION);
 			break;
 
@@ -866,8 +871,6 @@ void rds_get_ps(unsigned char *buf)
 			ps_bm.bm_clr(&ps_bm);
 			/* clear buf */
 			memset(fmdev->rds_data.ps_data.PS[0], 0x20, 8);
-			memset(fmdev->rds_data.ps_data.PS[1], 0x20, 8);
-			memset(fmdev->rds_data.ps_data.PS[2], 0x20, 8);
 			state_set(&ps_sm, RDS_PS_FINISH);
 			break;
 

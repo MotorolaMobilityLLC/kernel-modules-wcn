@@ -472,7 +472,7 @@ void fm_handler (int event, void *data)
 
 }
 
-int fm_powerup(void *arg)
+int fm_powerup(struct fm_tune_parm *p)
 {
 	struct fm_tune_parm parm;
 	unsigned short payload;
@@ -487,10 +487,10 @@ int fm_powerup(void *arg)
 		if (fmdev->headset_state == 1)
 			gpio_set_value(anten, 1);
 		}
-	if (copy_from_user(&parm, arg, sizeof(parm))) {
-		pr_err("fm powerup 's ret value is -eFAULT\n");
-		return -EFAULT;
-	}
+	// if (copy_from_user(&parm, arg, sizeof(parm))) {
+		// pr_err("fm powerup 's ret value is -eFAULT\n");
+		// return -EFAULT;
+	// }
 
 	if (start_marlin(WCN_MARLIN_FM) < 0) {
 		pr_info("fm_open start_marlin failed");
@@ -595,7 +595,7 @@ int fm_tune(void *arg)
 		pr_info("fm tune 's ret value is -eFAULT\n");
 		return -EFAULT;
 	}
-	parm.freq *= 10;
+	pr_info("fm tune 50k/100k test freq:%d\n",parm.freq);
 #ifdef RDS_DEBUG
 	global_freq = parm.freq;
 #endif
@@ -629,7 +629,7 @@ int fm_seek(void *arg)
 		pr_info("fm seek 's ret value is -eFAULT\n");
 		return -EFAULT;
 	}
-	parm.freq *= 10;
+	pr_info("fm seek 50k/100k test freq:%d\n",parm.freq);
 	payload[0] = (parm.freq & 0xFF);
 	payload[1] = (parm.freq >> 8);
 	payload[2] = parm.seekdir;
@@ -667,7 +667,6 @@ int fm_seek(void *arg)
 	}
 #endif
 	parm.freq = respond_buf[3] + (respond_buf[4] << 8);
-	parm.freq /= 10;
 	pr_info("(fmdrv) fm seek have finshed!!status = %d, RSSI=%d\n"
 		"(fmdrv) fm seek SNR=%d, freq=%d\n", respond_buf[0],
 		respond_buf[1], respond_buf[2], parm.freq);

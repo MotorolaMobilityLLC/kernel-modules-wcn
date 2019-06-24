@@ -222,7 +222,10 @@ long fm_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
 
 int fm_open(struct inode *inode, struct file *filep)
 {
-	pr_info("start open SPRD fm module...\n");
+	struct fm_tune_parm powerup_parm;
+	powerup_parm.freq=875;
+	fm_powerup(&powerup_parm);
+	pr_info("start open SPRD xiaop fm module...\n");
 	return 0;
 }
 int fm_release(struct inode *inode, struct file *filep)
