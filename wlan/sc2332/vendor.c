@@ -1641,6 +1641,37 @@ out_put_fail:
 	return -EMSGSIZE;
 }
 
+static int sprdwl_vendor_get_akm_suite(struct wiphy *wiphy,
+		struct wireless_dev *wdev,
+		const void *data, int len)
+{
+	int ret, akm_len;
+	struct sprdwl_priv *priv;
+	struct sk_buff *reply;
+	int index = 0;
+	int akm[8] = {0};
+
+
+	priv = wiphy_priv(wiphy);
+	if (priv->extend_feature & SPRDWL_EXTEND_FEATURE_SAE)
+		akm[index++] = WLAN_AKM_SUITE_SAE;
+	if (priv->extend_feature & SPRDWL_EXTEND_FEATURE_OWE)
+		akm[index++] = WLAN_AKM_SUITE_OWE;
+	if (priv->extend_feature & SPRDWL_EXTEND_FEATURE_DPP)
+		akm[index++] = WLAN_CIPHER_SUITE_DPP;
+	if (priv->extend_feature & SPRDWL_EXTEND_8021X_SUITE_B_192)
+		akm[index++] = WLAN_CIPHER_SUITE_BIP_GMAC_256;
+
+	akm_len = index * sizeof(akm[0]);
+	reply = cfg80211_vendor_cmd_alloc_reply_skb(wiphy, len);
+	nla_put(reply, NL80211_ATTR_AKM_SUITES, akm_len, akm);
+	ret = cfg80211_vendor_cmd_reply(reply);
+	if (ret)
+		wiphy_err(wiphy, "reply cmd error\n");
+	return ret;
+
+}
+
 const struct wiphy_vendor_command sprdwl_vendor_cmd[] = {
 	{
 		{
@@ -1804,6 +1835,15 @@ const struct wiphy_vendor_command sprdwl_vendor_cmd[] = {
 		.flags = WIPHY_VENDOR_CMD_NEED_WDEV |
 			 WIPHY_VENDOR_CMD_NEED_NETDEV,
 		.doit = sprdwl_vendor_memory_dump,
+	},
+	{
+		{
+		    .vendor_id = OUI_SPREAD,
+		    .subcmd = SPRD_NL80211_VENDOR_SUBCMD_GET_AKM_SUITE,
+		},
+		.flags = WIPHY_VENDOR_CMD_NEED_WDEV |
+			WIPHY_VENDOR_CMD_NEED_RUNNING,
+		.doit = sprdwl_vendor_get_akm_suite,
 	},
 };
 

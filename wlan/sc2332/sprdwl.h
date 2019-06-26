@@ -191,6 +191,7 @@ struct sprdwl_priv {
 
 	u8 scanning_flag;
 	struct semaphore scanning_sem;
+	__le32 extend_feature;
 };
 
 struct sprdwl_eap_hdr {

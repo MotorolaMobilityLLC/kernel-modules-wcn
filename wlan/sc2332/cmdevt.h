@@ -232,6 +232,12 @@ struct sprdwl_cmd_fw_info {
 	u8 max_acl_mac_addrs;
 	u8 max_mc_mac_addrs;
 	u8 wnm_ft_support;
+
+#define SPRDWL_EXTEND_FEATURE_SAE          BIT(0)
+#define SPRDWL_EXTEND_FEATURE_OWE          BIT(1)
+#define SPRDWL_EXTEND_FEATURE_DPP          BIT(2)
+#define SPRDWL_EXTEND_8021X_SUITE_B_192    BIT(3)
+	__le32 extend_feature;
 } __packed;
 
 /* WIFI_CMD_OPEN */
@@ -298,8 +304,10 @@ struct sprdwl_cmd_set_ie {
 #define	SPRDWL_IE_PROBE_RESP		2
 #define	SPRDWL_IE_ASSOC_REQ		3
 #define	SPRDWL_IE_ASSOC_RESP		4
-#define	SPRDWL_IE_BEACON_HEAD		5
-#define	SPRDWL_IE_BEACON_TAIL		6
+#define	SPRDWL_IE_P2P_REQ		5
+#define	SPRDWL_IE_BEACON_HEAD	6
+#define	SPRDWL_IE_BEACON_TAIL	7
+#define	SPRDWL_IE_SAE			8
 	u8 type;
 	__le16 len;
 	u8 data[0];

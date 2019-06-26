@@ -131,6 +131,7 @@ enum sprdwl_vendor_subcommand_id {
 	SPRDWL_VENDOR_SUBCOMMAND_MAX
 };
 
+#define SPRD_NL80211_VENDOR_SUBCMD_GET_AKM_SUITE 0xB0
 /* attribute id */
 
 enum sprdwl_vendor_attr_gscan_id {
