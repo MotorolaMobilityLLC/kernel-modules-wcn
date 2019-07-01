@@ -1287,6 +1287,20 @@ int sprdwl_tdls_oper(struct sprdwl_priv *priv, u8 vif_mode, const u8 *peer,
 	return sprdwl_cmd_send_recv(priv, msg, CMD_WAIT_TIMEOUT, NULL, NULL);
 }
 
+int sprdwl_set_random_mac(struct sprdwl_priv *priv, u8 vif_mode, const u8 *mac)
+{
+	struct sprdwl_msg_buf *msg;
+	u8 *addr;
+
+	msg = sprdwl_cmd_getbuf(priv, ETH_ALEN, vif_mode,
+				SPRDWL_HEAD_RSP, WIFI_CMD_RANDOM_MAC);
+	if (!msg)
+		return -ENOMEM;
+	addr = (unsigned char *)msg->data;
+	memcpy(addr, mac, ETH_ALEN);
+
+	return sprdwl_cmd_send_recv(priv, msg, CMD_WAIT_TIMEOUT, NULL, NULL);
+}
 int sprdwl_start_tdls_channel_switch(struct sprdwl_priv *priv, u8 vif_mode,
 				     const u8 *peer_mac, u8 primary_chan,
 				     u8 second_chan_offset, u8 band)

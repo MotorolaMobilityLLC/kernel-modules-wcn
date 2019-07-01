@@ -685,10 +685,27 @@ static void sprdwl_set_multicast(struct net_device *ndev)
 
 static int sprdwl_set_mac(struct net_device *dev, void *addr)
 {
+	struct sprdwl_vif *vif = netdev_priv(dev);
+
 	if (!dev) {
 		netdev_err(dev, "Invalid net device\n");
+		return -EINVAL;
 	}
 
+	if (vif->mode != SPRDWL_MODE_STATION) {
+		netdev_err(dev, "mode err : %d\n", vif->mode);
+		return -EINVAL;
+	}
+
+	if (addr) {
+		memcpy(vif->random_mac, addr, ETH_ALEN);
+		memcpy(dev->dev_addr, addr, ETH_ALEN);
+		netdev_info(dev, "vif random mac : %pM\n", vif->random_mac);
+	} else {
+		netdev_info(dev, "%s need clear random mac\n", __func__);
+		memset(vif->random_mac, 0, ETH_ALEN);
+		memcpy(dev->dev_addr, vif->mac, ETH_ALEN);
+	}
 	/*return success to pass vts test*/
 	return 0;
 }

@@ -369,6 +369,13 @@ int sprdwl_init_fw(struct sprdwl_vif *vif)
 	else
 		mac = vif->ndev->dev_addr;
 
+	if (vif->mode ==SPRDWL_MODE_AP) {
+		if (vif->random_mac) {
+			netdev_info(vif->ndev, "soft ap use random mac addr\n");
+			mac = vif->random_mac;
+		}
+	}
+
 	if (sprdwl_open_fw(priv, vif->mode, vif->mode, mac)) {
 		netdev_err(vif->ndev, "%s failed!\n", __func__);
 		vif->mode = SPRDWL_MODE_NONE;
@@ -1270,6 +1277,16 @@ static int sprdwl_cfg80211_connect(struct wiphy *wiphy, struct net_device *ndev,
 	    (sme->crypto.cipher_group == WLAN_CIPHER_SUITE_WEP104);
 	int ret;
 
+	if (vif->mode == SPRDWL_MODE_STATION) {
+		if (vif->random_mac != NULL) {
+			netdev_info(ndev, "Set random mac : %pM\n",
+				    vif->random_mac);
+			ret = sprdwl_set_random_mac(vif->priv, vif->mode,
+						    vif->random_mac);
+			if (!ret)
+				netdev_info(ndev, "Set random mac failed!\n");
+		}
+	}
 	memset(&con, 0, sizeof(con));
 
 	/* Set wps ie and sae ie*/

@@ -124,6 +124,7 @@ struct sprdwl_vif {
 	/* P2P stuff */
 	struct ieee80211_channel listen_channel;
 	u64 listen_cookie;
+	u8 random_mac[ETH_ALEN];
 };
 
 enum sprdwl_hw_type {

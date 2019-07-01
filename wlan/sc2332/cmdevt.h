@@ -135,6 +135,7 @@ enum SPRDWL_CMD_LIST {
 	WIFI_CMD_SET_VOWIFI = 59,
 	WIFI_CMD_MIRACAST = 60,
 	WIFI_CMD_MAX_STA = 61,
+	WIFI_CMD_RANDOM_MAC = 63,
 	WIFI_CMD_MAX
 };
 
@@ -796,4 +797,5 @@ int sprdwl_cmd_send_recv(struct sprdwl_priv *priv,
 			 struct sprdwl_msg_buf *msg,
 			 unsigned int timeout, u8 *rbuf, u16 *rlen);
 void sprdwl_event_frame(struct sprdwl_vif *vif, u8 *data, u16 len, int flag);
+int sprdwl_set_random_mac(struct sprdwl_priv *priv, u8 vif_mode, const u8 *mac);
 #endif
