@@ -371,7 +371,14 @@ int sprdwl_init_fw(struct sprdwl_vif *vif)
 
 	if (vif->mode ==SPRDWL_MODE_AP) {
 		if (vif->has_rand_mac) {
-			netdev_info(vif->ndev, "soft ap use random mac addr\n");
+			netdev_info(vif->ndev, "soft ap use random mac addr:%pM\n",vif->random_mac);
+			mac = vif->random_mac;
+		}
+	}
+
+	if (vif->mode ==SPRDWL_MODE_P2P_GO) {
+		if (vif->has_rand_mac) {
+			netdev_info(vif->ndev, "p2p go use random mac addr: %pM\n", vif->random_mac);
 			mac = vif->random_mac;
 		}
 	}
@@ -1283,7 +1290,7 @@ static int sprdwl_cfg80211_connect(struct wiphy *wiphy, struct net_device *ndev,
 				    vif->random_mac);
 			ret = sprdwl_set_random_mac(vif->priv, vif->mode,
 						    vif->random_mac);
-			if (!ret)
+			if (ret)
 				netdev_info(ndev, "Set random mac failed!\n");
 		}
 	}

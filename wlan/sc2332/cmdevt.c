@@ -94,6 +94,7 @@ static const char *cmd2str(u8 cmd)
 	C2S(WIFI_CMD_SET_VOWIFI)
 	C2S(WIFI_CMD_MIRACAST)
 	C2S(WIFI_CMD_MAX_STA)
+	C2S(WIFI_CMD_RANDOM_MAC)
 	default : return "WIFI_CMD_UNKNOWN";
 	}
 #undef C2S

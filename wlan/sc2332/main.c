@@ -287,6 +287,7 @@ static void sprdwl_tx_timeout(struct net_device *ndev)
 #define CMD_11V_GET_CFG			"11VCFG_GET"
 #define CMD_11V_SET_CFG			"11VCFG_SET"
 #define CMD_11V_WNM_SLEEP		"WNM_SLEEP"
+#define CMD_P2P_MAC			"P2PMACADDR"
 
 static int sprdwl_priv_cmd(struct net_device *ndev, struct ifreq *ifr)
 {
@@ -582,15 +583,67 @@ out:
 	kfree(command);
 	return ret;
 }
+
+static int sprdwl_set_p2p_mac(struct net_device *ndev, struct ifreq *ifr)
+{
+	struct sprdwl_vif *vif = netdev_priv(ndev);
+	struct sprdwl_priv *priv = vif->priv;
+	struct android_wifi_priv_cmd priv_cmd;
+	char *command = NULL;
+	int ret = 0;
+	struct sprdwl_vif *tmp1, *tmp2;
+	u8 addr[ETH_ALEN] = {0};
+
+	if (!ifr->ifr_data)
+		return -EINVAL;
+	if (copy_from_user(&priv_cmd, ifr->ifr_data, sizeof(priv_cmd)))
+		return -EFAULT;
+
+	command = kmalloc(priv_cmd.total_len, GFP_KERNEL);
+	if (!command)
+		return -ENOMEM;
+	if (copy_from_user(command, priv_cmd.buf, priv_cmd.total_len)) {
+		ret = -EFAULT;
+		goto out;
+	}
+
+	memcpy(addr, command + 11, ETH_ALEN);
+	netdev_info(ndev, "p2p dev random addr is %pM\n", addr);
+	if (!is_valid_ether_addr(addr)) {
+		netdev_err(ndev, "%s invalid addr\n", __func__);
+		ret = -EINVAL;
+		goto out;
+	}
+	ret = sprdwl_set_random_mac(vif->priv, SPRDWL_MODE_P2P_DEVICE, addr);
+	if (ret) {
+		netdev_err(ndev, "%s set p2p mac cmd error\n", __func__);
+		ret = -EFAULT;
+		goto out;
+	}
+
+	spin_lock_bh(&priv->list_lock);
+	list_for_each_entry_safe_reverse(tmp1, tmp2,
+					 &priv->vif_list, vif_node) {
+		if (tmp1->mode == SPRDWL_MODE_P2P_DEVICE) {
+			netdev_info(ndev, "get p2p device, set addr for wdev\n");
+			memcpy(tmp1->wdev.address, addr, ETH_ALEN);
+		}
+	}
+	spin_unlock_bh(&priv->list_lock);
+
+out:
+	kfree(command);
+	return ret;
+}
 #define SPRDWLIOCTL		(SIOCDEVPRIVATE + 1)
 #define SPRDWLHANDLECMD		(SIOCDEVPRIVATE + 2)
 #define SPRDWLSETSUSPEND	(SIOCDEVPRIVATE + 4)
 #define SPRDWLSETCOUNTRY	(SIOCDEVPRIVATE + 5)
+#define SPRDWLSETP2PMAC		(SIOCDEVPRIVATE + 6)
 #define SPRDWLVOWIFI		(SIOCDEVPRIVATE + 7)
 
 static int sprdwl_ioctl(struct net_device *ndev, struct ifreq *req, int cmd)
 {
-
 	switch (cmd) {
 	case SPRDWLIOCTL:
 	case SPRDWLSETCOUNTRY:
@@ -601,6 +654,8 @@ static int sprdwl_ioctl(struct net_device *ndev, struct ifreq *req, int cmd)
 		return sprdwl_set_power_save(ndev, req);
 	case SPRDWLVOWIFI:
 		return sprdwl_set_vowifi(ndev, req);
+	case SPRDWLSETP2PMAC:
+		return sprdwl_set_p2p_mac(ndev, req);
 	default:
 		netdev_err(ndev, "Unsupported IOCTL %d\n", cmd);
 		return -ENOTSUPP;
@@ -691,30 +746,60 @@ static void sprdwl_set_multicast(struct net_device *ndev)
 static int sprdwl_set_mac(struct net_device *dev, void *addr)
 {
 	struct sprdwl_vif *vif = netdev_priv(dev);
+	struct sockaddr *sa = (struct sockaddr *)addr;
+	int ret;
 
 	if (!dev) {
 		netdev_err(dev, "Invalid net device\n");
 		return -EINVAL;
 	}
+	netdev_info(dev, "%s start set random mac: %pM\n", __func__, sa->sa_data);
 
-	if (vif->mode != SPRDWL_MODE_STATION) {
-		netdev_err(dev, "mode err : %d\n", vif->mode);
+	if (is_multicast_ether_addr(sa->sa_data)) {
+		netdev_err(dev, "invalid, it is multicast addr: %pM\n", sa->sa_data);
 		return -EINVAL;
 	}
 
-	vif->has_rand_mac = false;
-	return 0;
+	if (vif->mode == SPRDWL_MODE_STATION) {
+		if (!is_zero_ether_addr(sa->sa_data)) {
+			vif->has_rand_mac = true;
+			memcpy(vif->random_mac, sa->sa_data, ETH_ALEN);
+			memcpy(dev->dev_addr, sa->sa_data, ETH_ALEN);
+			netdev_info(dev, "vif random mac : %pM\n", vif->random_mac);
+		} else {
+			vif->has_rand_mac = false;
+			netdev_info(dev, "%s need clear random mac for sta/softap mode\n", __func__);
+			memset(vif->random_mac, 0, ETH_ALEN);
+			memcpy(dev->dev_addr, vif->mac, ETH_ALEN);
+		}
+	}
 
-	if (addr) {
-		vif->has_rand_mac = true;
-		memcpy(vif->random_mac, addr, ETH_ALEN);
-		memcpy(dev->dev_addr, addr, ETH_ALEN);
-		netdev_info(dev, "vif random mac : %pM\n", vif->random_mac);
-	} else {
-		vif->has_rand_mac = false;
-		netdev_info(dev, "%s need clear random mac\n", __func__);
-		memset(vif->random_mac, 0, ETH_ALEN);
-		memcpy(dev->dev_addr, vif->mac, ETH_ALEN);
+	if (vif->mode == SPRDWL_MODE_P2P_CLIENT || vif->mode == SPRDWL_MODE_P2P_GO) {
+		if (!is_zero_ether_addr(sa->sa_data)) {
+			netdev_info(dev,"%s vif-> mac : %pM\n", __func__, vif->mac);
+			if (ether_addr_equal(vif->mac, sa->sa_data)) {
+				netdev_info(dev, "equal to vif mac, no need set to cp\n");
+				memset(vif->random_mac, 0, ETH_ALEN);
+				memcpy(dev->dev_addr, vif->mac, ETH_ALEN);
+				vif->has_rand_mac = false;
+				return 0;
+			}
+			netdev_info(dev, "set go/gc random mac addr\n");
+			memcpy(dev->dev_addr, sa->sa_data, ETH_ALEN);
+			vif->has_rand_mac = true;
+			memcpy(vif->random_mac, sa->sa_data, ETH_ALEN);
+			ret = sprdwl_set_random_mac(vif->priv,
+						    vif->mode, sa->sa_data);
+			if (ret) {
+				netdev_err(dev, "%s set p2p mac error\n", __func__);
+				return -EFAULT;
+			}
+		} else {
+			netdev_info(dev, "%s clear mac for go/gc mode\n", __func__);
+			vif->has_rand_mac = false;
+			memset(vif->random_mac, 0, ETH_ALEN);
+			memcpy(dev->dev_addr, vif->mac, ETH_ALEN);
+		}
 	}
 	/*return success to pass vts test*/
 	return 0;
@@ -1031,9 +1116,8 @@ static struct sprdwl_vif *sprdwl_register_netdev(struct sprdwl_priv *priv,
 	ndev->needed_headroom = priv->skb_head_len;
 	ndev->watchdog_timeo = 2 * HZ;
 	SET_NETDEV_DEV(ndev, wiphy_dev(priv->wiphy));
-
 	sprdwl_set_mac_addr(vif, addr, ndev->dev_addr);
-
+	memcpy(vif->mac, ndev->dev_addr, ETH_ALEN);
 	/* register new Ethernet interface */
 	ret = register_netdevice(ndev);
 	if (ret) {
