@@ -697,11 +697,16 @@ static int sprdwl_set_mac(struct net_device *dev, void *addr)
 		return -EINVAL;
 	}
 
+	vif->has_rand_mac = false;
+	return 0;
+
 	if (addr) {
+		vif->has_rand_mac = true;
 		memcpy(vif->random_mac, addr, ETH_ALEN);
 		memcpy(dev->dev_addr, addr, ETH_ALEN);
 		netdev_info(dev, "vif random mac : %pM\n", vif->random_mac);
 	} else {
+		vif->has_rand_mac = false;
 		netdev_info(dev, "%s need clear random mac\n", __func__);
 		memset(vif->random_mac, 0, ETH_ALEN);
 		memcpy(dev->dev_addr, vif->mac, ETH_ALEN);
