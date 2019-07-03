@@ -276,9 +276,10 @@ static int sprdwl_cmd_send_to_ic(struct sprdwl_priv *priv,
 	wiphy_info(priv->wiphy, "[%u]mode %d send[%s]\n",
 		   le32_to_cpu(hdr->mstime), mode, cmd2str(hdr->cmd_id));
 
-	print_hex_dump_debug("CMD: ", DUMP_PREFIX_OFFSET, 16, 1,
-			     ((u8 *)hdr + sizeof(*hdr)),
-			     hdr->plen - sizeof(*hdr), 0);
+	if (dump_data)
+		print_hex_dump_debug("CMD: ", DUMP_PREFIX_OFFSET, 16, 1,
+				     ((u8 *)hdr + sizeof(*hdr)),
+				     hdr->plen - sizeof(*hdr), 0);
 
 	return sprdwl_send_cmd(priv, msg);
 }
@@ -1249,8 +1250,9 @@ int sprdwl_tdls_mgmt(struct sprdwl_vif *vif, struct sk_buff *skb)
 	 * sprdwl_tx_work_queue.
 	 */
 	len = skb->len;
-	print_hex_dump_debug("TX packet: ", DUMP_PREFIX_OFFSET,
-			     16, 1, skb->data, len, 0);
+	if (dump_data)
+		print_hex_dump_debug("TX packet: ", DUMP_PREFIX_OFFSET,
+				     16, 1, skb->data, len, 0);
 	/* sprdwl_send_data: offset use 2 for cp bytes align */
 	ret = sprdwl_send_data(vif, msg, skb, type, 2, false);
 	if (ret) {
@@ -1574,8 +1576,9 @@ int sprdwl_xmit_data2mgmt(struct sk_buff *skb, struct net_device *ndev)
 	dev_kfree_skb(skb);
 
 	netdev_info(ndev, "%s send successfully\n", __func__);
-	print_hex_dump_debug("TX packet: ", DUMP_PREFIX_OFFSET,
-			     16, 1, skb->data, skb->len, 0);
+	if (dump_data)
+		print_hex_dump_debug("TX packet: ", DUMP_PREFIX_OFFSET,
+				     16, 1, skb->data, skb->len, 0);
 
 	return NETDEV_TX_OK;
 }
@@ -1986,9 +1989,10 @@ unsigned short sprdwl_rx_event_process(struct sprdwl_priv *priv, u8 *msg)
 	wiphy_info(priv->wiphy, "[%u]mode %d recv[%s]len: %d\n",
 		   le32_to_cpu(hdr->mstime), mode, evt2str(hdr->cmd_id), plen);
 
-	print_hex_dump_debug("EVENT: ", DUMP_PREFIX_OFFSET, 16, 1,
-			     ((u8 *)hdr + sizeof(*hdr)),
-			     hdr->plen - sizeof(*hdr), 0);
+	if (dump_data)
+		print_hex_dump_debug("EVENT: ", DUMP_PREFIX_OFFSET, 16, 1,
+				       ((u8 *)hdr + sizeof(*hdr)),
+				       hdr->plen - sizeof(*hdr), 0);
 
 	len = plen - sizeof(*hdr);
 	vif = mode_to_vif(priv, mode);

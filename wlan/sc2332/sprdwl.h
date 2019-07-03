@@ -206,6 +206,7 @@ struct sprdwl_eap_hdr {
 	u8 id;
 };
 
+extern unsigned int dump_data;
 extern struct sprdwl_priv *g_sprdwl_priv;
 
 void sprdwl_netif_rx(struct sk_buff *skb, struct net_device *ndev);

@@ -27,6 +27,9 @@
 #include "work.h"
 #include "tcp_ack.h"
 
+unsigned int dump_data;
+module_param(dump_data, uint, 0);
+MODULE_PARM_DESC(dump_data, "dump data packet");
 unsigned int wfa_cap;
 module_param(wfa_cap, uint, 0);
 MODULE_PARM_DESC(wfa_cap, "set capability for WFA test");
@@ -57,8 +60,9 @@ static void str2mac(const char *mac_addr, u8 *mac)
 
 void sprdwl_netif_rx(struct sk_buff *skb, struct net_device *ndev)
 {
-	print_hex_dump_debug("RX packet: ", DUMP_PREFIX_OFFSET,
-			     16, 1, skb->data, skb->len, 0);
+	if (dump_data)
+		print_hex_dump_debug("RX packet: ", DUMP_PREFIX_OFFSET,
+				     16, 1, skb->data, skb->len, 0);
 	skb->dev = ndev;
 	skb->protocol = eth_type_trans(skb, ndev);
 	/* CHECKSUM_UNNECESSARY not supported by our hardware */
@@ -191,8 +195,9 @@ static int sprdwl_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 	 * sprdwl_tx_work_queue.
 	 */
 	len = skb->len;
-	print_hex_dump_debug("TX packet: ", DUMP_PREFIX_OFFSET,
-			     16, 1, skb->data, len, 0);
+	if (dump_data)
+		print_hex_dump_debug("TX packet: ", DUMP_PREFIX_OFFSET,
+				     16, 1, skb->data, len, 0);
 	/* sprdwl_send_data: offset use 2 for cp bytes align */
 	ret = sprdwl_send_data(vif, msg, skb, type, 2, flag);
 	if (ret) {
