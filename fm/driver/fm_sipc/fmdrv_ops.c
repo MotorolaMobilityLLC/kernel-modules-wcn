@@ -40,7 +40,7 @@
 
 //#ifdef KERNEL_VERSION_414
 #include "wakelock.h"
-#include <misc/marlin_platform.h>
+//#include <misc/marlin_platform.h>
 //#else
 //#include <linux/marlin_platform.h>
 //#include <linux/wakelock.h>

@@ -42,7 +42,7 @@
 #include "fmdrv_rds_parser.h"
 
 //#ifdef KERNEL_VERSION_414
-#include <misc/marlin_platform.h>
+//#include <misc/marlin_platform.h>
 #include "wakelock.h"
 //#else
 //#include <linux/marlin_platform.h>
