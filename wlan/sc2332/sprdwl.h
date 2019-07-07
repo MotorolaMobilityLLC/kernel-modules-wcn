@@ -35,11 +35,6 @@
 #include <linux/dcache.h>
 #include <linux/platform_device.h>
 #include <linux/version.h>
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0)
-#include <misc/marlin_platform.h>
-#else
-#include <linux/marlin_platform.h>
-#endif
 #include <linux/semaphore.h>
 
 #include "cfg80211.h"
