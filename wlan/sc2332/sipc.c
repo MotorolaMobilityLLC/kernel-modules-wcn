@@ -19,8 +19,8 @@
 #include <linux/utsname.h>
 #include <linux/sipc.h>
 #include <linux/debugfs.h>
-#include <linux/wcn_integrate_platform.h>
 #include <linux/swcnblk.h>
+#include <misc/wcn_integrate_platform.h>
 
 #include "sprdwl.h"
 #include "sipc.h"
