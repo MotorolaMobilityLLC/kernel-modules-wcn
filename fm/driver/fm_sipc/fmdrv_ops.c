@@ -50,7 +50,7 @@ struct wake_lock fm_wakelock;
 
 #include <linux/delay.h>
 
-#include <linux/wcn_integrate_platform.h>
+#include <misc/wcn_integrate_platform.h>
 
 long fm_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
 {

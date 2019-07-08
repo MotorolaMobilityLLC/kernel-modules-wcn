@@ -55,7 +55,7 @@
 #include <linux/of_irq.h>
 #include <linux/platform_device.h>
 
-#include <linux/wcn_integrate_platform.h>
+#include <misc/wcn_integrate_platform.h>
 
 #define FM_CHANNEL_WRITE		5
 #define FM_CHANNEL_READ			10

@@ -30,7 +30,7 @@
 #include <linux/io.h>
 #include "alignment/sitm.h"
 
-#include <linux/wcn_integrate_platform.h>
+#include <misc/wcn_integrate_platform.h>
 
 
 #include "tty.h"

@@ -24,7 +24,7 @@
 
 #include "rfkill.h"
 
-#include <linux/wcn_integrate_platform.h>
+#include <misc/wcn_integrate_platform.h>
 
 static struct rfkill *bt_rfk;
 static const char bt_name[] = "bluetooth";
