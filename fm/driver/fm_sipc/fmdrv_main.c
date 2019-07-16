@@ -357,7 +357,7 @@ ssize_t fm_read_rds_data(struct file *filp, char __user *buf,
 	size_t count, loff_t *pos)
 {
 	int timeout = -1;
-
+	int ret;
 	pr_info("(FM_RDS) fm start to read RDS data\n");
 
 #ifdef RDS_DEBUG
@@ -384,6 +384,15 @@ ssize_t fm_read_rds_data(struct file *filp, char __user *buf,
 		timeout = 0;
 		pr_err("fm_read_rds_data NON BLOCK!!!\n");
 		return -EWOULDBLOCK;
+	}
+
+	if (timeout < 0) {
+		/* wait forever */
+		ret = wait_event_interruptible((fmdev->rds_han.rx_queue), ((fmdev->rds_han.new_data_flag) == 1));
+		if (ret) {
+			pr_err("(FM RDS)wait_event_interruptible ret=%d\n", ret);
+			return -EINTR;
+		}
 	}
 
 	fmdev->rds_data.rt_data.textlength =
