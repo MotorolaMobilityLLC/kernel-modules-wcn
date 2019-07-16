@@ -681,7 +681,7 @@ static int sprdwl_cfg80211_set_default_key(struct wiphy *wiphy,
 }
 
 /* SoftAP related stuff */
-static int sprdwl_change_beacon(struct sprdwl_vif *vif,
+static int sprdwl_set_beacon_ies(struct sprdwl_vif *vif,
 				struct cfg80211_beacon_data *beacon)
 {
 	int ret = 0;
@@ -715,6 +715,38 @@ static int sprdwl_change_beacon(struct sprdwl_vif *vif,
 	return ret;
 }
 
+static int sprdwl_change_beacon(struct sprdwl_vif *vif,
+				struct cfg80211_beacon_data *beacon)
+{
+	int ret;
+
+	ret = sprdwl_set_beacon_ies(vif, beacon);
+	if (ret) {
+		netdev_err(vif->ndev, "%s set beacon ies failed\n", __func__);
+		return ret;
+	}
+
+	if (beacon->head_len) {
+		netdev_dbg(vif->ndev, "set beacon head\n");
+		ret = sprdwl_set_ie(vif->priv, vif->mode, SPRDWL_IE_BEACON_HEAD,
+				    beacon->head, beacon->head_len);
+		if (ret) {
+			netdev_err(vif->ndev, "set beacon head failed\n");
+			return ret;
+		}
+	}
+
+	if (beacon->tail_len) {
+		netdev_dbg(vif->ndev, "set beacon tail\n");
+		ret = sprdwl_set_ie(vif->priv, vif->mode, SPRDWL_IE_BEACON_TAIL,
+				    beacon->tail, beacon->tail_len);
+		if (ret) {
+			netdev_err(vif->ndev, "set beacon tail failed\n");
+			return ret;
+		}
+	}
+	return ret;
+}
 static int sprdwl_cfg80211_start_ap(struct wiphy *wiphy,
 				    struct net_device *ndev,
 				    struct cfg80211_ap_settings *settings)
@@ -734,8 +766,7 @@ static int sprdwl_cfg80211_start_ap(struct wiphy *wiphy,
 	}
 	strncpy(vif->ssid, settings->ssid, settings->ssid_len);
 	vif->ssid_len = settings->ssid_len;
-
-	sprdwl_change_beacon(vif, beacon);
+	sprdwl_set_beacon_ies(vif, beacon);
 
 	if (!beacon->head)
 		return -EINVAL;
@@ -1129,9 +1160,7 @@ static int sprdwl_cfg80211_scan(struct wiphy *wiphy,
 			    (ssids_ptr + scan_ssids_len);
 		}
 	} else {
-		netdev_err(vif->ndev, "%s n_ssids is 0\n", __func__);
-		ret = -EINVAL;
-		goto err;
+		netdev_info(vif->ndev, "%s n_ssids is 0\n", __func__);
 	}
 
 	spin_lock_bh(&priv->scan_lock);
@@ -1143,7 +1172,8 @@ static int sprdwl_cfg80211_scan(struct wiphy *wiphy,
 
 	ret = sprdwl_scan(vif->priv, vif->mode, channels,
 			  scan_ssids_len, ssids_ptr, mac_addr, request->flags);
-	kfree(ssids_ptr);
+	if (ssids_ptr)
+		kfree(ssids_ptr);
 	if (ret) {
 		sprdwl_cancel_scan(vif);
 		goto err;
@@ -2464,6 +2494,44 @@ int sprdwl_cfg80211_set_power_mgmt(struct wiphy *wiphy, struct net_device *ndev,
 				 SPRDWL_SET_PS_STATE, enabled);
 }
 
+static int sprdwl_cfg80211_dump_survey(struct wiphy *wiphy,
+				       struct net_device *ndev,
+				       int idx,
+				       struct survey_info *s_info)
+{
+	struct sprdwl_vif *vif = netdev_priv(ndev);
+	struct sprdwl_survey_info *info;
+	unsigned int freq;
+	static int survey_count;
+	int err = 0;
+
+	if (!list_empty(&vif->survey_info_list)) {
+		info = list_first_entry(&vif->survey_info_list,
+				struct sprdwl_survey_info, survey_list);
+		list_del(&info->survey_list);
+		if (info->channel) {
+			freq = ieee80211_channel_to_frequency(info->channel,
+							      NL80211_BAND_2GHZ);
+			s_info->channel = ieee80211_get_channel(wiphy, freq);
+			s_info->noise = -80;
+			s_info->time = info->duration;
+			s_info->time_busy = info->busy;
+			s_info->filled = (SURVEY_INFO_NOISE_DBM |
+					SURVEY_INFO_TIME |
+					SURVEY_INFO_TIME_BUSY);
+			survey_count++;
+		}
+		kfree(info);
+	} else {
+		/* There are no more survey info in list */
+		err = -ENOENT;
+		netdev_info(vif->ndev, "%s report %d surveys\n",
+				__func__, survey_count);
+		survey_count = 0;
+	}
+	return err;
+}
+
 static struct cfg80211_ops sprdwl_cfg80211_ops = {
 	.add_virtual_intf = sprdwl_cfg80211_add_iface,
 	.del_virtual_intf = sprdwl_cfg80211_del_iface,
@@ -2505,6 +2573,7 @@ static struct cfg80211_ops sprdwl_cfg80211_ops = {
 	.del_tx_ts = sprdwl_cfg80211_del_tx_ts,
 	.tdls_channel_switch = sprdwl_cfg80211_tdls_chan_switch,
 	.tdls_cancel_channel_switch = sprdwl_cfg80211_tdls_cancel_chan_switch,
+	.dump_survey = sprdwl_cfg80211_dump_survey,
 };
 
 static void sprdwl_reg_notify(struct wiphy *wiphy,

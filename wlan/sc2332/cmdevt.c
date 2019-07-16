@@ -1939,6 +1939,47 @@ void sprdwl_event_wmm_report(struct sprdwl_vif *vif, u8 *data, u16 len)
 	vif->priv->if_ops->set_qos(vif->mode, data[0]);
 }
 
+static int sprdwl_event_acs_report(struct sprdwl_vif *vif, u8 *data, u16 len)
+{
+	int index;
+	u8 chan_num;
+	u8 *pos = data;
+	struct sprdwl_survey_info *acs;
+	struct sprdwl_acs_channel *acs_channel;
+
+	/*the first element is num of channel*/
+	chan_num = *pos;
+	pos += 1;
+	len -= 1;
+	netdev_info(vif->ndev, "%s chan_num:%d\n", __func__, chan_num);
+
+	/*acs result*/
+	if (len  < chan_num * 3)
+		netdev_info(vif->ndev, "%s invalid data report\n", __func__);
+
+	acs_channel = (struct sprdwl_acs_channel *)pos;
+	for (index = 0; index < chan_num; index++) {
+		acs = kzalloc(sizeof(struct sprdwl_survey_info), GFP_KERNEL);
+		if (!acs)
+			return -ENOMEM;
+		netdev_info(vif->ndev, "channel : %d, duration : %d, busy : %d\n",
+			    acs_channel->channel,
+			    acs_channel->duration,
+			    acs_channel->busy);
+		acs->channel = acs_channel->channel;
+		acs->duration = acs_channel->duration;
+		acs->busy = acs_channel->busy;
+		list_add_tail(&acs->survey_list, &vif->survey_info_list);
+		acs_channel += 1;
+	}
+	return 0;
+}
+
+static int sprdwl_event_acs_lte_event(struct sprdwl_vif *vif)
+{
+	return sprdwl_report_acs_lte_event(vif);
+}
+
 static const char *evt2str(u8 evt)
 {
 #define E2S(x) case x: return #x;
@@ -1958,6 +1999,8 @@ static const char *evt2str(u8 evt)
 	E2S(WIFI_EVENT_SDIO_FLOWCON)
 	E2S(WIFI_EVENT_WMM_REPORT)
 	E2S(WIFI_EVENT_GSCAN_FRAME)
+	E2S(WIFI_EVENT_ACS_REPORT)
+	E2S(WIFI_EVENT_ACS_LTE_CONFLICT_EVENT)
 	default : return "WIFI_EVENT_UNKNOWN";
 	}
 #undef E2S
@@ -2058,6 +2101,12 @@ unsigned short sprdwl_rx_event_process(struct sprdwl_priv *priv, u8 *msg)
 		break;
 	case WIFI_EVENT_WMM_REPORT:
 		sprdwl_event_wmm_report(vif, data, len);
+		break;
+	case WIFI_EVENT_ACS_REPORT:
+		sprdwl_event_acs_report(vif, data, len);
+		break;
+	case WIFI_EVENT_ACS_LTE_CONFLICT_EVENT:
+		sprdwl_event_acs_lte_event(vif);
 		break;
 	default:
 		wiphy_info(priv->wiphy, "unsupported event: %d\n", hdr->cmd_id);

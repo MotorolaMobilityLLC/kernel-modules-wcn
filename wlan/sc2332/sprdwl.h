@@ -81,6 +81,13 @@ struct sprdwl_vowifi_data {
 	u8 data[0];
 };
 
+struct sprdwl_survey_info {
+	struct list_head survey_list;
+	u8 channel;
+	u8 duration;
+	u8 busy;
+};
+
 struct sprdwl_vif {
 	struct net_device *ndev;	/* Linux net device */
 	struct wireless_dev wdev;	/* Linux wireless device */
@@ -119,6 +126,7 @@ struct sprdwl_vif {
 	/* P2P stuff */
 	struct ieee80211_channel listen_channel;
 	u64 listen_cookie;
+	struct list_head survey_info_list;
 	u8 random_mac[ETH_ALEN];
 	bool has_rand_mac;
 };

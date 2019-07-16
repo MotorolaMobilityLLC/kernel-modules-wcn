@@ -565,6 +565,8 @@ enum SPRDWL_EVENT_LIST {
 	WIFI_EVENT_TDLS,
 	WIFI_EVENT_SDIO_FLOWCON = 0xB3,
 	WIFI_EVENT_WMM_REPORT = 0xB4,
+	WIFI_EVENT_ACS_REPORT = 0xB5,
+	WIFI_EVENT_ACS_LTE_CONFLICT_EVENT = 0xB6,
 
 	/* DEBUG/OTHER */
 	WIFI_EVENT_SDIO_SEQ_NUM = 0xE0,
@@ -667,6 +669,12 @@ struct sprdwl_llc_hdr {
 	u8 cntl;
 	u8 org_code[3];
 	__be16 eth_type;
+} __packed;
+
+struct sprdwl_acs_channel {
+	u8 channel;
+	u8 duration;
+	u8 busy;
 } __packed;
 
 void sprdwl_cmd_init(void);

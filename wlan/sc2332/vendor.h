@@ -52,6 +52,8 @@
 #define WIFI_FEATURE_IE_WHITELIST       0x1000000
 #define WIFI_FEATURE_SCAN_RAND          0x2000000
 
+/*reinit acs*/
+#define SPRDWL_REINIT_ACS	0x35
 enum {
 	/* Memory dump of FW */
 	WIFI_LOGGER_MEMORY_DUMP_SUPPORTED = (1 << (0)),
@@ -640,6 +642,7 @@ enum nl80211_vendor_subcmds_index {
 	SPRDWL_GSCAN_SIGNIFICANT_CHANGE_INDEX,
 	SPRDWL_GSCAN_SET_SIGNIFICANT_CHANGE_INDEX,
 	SPRDWL_GSCAN_RESET_SIGNIFICANT_CHANGE_INDEX,
+	SPRDWL_ACS_LTE_EVENT_INDEX,
 };
 
 enum wifi_connection_state {
@@ -949,4 +952,5 @@ void sprdwl_report_gscan_result(struct sprdwl_vif *vif,
 int sprdwl_gscan_done(struct sprdwl_vif *vif, u8 bucketid);
 int sprdwl_buffer_full_event(struct sprdwl_vif *vif);
 int sprdwl_available_event(struct sprdwl_vif *vif);
+int sprdwl_report_acs_lte_event(struct sprdwl_vif *vif);
 #endif

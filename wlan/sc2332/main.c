@@ -997,6 +997,7 @@ static void sprdwl_init_vif(struct sprdwl_priv *priv, struct sprdwl_vif *vif,
 	strcpy(vif->name, name);
 	vif->priv = priv;
 	vif->sm_state = SPRDWL_DISCONNECTED;
+	INIT_LIST_HEAD(&vif->survey_info_list);
 }
 
 static void sprdwl_deinit_vif(struct sprdwl_vif *vif)
