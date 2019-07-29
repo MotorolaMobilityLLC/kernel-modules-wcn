@@ -1,7 +1,11 @@
 ccflags-y += -DDEBUG
 
 ifeq ($(BSP_BOARD_UNISOC_WCN_SOCKET),sipc)
-WCN_BT_BSP_PATH ?= $(shell cd $(BSP_ROOT_DIR)/modules/wcn/bluetooth/driver/tty-sipc; pwd)
+	WCN_BT_BSP_PATH := $(shell cd $(BSP_ROOT_DIR)/modules/wcn/bluetooth/driver/tty-sipc; pwd)
+else ifeq ($(BSP_BOARD_UNISOC_WCN_SOCKET),sdio)
+	WCN_BT_BSP_PATH := $(shell cd $(BSP_ROOT_DIR)/modules/wcn/bluetooth/driver/tty-sdio; pwd)
+esle
+	$(error "no BSP_BOARD_UNISOC_WCN_SOCKET, pls fix it !!!")
 endif
 
 WCN_BT_LOCAL_SRC := $(wildcard $(WCN_BT_BSP_PATH)/*.c)
@@ -12,8 +16,13 @@ WCN_BT_BSP_DIR := $(notdir $(WCN_BT_BSP_SRC))
 WCN_BT_BSP_ALI_SRC := $(wildcard $(WCN_BT_LOCAL_ALI_SRC))
 WCN_BT_BSP_ALI_DIR := $(notdir $(WCN_BT_BSP_ALI_SRC))
 ifeq ($(BSP_BOARD_UNISOC_WCN_SOCKET),sipc)
-WCN_BT_BSP_OBJ := $(patsubst %.c, tty-sipc/%.o, $(WCN_BT_BSP_DIR))
-WCN_BT_BSP_ALI_OBJ := $(patsubst %.c, tty-sipc/alignment/%.o, $(WCN_BT_BSP_ALI_DIR))
+	WCN_BT_BSP_OBJ := $(patsubst %.c, tty-sipc/%.o, $(WCN_BT_BSP_DIR))
+	WCN_BT_BSP_ALI_OBJ := $(patsubst %.c, tty-sipc/alignment/%.o, $(WCN_BT_BSP_ALI_DIR))
+else ifeq ($(BSP_BOARD_UNISOC_WCN_SOCKET),sdio)
+	WCN_BT_BSP_OBJ := $(patsubst %.c, tty-sdio/%.o, $(WCN_BT_BSP_DIR))
+	WCN_BT_BSP_ALI_OBJ := $(patsubst %.c, tty-sdio/alignment/%.o, $(WCN_BT_BSP_ALI_DIR))
+else
+	$(error "no BSP_BOARD_UNISOC_WCN_SOCKET, pls fix it !!!")
 endif
 
 sprdbt_tty-objs += $(WCN_BT_BSP_OBJ) \
