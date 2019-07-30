@@ -4,7 +4,7 @@ ifeq ($(BSP_BOARD_UNISOC_WCN_SOCKET),sipc)
 	WCN_BT_BSP_PATH := $(shell cd $(BSP_ROOT_DIR)/modules/wcn/bluetooth/driver/tty-sipc; pwd)
 else ifeq ($(BSP_BOARD_UNISOC_WCN_SOCKET),sdio)
 	WCN_BT_BSP_PATH := $(shell cd $(BSP_ROOT_DIR)/modules/wcn/bluetooth/driver/tty-sdio; pwd)
-esle
+else
 	$(error "no BSP_BOARD_UNISOC_WCN_SOCKET, pls fix it !!!")
 endif
 
