@@ -2782,7 +2782,7 @@ void sprdwl_setup_wiphy(struct wiphy *wiphy, struct sprdwl_priv *priv)
 
 	if (priv->fw_capa & SPRDWL_CAPA_SCHED_SCAN) {
 		pr_info("\tScheduled scan supported\n");
-		wiphy->flags |= WIPHY_FLAG_SUPPORTS_SCHED_SCAN;
+		wiphy->max_sched_scan_reqs = 1;
 		if (priv->random_mac_support)
 			wiphy->features |=
 				NL80211_FEATURE_SCHED_SCAN_RANDOM_MAC_ADDR;
