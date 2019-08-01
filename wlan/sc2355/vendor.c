@@ -88,6 +88,7 @@ static int sprdwl_vendor_roaming_enable(struct wiphy *wiphy,
 	struct sprdwl_vif *vif = container_of(wdev, struct sprdwl_vif, wdev);
 	u8 roam_state;
 	struct nlattr *tb[SPRDWL_VENDOR_ROAMING_POLICY + 1];
+	int ret = 0;
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0)
 	if (nla_parse(tb, SPRDWL_VENDOR_ROAMING_POLICY, data, len, NULL, NULL)) {
 #else
@@ -101,12 +102,12 @@ static int sprdwl_vendor_roaming_enable(struct wiphy *wiphy,
 		roam_state = (u8)nla_get_u32(tb[SPRDWL_VENDOR_ROAMING_POLICY]);
 		wl_info("roaming offload state:%d\n", roam_state);
 		 /*send roam state with roam params by roaming CMD*/
-		sprdwl_set_roam_offload(priv, vif->ctx_id,
+		ret = sprdwl_set_roam_offload(priv, vif->ctx_id,
 					SPRDWL_ROAM_OFFLOAD_SET_FLAG,
 					&roam_state, sizeof(roam_state));
 	}
 
-	return 0;
+	return ret;
 }
 
 static int sprdwl_vendor_nan_enable(struct wiphy *wiphy,
@@ -464,7 +465,7 @@ static int sprdwl_vendor_get_llstat_handler(struct wiphy *wiphy,
 	iface_st = kzalloc(sizeof(*iface_st), GFP_KERNEL);
 	dif_radio = kzalloc(sizeof(*dif_radio), GFP_KERNEL);
 
-	if (!radio_st || !iface_st)
+	if (!radio_st || !iface_st || !dif_radio)
 		goto out_put_fail;
 	ret = sprdwl_llstat(priv, vif->ctx_id, SPRDWL_SUBCMD_GET, NULL, 0,
 			    r_buf, &r_len);
@@ -479,7 +480,7 @@ static int sprdwl_vendor_get_llstat_handler(struct wiphy *wiphy,
 	iface_st->info.mode = vif->mode;
 	memcpy(iface_st->info.mac_addr, vif->ndev->dev_addr,
 	       ETH_ALEN);
-	iface_st->info.state = (enum wifi_connection_state)vif->sm_state;
+	iface_st->info.state = vif->sm_state;
 	memcpy(iface_st->info.ssid, vif->ssid,
 	       IEEE80211_MAX_SSID_LEN);
 	ether_addr_copy(iface_st->info.bssid, vif->bssid);
@@ -513,7 +514,7 @@ static int sprdwl_vendor_get_llstat_handler(struct wiphy *wiphy,
 	reply_radio = cfg80211_vendor_cmd_alloc_reply_skb(wiphy,
 							  reply_radio_length);
 	if (!reply_radio)
-		return -ENOMEM;
+		goto out_put_fail;
 
 	if (nla_put_u32(reply_radio, NL80211_ATTR_VENDOR_ID, OUI_SPREAD))
 		goto out_put_fail;
@@ -533,7 +534,7 @@ static int sprdwl_vendor_get_llstat_handler(struct wiphy *wiphy,
 	reply_iface = cfg80211_vendor_cmd_alloc_reply_skb(wiphy,
 							  reply_iface_length);
 	if (!reply_iface)
-		return -ENOMEM;
+		goto out_put_fail;
 
 	if (nla_put_u32(reply_iface, NL80211_ATTR_VENDOR_ID, OUI_SPREAD))
 		goto out_put_fail;
@@ -2480,6 +2481,7 @@ static int sprdwl_vendor_set_roam_params(struct wiphy *wiphy,
 	uint32_t buf_len = 0;
 	struct sprdwl_vif *vif = container_of(wdev, struct sprdwl_vif, wdev);
 	struct sprdwl_priv *priv = wiphy_priv(wiphy);
+	int ret = 0;
 
 	memset(&white_params, 0, sizeof(white_params));
 	memset(&black_params, 0, sizeof(black_params));
@@ -2560,7 +2562,7 @@ static int sprdwl_vendor_set_roam_params(struct wiphy *wiphy,
 		white_params.num_white_ssid = i;
 		wl_info("Num of white list:%d", i);
 		/*send white list with roam params by roaming CMD*/
-		sprdwl_set_roam_offload(priv, vif->ctx_id,
+		ret = sprdwl_set_roam_offload(priv, vif->ctx_id,
 					SPRDWL_ROAM_SET_WHITE_LIST,
 				(u8 *)&white_params,
 				(i * sizeof(struct ssid_t) + 1));
@@ -2615,7 +2617,7 @@ static int sprdwl_vendor_set_roam_params(struct wiphy *wiphy,
 		}
 		black_params.num_black_bssid = i;
 		/*send black list with roam_params CMD*/
-		sprdwl_set_roam_offload(priv, vif->ctx_id,
+		ret = sprdwl_set_roam_offload(priv, vif->ctx_id,
 					SPRDWL_ROAM_SET_BLACK_LIST,
 				(u8 *)&black_params,
 				(i * sizeof(struct bssid_t) + 1));
@@ -2623,7 +2625,7 @@ static int sprdwl_vendor_set_roam_params(struct wiphy *wiphy,
 	default:
 		break;
 	}
-	return 0;
+	return ret;
 fail:
 	return -EINVAL;
 }
@@ -3502,38 +3504,6 @@ static int sprdwl_vendor_set_sar_limits(struct wiphy *wiphy,
 #endif
 }
 
-static int sprdwl_vendor_get_akm_suite(struct wiphy *wiphy,
-		struct wireless_dev *wdev,
-		const void *data, int len)
-{
-	int ret,akm_len;
-	struct sprdwl_priv *priv;
-	struct sk_buff *reply;
-	int index = 0;
-	int akm[8] = {0};
-
-
-	priv = wiphy_priv(wiphy);
-	if (priv->extend_feature & SPRDWL_EXTEND_FEATURE_SAE)
-		akm[index++] = WLAN_AKM_SUITE_SAE;
-	if (priv->extend_feature & SPRDWL_EXTEND_FEATURE_OWE)
-		akm[index++] = WLAN_AKM_SUITE_OWE;
-	if (priv->extend_feature & SPRDWL_EXTEND_FEATURE_DPP)
-		akm[index++] = WLAN_CIPHER_SUITE_DPP;
-	if (priv->extend_feature & SPRDWL_EXTEND_8021X_SUITE_B_192)
-		akm[index++] = WLAN_CIPHER_SUITE_BIP_GMAC_256;
-
-	akm_len = index * sizeof(akm[0]);
-	wl_debug("akm suites count = %d\n", index);
-	reply = cfg80211_vendor_cmd_alloc_reply_skb(wiphy, len);
-	nla_put(reply,NL80211_ATTR_AKM_SUITES,akm_len,akm);
-	ret = cfg80211_vendor_cmd_reply(reply);
-	if (ret)
-		wiphy_err(wiphy, "reply cmd error\n");
-	return ret;
-
-}
-
 const struct wiphy_vendor_command sprdwl_vendor_cmd[] = {
 	{/*9*/
 		{
@@ -3880,17 +3850,8 @@ const struct wiphy_vendor_command sprdwl_vendor_cmd[] = {
 		.flags = WIPHY_VENDOR_CMD_NEED_WDEV |
 			WIPHY_VENDOR_CMD_NEED_RUNNING,
 		.doit = sprdwl_ftm_configure_responder
-	},
+	}
 #endif /* RTT_SUPPORT */
-	{
-		{
-		    .vendor_id = OUI_SPREAD,
-		    .subcmd = SPRD_NL80211_VENDOR_SUBCMD_GET_AKM_SUITE,
-		},
-		.flags = WIPHY_VENDOR_CMD_NEED_WDEV |
-			WIPHY_VENDOR_CMD_NEED_RUNNING,
-		.doit = sprdwl_vendor_get_akm_suite,
-	},
 };
 
 static const struct nl80211_vendor_cmd_info sprdwl_vendor_events[] = {

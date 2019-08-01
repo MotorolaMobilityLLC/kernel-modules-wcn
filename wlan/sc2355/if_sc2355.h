@@ -125,7 +125,8 @@ struct tx_msdu_dscr {
 	} buffer_info;
 	unsigned char sta_lut_index;
 	unsigned char color_bit:2;
-	unsigned short rsvd:14;
+	unsigned char seq_num:8;
+	unsigned char rsvd:6;
 	unsigned short tcp_udp_header_offset;
 } __packed;
 
@@ -250,7 +251,8 @@ int sprdwl_intf_tx_list(struct sprdwl_intf *dev,
 			struct list_head *tx_list,
 			struct list_head *tx_list_head,
 			int tx_count,
-			int ac_index);
+			int ac_index,
+			u8 coex_bt_on);
 int sprdwl_intf_fill_msdu_dscr(struct sprdwl_vif *vif,
 			       struct sk_buff *skb,
 				   u8 type,
@@ -291,4 +293,5 @@ int sprdwl_dis_flush_txlist(struct sprdwl_intf *intf, u8 lut_index);
 void sprdwl_handle_pop_list(void *data);
 int sprdwl_add_topop_list(int chn, struct mbuf_t *head,
                           struct mbuf_t *tail, int num);
+void set_coex_bt_on_off(u8 action);
 #endif /* __SPRDWL_INTF_SDIO_SC2355_H__ */

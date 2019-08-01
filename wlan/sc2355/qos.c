@@ -41,7 +41,7 @@ bool g_wmmac_available[NUM_AC] = {false, false, false, false};
 u32 g_wmmac_admittedtime[NUM_AC] = {0};
 u32 g_wmmac_usedtime[NUM_AC] = {0};
 struct wmm_ac_ts_t g_sta_ts_info[NUM_TID];
-unsigned int wmmac_ratio = 3;
+unsigned int wmmac_ratio = 10;
 #endif
 
 struct qos_map_set g_11u_qos_map;
@@ -552,10 +552,6 @@ void wmm_ac_init(struct sprdwl_priv *priv)
 
 	setup_timer(&priv->wmmac.wmmac_edcaf_timer, update_wmmac_edcaftime_timeout,
 		    (unsigned long)priv);
-	setup_timer(&priv->wmmac.wmmac_vo_timer, update_wmmac_vo_timeout,
-		    (unsigned long)priv);
-	setup_timer(&priv->wmmac.wmmac_vi_timer, update_wmmac_vi_timeout,
-		    (unsigned long)priv);
 	memset(&priv->wmmac.ac[0], 0, 4*sizeof(struct wmm_ac_params));
 }
 void reset_wmmac_parameters(struct sprdwl_priv *priv)
@@ -569,12 +565,6 @@ void reset_wmmac_parameters(struct sprdwl_priv *priv)
 	}
 	if (timer_pending(&priv->wmmac.wmmac_edcaf_timer))
 		del_timer_sync(&priv->wmmac.wmmac_edcaf_timer);
-
-	if (timer_pending(&priv->wmmac.wmmac_vo_timer))
-		del_timer_sync(&priv->wmmac.wmmac_vo_timer);
-
-	if (timer_pending(&priv->wmmac.wmmac_vi_timer))
-		del_timer_sync(&priv->wmmac.wmmac_vi_timer);
 
 	memset(&priv->wmmac.ac[0], 0, 4*sizeof(struct wmm_ac_params));
 }
@@ -691,14 +681,6 @@ void update_admitted_time(struct sprdwl_priv *priv, u8 tsid, u16 medium_time, bo
 		g_wmmac_admittedtime[ac] += (medium_time<<5);
 		mod_timer(&priv->wmmac.wmmac_edcaf_timer,
 				jiffies + WMMAC_EDCA_TIMEOUT_MS * HZ / 1000);
-
-		/*replace the usedtime logic method with timer counter, just for simplify for the WFA certification*/
-		if (ac == AC_VO)
-			mod_timer(&priv->wmmac.wmmac_vo_timer,
-				jiffies + usecs_to_jiffies((g_wmmac_admittedtime[ac] * wmmac_ratio) / 5));
-		else if (ac == AC_VI)
-			mod_timer(&priv->wmmac.wmmac_vi_timer,
-				jiffies + usecs_to_jiffies((g_wmmac_admittedtime[ac] * wmmac_ratio) / 5));
 	} else {
 		if (g_wmmac_admittedtime[ac] > (medium_time<<5))
 			g_wmmac_admittedtime[ac] -= (medium_time<<5);
@@ -706,12 +688,6 @@ void update_admitted_time(struct sprdwl_priv *priv, u8 tsid, u16 medium_time, bo
 			g_wmmac_admittedtime[ac] = 0;
 			if (timer_pending(&priv->wmmac.wmmac_edcaf_timer))
 				del_timer_sync(&priv->wmmac.wmmac_edcaf_timer);
-
-			if (timer_pending(&priv->wmmac.wmmac_vo_timer))
-				del_timer_sync(&priv->wmmac.wmmac_vo_timer);
-
-			if (timer_pending(&priv->wmmac.wmmac_vi_timer))
-				del_timer_sync(&priv->wmmac.wmmac_vi_timer);
 		}
 	}
 
@@ -726,32 +702,15 @@ void update_wmmac_edcaftime_timeout(unsigned long data)
 	if (g_wmmac_admittedtime[AC_VO] > 0) {
 		g_wmmac_usedtime[AC_VO] = 0;
 		g_wmmac_available[AC_VO] = true;
-		mod_timer(&priv->wmmac.wmmac_vo_timer,
-			jiffies + usecs_to_jiffies((g_wmmac_admittedtime[AC_VO] * wmmac_ratio) / 5));
 	}
 	if (g_wmmac_admittedtime[AC_VI] > 0) {
 		g_wmmac_usedtime[AC_VI] = 0;
 		g_wmmac_available[AC_VI] = true;
-		mod_timer(&priv->wmmac.wmmac_vi_timer,
-			jiffies + usecs_to_jiffies((g_wmmac_admittedtime[AC_VI] * wmmac_ratio) / 5));
 	}
-
-}
-
-void update_wmmac_vo_timeout(unsigned long data)
-{
-	g_wmmac_usedtime[AC_VO] = g_wmmac_admittedtime[AC_VO];
-	g_wmmac_available[AC_VO] = false;
-}
-
-void update_wmmac_vi_timeout(unsigned long data)
-{
-	g_wmmac_usedtime[AC_VI] = g_wmmac_admittedtime[AC_VI];
-	g_wmmac_available[AC_VI] = false;
 }
 
 /*change priority according to the g_wmmac_available value */
-unsigned int change_priority_if(struct sprdwl_priv *priv, unsigned char *tid, unsigned char *tos)
+unsigned int change_priority_if(struct sprdwl_priv *priv, unsigned char *tid, unsigned char *tos, u16 len)
 {
 	unsigned int qos_index, ac;
 	int match_index = 0;
@@ -763,7 +722,13 @@ unsigned int change_priority_if(struct sprdwl_priv *priv, unsigned char *tid, un
 			if (!!(priv->wmmac.ac[ac].aci_aifsn & WMM_AC_ACM)) {
 				/*current ac is available, use it directly*/
 				if (true == g_wmmac_available[ac])
+				{
+					/* use wmmac_ratio to adjust ac used time */
+					/* it is rough calc method: (data_len * 8) * ratio / data_rate, here , use 54Mbps as common usage */
+					g_wmmac_usedtime[ac] += (len + 4) * 8 * wmmac_ratio / 10 / 54;
+					g_wmmac_available[ac] = (g_wmmac_usedtime[ac] < g_wmmac_admittedtime[ac]);
 					break;
+				}
 				if ((g_wmmac_available[ac] == false) && (g_wmmac_usedtime[ac] != 0))
 					return SPRDWL_AC_MAX;
 				/*current ac is not available, maybe usedtime > admitted time*/

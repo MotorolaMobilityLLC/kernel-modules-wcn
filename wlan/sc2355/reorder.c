@@ -149,7 +149,14 @@ static inline bool replay_detection(struct rx_ba_pkt_desc *ba_pkt_desc,
 		rx_val_low = ba_pkt_desc->pn_l;
 		rx_val_high = ba_pkt_desc->pn_h;
 
-		if (((old_val_high == rx_val_high) &&
+		if ((1 == ba_node_desc->reset_pn) &&
+			(old_val_low >= rx_val_low) && (old_val_high >= rx_val_high)) {
+			wl_err("%s: clear reset_pn,old_val_low: %d, old_val_high: %d, rx_val_low: %d, rx_val_high: %d\n",
+			       __func__, old_val_low, old_val_high, rx_val_low, rx_val_high);
+			ba_node_desc->reset_pn = 0;
+			ba_node_desc->pn_l = rx_val_low;
+			ba_node_desc->pn_h = rx_val_high;
+		} else if (((old_val_high == rx_val_high) &&
 		     (old_val_low < rx_val_low)) ||
 		    (old_val_high < rx_val_high)) {
 			ba_node_desc->pn_l = rx_val_low;
@@ -157,9 +164,9 @@ static inline bool replay_detection(struct rx_ba_pkt_desc *ba_pkt_desc,
 		} else {
 			ret = false;
 			wl_err("%s: old_val_low: %d, old_val_high: %d\n",
-			       __func__, old_val_low, old_val_high);
+				__func__, old_val_low, old_val_high);
 			wl_err("%s: rx_val_low: %d, rx_val_high: %d\n",
-			       __func__, old_val_low, old_val_high);
+				__func__, rx_val_low, rx_val_high);
 		}
 	}
 
@@ -511,9 +518,9 @@ static struct rx_ba_node
 	unsigned int rx_ba_size = sizeof(struct rx_ba_node_desc) +
 				(size * sizeof(struct rx_ba_pkt));
 
-	ba_node = kzalloc(sizeof(*ba_node), GFP_KERNEL);
+	ba_node = kzalloc(sizeof(*ba_node), GFP_ATOMIC);
 	if (ba_node) {
-		ba_node->rx_ba = kzalloc(rx_ba_size, GFP_KERNEL);
+		ba_node->rx_ba = kzalloc(rx_ba_size, GFP_ATOMIC);
 		if (ba_node->rx_ba) {
 			init_ba_node(ba_entry, ba_node, sta_lut_index, tid);
 			INIT_HLIST_NODE(&ba_node->hlist);
@@ -526,6 +533,40 @@ static struct rx_ba_node
 	}
 
 	return ba_node;
+}
+
+void reset_pn(struct sprdwl_priv *priv, const u8 *mac_addr)
+{
+	struct sprdwl_intf *intf = (struct sprdwl_intf *)(priv->hw_priv);
+	struct sprdwl_rx_if *rx_if = (struct sprdwl_rx_if *)intf->sprdwl_rx;
+	struct sprdwl_rx_ba_entry *ba_entry = &rx_if->ba_entry;
+	unsigned char i, tid, lut_id = 0xff;
+	struct rx_ba_node *ba_node = NULL;
+
+	if (!mac_addr || !priv)
+		return;
+
+	for (i = 0; i < MAX_LUT_NUM; i++) {
+		if (ether_addr_equal(intf->peer_entry[i].tx.da, mac_addr)) {
+			lut_id = intf->peer_entry[i].lut_index;
+			break;
+		}
+	}
+	if (lut_id == 0xff)
+		return;
+
+	for (tid = 0; tid < NUM_TIDS; tid++) {
+		ba_node = find_ba_node(ba_entry, lut_id, tid);
+		if (ba_node) {
+			spin_lock_bh(&ba_node->ba_node_lock);
+			ba_node->rx_ba->reset_pn = 1;
+			wl_err("%s: set,lut=%d,tid=%d,pn_l=%d,pn_h=%d\n",
+			       __func__, lut_id, tid,
+			       ba_node->rx_ba->pn_l,
+			       ba_node->rx_ba->pn_h);
+			spin_unlock_bh(&ba_node->ba_node_lock);
+		}
+	}
 }
 
 struct sk_buff *reorder_data_process(struct sprdwl_rx_ba_entry *ba_entry,

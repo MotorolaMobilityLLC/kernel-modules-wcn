@@ -131,6 +131,7 @@ static const char *cmd2str(u8 cmd)
 	C2S(WIFI_CMD_RADAR_DETECT)
 	C2S(WIFI_CMD_RESET_BEACON)
 #endif
+	C2S(WIFI_CMD_VOWIFI_DATA_PROTECT)
 	C2S(WIFI_CMD_SET_TLV)
 	default : return "WIFI_CMD_UNKNOWN";
 	}
@@ -145,6 +146,8 @@ static const char *assert_reason_to_str(u8 reason)
 	AR2S(RSP_CNT_ERROR)
 	AR2S(HANDLE_FLAG_ERROR)
 	AR2S(CMD_RSP_TIMEOUT_ERROR)
+	AR2S(LOAD_INI_DATA_FAILED)
+	AR2S(DOWNLOAD_INI_DATA_FAILED)
 	default : return "UNKNOWN ASSERT REASON";
 	}
 #undef AR2S
@@ -395,8 +398,9 @@ static int sprdwl_cmd_send_to_ic(struct sprdwl_priv *priv,
 		le32_to_cpu(hdr->mstime),
 		hdr->common.ctx_id,
 		cmd2str(hdr->cmd_id));
-	print_hex_dump_debug("CMD: ", DUMP_PREFIX_OFFSET, 16, 1,
-			     (u8 *)hdr, hdr->plen, 0);
+	if (sprdwl_debug_level >= L_DBG)
+		print_hex_dump_debug("CMD: ", DUMP_PREFIX_OFFSET, 16, 1,
+				     (u8 *)hdr, hdr->plen, 0);
 
 	return sprdwl_send_cmd(priv, msg);
 }
@@ -618,7 +622,6 @@ int sprdwl_sync_version(struct sprdwl_priv *priv)
 	return ret;
 }
 
-#if 0
 /* Commands */
 static int sprdwl_down_ini_cmd(struct sprdwl_priv *priv,
 						uint8_t *data, uint32_t len,
@@ -659,7 +662,7 @@ void sprdwl_download_ini(struct sprdwl_priv *priv)
 #define SEC3	3
 
 	int ret;
-	struct wifi_conf_t wifi_data;
+	struct wifi_conf_t *wifi_data;
 	struct wifi_conf_sec1_t *sec1;
 	struct wifi_conf_sec2_t *sec2;
 
@@ -669,21 +672,35 @@ void sprdwl_download_ini(struct sprdwl_priv *priv)
 		wl_err("RF ini download already, skip!\n");
 		return;
 	}
+
+	wifi_data = kzalloc(sizeof(struct wifi_conf_t), GFP_KERNEL);
 	/*init INI data struct */
-	memset(&wifi_data, 0 , sizeof(wifi_data));
 	/*got ini data from file*/
-	get_wifi_config_param(&wifi_data);
+	ret = get_wifi_config_param(wifi_data);
+	if (ret) {
+		wl_err("load ini data failed, return\n");
+		kfree(wifi_data);
+		wlan_set_assert(priv, SPRDWL_MODE_NONE,
+				WIFI_CMD_DOWNLOAD_INI,
+				LOAD_INI_DATA_FAILED);
+		return;
+	}
+
 	wl_info("total config len:%ld,sec1 len:%ld, sec2 len:%ld\n",
 		(long unsigned int)sizeof(wifi_data), (long unsigned int)sizeof(*sec1),
 		(long unsigned int)sizeof(*sec2));
 	/*devide wifi_conf into sec1 and sec2 since it's too large*/
-	sec1 = (struct wifi_conf_sec1_t *)&wifi_data;
-	sec2 = (struct wifi_conf_sec2_t *)(&wifi_data.tx_scale);
+	sec1 = (struct wifi_conf_sec1_t *)wifi_data;
+	sec2 = (struct wifi_conf_sec2_t *)(&wifi_data->tx_scale);
 
 	wl_info("download the first section of config file\n");
 	ret = sprdwl_down_ini_cmd(priv, (uint8_t *)sec1, sizeof(*sec1), SEC1);
 	if (ret) {
 		wl_err("download the first section of ini fail,return\n");
+		kfree(wifi_data);
+		wlan_set_assert(priv, SPRDWL_MODE_NONE,
+				WIFI_CMD_DOWNLOAD_INI,
+				DOWNLOAD_INI_DATA_FAILED);
 		return;
 	}
 
@@ -691,21 +708,30 @@ void sprdwl_download_ini(struct sprdwl_priv *priv)
 	ret = sprdwl_down_ini_cmd(priv, (uint8_t *)sec2, sizeof(*sec2), SEC2);
 	if (ret) {
 		wl_err("download the second section of ini fail,return\n");
+		kfree(wifi_data);
+		wlan_set_assert(priv, SPRDWL_MODE_NONE,
+				WIFI_CMD_DOWNLOAD_INI,
+				DOWNLOAD_INI_DATA_FAILED);
 		return;
 	}
 
-	if (wifi_data.rf_config.rf_data_len) {
+	if (wifi_data->rf_config.rf_data_len) {
 		wl_info("download the third section of config file\n");
-		wl_info("rf_data_len = %d\n", wifi_data.rf_config.rf_data_len);
-		ret = sprdwl_down_ini_cmd(priv, wifi_data.rf_config.rf_data,
-				wifi_data.rf_config.rf_data_len, SEC3);
+		wl_info("rf_data_len = %d\n", wifi_data->rf_config.rf_data_len);
+		ret = sprdwl_down_ini_cmd(priv, wifi_data->rf_config.rf_data,
+				wifi_data->rf_config.rf_data_len, SEC3);
 		if (ret) {
 			wl_err("download the third section of ini fail,return\n");
+			kfree(wifi_data);
+			wlan_set_assert(priv, SPRDWL_MODE_NONE,
+					WIFI_CMD_DOWNLOAD_INI,
+					DOWNLOAD_INI_DATA_FAILED);
 			return;
 		}
 	}
+
+	kfree(wifi_data);
 }
-#endif
 
 int sprdwl_get_fw_info(struct sprdwl_priv *priv)
 {
@@ -764,7 +790,6 @@ int sprdwl_get_fw_info(struct sprdwl_priv *priv)
 		priv->fw_ver = p->fw_version;
 		priv->fw_capa = p->fw_capa;
 		priv->fw_std = p->fw_std;
-		priv->extend_feature = p->extend_feature;
 		priv->max_ap_assoc_sta = p->max_ap_assoc_sta;
 		priv->max_acl_mac_addrs = p->max_acl_mac_addrs;
 		priv->max_mc_mac_addrs = p->max_mc_mac_addrs;
@@ -776,7 +801,6 @@ int sprdwl_get_fw_info(struct sprdwl_priv *priv)
 			wl_info("save wiphy section2 info to sprdwl_priv\n");
 			memcpy(&priv->wiphy_sec2, &p->wiphy_sec2,
 					sizeof(struct wiphy_sec2_t));
-			wl_debug("%s, %d, priv->wiphy_sec2.ht_cap_info=%x\n", __func__, __LINE__, priv->wiphy_sec2.ht_cap_info);
 		} else {
 			goto out;
 		}
@@ -995,6 +1019,9 @@ int sprdwl_add_key(struct sprdwl_priv *priv, u8 vif_ctx_id, const u8 *key_data,
 		ether_addr_copy(p->mac, mac_addr);
 	if (key_data)
 		memcpy(p->value, key_data, key_len);
+
+	if (mac_addr)
+		reset_pn(priv, mac_addr);
 
 	return sprdwl_cmd_send_recv(priv, msg, CMD_WAIT_TIMEOUT, NULL, NULL);
 }
@@ -1801,6 +1828,11 @@ int sprdwl_set_roam_offload(struct sprdwl_priv *priv, u8 vif_ctx_id,
 	struct sprdwl_msg_buf *msg;
 	struct sprdwl_cmd_roam_offload_data *p;
 
+	if(!(priv->fw_capa & SPRDWL_CAPA_11R_ROAM_OFFLOAD))
+	{
+		wl_err("%s, not supported\n", __func__);
+		return -ENOTSUPP;
+	}
 	msg = sprdwl_cmd_getbuf(priv, sizeof(*p) + len, vif_ctx_id,
 				SPRDWL_HEAD_RSP, WIFI_CMD_SET_ROAM_OFFLOAD);
 	if (!msg)
@@ -2289,7 +2321,7 @@ int sprdwl_xmit_data2cmd(struct sk_buff *skb, struct net_device *ndev)
 	return sprdwl_cmd_send_to_ic(vif->priv, msg);
 }
 
-int sprdwl_xmit_dhcp2cmd(struct sk_buff *skb, struct net_device *ndev)
+int sprdwl_xmit_data2cmd_wq(struct sk_buff *skb, struct net_device *ndev)
 {
 #define FLAG_SIZE  5
 	struct sprdwl_vif *vif = netdev_priv(ndev);
@@ -2330,6 +2362,41 @@ int sprdwl_xmit_dhcp2cmd(struct sk_buff *skb, struct net_device *ndev)
 	sprdwl_queue_work(vif->priv, misc_work);
 
 	return 0;
+}
+
+int sprdwl_send_vowifi_data_prot(struct sprdwl_priv *priv, u8 ctx_id,
+				 void *data, int len)
+{
+	struct sprdwl_msg_buf *msg;
+
+	wl_info("enter--at %s\n", __func__);
+
+	if (priv == NULL)
+		return -EINVAL;
+
+	msg = sprdwl_cmd_getbuf(priv, 0, ctx_id,
+				SPRDWL_HEAD_RSP, WIFI_CMD_VOWIFI_DATA_PROTECT);
+	if (!msg)
+		return -ENOMEM;
+
+	return sprdwl_cmd_send_recv(priv, msg, CMD_WAIT_TIMEOUT, NULL, NULL);
+}
+
+void sprdwl_vowifi_data_protection(struct sprdwl_vif *vif)
+{
+	struct sprdwl_work *misc_work;
+
+	wl_info("enter--at %s\n", __func__);
+
+	misc_work = sprdwl_alloc_work(0);
+	if (!misc_work) {
+		wl_err("%s out of memory\n", __func__);
+		return;
+	}
+	misc_work->vif = vif;
+	misc_work->id = SPRDWL_WORK_VOWIFI_DATA_PROTECTION;
+
+	sprdwl_queue_work(vif->priv, misc_work);
 }
 
 void sprdwl_work_host_wakeup_fw(struct sprdwl_vif *vif)
@@ -2466,7 +2533,7 @@ unsigned short sprdwl_rx_rsp_process(struct sprdwl_priv *priv, u8 *msg)
 	spin_lock_bh(&cmd->lock);
 	if (!cmd->data && SPRDWL_GET_LE32(hdr->mstime) == cmd->mstime &&
 	    hdr->cmd_id == cmd->cmd_id) {
-		wl_warn("ctx_id %d recv rsp[%s]\n",
+		wl_info("ctx_id %d recv rsp[%s]\n",
 			hdr->common.ctx_id, cmd2str(hdr->cmd_id));
 		if (unlikely(hdr->status != 0)) {
 			wl_err("%s ctx_id %d recv rsp[%s] status[%s]\n",
@@ -2490,7 +2557,7 @@ unsigned short sprdwl_rx_rsp_process(struct sprdwl_priv *priv, u8 *msg)
 	}
 	spin_unlock_bh(&cmd->lock);
 	atomic_dec(&cmd->refcnt);
-	wl_info("cmd->refcnt=%x\n", atomic_read(&cmd->refcnt));
+	wl_debug("cmd->refcnt=%x\n", atomic_read(&cmd->refcnt));
 
 	if (0 != handle_flag)
 		wlan_set_assert(priv, SPRDWL_MODE_NONE, hdr->cmd_id, HANDLE_FLAG_ERROR);
@@ -3062,6 +3129,8 @@ int sprdwl_fw_power_down_ack(struct sprdwl_priv *priv, u8 ctx_id)
 	int ret = 0;
 	struct sprdwl_intf *intf = (struct sprdwl_intf *)(priv->hw_priv);
 	struct sprdwl_tx_msg *tx_msg = (struct sprdwl_tx_msg *)intf->sprdwl_tx;
+	enum sprdwl_mode mode = SPRDWL_MODE_NONE;
+	int tx_num = 0;
 
 	msg = sprdwl_cmd_getbuf(priv, sizeof(*p), ctx_id,
 				SPRDWL_HEAD_RSP, WIFI_CMD_POWER_SAVE);
@@ -3071,9 +3140,17 @@ int sprdwl_fw_power_down_ack(struct sprdwl_priv *priv, u8 ctx_id)
 	p = (struct sprdwl_cmd_power_save *)msg->data;
 	p->sub_type = SPRDWL_FW_PWR_DOWN_ACK;
 
-	if (atomic_read(&tx_msg->tx_list_qos_pool.ref) > 0 ||
+	for (mode = SPRDWL_MODE_NONE; mode < SPRDWL_MODE_MAX; mode++) {
+		int num = atomic_read(&tx_msg->tx_list[mode]->mode_list_num);
+
+		tx_num += num;
+	}
+
+	if (tx_num > 0 ||
 	    !list_empty(&tx_msg->xmit_msg_list.to_send_list) ||
 	    !list_empty(&tx_msg->xmit_msg_list.to_free_list)) {
+		if (intf->fw_power_down == 1)
+			goto err;
 		p->value = 0;
 		intf->fw_power_down = 0;
 		intf->fw_awake = 1;
@@ -3082,11 +3159,15 @@ int sprdwl_fw_power_down_ack(struct sprdwl_priv *priv, u8 ctx_id)
 		intf->fw_power_down = 1;
 		intf->fw_awake = 0;
 	}
-	wl_info("%s, %d, value=%d, fw_power_down=%d, fw_awake=%d\n",
-		__func__, __LINE__,
+	wl_info("%s, value=%d, fw_pwr_down=%d, fw_awake=%d, %d, %d, %d, %d\n",
+		__func__,
 		p->value,
 		intf->fw_power_down,
-		intf->fw_awake);
+		intf->fw_awake,
+		atomic_read(&tx_msg->tx_list_qos_pool.ref),
+		tx_num,
+		list_empty(&tx_msg->xmit_msg_list.to_send_list),
+		list_empty(&tx_msg->xmit_msg_list.to_free_list));
 
 	ret =  sprdwl_cmd_send_recv(priv, msg, CMD_WAIT_TIMEOUT, NULL, NULL);
 
@@ -3094,6 +3175,10 @@ int sprdwl_fw_power_down_ack(struct sprdwl_priv *priv, u8 ctx_id)
 		wl_err("host send data cmd failed, ret=%d\n", ret);
 
 	return ret;
+err:
+	wl_err("%s donot ack FW_PWR_DOWN twice\n", __func__);
+	sprdwl_intf_free_msg_buf(priv, msg);
+	return -1;
 }
 
 void sprdwl_event_fw_power_down(struct sprdwl_vif *vif, u8 *data, u16 len)
@@ -3117,7 +3202,7 @@ void sprdwl_event_chan_changed(struct sprdwl_vif *vif, u8 *data, u16 len)
 	u8 channel;
 	u16 freq;
 	struct wiphy *wiphy = vif->wdev.wiphy;
-	struct ieee80211_channel *ch;
+	struct ieee80211_channel *ch = NULL;
 	struct cfg80211_chan_def chandef;
 
 	if (p->initiator == 0) {
@@ -3137,6 +3222,17 @@ void sprdwl_event_chan_changed(struct sprdwl_vif *vif, u8 *data, u16 len)
 			wl_err("%s, ch is null!\n", __func__);
 		cfg80211_ch_switch_notify(vif->ndev, &chandef);
 	}
+}
+
+void sprdwl_event_coex_bt_on_off(u8 *data, u16 len)
+{
+	struct event_coex_mode_changed *coex_bt_on_off =
+		(struct event_coex_mode_changed *)data;
+
+	wl_info("%s, %d, action=%d\n",
+		__func__, __LINE__,
+		coex_bt_on_off->action);
+	set_coex_bt_on_off(coex_bt_on_off->action);
 }
 
 static const char *evt2str(u8 evt)
@@ -3171,6 +3267,7 @@ static const char *evt2str(u8 evt)
 	E2S(WIFI_EVENT_WFD_MIB_CNT)
 	E2S(WIFI_EVENT_FW_PWR_DOWN)
 	E2S(WIFI_EVENT_CHAN_CHANGED)
+	E2S(WIFI_EVENT_COEX_BT_ON_OFF)
 	default : return "WIFI_EVENT_UNKNOWN";
 	}
 #undef E2S
@@ -3210,9 +3307,10 @@ unsigned short sprdwl_rx_event_process(struct sprdwl_priv *priv, u8 *msg)
 	len = plen - sizeof(*hdr);
 	vif = ctx_id_to_vif(priv, ctx_id);
 	if (!vif) {
-		wl_info("%s NULL vif for ctx_id: %d, len:%d\n",
-			__func__, ctx_id, plen);
-		return plen;
+		wl_info("%s NULL vif for ctx_id: %d, len:%d, id:%d\n",
+			__func__, ctx_id, plen, hdr->cmd_id);
+		if (hdr->cmd_id != WIFI_EVENT_COEX_BT_ON_OFF)
+			return plen;
 	}
 
 	if (!((long)msg & 0x3)) {
@@ -3313,6 +3411,9 @@ unsigned short sprdwl_rx_event_process(struct sprdwl_priv *priv, u8 *msg)
 		break;
 	case WIFI_EVENT_CHAN_CHANGED:
 		sprdwl_event_chan_changed(vif, data, len);
+		break;
+	case WIFI_EVENT_COEX_BT_ON_OFF:
+		sprdwl_event_coex_bt_on_off(data, len);
 		break;
 	default:
 		wl_info("unsupported event: %d\n", hdr->cmd_id);

@@ -42,7 +42,7 @@ void trace_deauth_reason(int mode, u16 reason_code, int dirction)
 {
 	struct deauth_info *dinfo;
 
-	if (reason_code > MAX_DEAUTH_REASON) {
+	if (reason_code >= MAX_DEAUTH_REASON) {
 		wl_info("deauth reason:%d not record\n", reason_code);
 		return;
 	}

@@ -91,7 +91,10 @@ void sprdwl_netif_rx(struct sk_buff *skb, struct net_device *ndev)
 #endif
 
 #ifndef SC2355_RX_NAPI
-	netif_rx(skb);
+/*to ensure data handled in netif in order*/
+	local_bh_disable();
+	netif_receive_skb(skb);
+	local_bh_enable();
 #else
 	skb_orphan(skb);
 	napi_gro_receive(&rx_if->napi_rx, skb);
@@ -157,7 +160,8 @@ static int sprdwl_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 	struct sprdwl_vif *vif = netdev_priv(ndev);
 	int ret = 0;
 	struct sprdwl_msg_buf *msg = NULL;
-
+	u8 *data_temp;
+	struct sprdwl_eap_hdr *eap_temp;
 	/* drop nonlinearize skb */
 	if (skb_linearize(skb)) {
 		wl_err("nonlinearize skb\n");
@@ -175,8 +179,12 @@ static int sprdwl_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 	 * Workaround way: Put eap failure frame to high queue
 	 * by use tx mgmt cmd
 	 */
-	/*send 802.1X or WAI frame from cmd channel*/
-	if (skb->protocol == cpu_to_be16(ETH_P_PAE) ||
+	data_temp = (u8 *)(skb->data) + sizeof(struct ethhdr);
+	eap_temp = (struct sprdwl_eap_hdr *)data_temp;
+	if ((vif->mode == SPRDWL_MODE_P2P_GO &&
+		skb->protocol == cpu_to_be16(ETH_P_PAE) &&
+		eap_temp->type == EAP_PACKET_TYPE &&
+		eap_temp->code == EAP_FAILURE_CODE) ||
 		skb->protocol == cpu_to_be16(WAPI_TYPE)) {
 		wl_err("send %s frame by WIFI_CMD_TX_DATA\n",
 		       skb->protocol == cpu_to_be16(ETH_P_PAE) ?
@@ -618,6 +626,7 @@ static int sprdwl_set_tlv(struct net_device *ndev, struct ifreq *ifr)
 				u16 tid = qos_index_2_tid(SPRDWL_AC_VO);
 
 				peer_entry->vowifi_enabled = 1;
+				peer_entry->vowifi_pkt_cnt = 0;
 				if (test_bit(tid, &peer_entry->ba_tx_done_map))
 					sprdwl_tx_delba(intf, peer_entry,
 							SPRDWL_AC_VO);
@@ -643,24 +652,13 @@ out:
 
 static int sprdwl_ioctl(struct net_device *ndev, struct ifreq *req, int cmd)
 {
-	struct sprdwl_vif *vif = netdev_priv(ndev);
-	struct iwreq *wrq = (struct iwreq *)req;
-
 	switch (cmd) {
 	case SPRDWLIOCTL:
 	case SPRDWLSETCOUNTRY:
 		return sprdwl_priv_cmd(ndev, req);
 	case SPRDWLGETSSID:
-		if (vif->ssid_len > 0) {
-			if (copy_to_user(wrq->u.essid.pointer, vif->ssid,
-					 vif->ssid_len))
-				return -EFAULT;
-			wrq->u.essid.length = vif->ssid_len;
-		} else {
-			netdev_err(ndev, "SSID len is zero\n");
-			return -EFAULT;
-		}
-		break;
+		netdev_err(ndev, "for vts test %d\n", cmd);
+		return 0;
 	case SPRDWLSETFCC:
 	case SPRDWLSETSUSPEND:
 		return sprdwl_set_power_save(ndev, req);
@@ -1223,6 +1221,11 @@ static void sprdwl_unregister_wdev(struct sprdwl_vif *vif)
 	wl_info("iface '%s' deleted\n", vif->name);
 
 	cfg80211_unregister_wdev(&vif->wdev);
+	/* cfg80211_unregister_wdev use list_del_rcu to delete wdev,
+	 * so we can not free vif immediately, must wait until an
+	 * RCU grace period has elapsed.
+	 */
+	synchronize_rcu();
 	sprdwl_deinit_vif(vif);
 	kfree(vif);
 }
@@ -1277,7 +1280,7 @@ static struct sprdwl_vif *sprdwl_register_netdev(struct sprdwl_priv *priv,
 	ndev->needed_headroom = priv->skb_head_len;
 	ndev->watchdog_timeo = 2 * HZ;
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0)
-	ndev->features |= NETIF_F_CSUM_MASK;
+	ndev->features |= NETIF_F_CSUM_MASK | NETIF_F_SG;
 #else
 	ndev->features |= NETIF_F_ALL_CSUM | NETIF_F_SG;
 #endif
@@ -1393,7 +1396,7 @@ int sprdwl_core_init(struct device *dev, struct sprdwl_priv *priv)
 		wl_err("SYNC CMD ERROR!!\n");
 		goto out;
 	}
-	/*sprdwl_download_ini(priv);*/
+	sprdwl_download_ini(priv);
 	sprdwl_tcp_ack_init(priv);
 	sprdwl_get_fw_info(priv);
 #ifdef RTT_SUPPORT

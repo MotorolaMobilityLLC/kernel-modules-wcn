@@ -141,6 +141,11 @@ static void sprdwl_do_work(struct work_struct *work)
 		case SPRDWL_WORK_HOST_WAKEUP_FW:
 			sprdwl_cmd_host_wakeup_fw(vif->priv, vif->ctx_id);
 			break;
+		case SPRDWL_WORK_VOWIFI_DATA_PROTECTION:
+			sprdwl_send_vowifi_data_prot(vif->priv, vif->ctx_id,
+						     sprdwl_work->data,
+						     sprdwl_work->len);
+			break;
 		default:
 			netdev_dbg(vif->ndev, "Unknown delayed work: %d\n",
 				   sprdwl_work->id);
@@ -178,7 +183,7 @@ void sprdwl_cancle_work(struct sprdwl_priv *priv, struct sprdwl_vif *vif)
 	flush_work(&priv->work);
 }
 
-void sprdwl_init_work(struct sprdwl_priv *priv)
+int sprdwl_init_work(struct sprdwl_priv *priv)
 {
 	spin_lock_init(&priv->work_lock);
 	INIT_LIST_HEAD(&priv->work_list);
@@ -187,6 +192,11 @@ void sprdwl_init_work(struct sprdwl_priv *priv)
 	priv->common_workq = alloc_ordered_workqueue("sprdwl_work",
 				WQ_HIGHPRI | WQ_CPU_INTENSIVE |
 				WQ_MEM_RECLAIM);
+	if (!priv->common_workq) {
+		wl_err("%s sprdwl_work create failed\n", __func__);
+		return -ENOMEM;
+	}
+	return 0;
 }
 
 void sprdwl_deinit_work(struct sprdwl_priv *priv)

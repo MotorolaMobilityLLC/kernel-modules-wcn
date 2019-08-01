@@ -165,8 +165,6 @@ struct wmm_params_element {
 struct sprdwl_wmmac_params {
 	struct wmm_ac_params ac[4];
 	struct timer_list wmmac_edcaf_timer;
-	struct timer_list wmmac_vo_timer;
-	struct timer_list wmmac_vi_timer;
 };
 #endif
 
@@ -263,7 +261,6 @@ struct sprdwl_priv {
 #define OTT_NO_SUPT	(0)
 #define OTT_SUPT	(1)
 	unsigned char ott_supt;
-	__le32 extend_feature;
 };
 
 struct sprdwl_eap_hdr {
@@ -291,17 +288,14 @@ enum sprdwl_debug {
 
 extern int sprdwl_debug_level;
 extern struct device *sprdwl_dev;
-#ifdef CONFIG_DYNAMIC_DEBUG
-#define wl_debug(fmt, args...) \
-	dev_dbg(sprdwl_dev, "sc2355 sprd-wlan:" fmt, ##args)
-#else
+
 #define wl_debug(fmt, args...) \
 	do { \
 		if (sprdwl_debug_level >= L_DBG) { \
 			pr_info("sc2355 sprd-wlan:" fmt, ##args); \
 		} \
 	} while (0)
-#endif
+
 #define wl_err(fmt, args...) \
 	do { \
 		if (sprdwl_debug_level >= L_ERR) \

@@ -136,8 +136,14 @@ void sprdwl_tx_free_msg_buf(void *pdev, struct sprdwl_msg_buf *msg)
 static inline void
 sprdwl_queue_data_msg_buf(struct sprdwl_msg_buf *msg_buf)
 {
+	struct tx_msdu_dscr *dscr = (struct tx_msdu_dscr *)msg_buf->tran_data;
+
 	spin_lock_bh(&msg_buf->data_list->p_lock);
-	list_add_tail(&msg_buf->list, &msg_buf->data_list->head_list);
+	/*to make sure ARP/TDLS/preauth can be tx ASAP*/
+	if (dscr->tx_ctrl.sw_rate == 1)
+		list_add(&msg_buf->list, &msg_buf->data_list->head_list);
+	else
+		list_add_tail(&msg_buf->list, &msg_buf->data_list->head_list);
 	atomic_inc(&msg_buf->data_list->l_num);
 	spin_unlock_bh(&msg_buf->data_list->p_lock);
 }
@@ -152,9 +158,10 @@ sprdwl_dequeue_qos_buf(struct sprdwl_msg_buf *msg_buf, int ac_index)
 	else
 		lock = &msg_buf->xmit_msg_list->send_lock;
 	spin_lock_bh(lock);
+	dev_kfree_skb(msg_buf->skb);
 	list_del(&msg_buf->list);
-	spin_unlock_bh(lock);
 	sprdwl_free_msg_buf(msg_buf, msg_buf->msglist);
+	spin_unlock_bh(lock);
 }
 
 void sprdwl_flush_tx_qoslist(struct sprdwl_tx_msg *tx_msg, int mode, int ac_index, int lut_index)
@@ -234,7 +241,6 @@ void sprdwl_flush_tosendlist(struct sprdwl_tx_msg *tx_msg)
 		data_list = &tx_msg->xmit_msg_list.to_send_list;
 		list_for_each_entry_safe(pos_buf, temp_buf,
 			data_list, list) {
-			dev_kfree_skb(pos_buf->skb);
 			sprdwl_dequeue_qos_buf(pos_buf, SPRDWL_AC_MAX);
 		}
 	}
@@ -481,7 +487,6 @@ static int sprdwl_tx_cmd(struct sprdwl_intf *intf, struct sprdwl_msg_list *list)
 		}
 		sprdwl_dequeue_cmd_buf(msgbuf, list);
 		tx_msg->cmd_send++;
-		wl_info("tx_cmd cmd_send num: %d\n", tx_msg->cmd_send);
 
 		/*TBD, temp solution: send CMD one by one*/
 		ret = if_tx_cmd(intf, (unsigned char *)msgbuf->tran_data,
@@ -628,9 +633,8 @@ int sprdwl_fc_get_send_num(struct sprdwl_tx_msg *tx_msg,
 			       shared_flow_num, data_num);
 			return -ENOMEM;
 		}
-		wl_info("%s, %d, mode:%d, e_num:%d, s_num:%d, d_num:%d\n"
-			"color_num = {%d, %d, %d, %d}\n",
-			__func__, __LINE__, mode, excusive_flow_num,
+		wl_info("%s,mode:%d,e_n:%d,s_n:%d,d_n:%d,{%d,%d,%d,%d}\n",
+			__func__, mode, excusive_flow_num,
 			shared_flow_num, data_num,
 			tx_msg->color_num[0], tx_msg->color_num[1],
 			tx_msg->color_num[2], tx_msg->color_num[3]);
@@ -758,9 +762,10 @@ void sprdwl_handle_tx_return(struct sprdwl_tx_msg *tx_msg,
 			continue;
 		atomic_sub(tx_msg->color_num[i],
 			&tx_msg->flow_ctrl[i].flow);
-		wl_info("%s, _fc_, color bit:%d, flow num - %d=%d\n",
+		wl_debug("%s, _fc_, color bit:%d, flow num-%d=%d, seq_num=%d\n",
 			 __func__, i, tx_msg->color_num[i],
-			 atomic_read(&tx_msg->flow_ctrl[i].flow));
+			 atomic_read(&tx_msg->flow_ctrl[i].flow),
+			 tx_msg->seq_num);
 	}
 }
 
@@ -819,7 +824,6 @@ int handle_tx_timeout(struct sprdwl_tx_msg *tx_msg,
 			}
 			wl_err("tx drop %s, dropcnt:%u\n",
 			       pinfo, cnt);
-			dev_kfree_skb(pos_buf->skb);
 			sprdwl_dequeue_qos_buf(pos_buf, ac_index);
 			atomic_dec(&tx_msg->tx_list[mode]->mode_list_num);
 #if defined(MORE_DEBUG)
@@ -844,6 +848,7 @@ static int sprdwl_handle_to_send_list(struct sprdwl_intf *intf,
 	spinlock_t *t_lock;/*to protect get_list_num*/
 	int tosendnum = 0, credit = 0, ret = 0;
 	struct sprdwl_msg_list *list = &tx_msg->tx_list_qos_pool;
+	u8 coex_bt_on = intf->coex_bt_on;
 
 	if (!list_empty(&tx_msg->xmit_msg_list.to_send_list)) {
 		to_send_list = &tx_msg->xmit_msg_list.to_send_list;
@@ -864,7 +869,8 @@ static int sprdwl_handle_to_send_list(struct sprdwl_intf *intf,
 					  to_send_list,
 					  &tx_list_head,
 					  credit,
-					  SPRDWL_AC_MAX);
+					  SPRDWL_AC_MAX,
+					  coex_bt_on);
 		sprdwl_handle_tx_return(tx_msg, list, credit, ret);
 		if (0 != ret) {
 			wl_err("%s, %d: tx return err!\n",
@@ -920,12 +926,12 @@ static int sprdwl_tx_eachmode_data(struct sprdwl_intf *intf,
 		}
 		total += q_list_num[i];
 		if (q_list_num[i] != 0)
-			wl_info("TID%s%s%s%snum=%d, total=%d\n",
-			       (i == SPRDWL_AC_VO) ? "VO" : "",
-			       (i == SPRDWL_AC_VI) ? "VI" : "",
-			       (i == SPRDWL_AC_BE) ? "BE" : "",
-			       (i == SPRDWL_AC_BK) ? "BK" : "",
-			       q_list_num[i], total);
+			wl_debug("TID%s%s%s%snum=%d, total=%d\n",
+				 (i == SPRDWL_AC_VO) ? "VO" : "",
+				 (i == SPRDWL_AC_VI) ? "VI" : "",
+				 (i == SPRDWL_AC_BE) ? "BE" : "",
+				 (i == SPRDWL_AC_BK) ? "BK" : "",
+				 q_list_num[i], total);
 	}
 	send_num = sprdwl_fc_test_send_num(tx_msg, mode, total);
 	if (total != 0 && send_num <= 0) {
@@ -995,12 +1001,12 @@ static int sprdwl_tx_eachmode_data(struct sprdwl_intf *intf,
 
 		total -= q_list_num[i];
 
-		wl_info("TID%s%s%s%s, credit=%d, fp_num=%d, remain=%d\n",
-			(i == SPRDWL_AC_VO) ? "VO" : "",
-			(i == SPRDWL_AC_VI) ? "VI" : "",
-			(i == SPRDWL_AC_BE) ? "BE" : "",
-			(i == SPRDWL_AC_BK) ? "BK" : "",
-			send_num, fp_num, total);
+		wl_debug("TID%s%s%s%s, credit=%d, fp_num=%d, remain=%d\n",
+			 (i == SPRDWL_AC_VO) ? "VO" : "",
+			 (i == SPRDWL_AC_VI) ? "VI" : "",
+			 (i == SPRDWL_AC_BE) ? "BE" : "",
+			 (i == SPRDWL_AC_BK) ? "BK" : "",
+			 send_num, fp_num, total);
 
 		send_num -= fp_num;
 		for (j = 0; j < MAX_LUT_NUM; j++) {
@@ -1120,12 +1126,12 @@ out:
 		__func__, __LINE__,
 		(ret == -1) ? "event" : "data",
 		in_count,
-		div_u64(kt - tx_msg->kt, NSEC_PER_USEC)/in_count);
+		div_u64(div_u64(kt - tx_msg->kt, NSEC_PER_USEC), in_count));
 
 		debug_record_add(TX_CREDIT_ADD, in_count);
 		debug_record_add(TX_CREDIT_PER_ADD,
-			(div_u64(kt - tx_msg->kt,
-				 NSEC_PER_USEC)/in_count));
+			div_u64(div_u64(kt - tx_msg->kt,
+				 NSEC_PER_USEC), in_count));
 		debug_record_add(TX_CREDIT_RECORD, jiffies_to_usecs(jiffies));
 		debug_record_add(TX_CREDIT_TIME_DIFF,
 			div_u64(kt - tx_msg->kt, NSEC_PER_USEC));
@@ -1134,16 +1140,16 @@ out:
 	if ((tx_msg->kt.tv64 == 0) || (in_count == 0)) {
 		tx_msg->kt = kt;
 	} else {
-		wl_info("%s, %d, %s, %dadded, %lld usec per flow\n",
-		__func__, __LINE__,
+		wl_debug("%s, %s, %dadded, %lld usec per flow\n",
+		__func__,
 		(ret == -1) ? "event" : "data",
 		in_count,
-		div_u64(kt.tv64 - tx_msg->kt.tv64, NSEC_PER_USEC)/in_count);
+		div_u64(div_u64(kt.tv64 - tx_msg->kt.tv64, NSEC_PER_USEC), in_count));
 
 		debug_record_add(TX_CREDIT_ADD, in_count);
 		debug_record_add(TX_CREDIT_PER_ADD,
-			(div_u64(kt.tv64 - tx_msg->kt.tv64,
-				NSEC_PER_USEC)/in_count));
+			div_u64(div_u64(kt.tv64 - tx_msg->kt.tv64,
+				NSEC_PER_USEC), in_count));
 		debug_record_add(TX_CREDIT_RECORD, jiffies_to_usecs(jiffies));
 		debug_record_add(TX_CREDIT_TIME_DIFF,
 			div_u64(kt.tv64 - tx_msg->kt.tv64, NSEC_PER_USEC));
@@ -1151,8 +1157,7 @@ out:
 #endif
 	tx_msg->kt = ktime_get();
 
-	wl_info("%s, _fc_,R+%d=%d,G+%d=%d,B+%d=%d,W+%d=%d,cp=%lu,ap=%lu\n",
-		__func__,
+	wl_info("_fc_,R+%d=%d,G+%d=%d,B+%d=%d,W+%d=%d,cp=%lu,ap=%lu\n",
 		flow[0], atomic_read(&tx_msg->flow_ctrl[0].flow),
 		flow[1], atomic_read(&tx_msg->flow_ctrl[1].flow),
 		flow[2], atomic_read(&tx_msg->flow_ctrl[2].flow),
@@ -1160,6 +1165,30 @@ out:
 		tx_msg->ring_cp, tx_msg->ring_ap);
 exit:
 	return ret;
+}
+
+void prepare_addba(struct sprdwl_intf *intf, unsigned char lut_index,
+		    struct sprdwl_peer_entry *peer_entry, unsigned char tid)
+{
+	if (intf->tx_num[lut_index] > 9 &&
+		peer_entry &&
+		peer_entry->ip_acquired &&
+		peer_entry->ht_enable &&
+		peer_entry->vowifi_enabled != 1 &&
+		!test_bit(tid, &peer_entry->ba_tx_done_map)) {
+		struct timespec time;
+
+		getnstimeofday(&time);
+		/*need to delay 3s if priv addba failed*/
+		if (((timespec_to_ns(&time) - timespec_to_ns(&peer_entry->time[tid]))/1000000) > 3000 ||
+			peer_entry->time[tid].tv_nsec == 0) {
+			wl_info("%s, %d, tx_addba, tid=%d\n",
+				__func__, __LINE__, tid);
+			getnstimeofday(&peer_entry->time[tid]);
+			test_and_set_bit(tid, &peer_entry->ba_tx_done_map);
+			sprdwl_tx_addba(intf, peer_entry, tid);
+		}
+	}
 }
 
 int sprdwl_tx_msg_func(void *pdev, struct sprdwl_msg_buf *msg)
@@ -1200,7 +1229,7 @@ int sprdwl_tx_msg_func(void *pdev, struct sprdwl_msg_buf *msg)
 		qos_index = get_tid_qosindex(msg->skb, 11, &tid, &tos);
 
 #ifdef WMMAC_WFA_CERTIFICATION
-		qos_index = change_priority_if(intf->priv, &tid, &tos);
+		qos_index = change_priority_if(intf->priv, &tid, &tos, msg->len);
 		wl_debug("%s qos_index: %d tid: %d, tos:%d\n", __func__, qos_index, tid, tos);
 		if (SPRDWL_AC_MAX == qos_index) {
 			INIT_LIST_HEAD(&msg->list);
@@ -1214,7 +1243,7 @@ int sprdwl_tx_msg_func(void *pdev, struct sprdwl_msg_buf *msg)
 			(dscr->sta_lut_index < 6)) {
 			qos_index = SPRDWL_AC_BK;
 			tid = prio_1;
-			wl_info("%s, %d, SOFTAP/GO group go as BK\n", __func__, __LINE__);
+			wl_debug("%s, %d, SOFTAP/GO group go as BK\n", __func__, __LINE__);
 		} else {
 			intf->tx_num[dscr->sta_lut_index]++;
 		}
@@ -1247,16 +1276,8 @@ int sprdwl_tx_msg_func(void *pdev, struct sprdwl_msg_buf *msg)
 	if (msg->msg_type != SPRDWL_TYPE_DATA)
 		sprdwl_queue_msg_buf(msg, msg->msglist);
 
-	if (intf->tx_num[dscr->sta_lut_index] > 9 &&
-		peer_entry &&
-		peer_entry->ip_acquired &&
-		peer_entry->ht_enable &&
-		peer_entry->vowifi_enabled != 1 &&
-		!test_and_set_bit(tid, &peer_entry->ba_tx_done_map)) {
-		wl_info("%s, %d, tx_addba qos=%d, tid=%d\n",
-			__func__, __LINE__, qos_index, tid);
-		sprdwl_tx_addba(intf, peer_entry, tid);
-	}
+	prepare_addba(intf, dscr->sta_lut_index, peer_entry, tid);
+
 	if (msg->msg_type == SPRDWL_TYPE_CMD)
 		queue_work(tx_msg->tx_queue, &tx_msg->tx_work);
 	if (msg->msg_type == SPRDWL_TYPE_DATA &&
@@ -1336,7 +1357,7 @@ RETRY:
 	}
 
 	if (intf->suspend_mode != SPRDWL_PS_RESUMED) {
-		printk_ratelimited("sc2355, %s, suspend_mode != RESUMED\n", __func__);
+		printk_ratelimited("sc2355, %s, not RESUMED\n", __func__);
 		return;
 	}
 
@@ -1619,16 +1640,66 @@ int sprdwl_tx_mc_pkt(struct sk_buff *skb, struct net_device *ndev)
 			 intf->skb_da[0], intf->skb_da[1], intf->skb_da[2],
 			 intf->skb_da[3], intf->skb_da[4], intf->skb_da[5]);
 		sprdwl_mc_pkt_checksum(skb, ndev);
-		sprdwl_xmit_dhcp2cmd(skb, ndev);
+		sprdwl_xmit_data2cmd_wq(skb, ndev);
 		return NETDEV_TX_OK;
 	}
 	return 1;
 
 }
 
-int sprdwl_tx_filter_DHCP(struct sk_buff *skb, struct net_device *ndev)
+bool is_vowifi_pkt(struct sk_buff *skb, bool *b_cmd_path)
 {
+	bool ret = false;
+	u8 dscp = 0;
+	struct ethhdr *ethhdr = (struct ethhdr *)skb->data;
+	unsigned char iphdrlen = 0;
+	struct iphdr *iphdr;
+	struct udphdr *udphdr;
+
+	if (ethhdr->h_proto != htons(ETH_P_IP))
+		return false;
+
+	iphdr = (struct iphdr *)(skb->data + ETHER_HDR_LEN);
+
+	if (iphdr->protocol != IPPROTO_UDP)
+		return false;
+
+	iphdrlen = ip_hdrlen(skb);
+	udphdr = (struct udphdr *)(skb->data + ETHER_HDR_LEN + iphdrlen);
+	dscp = (iphdr->tos >> 2);
+	switch (dscp) {
+	case VOWIFI_IKE_DSCP:
+		if ((udphdr->dest == htons(VOWIFI_IKE_SIP_PORT)) ||
+		    (udphdr->dest == htons(VOWIFI_IKE_ONLY_PORT))) {
+			ret = true;
+			(*b_cmd_path) = true;
+		}
+		break;
+	case VOWIFI_SIP_DSCP:
+		if (udphdr->dest == htons(VOWIFI_IKE_SIP_PORT)) {
+			ret = true;
+			(*b_cmd_path) = true;
+		}
+		break;
+	case VOWIFI_VIDEO_DSCP:
+	case VOWIFI_AUDIO_DSCP:
+		ret = true;
+		(*b_cmd_path) = false;
+		break;
+	default:
+		ret = false;
+		(*b_cmd_path) = false;
+		break;
+	}
+
+	return ret;
+}
+
+int sprdwl_tx_filter_ip_pkt(struct sk_buff *skb, struct net_device *ndev)
+{
+	bool is_data2cmd;
 	bool is_ipv4_dhcp, is_ipv6_dhcp;
+	bool is_vowifi2cmd;
 	unsigned char *dhcpdata = NULL;
 	struct udphdr *udphdr;
 	struct iphdr *iphdr;
@@ -1660,6 +1731,7 @@ int sprdwl_tx_filter_DHCP(struct sk_buff *skb, struct net_device *ndev)
 	}
 
 	udphdr = (struct udphdr *)(skb->data + ETHER_HDR_LEN + iphdrlen);
+
 	is_ipv4_dhcp =
 	((ethhdr->h_proto == htons(ETH_P_IP)) &&
 	((udphdr->source == htons(DHCP_SERVER_PORT)) ||
@@ -1669,8 +1741,26 @@ int sprdwl_tx_filter_DHCP(struct sk_buff *skb, struct net_device *ndev)
 	((udphdr->source == htons(DHCP_SERVER_PORT_IPV6)) ||
 	(udphdr->source == htons(DHCP_CLIENT_PORT_IPV6))));
 
+	if (is_vowifi_pkt(skb, &is_vowifi2cmd)) {
+		if (is_vowifi2cmd == false) {
+			struct sprdwl_peer_entry *peer_entry = NULL;
+
+			lut_index = sprdwl_find_lut_index(intf, vif);
+			peer_entry = &intf->peer_entry[lut_index];
+			if (peer_entry->vowifi_enabled == 1) {
+				if (peer_entry->vowifi_pkt_cnt < 11)
+					peer_entry->vowifi_pkt_cnt++;
+				if (peer_entry->vowifi_pkt_cnt == 10)
+					sprdwl_vowifi_data_protection(vif);
+			}
+		}
+	} else {
+		is_vowifi2cmd = false;
+	}
+
+	is_data2cmd = (is_ipv4_dhcp || is_ipv6_dhcp || is_vowifi2cmd);
+
 	if (is_ipv4_dhcp) {
-		wl_info("filter DHCP packet\n");
 		intf->skb_da = skb->data;
 		lut_index = sprdwl_find_lut_index(intf, vif);
 		dhcpdata = skb->data + ETHER_HDR_LEN + iphdrlen + 250;
@@ -1683,37 +1773,40 @@ int sprdwl_tx_filter_DHCP(struct sk_buff *skb, struct net_device *ndev)
 			intf->peer_entry[lut_index].ip_acquired = 1;
 			if (sprdwl_is_group(skb->data))
 				intf->peer_entry[lut_index].ba_tx_done_map = 0;
-			wl_info("lut_index is %d, line:%d\n", lut_index,
-				__LINE__);
 		} else if (*dhcpdata == 0x04) {
 			wl_info("DHCP: TX DECLINE\n");
 		} else if (*dhcpdata == 0x05) {
 			wl_info("DHCP: TX ACK\n");
 			intf->peer_entry[lut_index].ip_acquired = 1;
-			wl_info("lut_index is %d, line:%d\n", lut_index,
-				__LINE__);
 		} else if (*dhcpdata == 0x06) {
 			wl_info("DHCP: TX NACK\n");
 		}
 	}
-	/*as CP request, send TX DHCP using CMD*/
-	if (is_ipv4_dhcp || is_ipv6_dhcp) {
-		wl_info("dhcp,check:%x,skb->ip_summed:%d\n",
-			udphdr->check, skb->ip_summed);
+
+	/*as CP request, send data with CMD*/
+	if (is_data2cmd) {
+		if (is_ipv4_dhcp || is_ipv6_dhcp)
+			wl_info("dhcp,check:%x,skb->ip_summed:%d\n",
+				udphdr->check, skb->ip_summed);
+		if(is_vowifi2cmd)
+			wl_info("vowifi, proto=0x%x, tos=0x%x, dest=0x%x\n",
+				ethhdr->h_proto, iphdr->tos, udphdr->dest);
+
 		if (skb->ip_summed == CHECKSUM_PARTIAL) {
 			checksum =
 				(__force __sum16)do_csum(
 				skb->data + ETHER_HDR_LEN + iphdrlen,
 				skb->len - ETHER_HDR_LEN - iphdrlen);
 			udphdr->check = ~checksum;
-			wl_info("dhcp,csum:%x,check:%x\n",
+			wl_info("csum:%x,check:%x\n",
 				checksum, udphdr->check);
 			skb->ip_summed = CHECKSUM_NONE;
 		}
 
-		sprdwl_xmit_dhcp2cmd(skb, ndev);
+		sprdwl_xmit_data2cmd_wq(skb, ndev);
 		return NETDEV_TX_OK;
 	}
+
 	return 1;
 }
 
@@ -1733,8 +1826,11 @@ int sprdwl_tx_filter_packet(struct sk_buff *skb, struct net_device *ndev)
 		intf->stats.tx_multicast++;
 #endif
 
-	if (ethhdr->h_proto == htons(ETH_P_ARP))
+	if (ethhdr->h_proto == htons(ETH_P_ARP)) {
 		wl_info("incoming ARP packet\n");
+		sprdwl_xmit_data2cmd_wq(skb, ndev);
+		return NETDEV_TX_OK;
+	}
 	if (ethhdr->h_proto == htons(ETH_P_TDLS))
 		wl_info("incoming TDLS packet\n");
 	if (ethhdr->h_proto == htons(ETH_P_PREAUTH))
@@ -1746,6 +1842,6 @@ int sprdwl_tx_filter_packet(struct sk_buff *skb, struct net_device *ndev)
 
 	if (ethhdr->h_proto == htons(ETH_P_IP) ||
 		ethhdr->h_proto == htons(ETH_P_IPV6))
-		return sprdwl_tx_filter_DHCP(skb, ndev);
+		return sprdwl_tx_filter_ip_pkt(skb, ndev);
 	return 1;
 }

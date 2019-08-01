@@ -47,6 +47,7 @@ struct sprdwl_work {
 #define SPRDWL_CMD_TX_DATA 15
 #define SPRDWL_WORK_FW_PWR_DOWN 16
 #define SPRDWL_WORK_HOST_WAKEUP_FW 17
+#define SPRDWL_WORK_VOWIFI_DATA_PROTECTION 18
 	u8 id;
 	u32 len;
 	u8 data[0];
@@ -77,7 +78,7 @@ struct sprdwl_work *sprdwl_alloc_work(int len);
 void sprdwl_queue_work(struct sprdwl_priv *priv,
 		       struct sprdwl_work *sprdwl_work);
 void sprdwl_cancle_work(struct sprdwl_priv *priv, struct sprdwl_vif *vif);
-void sprdwl_init_work(struct sprdwl_priv *priv);
+int sprdwl_init_work(struct sprdwl_priv *priv);
 void sprdwl_deinit_work(struct sprdwl_priv *priv);
 
 #endif

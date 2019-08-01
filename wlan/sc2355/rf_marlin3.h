@@ -2,7 +2,7 @@
 #define __MARLIN3_RF_H__
 struct nvm_cali_cmd {
 	int8_t itm[64];
-	int32_t par[256];
+	int32_t par[512];
 	int32_t num;
 };
 
@@ -133,7 +133,7 @@ struct coex_config_t {
 
 struct rf_config_t {
 	int rf_data_len;
-	uint8_t rf_data[200];
+	uint8_t rf_data[1500];
 };
 
 /*wifi config section1 struct*/
@@ -155,6 +155,7 @@ struct wifi_conf_sec2_t {
 	struct misc_t misc;
 	struct debug_reg_t debug_reg;
 	struct coex_config_t coex_config;
+	/*struct rf_config_t rf_config;*/
 };
 
 /*wifi config struct*/

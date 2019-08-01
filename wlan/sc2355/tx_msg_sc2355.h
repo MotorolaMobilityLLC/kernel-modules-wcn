@@ -30,6 +30,14 @@
 #define DHCP_CLIENT_PORT_IPV6 0x0222
 #define ETH_P_PREAUTH       0x88C7
 
+#define VOWIFI_SIP_DSCP		0x1a
+#define VOWIFI_IKE_DSCP		0x30
+#define VOWIFI_VIDEO_DSCP	0x28
+#define VOWIFI_AUDIO_DSCP	0x36
+
+#define VOWIFI_IKE_SIP_PORT	4500
+#define VOWIFI_IKE_ONLY_PORT	500
+
 #define TX_MAX_POLLING 10
 
 #define MAX_COLOR_BIT 4
@@ -65,7 +73,7 @@ struct sprdwl_tx_msg {
 	/*4 flow control color, 00/01/10/11*/
 	struct sprdwl_flow_control flow_ctrl[MAX_COLOR_BIT];
 	unsigned char color_num[MAX_COLOR_BIT];
-	unsigned int seq_num;
+	unsigned char seq_num;
 	/*temp for cmd debug, remove in future*/
 	unsigned int cmd_send;
 	unsigned int cmd_poped;
@@ -106,5 +114,7 @@ void sprdwl_flush_tx_qoslist(struct sprdwl_tx_msg *tx_msg, int mode, int ac_inde
 void sprdwl_flush_mode_txlist(struct sprdwl_tx_msg *tx_msg, enum sprdwl_mode mode);
 void sprdwl_flush_tosendlist(struct sprdwl_tx_msg *tx_msg);
 void sprdwl_fc_add_share_credit(struct sprdwl_vif *vif);
+
+bool is_vowifi_pkt(struct sk_buff *skb, bool *b_cmd_path);
 #endif
 

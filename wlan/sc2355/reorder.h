@@ -34,6 +34,7 @@ struct rx_ba_node_desc {
 	unsigned short buff_cnt;
 	unsigned short pn_h;
 	unsigned int pn_l;
+	unsigned char reset_pn;
 	unsigned int index_mask;
 	struct rx_ba_pkt reorder_buffer[0];
 };
@@ -70,5 +71,6 @@ struct sk_buff *reorder_get_skb_list(struct sprdwl_rx_ba_entry *ba_entry);
 void wlan_ba_session_event(void *hw_intf,
 			   unsigned char *data, unsigned short len);
 void peer_entry_delba(void *hw_intf, unsigned char sta_lut_index);
+void reset_pn(struct sprdwl_priv *priv, const u8 *mac_addr);
 
 #endif /* __SPRDWL_REORDER_H__ */

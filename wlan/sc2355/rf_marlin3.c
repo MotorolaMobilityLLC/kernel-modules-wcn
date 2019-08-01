@@ -14,6 +14,7 @@
 #include "rf_marlin3.h"
 #include <linux/version.h>
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0)
+#include <misc/marlin_platform.h>
 #include <misc/wcn_bus.h>
 #else
 #include <soc/sprd/wcn_bus.h>
@@ -21,6 +22,9 @@
 
 #define SYSTEM_WIFI_CONFIG_FILE "/vendor/etc/wifi_board_config.ini"
 #define SYSTEM_WIFI_AB_CONFIG_FILE "/vendor/etc/wifi_board_config_ab.ini"
+#define SYSTEM_WIFI_AC_CONFIG_FILE "/vendor/etc/wifi_board_config_ac.ini"
+/*marlin3 lite AA ini file*/
+#define SYSTEM_WIFI_AA_CONFIG_FILE "/vendor/etc/wifi_board_config_aa.ini"
 
 #define CF_TAB(NAME, MEM_OFFSET, TYPE) \
 	{ NAME, (size_t)(&(((struct wifi_conf_t *)(0))->MEM_OFFSET)), TYPE}
@@ -347,7 +351,7 @@ static struct nvm_name_table *cf_table_match(struct nvm_cali_cmd *cmd)
 	struct nvm_name_table *pTable = NULL;
 	int len = sizeof(g_config_table) / sizeof(struct nvm_name_table);
 
-	if ((NULL == cmd) || (NULL == cmd->itm))
+	if (NULL == cmd)
 		return NULL;
 	for (i = 0; i < len; i++) {
 		if (NULL == g_config_table[i].itm)
@@ -363,31 +367,35 @@ static struct nvm_name_table *cf_table_match(struct nvm_cali_cmd *cmd)
 static int wifi_nvm_buf_operate(char *pBuf, int file_len, void *p_data)
 {
 	int i, p;
-	struct nvm_cali_cmd cmd;
+	struct nvm_cali_cmd *cmd;
 	struct wifi_conf_t *conf;
 	struct nvm_name_table *pTable = NULL;
 
 	if ((NULL == pBuf) || (0 == file_len))
 		return -1;
+
+	cmd = kzalloc(sizeof(struct nvm_cali_cmd), GFP_KERNEL);
 	for (i = 0, p = 0; i < file_len; i++) {
 		if (('\n' == *(pBuf + i)) ||
 			('\r' == *(pBuf + i)) ||
 			('\0' == *(pBuf + i))) {
 			if (5 <= (i - p)) {
-				get_cmd_par((pBuf + p), &cmd);
-				pTable = cf_table_match(&cmd);
+				get_cmd_par((pBuf + p), cmd);
+				pTable = cf_table_match(cmd);
 
 				if (NULL != pTable) {
-					wifi_nvm_set_cmd(pTable, &cmd, p_data);
+					wifi_nvm_set_cmd(pTable, cmd, p_data);
 					if (strcmp(pTable->itm, "rf_config") == 0) {
 						conf = (struct wifi_conf_t *)p_data;
-						conf->rf_config.rf_data_len = cmd.num;
+						conf->rf_config.rf_data_len = cmd->num;
 					}
 				}
 			}
 			p = i + 1;
 		}
 	}
+
+	kfree(cmd);
 	return 0;
 }
 
@@ -401,6 +409,7 @@ static int wifi_nvm_parse(const char *path, void *p_data)
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0)
 	loff_t file_offset = 0;
 #endif
+	int ret = 0;
 
 	pr_info("%s()...\n", __func__);
 
@@ -436,27 +445,45 @@ static int wifi_nvm_parse(const char *path, void *p_data)
 	fput(file);
 
 	pr_info("%s read %s data_len:0x%x\n", __func__, path, buffer_len);
-	wifi_nvm_buf_operate(buffer, buffer_len, p_data);
+	ret = wifi_nvm_buf_operate(buffer, buffer_len, p_data);
 	vfree(buffer);
-	pr_info("%s(), ok!\n", __func__);
-	return 0;
+	pr_info("%s(), parsing ini data result=%d\n", __func__, ret);
+	return ret;
 }
 
 int get_wifi_config_param(struct wifi_conf_t *p)
 {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0)
+	if (wcn_get_chip_type() == WCN_CHIP_ID_INVALID) {
+		pr_err("%s, marlin chip ID is invalid\n", __func__);
+		return -1;
+	} else if (wcn_get_chip_type() == WCN_CHIP_ID_AA) {
+		pr_info("%s, chip id of marlin3 lite is %d, open %s\n",
+			__func__, wcn_get_chip_type(), SYSTEM_WIFI_AA_CONFIG_FILE);
+		return wifi_nvm_parse(SYSTEM_WIFI_AA_CONFIG_FILE, (void *)p);
+	}
+	pr_info("%s, chip id of marlin3 lite is %d, open %s\n",
+		__func__, wcn_get_chip_type(), SYSTEM_WIFI_CONFIG_FILE);
+	return wifi_nvm_parse(SYSTEM_WIFI_CONFIG_FILE, (void *)p);
+#else
 #define CHIPID_REG 0x4083c208
 #define MARLIN_AB_CHIPID 0x23550001
 #define MARLIN_AC_CHIPID 0x23550002
+#define MARLIN_AD_CHIPID 0x23550003
 	unsigned long int chip_id = 0;
 	int ret = 0;
 
 	ret = sprdwcn_bus_reg_read(CHIPID_REG, &chip_id, 4);
 	if (ret < 0) {
 		pr_err("%s,marlin read chip ID fail\n", __func__);
+		return -1;
 	}
 	pr_info("marlin: chipid=%lx, %s\n", chip_id, __func__);
 	if (chip_id == MARLIN_AB_CHIPID)
 		return wifi_nvm_parse(SYSTEM_WIFI_AB_CONFIG_FILE, (void *)p);
+	else if (chip_id == MARLIN_AC_CHIPID)
+		return wifi_nvm_parse(SYSTEM_WIFI_AC_CONFIG_FILE, (void *)p);
 	return wifi_nvm_parse(SYSTEM_WIFI_CONFIG_FILE, (void *)p);
+#endif
 }
 

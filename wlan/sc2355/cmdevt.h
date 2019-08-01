@@ -172,6 +172,7 @@ enum SPRDWL_CMD_LIST {
 	WIFI_CMD_RADAR_DETECT = 77,
 	WIFI_CMD_HANG_RECEIVED = 78,
 	WIFI_CMD_RESET_BEACON = 79,
+	WIFI_CMD_VOWIFI_DATA_PROTECT = 80,
 	/*Please add new command above line,
 	* conditional compile flag is not recommended
 	*/
@@ -326,12 +327,6 @@ struct sprdwl_cmd_fw_info {
 #define TX_WITH_CREDIT	(0)
 #define TX_NO_CREDIT	(1)
 	unsigned char credit_capa;
-
-#define SPRDWL_EXTEND_FEATURE_SAE          BIT(0)
-#define SPRDWL_EXTEND_FEATURE_OWE          BIT(1)
-#define SPRDWL_EXTEND_FEATURE_DPP          BIT(2)
-#define SPRDWL_EXTEND_8021X_SUITE_B_192    BIT(3)
-	__le32 extend_feature;
 };
 
 /* WIFI_CMD_OPEN */
@@ -397,7 +392,6 @@ struct sprdwl_cmd_set_ie {
 #define	SPRDWL_IE_ASSOC_RESP		4
 #define	SPRDWL_IE_BEACON_HEAD		5
 #define	SPRDWL_IE_BEACON_TAIL		6
-#define	SPRDWL_IE_SAE			7
 	u8 type;
 	__le16 len;
 	u8 data[0];
@@ -662,6 +656,7 @@ enum SPRDWL_EVENT_LIST {
 	WIFI_EVENT_MIC_FAIL,
 	WIFI_EVENT_GSCAN_FRAME = 0X88,
 	WIFI_EVENT_RSSI_MONITOR = 0x89,
+	WIFI_EVENT_COEX_BT_ON_OFF = 0x90,
 
 	/* SoftAP */
 	WIFI_EVENT_NEW_STATION = 0xA0,
@@ -846,6 +841,8 @@ struct sprdwl_cmd_set_assert {
 #define RSP_CNT_ERROR 1
 #define HANDLE_FLAG_ERROR 2
 #define CMD_RSP_TIMEOUT_ERROR 3
+#define LOAD_INI_DATA_FAILED 4
+#define DOWNLOAD_INI_DATA_FAILED 5
 	u8 reason;
 } __packed;
 
@@ -869,6 +866,12 @@ struct event_wfd_mib_cnt {
 	u32 tx_frame_cnt;
 	u32 rx_clear_cnt;
 	u32 mib_cycle_cnt;
+} __packed;
+
+struct event_coex_mode_changed {
+#define BT_ON 1
+#define BT_OFF 0
+	u8 action;
 } __packed;
 
 void sprdwl_cmd_init(void);
@@ -926,7 +929,7 @@ int sprdwl_api_available_check(struct sprdwl_priv *priv,
 		struct sprdwl_msg_buf *msg);
 int need_compat_operation(struct sprdwl_priv *priv, u8 cmd_id);
 /*driver & fw API sync function end*/
-/*void sprdwl_download_ini(struct sprdwl_priv *priv);*/
+void sprdwl_download_ini(struct sprdwl_priv *priv);
 int sprdwl_get_fw_info(struct sprdwl_priv *priv);
 int sprdwl_set_regdom(struct sprdwl_priv *priv, u8 *regdom, u32 len);
 int sprdwl_set_rts(struct sprdwl_priv *priv, u16 rts_threshold);
@@ -1034,7 +1037,10 @@ int sprdwl_set_11v_feature_support(struct sprdwl_priv *priv,
 int sprdwl_set_11v_sleep_mode(struct sprdwl_priv *priv, u8 vif_ctx_id,
 			      u8 status, u16 interval);
 int sprdwl_xmit_data2cmd(struct sk_buff *skb, struct net_device *ndev);
-int sprdwl_xmit_dhcp2cmd(struct sk_buff *skb, struct net_device *ndev);
+int sprdwl_xmit_data2cmd_wq(struct sk_buff *skb, struct net_device *ndev);
+int sprdwl_send_vowifi_data_prot(struct sprdwl_priv *priv, u8 ctx_id,
+				  void *data, int len);
+void sprdwl_vowifi_data_protection(struct sprdwl_vif *vif);
 int sprdwl_get_gscan_capabilities(struct sprdwl_priv *priv, u8 vif_ctx_id,
 				  u8 *r_buf, u16 *r_len);
 int sprdwl_get_gscan_channel_list(struct sprdwl_priv *priv, u8 vif_ctx_id,

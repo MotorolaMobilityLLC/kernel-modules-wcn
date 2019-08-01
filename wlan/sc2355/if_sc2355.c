@@ -119,6 +119,13 @@ void sprdwl_get_tx_avg_time(struct sprdwl_intf *intf,
 }
 #endif
 
+void set_coex_bt_on_off(u8 action)
+{
+	struct sprdwl_intf *intf = get_intf();
+
+	intf->coex_bt_on = action;
+}
+
 unsigned long mbufalloc = 0;
 unsigned long mbufpop = 0;
 
@@ -141,7 +148,7 @@ int if_tx_one(struct sprdwl_intf *intf, unsigned char *data,
 	mbuf->buf = data;
 	mbuf->len = len;
 	mbuf->next = NULL;
-	if (sprdwl_debug_level >= L_INFO)
+	if (sprdwl_debug_level >= L_DBG)
 		sprdwl_hex_dump("tx to cp2 cmd data dump", data + 4, len);
 	if (intf->priv->hw_type == SPRDWL_HW_SC2355_PCIE) {
 		mbuf->phy = mm_virt_to_phys(&intf->pdev->dev, mbuf->buf,
@@ -299,7 +306,8 @@ int sprdwl_intf_tx_list(struct sprdwl_intf *dev,
 			struct list_head *tx_list,
 			struct list_head *tx_list_head,
 			int tx_count,
-			int ac_index)
+			int ac_index,
+			u8 coex_bt_on)
 {
 #define PCIE_TX_NUM 96
 	int ret, i = 0, j = PCIE_TX_NUM, pcie_count = 0, cnt = 0, num = 0;
@@ -383,6 +391,8 @@ int sprdwl_intf_tx_list(struct sprdwl_intf *dev,
 			dev->hif_offset;
 		dscr = (struct tx_msdu_dscr *)msg_pos->tran_data;
 		dscr->color_bit = sprdwl_fc_set_clor_bit(tx_msg, i + 1);
+		tx_msg->seq_num++;
+		dscr->seq_num = tx_msg->seq_num;
 /*TODO*/
 		if (sprdwl_debug_level >= L_DBG) {
 			int print_len = msg_pos->len;
@@ -480,7 +490,12 @@ int sprdwl_intf_tx_list(struct sprdwl_intf *dev,
 		return ret;
 	}
 
-	ret = sprdwcn_bus_push_list_direct(dev->tx_data_port,
+	/*BT is on: call sdiohal_txthread to send data.*/
+	if (coex_bt_on)
+		ret = sprdwcn_bus_push_list(dev->tx_data_port,
+					   head, tail, tx_count);
+	else
+		ret = sprdwcn_bus_push_list_direct(dev->tx_data_port,
 					   head, tail, tx_count);
 	if (ret != 0) {
 		sprdwcn_bus_list_free(dev->tx_data_port, head, tail, tx_count);
@@ -488,16 +503,18 @@ int sprdwl_intf_tx_list(struct sprdwl_intf *dev,
 					ac_index, tx_count);
 		wl_err("%s:%d err Tx data fail\n", __func__, __LINE__);
 		mbufalloc -= tx_count;
+		tx_msg->seq_num -= tx_count;
 	} else {
 #if defined(MORE_DEBUG)
 		UPDATE_TX_PACKETS(dev, tx_count, tx_bytes);
 #endif
 		INIT_LIST_HEAD(tx_list_head);
 		tx_packets += tx_count;
-		wl_info("%s, %d, tx count=%d, total=%lu, mbufalloc=%lu, mbufpop=%lu\n",
-			__func__, __LINE__, tx_count, tx_packets,
+		wl_info("%s,tx_count=%d,total=%lu,mbuf=%lu,%lu\n",
+			__func__, tx_count, tx_packets,
 			mbufalloc, mbufpop);/*TODO*/
-		sprdwl_add_topop_list(dev->tx_data_port, head, tail, tx_count);
+		if (!coex_bt_on)
+			sprdwl_add_topop_list(dev->tx_data_port, head, tail, tx_count);
 	}
 	return ret;
 }
@@ -616,12 +633,16 @@ int sprdwl_intf_fill_msdu_dscr(struct sprdwl_vif *vif,
 	unsigned char dscr_rsvd = 0;
 	struct ethhdr *ethhdr = (struct ethhdr *)skb->data;
 	u8 is_special_data = 0;
+	bool is_vowifi2cmd = false;
 #define DSCR_LEN	11
 #define MSG_PTR_LEN 8
 
 	if (ethhdr->h_proto == htons(ETH_P_ARP) ||
 		ethhdr->h_proto == htons(ETH_P_TDLS) ||
 		ethhdr->h_proto == htons(ETH_P_PREAUTH))
+		is_special_data = 1;
+	else if ((type == SPRDWL_TYPE_CMD) &&
+		 is_vowifi_pkt(skb, &is_vowifi2cmd))
 		is_special_data = 1;
 
 	dev = (struct sprdwl_intf *)(vif->priv->hw_priv);
@@ -915,8 +936,8 @@ static int sprdwl_sc2355_rx_handle(int chn, struct mbuf_t *head,
 	struct sprdwl_rx_if *rx_if = (struct sprdwl_rx_if *)intf->sprdwl_rx;
 	struct sprdwl_msg_buf *msg = NULL;
 
-	wl_info("%s: channel:%d head:%p tail:%p num:%d\n",
-		__func__, chn, head, tail, num);
+	wl_debug("%s: channel:%d head:%p tail:%p num:%d\n",
+		 __func__, chn, head, tail, num);
 
 	/*To process credit earlier*/
 	if (intf->priv->hw_type == SPRDWL_HW_SC2355_SDIO) {
@@ -958,8 +979,8 @@ static int sprdwl_sc2355_data_rx_handle(int chn, struct mbuf_t *head,
 	struct sprdwl_rx_if *rx_if = (struct sprdwl_rx_if *)intf->sprdwl_rx;
 	struct sprdwl_msg_buf *msg = NULL;
 
-	wl_info("%s: channel:%d head:%p tail:%p num:%d\n",
-		__func__, chn, head, tail, num);
+	wl_debug("%s: channel:%d head:%p tail:%p num:%d\n",
+		 __func__, chn, head, tail, num);
 
 	/* FIXME: Should we use replace msg? */
 	msg = sprdwl_alloc_msg_buf(&rx_if->rx_data_list);
@@ -1141,7 +1162,7 @@ int sprdwl_tx_free_pcie_data(struct sprdwl_intf *dev, unsigned char *data,
 
 int sprdwl_tx_cmd_pop_list(int channel, struct mbuf_t *head, struct mbuf_t *tail, int num)
 {
-	int i, count = 0;
+	int count = 0;
 	struct mbuf_t *pos = NULL;
 	struct sprdwl_intf *intf = get_intf();
 	struct sprdwl_tx_msg *tx_msg;
@@ -1151,9 +1172,6 @@ int sprdwl_tx_cmd_pop_list(int channel, struct mbuf_t *head, struct mbuf_t *tail
 		 __func__, channel, head, tail, num);
 
 	tx_msg = (struct sprdwl_tx_msg *)intf->sprdwl_tx;
-	if (head->buf)
-		for (i = 0; i < head->len; i++)
-			wl_debug("%s i%d 0x%x\n", __func__, i, head->buf[i]);
 
 	wl_debug("%s len: %d buf: %s\n", __func__, head->len, head->buf + 4);
 
@@ -1182,7 +1200,7 @@ int sprdwl_tx_cmd_pop_list(int channel, struct mbuf_t *head, struct mbuf_t *tail
 	}
 
 	tx_msg->cmd_poped += num;
-	wl_info("tx_cmd_pop add num: %d=cmd_poped%d, cmd_send%d\n",
+	wl_info("tx_cmd_pop num: %d,cmd_poped=%d, cmd_send=%d\n",
 		num, tx_msg->cmd_poped, tx_msg->cmd_send);
 	sprdwcn_bus_list_free(channel, head, tail, num);
 
@@ -1491,7 +1509,7 @@ void sprdwl_tx_addba(struct sprdwl_intf *intf,
 
 	addba.lut_index = peer_entry->lut_index;
 	ether_addr_copy(addba.perr_mac_addr, peer_entry->tx.da);
-	wl_info("at %s, lut_index is %d\n", __func__, peer_entry->lut_index);
+	wl_info("%s, lut=%d, tid=%d\n", __func__, peer_entry->lut_index, tid);
 	addba.dialog_token = 1;
 	addba.addba_param.amsdu_permit = 0;
 	addba.addba_param.ba_policy = DOT11_ADDBA_POLICY_IMMEDIATE;

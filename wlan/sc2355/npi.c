@@ -20,6 +20,12 @@
 #include <linux/uaccess.h>
 #include <net/genetlink.h>
 #include <linux/types.h>
+#include <linux/version.h>
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0)
+#include <misc/marlin_platform.h>
+#else
+#include <linux/marlin_platform.h>
+#endif
 
 #include "sprdwl.h"
 #include "npi.h"
@@ -161,6 +167,11 @@ static int sprdwl_nl_npi_handler(struct sk_buff *skb_2, struct genl_info *info)
 	unsigned char *s_buf = NULL, *r_buf = NULL;
 	unsigned char dbgstr[64] = { 0 };
 	int err = -100, ret = 0;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0)
+	const char *id_name = NULL;
+	unsigned char status = 0;
+	const char *vendor = "UniSoC,";
+#endif
 
 	ndev = info->user_ptr[0];
 	vif = netdev_priv(ndev);
@@ -198,11 +209,29 @@ static int sprdwl_nl_npi_handler(struct sk_buff *skb_2, struct genl_info *info)
 	sprintf(dbgstr, "[iwnpi][SEND][%d]:", s_len);
 	hdr = (struct sprdwl_npi_cmd_hdr *)s_buf;
 	wl_err("%s type is %d, subtype %d\n", dbgstr, hdr->type, hdr->subtype);
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0)
+	if(hdr->subtype == SPRDWL_NPI_CMD_GET_CHIPID) {
+		id_name = wcn_get_chip_name();
+		sprintf(r_buf, "%d", status);
+		strcat(r_buf, vendor);
+		strcat(r_buf, id_name);
+		r_len = strlen(r_buf);
+		wl_err("r_len = %d, %s\n", r_len, __func__);
+	} else {
+		sprdwl_npi_send_recv(priv, vif->ctx_id, s_buf, s_len, r_buf, &r_len);
+
+		sprintf(dbgstr, "[iwnpi][RECV][%d]:", r_len);
+		hdr = (struct sprdwl_npi_cmd_hdr *)r_buf;
+		wl_err("%s type is %d, subtype %d\n", dbgstr, hdr->type, hdr->subtype);
+	}
+#else
 	sprdwl_npi_send_recv(priv, vif->ctx_id, s_buf, s_len, r_buf, &r_len);
 
 	sprintf(dbgstr, "[iwnpi][RECV][%d]:", r_len);
 	hdr = (struct sprdwl_npi_cmd_hdr *)r_buf;
 	wl_err("%s type is %d, subtype %d\n", dbgstr, hdr->type, hdr->subtype);
+#endif
 
 	ret = sprdwl_nl_send_generic(info, SPRDWL_NL_ATTR_CP2AP,
 				     SPRDWL_NL_CMD_NPI, r_len, r_buf);

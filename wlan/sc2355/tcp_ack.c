@@ -57,6 +57,7 @@ void sprdwl_tcp_ack_init(struct sprdwl_priv *priv)
 	}
 
 	atomic_set(&ack_m->enable, 1);
+	ack_m->ack_winsize = MIN_WIN;
 }
 
 void sprdwl_tcp_ack_deinit(struct sprdwl_priv *priv)
@@ -115,7 +116,8 @@ static int sprdwl_tcp_check_quick_ack(unsigned char *buf,
 	return 0;
 }
 
-static int is_drop_tcp_ack(struct tcphdr *tcphdr, int tcp_tot_len)
+static int is_drop_tcp_ack(struct tcphdr *tcphdr, int tcp_tot_len,
+				unsigned short *win_scale)
 {
 	int drop = 1;
 	int len = tcphdr->doff * 4;
@@ -148,6 +150,10 @@ static int is_drop_tcp_ack(struct tcphdr *tcphdr, int tcp_tot_len)
 				/* TODO: Add other ignore opt */
 				case TCPOPT_TIMESTAMP:
 					break;
+				case TCPOPT_WINDOW:
+					if (*ptr < 15)
+						*win_scale = (1 << (*ptr));
+					break;
 				default:
 					drop = 2;
 				}
@@ -166,7 +172,8 @@ static int is_drop_tcp_ack(struct tcphdr *tcphdr, int tcp_tot_len)
  *	2 for other ack whith more info
  */
 static int sprdwl_tcp_check_ack(unsigned char *buf,
-				struct sprdwl_tcp_ack_msg *msg)
+				struct sprdwl_tcp_ack_msg *msg,
+				unsigned short *win_scale)
 {
 	int ret;
 	int ip_hdr_len;
@@ -190,15 +197,15 @@ static int sprdwl_tcp_check_ack(unsigned char *buf,
 		return 0;
 
 	tcp_tot_len = ntohs(iphdr->tot_len) - ip_hdr_len;
-	ret = is_drop_tcp_ack(tcphdr, tcp_tot_len);
+	ret = is_drop_tcp_ack(tcphdr, tcp_tot_len, win_scale);
 
-	if (ret > 0)
-	{
+	if (ret > 0) {
 		msg->saddr = iphdr->saddr;
 		msg->daddr = iphdr->daddr;
 		msg->source = tcphdr->source;
 		msg->dest = tcphdr->dest;
 		msg->seq = ntohl(tcphdr->ack_seq);
+		msg->win = ntohs(tcphdr->window);
 	}
 
 	return ret;
@@ -307,6 +314,7 @@ int sprdwl_tcp_ack_handle(struct sprdwl_msg_buf *new_msgbuf,
 	struct sprdwl_msg_buf *drop_msg = NULL;
 
 	write_seqlock_bh(&ack_info->seqlock);
+
 	ack_info->last_time = jiffies;
 	ack = &ack_info->ack_msg;
 
@@ -409,6 +417,8 @@ int sprdwl_filter_send_tcp_ack(struct sprdwl_priv *priv,
 {
 	int ret = 0;
 	int index, drop;
+	unsigned short win_scale = 0;
+	unsigned int win = 0;
 	struct sprdwl_tcp_ack_msg ack_msg;
 	struct sprdwl_tcp_ack_msg *ack;
 	struct sprdwl_tcp_ack_info *ack_info;
@@ -421,15 +431,29 @@ int sprdwl_filter_send_tcp_ack(struct sprdwl_priv *priv,
 		return 0;
 
 	sprdwl_tcp_ack_update(ack_m);
-	drop = sprdwl_tcp_check_ack(buf, &ack_msg);
-	if (!drop)
+	drop = sprdwl_tcp_check_ack(buf, &ack_msg, &win_scale);
+	if (!drop && (0 == win_scale))
 		return 0;
 
 	index = sprdwl_tcp_ack_match(ack_m, &ack_msg);
 	if (index >= 0) {
 		ack_info = ack_m->ack_info + index;
-		ret = sprdwl_tcp_ack_handle(msgbuf, ack_m, ack_info,
-					    &ack_msg, drop);
+		if ((0 != win_scale) &&
+			(ack_info->win_scale != win_scale)) {
+			write_seqlock_bh(&ack_info->seqlock);
+			ack_info->win_scale = win_scale;
+			write_sequnlock_bh(&ack_info->seqlock);
+		}
+
+		if (drop > 0) {
+			win = ack_info->win_scale * ack_msg.win;
+			if (win < (ack_m->ack_winsize * SIZE_KB))
+				drop = 2;
+
+			ret = sprdwl_tcp_ack_handle(msgbuf, ack_m, ack_info,
+						&ack_msg, drop);
+		}
+
 		goto out;
 	}
 
@@ -441,6 +465,8 @@ int sprdwl_filter_send_tcp_ack(struct sprdwl_priv *priv,
 		ack_m->ack_info[index].last_time = jiffies;
 		ack_m->ack_info[index].drop_cnt =
 			atomic_read(&ack_m->max_drop_cnt);
+		ack_m->ack_info[index].win_scale =
+			(win_scale != 0) ? win_scale : 1;
 
 		ack = &ack_m->ack_info[index].ack_msg;
 		ack->dest = ack_msg.dest;
@@ -535,12 +561,34 @@ void adjust_tcp_ack_delay(char *buf, unsigned char offset)
 	ack_m = &g_sprdwl_priv->ack_m;
 	wl_err("cnt: %d\n", cnt);
 
-	if ((cnt < 0) || (cnt >= (100)))
-	{
+	if (cnt >= 100)
 		cnt = SPRDWL_TCP_ACK_DROP_CNT;
-	}
 
 	atomic_set(&ack_m->max_drop_cnt, cnt);
 	wl_err("drop time: %d, atomic drop time: %d\n", cnt, atomic_read(&ack_m->max_drop_cnt));
 #undef MAX_LEN
+}
+
+void adjust_tcp_ack_delay_win(char *buf, unsigned char offset)
+{
+	unsigned int value = 0;
+	unsigned int i = 0;
+	unsigned int len = strlen(buf) - strlen("tcpack_delay_win=");
+	struct sprdwl_tcp_ack_manage *ack_m = NULL;
+
+	if (!g_sprdwl_priv)
+		return ;
+
+	for(i = 0; i < len; (value *= 10), i++) {
+		if((buf[offset + i] >= '0') &&
+		   (buf[offset + i] <= '9')) {
+			value += (buf[offset + i] - '0');
+		} else {
+			value /= 10;
+			break;
+		}
+	}
+	ack_m = &g_sprdwl_priv->ack_m;
+	ack_m->ack_winsize = value;
+	wl_err("%s, change tcpack_delay_win to %dKB\n", __func__, value);
 }

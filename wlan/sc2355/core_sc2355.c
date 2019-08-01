@@ -91,6 +91,26 @@ void adjust_qos_ratio(char *buf, unsigned char offset)
 	       vo_ratio, vi_ratio, be_ratio, wmmac_ratio);
 }
 
+unsigned int new_threshold = 0;
+void adjust_tdls_threshold(char *buf, unsigned char offset)
+{
+	unsigned int value = 0;
+	unsigned int i = 0;
+	unsigned int len = strlen(buf) - strlen("tdls_threshold=");
+
+	for(i = 0; i < len; (value *= 10), i++) {
+		if((buf[offset + i] >= '0') &&
+		   (buf[offset + i] <= '9')) {
+			value += (buf[offset + i] - '0');
+		} else {
+			value /= 10;
+			break;
+		}
+	}
+	new_threshold = value;
+	wl_err("%s, change tdls_threshold to %d\n", __func__, value);
+}
+
 struct debuginfo_s {
 	void (*func)(char *, unsigned char offset);
 	char str[30];
@@ -100,6 +120,8 @@ struct debuginfo_s {
 	{adjust_ts_cnt_debug, "debug_info="},
 	{enable_tcp_ack_delay, "tcpack_delay_en="},
 	{adjust_tcp_ack_delay, "tcpack_delay_cnt="},
+	{adjust_tcp_ack_delay_win, "tcpack_delay_win="},
+	{adjust_tdls_threshold, "tdls_threshold="},
 };
 
 /* TODO: Could we use netdev_alloc_frag instead of kmalloc?
@@ -228,6 +250,8 @@ void count_tdls_flow(struct sprdwl_vif *vif, u8 *data, u16 len)
 	return;
 
 count_it:
+	if (new_threshold != 0)
+		intf->tdls_flow_count[i].threshold = new_threshold;
 	kt = ktime_get();
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0)
 	msec = (u32)(div_u64(kt, NSEC_PER_MSEC));
@@ -237,18 +261,18 @@ count_it:
 	elapsed_time =
 		(msec - intf->tdls_flow_count[i].start_mstime) / MSEC_PER_SEC;
 	unit_time = elapsed_time / intf->tdls_flow_count[i].timer;
-	wl_info("%s,%d, tdls_id=%d, len_counted=%d, len=%d, threshold=%d\n",
+	wl_info("%s,%d, tdls_id=%d, len_counted=%d, len=%d, threshold=%dK\n",
 		__func__, __LINE__, i,
 		intf->tdls_flow_count[i].data_len_counted, len,
 		intf->tdls_flow_count[i].threshold);
-	wl_info("currenttime=%u, elapsetime=%d, how_many_time=%d\n",
+	wl_info("currenttime=%u, elapsetime=%d, unit_time=%d\n",
 		msec, elapsed_time, unit_time);
 
 	if ((intf->tdls_flow_count[i].data_len_counted == 0 &&
-	     len > intf->tdls_flow_count[i].threshold) ||
+	     len > (intf->tdls_flow_count[i].threshold * 1024)) ||
 	    (intf->tdls_flow_count[i].data_len_counted > 0 &&
 	    ((intf->tdls_flow_count[i].data_len_counted + len) >
-	     intf->tdls_flow_count[i].threshold *
+	     intf->tdls_flow_count[i].threshold * 1024 *
 	     ((unit_time == 0) ? 1 : unit_time)))) {
 		ret = sprdwl_send_tdls_cmd(vif, vif->ctx_id,
 					   (u8 *)intf->tdls_flow_count[i].da,

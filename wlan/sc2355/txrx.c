@@ -71,10 +71,12 @@ int sprdwl_send_data(struct sprdwl_vif *vif, struct sprdwl_msg_buf *msg,
 		wl_err("%s TX data Err: %d\n", __func__, ret);
 
 	if (intf->tdls_flow_count_enable == 1 &&
-		vif->sm_state == SPRDWL_CONNECTED)
+		vif->sm_state == SPRDWL_CONNECTED) {
+#define DSCR_LEN 11
 		count_tdls_flow(vif,
-				skb->data + offset + intf->hif_offset,
-				skb->len - offset - intf->hif_offset);
+				skb->data + offset + DSCR_LEN,
+				skb->len - offset - DSCR_LEN);
+	}
 
 	return ret;
 }
@@ -151,6 +153,7 @@ void sprdwl_rx_skb_process(struct sprdwl_priv *priv, struct sk_buff *skb)
 	struct rx_msdu_desc *msdu_desc = NULL;
 	struct sk_buff *tx_skb = NULL;
 	struct sprdwl_intf *intf;
+	struct ethhdr *eth;
 
 	intf = (struct sprdwl_intf *)priv->hw_priv;
 
@@ -182,6 +185,16 @@ void sprdwl_rx_skb_process(struct sprdwl_priv *priv, struct sk_buff *skb)
 	ndev = vif->ndev;
 	skb_reserve(skb, msdu_desc->msdu_offset);
 	skb_put(skb, msdu_desc->msdu_len);
+
+	eth = (struct ethhdr *)skb->data;
+	if (eth->h_proto == htons(ETH_P_IPV6))
+		if(ether_addr_equal(skb->data, skb->data + ETH_ALEN)) {
+			wl_err("%s, drop loopback pkt, macaddr:%02x:%02x:%02x:%02x:%02x:%02x\n",
+				__func__, skb->data[0], skb->data[1], skb->data[2],
+				skb->data[3], skb->data[4], skb->data[5]);
+			goto err;
+		}
+
 	if (intf->tdls_flow_count_enable == 1)
 		count_tdls_flow(vif,
 				skb->data + ETH_ALEN,

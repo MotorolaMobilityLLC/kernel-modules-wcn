@@ -75,6 +75,8 @@ struct sprdwl_peer_entry {
 	/*tx ba done based on tid*/
 	unsigned long ba_tx_done_map;
 	u8 vowifi_enabled;
+	u8 vowifi_pkt_cnt;
+	struct timespec time[6 + 1];
 };
 
 #if defined(MORE_DEBUG)
@@ -117,8 +119,8 @@ struct tdls_flow_count_para {
 	u8 valid;
 	u8 da[ETH_ALEN];
 	/*u8 timer;seconds*/
-	u16 threshold;/*bytes*/
-	u16 data_len_counted;/*bytes*/
+	u16 threshold;/*KBytes*/
+	u32 data_len_counted;/*bytes*/
 	u32 start_mstime;/*ms*/
 	u8 timer;/*seconds*/
 };
@@ -187,6 +189,8 @@ struct sprdwl_intf {
 	unsigned long sleep_time;
 
 	u8 cp_asserted;
+	/*wifi bt coex mode, 1:BT is on, 0:BT is off*/
+	u8 coex_bt_on;
 };
 
 /* HashTable */
