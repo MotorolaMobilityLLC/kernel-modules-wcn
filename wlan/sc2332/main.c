@@ -609,10 +609,13 @@ static int sprdwl_set_p2p_mac(struct net_device *ndev, struct ifreq *ifr)
 
 	memcpy(addr, command + 11, ETH_ALEN);
 	netdev_info(ndev, "p2p dev random addr is %pM\n", addr);
-	if (!is_valid_ether_addr(addr)) {
+	if (is_multicast_ether_addr(addr)) {
 		netdev_err(ndev, "%s invalid addr\n", __func__);
 		ret = -EINVAL;
 		goto out;
+	} else if (is_zero_ether_addr(addr)) {
+		netdev_info(ndev, "restore to vif addr if addr is zero \n");
+		memcpy(addr, vif->mac, ETH_ALEN);
 	}
 	ret = sprdwl_set_random_mac(vif->priv, SPRDWL_MODE_P2P_DEVICE, addr);
 	if (ret) {
