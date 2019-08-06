@@ -136,6 +136,7 @@ enum SPRDWL_CMD_LIST {
 	WIFI_CMD_MIRACAST = 60,
 	WIFI_CMD_MAX_STA = 61,
 	WIFI_CMD_RANDOM_MAC = 63,
+	WIFI_CMD_PACKET_OFFLOAD = 64,
 	WIFI_CMD_MAX
 };
 
@@ -541,6 +542,15 @@ struct sprdwl_cmd_11v {
 		u32 value;
 		u8 buf[0];
 	};
+} __packed;
+
+/* packet offload struct */
+struct sprdwl_cmd_packet_offload {
+	u32 req_id;
+	u8 enable;
+	u32 period;
+	u16 len;
+	u8 data[0];
 } __packed;
 
 enum SPRDWL_EVENT_LIST {

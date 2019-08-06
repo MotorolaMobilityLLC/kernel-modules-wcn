@@ -95,6 +95,7 @@ static const char *cmd2str(u8 cmd)
 	C2S(WIFI_CMD_MIRACAST)
 	C2S(WIFI_CMD_MAX_STA)
 	C2S(WIFI_CMD_RANDOM_MAC)
+	C2S(WIFI_CMD_PACKET_OFFLOAD)
 	default : return "WIFI_CMD_UNKNOWN";
 	}
 #undef C2S
@@ -1507,6 +1508,30 @@ int sprdwl_set_11v_sleep_mode(struct sprdwl_priv *priv, u8 vif_mode,
 
 	return sprdwl_cmd_send_recv(priv, msg, CMD_WAIT_TIMEOUT,
 				    (u8 *)&state, &rlen);
+}
+
+int sprdwl_set_packet_offload(struct sprdwl_priv *priv, u8 vif_mode,
+			      u32 req, u8 enable, u32 interval,
+			      u32 len, u8 *data)
+{
+	struct sprdwl_msg_buf *msg;
+	struct sprdwl_cmd_packet_offload *p;
+
+	msg = sprdwl_cmd_getbuf(priv, sizeof(*p) + len, vif_mode,
+				SPRDWL_HEAD_RSP, WIFI_CMD_PACKET_OFFLOAD);
+	if (!msg)
+		return -ENOMEM;
+	p = (struct sprdwl_cmd_packet_offload *)msg->data;
+
+	p->enable = enable;
+	p->req_id = req;
+	if (enable) {
+		p->period = interval;
+		p->len = len;
+		memcpy(p->data, data, len);
+	}
+
+	return sprdwl_cmd_send_recv(priv, msg, CMD_WAIT_TIMEOUT, NULL, NULL);
 }
 
 int sprdwl_xmit_data2mgmt(struct sk_buff *skb, struct net_device *ndev)

@@ -124,6 +124,7 @@ enum sprdwl_vendor_subcommand_id {
 	SPRDWL_VENDOR_SUBCMD_WIFI_LOGGER_MEMORY_DUMP = 63,
 	SPRDWL_VENDOR_SUBCMD_GET_LOGGER_FEATURE_SET = 76,
 	SPRDWL_VENDOR_SUBCMD_GET_RING_DATA = 77,
+	SPRDWL_VENDOR_SUBCMD_OFFLOADED_PACKETS = 79,
 	SPRDWL_VENDOR_SUBCMD_ENABLE_ND_OFFLOAD = 82,
 	SPRDWL_VENDOR_SUBCMD_GET_WAKE_REASON_STATS = 85,
 	SPRDWL_VENDOR_SET_COUNTRY_CODE = 0x100E,
@@ -589,6 +590,26 @@ enum SPRDWL_GSCAN_results {
 	GSCAN_RESULTS_MAX,
 };
 
+enum offloaded_packets_sending_control {
+	OFFLOADED_PACKETS_SENDING_CONTROL_INVALID = 0,
+	OFFLOADED_PACKETS_SENDING_START,
+	OFFLOADED_PACKETS_SENDING_STOP
+};
+
+enum sprdwl_attr_offloaded_packets {
+	OFFLOADED_PACKETS_INVALID = 0,
+	OFFLOADED_PACKETS_SENDING_CONTROL,
+	OFFLOADED_PACKETS_REQUEST_ID,
+	OFFLOADED_PACKETS_IP_PACKET_DATA,
+	OFFLOADED_PACKETS_SRC_MAC_ADDR,
+	OFFLOADED_PACKETS_DST_MAC_ADDR,
+	OFFLOADED_PACKETS_PERIOD,
+	OFFLOADED_PACKETS_ETHER_PROTO_TYPE,
+	OFFLOADED_PACKETS_AFTER_LAST,
+	OFFLOADED_PACKETS_MAX =
+	OFFLOADED_PACKETS_AFTER_LAST - 1,
+};
+
 /* NL attributes for data used by
  * NL80211_VENDOR_SUBCMD_GET_WAKE_REASON_STATS.
  */
@@ -953,4 +974,7 @@ int sprdwl_gscan_done(struct sprdwl_vif *vif, u8 bucketid);
 int sprdwl_buffer_full_event(struct sprdwl_vif *vif);
 int sprdwl_available_event(struct sprdwl_vif *vif);
 int sprdwl_report_acs_lte_event(struct sprdwl_vif *vif);
+int sprdwl_set_packet_offload(struct sprdwl_priv *priv, u8 vif_mode,
+			      u32 req, u8 enable, u32 interval,
+			      u32 len, u8 *data);
 #endif
