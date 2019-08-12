@@ -1709,7 +1709,7 @@ static int sprdwl_start_offload_packet(struct wiphy *wiphy,
 		return -EINVAL;
 	}
 
-	period = nla_get_u32(tb[OFFLOADED_PACKETS_SENDING_CONTROL]);
+	period = nla_get_u32(tb[OFFLOADED_PACKETS_PERIOD]);
 	prot_type = nla_get_u16(tb[OFFLOADED_PACKETS_ETHER_PROTO_TYPE]);
 	prot_type = htons(prot_type);
 	nla_memcpy(src, tb[OFFLOADED_PACKETS_SRC_MAC_ADDR], ETH_ALEN);
