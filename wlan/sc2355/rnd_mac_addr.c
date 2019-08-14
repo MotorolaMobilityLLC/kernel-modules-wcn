@@ -1,7 +1,5 @@
 #include "rnd_mac_addr.h"
 
-u8 rand_addr[ETH_ALEN];
-
 void random_mac_addr(u8 *addr)
 {
 	get_random_bytes(addr, ETH_ALEN);

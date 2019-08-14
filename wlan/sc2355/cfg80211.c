@@ -1300,9 +1300,9 @@ static int sprdwl_cfg80211_scan(struct wiphy *wiphy,
 
 #ifdef RND_MAC_SUPPORT
 	u32 flags = request->flags;
-	static int random_mac_set;
 	int random_mac_flag;
 	static int old_mac_flag;
+	u8 rand_addr[ETH_ALEN];
 #endif
 
 	netdev_info(vif->ndev, "%s n_channels %u\n", __func__,
@@ -1321,14 +1321,9 @@ static int sprdwl_cfg80211_scan(struct wiphy *wiphy,
 
 #ifdef RND_MAC_SUPPORT
 	if (vif->mode == SPRDWL_MODE_STATION) {
-		if (!random_mac_set) {
-			random_mac_addr(rand_addr);
-			random_mac_set = 1;
-		}
+		random_mac_addr(rand_addr);
 		if (flags & NL80211_SCAN_FLAG_RANDOM_ADDR) {
 			random_mac_flag = 1;
-			wl_err("Random MAC support==set value:%d\n",
-			       random_mac_set);
 			wl_err("random mac addr: %pM\n", rand_addr);
 		} else {
 			wl_err("random mac feature disabled\n");
