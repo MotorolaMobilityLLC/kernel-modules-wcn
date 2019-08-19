@@ -790,6 +790,7 @@ int sprdwl_get_fw_info(struct sprdwl_priv *priv)
 		priv->fw_ver = p->fw_version;
 		priv->fw_capa = p->fw_capa;
 		priv->fw_std = p->fw_std;
+		priv->extend_feature = p->extend_feature;
 		priv->max_ap_assoc_sta = p->max_ap_assoc_sta;
 		priv->max_acl_mac_addrs = p->max_acl_mac_addrs;
 		priv->max_mc_mac_addrs = p->max_mc_mac_addrs;
@@ -801,6 +802,9 @@ int sprdwl_get_fw_info(struct sprdwl_priv *priv)
 			wl_info("save wiphy section2 info to sprdwl_priv\n");
 			memcpy(&priv->wiphy_sec2, &p->wiphy_sec2,
 					sizeof(struct wiphy_sec2_t));
+			wl_debug("%s, %d, priv->wiphy_sec2.ht_cap_info=%x\n",
+				 __func__, __LINE__,
+				 priv->wiphy_sec2.ht_cap_info);
 		} else {
 			goto out;
 		}

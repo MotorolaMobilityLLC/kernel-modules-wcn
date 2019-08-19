@@ -597,6 +597,12 @@ static inline u8 sprdwl_parse_akm(u32 akm)
 	case WLAN_AKM_SUITE_8021X_SHA256:
 		ret = SPRDWL_AKM_SUITE_8021X_SHA256;
 		break;
+	case WLAN_AKM_SUITE_OWE:
+		ret = SPRDWL_AKM_SUITE_OWE;
+		break;
+	case WLAN_AKM_SUITE_SAE:
+		ret = SPRDWL_AKM_SUITE_SAE;
+		break;
 	default:
 		ret = SPRDWL_AKM_SUITE_NONE;
 		break;
@@ -1618,6 +1624,7 @@ static int sprdwl_cfg80211_connect(struct wiphy *wiphy, struct net_device *ndev,
 	struct sprdwl_vif *vif = netdev_priv(ndev);
 	struct sprdwl_cmd_connect con;
 	enum sm_state old_state = vif->sm_state;
+	bool ie_set_flag = false;
 	int is_wep = (sme->crypto.cipher_group == WLAN_CIPHER_SUITE_WEP40) ||
 	    (sme->crypto.cipher_group == WLAN_CIPHER_SUITE_WEP104);
 	int ret = -EPERM;
@@ -1639,11 +1646,37 @@ static int sprdwl_cfg80211_connect(struct wiphy *wiphy, struct net_device *ndev,
 
 	/* Set wps ie */
 	if (sme->ie_len > 0) {
+		int i;
+
 		netdev_info(ndev, "set assoc req ie, len %zx\n", sme->ie_len);
-		ret = sprdwl_set_ie(vif->priv, vif->ctx_id, SPRDWL_IE_ASSOC_REQ,
-				    sme->ie, sme->ie_len);
-		if (ret)
-			goto err;
+		for (i = 0; i < sme->ie_len - 6; i++) {
+			if (sme->ie[i] == 0xDD &&
+			    sme->ie[i + 2] == 0x40 &&
+			    sme->ie[i + 3] == 0x45 &&
+			    sme->ie[i + 4] == 0xDA &&
+			    sme->ie[i + 5] == 0x02) {
+				ie_set_flag = true;
+				ret = sprdwl_set_ie(vif->priv, vif->ctx_id,
+						    SPRDWL_IE_ASSOC_REQ,
+						    sme->ie, i);
+				if (ret)
+					goto err;
+				ret = sprdwl_set_ie(vif->priv, vif->ctx_id,
+						    SPRDWL_IE_SAE, sme->ie + i,
+						    (sme->ie_len - i));
+				if (ret)
+					goto err;
+			}
+		}
+
+		if (!ie_set_flag) {
+			ret = sprdwl_set_ie(vif->priv, vif->ctx_id,
+					    SPRDWL_IE_ASSOC_REQ, sme->ie,
+					    sme->ie_len);
+			if (ret)
+				goto err;
+		}
+
 	}
 
 	netdev_info(ndev, "wpa versions %#x\n", sme->crypto.wpa_versions);
@@ -1658,6 +1691,8 @@ static int sprdwl_cfg80211_connect(struct wiphy *wiphy, struct net_device *ndev,
 	else if ((sme->auth_type == NL80211_AUTHTYPE_SHARED_KEY) ||
 		 ((sme->auth_type == NL80211_AUTHTYPE_AUTOMATIC) && is_wep))
 		con.auth_type = SPRDWL_AUTH_SHARED;
+	else if (sme->auth_type == NL80211_AUTHTYPE_SAE)
+		con.auth_type = SPRDWL_AUTH_SAE;
 
 	/* Set pairewise cipher */
 	if (sme->crypto.n_ciphers_pairwise) {
@@ -3158,8 +3193,13 @@ static void sprdwl_ht_cap_update(struct ieee80211_sta_ht_cap *ht_info,
 		ht_info->ampdu_density = ((sec2->ampdu_para >> 2) & 0x7);
 	}
 	/*set HT capabilities map as described in 802.11n spec */
-	if (sec2->ht_cap_info)
+	if (sec2->ht_cap_info) {
 		ht_info->cap = sec2->ht_cap_info;
+		wl_debug("%s, %d, sec2->ht_cap_info=%x\n",
+			 __func__, __LINE__, sec2->ht_cap_info);
+	}
+	wl_debug("%s, %d, ht_info->cap=%x\n", __func__,
+		 __LINE__, ht_info->cap);
 	/*set Supported MCS rates*/
 	memcpy(&ht_info->mcs, &sec2->ht_mcs_set,
 			sizeof(struct ieee80211_mcs_info));
@@ -3392,6 +3432,7 @@ void sprdwl_setup_wiphy(struct wiphy *wiphy, struct sprdwl_priv *priv)
 	wiphy_ext_feature_set(wiphy,
 		NL80211_EXT_FEATURE_SCHED_SCAN_RELATIVE_RSSI);
 #endif
+	wiphy->features |= NL80211_FEATURE_SAE;
 }
 
 static void sprdwl_check_intf_ops(struct sprdwl_if_ops *ops)
