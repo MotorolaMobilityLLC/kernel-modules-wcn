@@ -317,20 +317,17 @@ long fm_ioctl(struct file *filep, unsigned int cmd, unsigned long arg) {
 }
 
 int fm_open(struct inode *inode, struct file *filep) {
-    pr_info("start open SPRD fm module...\n");
-    return 0;
+	struct fm_tune_parm powerup_parm;
+	powerup_parm.freq=875;
+	fm_powerup(&powerup_parm);
+	pr_info("start open SPRD fm module...\n");
+	return 0;
 }
 
 int fm_release(struct inode *inode, struct file *filep) {
-    pr_info("fm_misc_release.\n");
-    pr_info("fm power status:%d\n",fmdev->power_status);
-    if(fmdev->power_status){
-        fm_powerdown();
-    }
-    stop_marlin(MARLIN_FM);
-    wake_up_interruptible(&fmdev->rds_han.rx_queue);
-    fmdev->rds_han.new_data_flag = 1;
-    return 0;
+	pr_info("fm_misc_release, power status:%d\n",fmdev->power_status);
+	fm_powerdown();
+	return 0;
 }
 
 #ifdef CONFIG_COMPAT

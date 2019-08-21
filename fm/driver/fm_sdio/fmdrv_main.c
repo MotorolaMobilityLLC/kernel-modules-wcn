@@ -512,7 +512,7 @@ int fm_write(unsigned char *array, unsigned char len)
 }
 #endif
 
-int fm_powerup(void *arg) {
+int fm_powerup(struct fm_tune_parm *p) {
     struct fm_tune_parm parm;
     unsigned short payload[65];
     int ret = -1;
@@ -520,11 +520,6 @@ int fm_powerup(void *arg) {
     fmdev-> power_status = 0;
     fmdev-> power_status ++;
     fmdev-> fm_pd = 0;
-
-    if (copy_from_user(&parm, arg, sizeof(parm))) {
-        pr_err("fm powerup 's ret value is -eFAULT\n");
-        return -EFAULT;
-    }
 
     if (start_marlin(MARLIN_FM)) {
         pr_err("marlin3 chip %s failed\n", __func__);
@@ -560,6 +555,9 @@ int fm_powerdown(void) {
         return ret;
     }
     /* stop_marlin(MARLIN_FM); */
+    if (stop_marlin(MARLIN_FM) < 0) {
+        pr_info("fm_powerdown stop_marlin failed");
+    }
     return ret;
 }
 
@@ -574,7 +572,7 @@ int fm_tune(void *arg){
         pr_info("fm tune 's ret value is -eFAULT\n");
         return -EFAULT;
     }
-    parm.freq *= 10;
+
 #ifdef RDS_DEBUG
     global_freq = parm.freq;
 #endif
@@ -585,8 +583,7 @@ int fm_tune(void *arg){
         return ret;
     }
     freq = respond_buf[3] + (respond_buf[4] << 8);
-    pr_info("(fmdrv) fm tune have finshed!!status =%d,RSSI=%d\n"
-            "(fmdrv) SNR=%d,freq=%d\n", respond_buf[0], respond_buf[1],respond_buf[2], freq);
+    pr_info("(fmdrv) fm tune have finshed!!status =%d,RSSI=%d,SNR=%d,freq=%d\n", respond_buf[0], respond_buf[1],respond_buf[2], freq);
     return ret;
 }
 /*
@@ -605,7 +602,7 @@ int fm_seek(void *arg) {
         pr_info("fm seek 's ret value is -eFAULT\n");
         return -EFAULT;
     }
-    parm.freq *= 10;
+
     payload[0] = (parm.freq & 0xFF);
     payload[1] = (parm.freq >> 8);
     payload[2] = parm.seekdir;
@@ -641,9 +638,7 @@ int fm_seek(void *arg) {
 	}
 #endif
     parm.freq = respond_buf[3] + (respond_buf[4] << 8);
-    parm.freq /= 10;
-    pr_info("(fmdrv) fm seek have finshed!!status = %d, RSSI=%d\n"
-            "(fmdrv) fm seek SNR=%d, freq=%d\n", respond_buf[0], respond_buf[1], respond_buf[2], parm.freq);
+    pr_info("(fmdrv) fm seek have finshed!!status=%d, RSSI=%d, SNR=%d, freq=%d\n", respond_buf[0], respond_buf[1], respond_buf[2], parm.freq);
     /* pass the value to user space */
     if (copy_to_user(arg, &parm, sizeof(parm)))
         ret = -EFAULT;
