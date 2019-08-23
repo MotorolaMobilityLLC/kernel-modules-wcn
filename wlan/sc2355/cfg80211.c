@@ -1301,7 +1301,6 @@ static int sprdwl_cfg80211_scan(struct wiphy *wiphy,
 #ifdef RND_MAC_SUPPORT
 	u32 flags = request->flags;
 	int random_mac_flag;
-	static int old_mac_flag;
 	u8 rand_addr[ETH_ALEN];
 #endif
 
@@ -1329,11 +1328,8 @@ static int sprdwl_cfg80211_scan(struct wiphy *wiphy,
 			wl_err("random mac feature disabled\n");
 			random_mac_flag = 0;
 		}
-		if (random_mac_flag != old_mac_flag) {
-			old_mac_flag = random_mac_flag;
-			wlan_cmd_set_rand_mac(vif->priv, vif->ctx_id,
-					      old_mac_flag, rand_addr);
-		}
+		wlan_cmd_set_rand_mac(vif->priv, vif->ctx_id,
+				      random_mac_flag, rand_addr);
 	}
 #endif
 
