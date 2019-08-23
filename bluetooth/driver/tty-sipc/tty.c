@@ -387,7 +387,7 @@ static int stty_data_transmit(uint8_t *data, size_t count)
 #if 0
 	return stty_write(NULL, data, count);
 #else
-	pr_debug("stty_data_transmit\n");
+	BT_VER("stty_data_transmit\n");
 	return stty_write(mtty, data, count);
 #endif
 }
@@ -395,7 +395,7 @@ static int stty_data_transmit(uint8_t *data, size_t count)
 static int stty_write_plus(struct tty_struct *tty,
 	      const unsigned char *buf, int count)
 {
-	pr_debug("stty_write_plus\n");
+	BT_VER("stty_write_plus\n");
 	return sitm_write(buf, count, stty_data_transmit);
 }
 
