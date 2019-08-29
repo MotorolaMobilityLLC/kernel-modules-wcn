@@ -2775,8 +2775,13 @@ void sprdwl_setup_wiphy(struct wiphy *wiphy, struct sprdwl_priv *priv)
 		wiphy->flags |= WIPHY_FLAG_SUPPORTS_FW_ROAM;
 	}
 
-	if (priv->fw_capa & SPRDWL_CAPA_SCAN_RANDOM_MAC_ADDR) {
-		pr_info("\tRandom MAC address scan supported\n");
+	/*
+	 * Random MAC addr is enabled by default. And needs to be
+	 * disabled to pass WFA Certification.
+	 */
+	if (priv->fw_capa & SPRDWL_CAPA_SCAN_RANDOM_MAC_ADDR &&
+	    (!(wfa_cap & SPRDWL_WFA_CAP_NON_RAN_MAC))) {
+		pr_info("\tRandom MAC address scan default supported\n");
 		wiphy->features |= NL80211_FEATURE_SCAN_RANDOM_MAC_ADDR;
 	}
 

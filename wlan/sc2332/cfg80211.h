@@ -70,6 +70,14 @@
 #define SPRDWL_MAX_SCHED_INTERVAL	1000 /* seconds */
 #define SPRDWL_MAX_SCHED_ITERATION	0    /* inifinities */
 
+/* set wfa_cap a specified value to pass WFA Certification */
+#define SPRDWL_WFA_CAP_11R		BIT(0)
+#define SPRDWL_WFA_CAP_11K		BIT(1)
+#define SPRDWL_WFA_CAP_WMM_AC		BIT(2)
+#define SPRDWL_WFA_CAP_11U_QOS_MAP	BIT(3)
+#define SPRDWL_WFA_CAP_11N_WMM		BIT(4)
+#define SPRDWL_WFA_CAP_NON_RAN_MAC	BIT(5)
+
 enum sprdwl_mode {
 	SPRDWL_MODE_NONE,
 	SPRDWL_MODE_STATION,
