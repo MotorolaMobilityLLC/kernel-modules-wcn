@@ -43,7 +43,7 @@
 #define STTY_STATE_CLOSE	0
 #define COMMAND_HEAD        1
 
-static unsigned int log_level = MTTY_LOG_LEVEL_NONE;
+static unsigned int log_level = MTTY_LOG_LEVEL_DEBUG;
 
 #define BT_VER(fmt, ...)						\
 	do {										\
