@@ -133,8 +133,6 @@ struct sprdwl_vif {
 	struct cfg80211_chan_def dfs_chandef;
 #endif
 	u8 wps_flag;
-	bool has_rand_mac;
-	u8 random_mac[ETH_ALEN];
 };
 
 enum sprdwl_hw_type {

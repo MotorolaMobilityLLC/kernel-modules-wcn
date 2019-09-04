@@ -1322,11 +1322,11 @@ static int sprdwl_cfg80211_scan(struct wiphy *wiphy,
 	if (vif->mode == SPRDWL_MODE_STATION) {
 		random_mac_addr(rand_addr);
 		if (flags & NL80211_SCAN_FLAG_RANDOM_ADDR) {
-			random_mac_flag = SPRDWL_ENABLE_SCAN_RANDOM_ADDR;
+			random_mac_flag = 1;
 			wl_err("random mac addr: %pM\n", rand_addr);
 		} else {
 			wl_err("random mac feature disabled\n");
-			random_mac_flag = SPRDWL_DISABLE_SCAN_RANDOM_ADDR;
+			random_mac_flag = 0;
 		}
 		wlan_cmd_set_rand_mac(vif->priv, vif->ctx_id,
 				      random_mac_flag, rand_addr);
@@ -1620,7 +1620,6 @@ static int sprdwl_cfg80211_connect(struct wiphy *wiphy, struct net_device *ndev,
 	enum sm_state old_state = vif->sm_state;
 	int is_wep = (sme->crypto.cipher_group == WLAN_CIPHER_SUITE_WEP40) ||
 	    (sme->crypto.cipher_group == WLAN_CIPHER_SUITE_WEP104);
-	int random_mac_flag;
 	int ret = -EPERM;
 
 	/*workround for bug 795430*/
@@ -1628,15 +1627,6 @@ static int sprdwl_cfg80211_connect(struct wiphy *wiphy, struct net_device *ndev,
 		wl_err("%s, %d, error!mode%d connect after closed not allowed",
 		       __func__, __LINE__, vif->mode);
 		goto err;
-	}
-	if (vif->mode == SPRDWL_MODE_STATION) {
-		if (vif->has_rand_mac) {
-			 random_mac_flag = SPRDWL_CONNECT_RANDOM_ADDR;
-			 ret = wlan_cmd_set_rand_mac(vif->priv, vif->ctx_id,
-					       random_mac_flag, vif->random_mac);
-			 if (ret)
-				 netdev_info(ndev, "Set random mac failed!\n");
-		}
 	}
 
 	memset(&con, 0, sizeof(con));

@@ -753,31 +753,10 @@ static void sprdwl_set_multicast(struct net_device *ndev)
 
 static int sprdwl_set_mac(struct net_device *dev, void *addr)
 {
-	struct sprdwl_vif *vif = netdev_priv(dev);
-	struct sockaddr *sa = (struct sockaddr *)addr;
-
 	if (!dev) {
 		netdev_err(dev, "Invalid net device\n");
 	}
 
-	netdev_info(dev, "start set random mac: %pM\n", sa->sa_data);
-	if (is_multicast_ether_addr(sa->sa_data)) {
-		 netdev_err(dev, "invalid, it is multicast addr: %pM\n", sa->sa_data);
-		 return -EINVAL;
-	}
-
-	if (vif->mode == SPRDWL_MODE_STATION) {
-		if (!is_zero_ether_addr(sa->sa_data)) {
-			vif->has_rand_mac = true;
-			memcpy(vif->random_mac, sa->sa_data, ETH_ALEN);
-			memcpy(dev->dev_addr, sa->sa_data, ETH_ALEN);
-		} else {
-			vif->has_rand_mac = false;
-			netdev_info(dev, "need clear random mac for sta/softap mode\n");
-			memset(vif->random_mac, 0, ETH_ALEN);
-			memcpy(dev->dev_addr, vif->mac, ETH_ALEN);
-		}
-	}
 	/*return success to pass vts test*/
 	return 0;
 }
