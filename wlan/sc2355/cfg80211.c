@@ -3276,7 +3276,14 @@ void sprdwl_setup_wiphy(struct wiphy *wiphy, struct sprdwl_priv *priv)
 	wiphy->max_remain_on_channel_duration = 5000;
 	wiphy->max_num_pmkids = SPRDWL_MAX_NUM_PMKIDS;
 #ifdef RND_MAC_SUPPORT
-	wiphy->features |= NL80211_FEATURE_SCAN_RANDOM_MAC_ADDR;
+	/*
+	 * Random MAC addr is enabled by default. And needs to be
+	 * disabled to pass WFA Certification.
+	 */
+	if (!(wfa_cap & SPRDWL_WFA_CAP_NON_RAN_MAC)) {
+		wl_info("\tRandom MAC address scan default supported\n");
+		wiphy->features |= NL80211_FEATURE_SCAN_RANDOM_MAC_ADDR;
+	}
 #endif
 	wiphy->features |= NL80211_FEATURE_CELL_BASE_REG_HINTS;
 
