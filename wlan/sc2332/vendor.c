@@ -1681,6 +1681,8 @@ static int sprdwl_vendor_get_akm_suite(struct wiphy *wiphy,
 
 	akm_len = index * sizeof(akm[0]);
 	reply = cfg80211_vendor_cmd_alloc_reply_skb(wiphy, len);
+	if (!reply)
+		return -ENOMEM;
 	nla_put(reply, NL80211_ATTR_AKM_SUITES, akm_len, akm);
 	ret = cfg80211_vendor_cmd_reply(reply);
 	if (ret)
