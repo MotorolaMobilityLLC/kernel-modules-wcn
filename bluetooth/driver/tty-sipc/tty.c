@@ -195,7 +195,7 @@ static void stty_handler (int event, void *data)
 					STTY_MAX_DATA_LEN,
 					0);
 			BT_VER("%s read data len =%d\n",__func__, cnt);
-			if (is_user_debug) {
+			if (is_user_debug && (cnt > 0)) {
 				bt_host_data_save(buf, cnt, BT_DATA_IN);
 			}
 			mutex_lock(&(stty->stat_lock));
