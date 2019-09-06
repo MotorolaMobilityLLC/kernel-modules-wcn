@@ -739,7 +739,6 @@ int fm_get_volume(void *arg)
 	unsigned char resp_buf[1];
 	int ret = -1;
 
-	pr_info("fm ioctl get volume =0x%x\n", volume);
 	ret = fm_write_cmd(FM_GET_VOLUME_CMD, &payload, sizeof(payload),
 		&resp_buf[0], &res_len);
 	if (ret < 0) {
@@ -749,6 +748,7 @@ int fm_get_volume(void *arg)
 	}
 
 	volume = (int)resp_buf[0];
+	pr_info("fm ioctl get volume =0x%x\n", volume);
 	if (copy_to_user(arg, &volume, sizeof(volume)))
 		ret = -EFAULT;
 
