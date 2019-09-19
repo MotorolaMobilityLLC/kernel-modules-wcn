@@ -162,6 +162,7 @@ static int sprdwl_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 	struct sprdwl_msg_buf *msg = NULL;
 	u8 *data_temp;
 	struct sprdwl_eap_hdr *eap_temp;
+
 	/* drop nonlinearize skb */
 	if (skb_linearize(skb)) {
 		wl_err("nonlinearize skb\n");
@@ -170,8 +171,18 @@ static int sprdwl_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 		goto out;
 	}
 
+	data_temp = (u8 *)(skb->data) + sizeof(struct ethhdr);
+	eap_temp = (struct sprdwl_eap_hdr *)data_temp;
+	if (vif->mode == SPRDWL_MODE_P2P_GO &&
+		skb->protocol == cpu_to_be16(ETH_P_PAE) &&
+		eap_temp->type == EAP_PACKET_TYPE &&
+		eap_temp->code == EAP_FAILURE_CODE) {
+		sprdwl_xmit_data2cmd(skb, ndev);
+		return NETDEV_TX_OK;
+	}
+
 	/* FIXME vif connect state, need fix cfg80211_connect_result when MCC */
-	/*if (vif->connect_status != SPRDWL_CONNECTED) */
+	/* if (vif->connect_status != SPRDWL_CONNECTED) */
 
 	/* Hardware tx data queue prority is lower than management queue
 	 * management frame will be send out early even that get into queue
@@ -179,17 +190,14 @@ static int sprdwl_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 	 * Workaround way: Put eap failure frame to high queue
 	 * by use tx mgmt cmd
 	 */
-	data_temp = (u8 *)(skb->data) + sizeof(struct ethhdr);
-	eap_temp = (struct sprdwl_eap_hdr *)data_temp;
-	if ((vif->mode == SPRDWL_MODE_P2P_GO &&
-		skb->protocol == cpu_to_be16(ETH_P_PAE) &&
-		eap_temp->type == EAP_PACKET_TYPE &&
-		eap_temp->code == EAP_FAILURE_CODE) ||
+	/* send 802.1x or WAPI frame from cmd channel */
+
+	if (skb->protocol == cpu_to_be16(ETH_P_PAE) ||
 		skb->protocol == cpu_to_be16(WAPI_TYPE)) {
 		wl_err("send %s frame by WIFI_CMD_TX_DATA\n",
 		       skb->protocol == cpu_to_be16(ETH_P_PAE) ?
 		       "802.1X" : "WAI");
-		if (sprdwl_xmit_data2cmd(skb, ndev) == -EAGAIN)
+		if (sprdwl_xmit_data2cmd_wq(skb, ndev) == -EAGAIN)
 			return NETDEV_TX_BUSY;
 		return NETDEV_TX_OK;
 	} else {
