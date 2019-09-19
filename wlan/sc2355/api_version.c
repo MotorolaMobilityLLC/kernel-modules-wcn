@@ -65,7 +65,7 @@ struct api_version_t g_api_array[] = {
 	},
 	{	/*ID:11*/
 		.cmd_id = WIFI_CMD_SCAN,
-		.drv_version = 1,
+		.drv_version = 2,
 	},
 	{	/*ID:12*/
 		.cmd_id = WIFI_CMD_SCHED_SCAN,
@@ -443,7 +443,8 @@ int sprdwl_api_available_check(struct sprdwl_priv *priv,
 	hdr = (struct sprdwl_cmd_hdr *)msg->skb->data;
 #endif
 	cmd_id = hdr->cmd_id;
-	if (cmd_id == WIFI_CMD_SYNC_VERSION)
+	if ((cmd_id == WIFI_CMD_SYNC_VERSION) ||
+		(cmd_id == WIFI_CMD_SCAN))
 		return 0;
 
 	p = &g_api_array[cmd_id];

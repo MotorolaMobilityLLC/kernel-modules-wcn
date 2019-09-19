@@ -336,6 +336,16 @@ struct sprdwl_survey_info {
 	struct list_head bssid_list;
 };
 
+struct sprdwl_survey_info_new {
+	/* survey info */
+	unsigned int cca_busy_time;
+	unsigned int busy_ext_time;
+	unsigned int time;
+	s8 noise;
+	struct ieee80211_channel *channel;
+	struct list_head survey_list;
+};
+
 void clean_survey_info_list(struct sprdwl_vif *vif);
 void transfer_survey_info(struct sprdwl_vif *vif);
 void acs_scan_result(struct sprdwl_vif *vif, u16 chan,

@@ -793,11 +793,18 @@ static int sprdwl_cfg80211_start_ap(struct wiphy *wiphy,
 	u8 *data = NULL;
 	int ret;
 
+#ifdef ACS_SUPPORT
+	struct api_version_t *api = (&vif->priv->sync_api)->api_array;
+	u8 fw_ver = 0;
+#endif
+
 	netdev_info(ndev, "%s\n", __func__);
 
 #ifdef ACS_SUPPORT
+	fw_ver = (api + WIFI_CMD_SCAN)->fw_version;
 	if ((vif->mode == SPRDWL_MODE_AP) &&
-	    !list_empty(&vif->survey_info_list)) {
+	    !list_empty(&vif->survey_info_list) &&
+	    fw_ver == 1) {
 		clean_survey_info_list(vif);
 	}
 #endif
@@ -1143,6 +1150,10 @@ static void sprdwl_cancel_scan(struct sprdwl_vif *vif)
 		.aborted = true,
 	};
 #endif
+#ifdef ACS_SUPPORT
+	struct api_version_t *api = (&priv->sync_api)->api_array;
+	u8 fw_ver = 0;
+#endif
 
 	pr_info("%s enter==\n", __func__);
 
@@ -1154,7 +1165,8 @@ static void sprdwl_cancel_scan(struct sprdwl_vif *vif)
 
 		if (priv->scan_request) {
 #ifdef ACS_SUPPORT
-			if (vif->mode == SPRDWL_MODE_AP)
+			fw_ver = (api + WIFI_CMD_SCAN)->fw_version;
+			if (vif->mode == SPRDWL_MODE_AP && fw_ver == 1)
 				transfer_survey_info(vif);
 #endif
 			/*delete scan node*/
@@ -1205,6 +1217,10 @@ void sprdwl_scan_done(struct sprdwl_vif *vif, bool abort)
 		.aborted = abort,
 	};
 #endif
+#ifdef ACS_SUPPORT
+	struct api_version_t *api = (&priv->sync_api)->api_array;
+	u8 fw_ver = 0;
+#endif
 
 	if (priv->scan_vif && priv->scan_vif == vif) {
 		if (timer_pending(&priv->scan_timer))
@@ -1213,7 +1229,8 @@ void sprdwl_scan_done(struct sprdwl_vif *vif, bool abort)
 		spin_lock_bh(&priv->scan_lock);
 		if (priv->scan_request) {
 #ifdef ACS_SUPPORT
-			if (vif->mode == SPRDWL_MODE_AP)
+			fw_ver = (api + WIFI_CMD_SCAN)->fw_version;
+			if (vif->mode == SPRDWL_MODE_AP && fw_ver == 1)
 				transfer_survey_info(vif);
 #endif
 			/*delete scan node*/
@@ -1271,12 +1288,18 @@ void sprdwl_scan_timeout(unsigned long data)
 		.aborted = true,
 	};
 #endif
+#ifdef ACS_SUPPORT
+	struct api_version_t *api = (&priv->sync_api)->api_array;
+	u8 fw_ver = 0;
+#endif
 	netdev_info(priv->scan_vif->ndev, "%s\n", __func__);
 
 	spin_lock_bh(&priv->scan_lock);
 	if (priv->scan_request) {
 #ifdef ACS_SUPPORT
-		clean_survey_info_list(priv->scan_vif);
+		fw_ver = (api + WIFI_CMD_SCAN)->fw_version;
+		if (fw_ver == 1)
+			clean_survey_info_list(priv->scan_vif);
 #endif /* ACS_SUPPORT */
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0)
 		cfg80211_scan_done(priv->scan_request, &info);
@@ -1308,6 +1331,10 @@ static int sprdwl_cfg80211_scan(struct wiphy *wiphy,
 	u32 flags = request->flags;
 	int random_mac_flag;
 	u8 rand_addr[ETH_ALEN];
+#endif
+#ifdef ACS_SUPPORT
+	struct api_version_t *api = (&priv->sync_api)->api_array;
+	u8 fw_ver = 0;
 #endif
 
 	netdev_info(vif->ndev, "%s n_channels %u\n", __func__,
@@ -1371,7 +1398,8 @@ static int sprdwl_cfg80211_scan(struct wiphy *wiphy,
 			break;
 		}
 #ifdef ACS_SUPPORT
-		if (vif->mode == SPRDWL_MODE_AP) {
+		fw_ver = (api + WIFI_CMD_SCAN)->fw_version;
+		if (vif->mode == SPRDWL_MODE_AP && fw_ver == 1) {
 			struct sprdwl_survey_info *info = NULL;
 
 			if ((0 == i) && (!list_empty(&vif->survey_info_list))) {
@@ -2002,6 +2030,10 @@ void sprdwl_report_scan_result(struct sprdwl_vif *vif, u16 chan, s16 rssi,
 	u64 tsf;
 	u8 *ie;
 	size_t ielen;
+#ifdef ACS_SUPPORT
+	struct api_version_t *api = (&priv->sync_api)->api_array;
+	u8 fw_ver = 0;
+#endif
 
 	if (!priv->scan_request && !priv->sched_scan_request) {
 		netdev_err(vif->ndev, "%s Unexpected event\n", __func__);
@@ -2036,7 +2068,8 @@ void sprdwl_report_scan_result(struct sprdwl_vif *vif, u16 chan, s16 rssi,
 
 
 #ifdef ACS_SUPPORT
-	if (vif->mode == SPRDWL_MODE_AP)
+	fw_ver = (api + WIFI_CMD_SCAN)->fw_version;
+	if (vif->mode == SPRDWL_MODE_AP && fw_ver == 1)
 		acs_scan_result(vif, chan, mgmt);
 #endif
 
@@ -2924,59 +2957,98 @@ sprdwl_cfg80211_dump_survey(struct wiphy *wiphy, struct net_device *ndev,
 			    int idx, struct survey_info *s_info)
 {
 	struct sprdwl_vif *vif = netdev_priv(ndev);
-	struct sprdwl_survey_info *info = NULL;
-	struct sprdwl_bssid *bssid = NULL, *pos = NULL;
-	static int survey_count;
-	int err = 0;
+	struct api_version_t *api = (&vif->priv->sync_api)->api_array;
+	u8 fw_ver = 0;
 
-	if (vif->mode != SPRDWL_MODE_AP) {
-		netdev_err(vif->ndev, "Not AP mode, exit %s!\n", __func__);
-		err = -ENOENT;
-		goto out;
-	}
+	fw_ver = (api + WIFI_CMD_SCAN)->fw_version;
+	if (fw_ver == 1) {
+		struct sprdwl_vif *vif = netdev_priv(ndev);
+		struct sprdwl_survey_info *info = NULL;
+		struct sprdwl_bssid *bssid = NULL, *pos = NULL;
+		static int survey_count;
+		int err = 0;
 
-	if (!list_empty(&vif->survey_info_list)) {
-		info = list_first_entry(&vif->survey_info_list,
-					struct sprdwl_survey_info, survey_list);
-		list_del(&info->survey_list);
+		if (vif->mode != SPRDWL_MODE_AP) {
+			netdev_err(vif->ndev, "Not AP mode, exit %s!\n", __func__);
+			err = -ENOENT;
+			goto out;
+		}
 
-		if (info->channel) {
-			s_info->channel = info->channel;
-			s_info->noise = info->noise;
+		if (!list_empty(&vif->survey_info_list)) {
+			info = list_first_entry(&vif->survey_info_list,
+						struct sprdwl_survey_info, survey_list);
+			list_del(&info->survey_list);
+
+			if (info->channel) {
+				s_info->channel = info->channel;
+				s_info->noise = info->noise;
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 4, 83)
-			s_info->time = SPRDWL_ACS_SCAN_TIME;
-			s_info->time_busy = info->cca_busy_time;
-			s_info->filled = (SURVEY_INFO_NOISE_DBM |
-					SURVEY_INFO_TIME |
-					SURVEY_INFO_TIME_BUSY);
+				s_info->time = SPRDWL_ACS_SCAN_TIME;
+				s_info->time_busy = info->cca_busy_time;
+				s_info->filled = (SURVEY_INFO_NOISE_DBM |
+						SURVEY_INFO_TIME |
+						SURVEY_INFO_TIME_BUSY);
 #else
-			s_info->channel_time = SPRDWL_ACS_SCAN_TIME;
-			s_info->channel_time_busy = info->cca_busy_time;
-			s_info->filled = (SURVEY_INFO_NOISE_DBM |
-					  SURVEY_INFO_CHANNEL_TIME |
-					  SURVEY_INFO_CHANNEL_TIME_BUSY);
+				s_info->channel_time = SPRDWL_ACS_SCAN_TIME;
+				s_info->channel_time_busy = info->cca_busy_time;
+				s_info->filled = (SURVEY_INFO_NOISE_DBM |
+						  SURVEY_INFO_CHANNEL_TIME |
+						  SURVEY_INFO_CHANNEL_TIME_BUSY);
 #endif
 
-			survey_count++;
-		}
+				survey_count++;
+			}
 
-		list_for_each_entry_safe(bssid, pos, &info->bssid_list, list) {
-			list_del(&bssid->list);
-			kfree(bssid);
-			bssid = NULL;
-		}
+			list_for_each_entry_safe(bssid, pos, &info->bssid_list, list) {
+				list_del(&bssid->list);
+				kfree(bssid);
+				bssid = NULL;
+			}
 
-		kfree(info);
-	} else {
-		/* There are no more survey info in list */
-		err = -ENOENT;
-		netdev_info(vif->ndev, "%s report %d surveys\n",
-			    __func__, survey_count);
-		survey_count = 0;
-	}
+			kfree(info);
+		} else {
+			/* There are no more survey info in list */
+			err = -ENOENT;
+			netdev_info(vif->ndev, "%s report %d surveys\n",
+				    __func__, survey_count);
+			survey_count = 0;
+		}
 
 out:
-	return err;
+		return err;
+	} else {
+		struct sprdwl_survey_info_new *info = NULL;
+		struct sprdwl_vif *vif = netdev_priv(ndev);
+		int ret = 0;
+		int survey_cnt = 0;
+
+		netdev_err(vif->ndev,"%s, idx %d\n", __func__, idx);
+		if (!list_empty(&vif->survey_info_list)) {
+		        info = list_first_entry(&vif->survey_info_list,
+		                struct sprdwl_survey_info_new, survey_list);
+		        list_del(&info->survey_list);
+		        if(info->channel){
+		                s_info->channel = info->channel;
+		                s_info->noise = info->noise;
+		                s_info->time = info->time;
+		                s_info->time_busy = info->cca_busy_time;
+		                s_info->time_ext_busy = info->busy_ext_time;
+		                s_info->filled = (SURVEY_INFO_NOISE_DBM |
+		                                SURVEY_INFO_TIME |
+		                                SURVEY_INFO_TIME_BUSY |
+		                                SURVEY_INFO_TIME_EXT_BUSY);
+		        }
+		        netdev_err(vif->ndev,"%s, time %llu\n", __func__, s_info->time);
+		        survey_cnt++;
+		        kfree(info);
+
+		} else {
+		        netdev_err(vif->ndev,"%s, survey_cnt %d\n", __func__, survey_cnt);
+		        ret = -ENOENT;
+		}
+
+		return ret;
+	}
 }
 #endif /* ACS_SUPPORT */
 

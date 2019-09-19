@@ -110,6 +110,8 @@ enum sprdwl_vendor_subcommand_id {
 };
 
 #define SPRDWL_VENDOR_EVENT_NAN_INDEX 32
+#define SPRDWL_ACS_LTE_EVENT_INDEX 35
+#define SPRDWL_REINIT_ACS	0x35
 
 enum sprdwl_vendor_event {
 	SPRDWL_VENDOR_SUBCMD_MONITOR_RSSI_INDEX = 0,
@@ -1658,5 +1660,5 @@ int sprdwl_vendor_cache_hotlist_result(struct sprdwl_vif *vif,
 int sprdwl_significant_change_event(struct sprdwl_vif *vif);
 int sprdwl_vendor_cache_significant_change_result(struct sprdwl_vif *vif,
 				u8 *data, u16 data_len);
-
+int sprdwl_report_acs_lte_event(struct sprdwl_vif *vif);
 #endif

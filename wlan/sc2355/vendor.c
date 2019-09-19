@@ -3535,6 +3535,27 @@ static int sprdwl_vendor_get_akm_suite(struct wiphy *wiphy,
 	return ret;
 }
 
+int sprdwl_report_acs_lte_event(struct sprdwl_vif *vif)
+{
+        struct sprdwl_priv *priv = vif->priv;
+        struct wiphy *wiphy = priv->wiphy;
+        struct sk_buff *reply;
+        int payload, ret;
+
+        payload = 4;
+        reply = cfg80211_vendor_event_alloc(wiphy, &vif->wdev, payload, SPRDWL_ACS_LTE_EVENT_INDEX,
+                                            GFP_KERNEL);
+        if (!reply) {
+                wiphy_err(wiphy, "%s alloc acs lte event error\n", __func__);
+                ret = -ENOMEM;
+                goto out;
+        }
+
+        cfg80211_vendor_event(reply, GFP_KERNEL);
+out:
+        return ret;
+}
+
 const struct wiphy_vendor_command sprdwl_vendor_cmd[] = {
 	{/*9*/
 		{
@@ -3976,7 +3997,11 @@ static const struct nl80211_vendor_cmd_info sprdwl_vendor_events[] = {
 		.vendor_id = OUI_SPREAD,
 		.subcmd = SPRDWL_VENDOR_SUBCMD_GSCAN_RESET_SIGNIFICANT_CHANGE
 	},
-
+	/*report acs lte event to uplayer*/
+	[SPRDWL_ACS_LTE_EVENT_INDEX] = {
+	        .vendor_id = OUI_SPREAD,
+	        .subcmd = SPRDWL_REINIT_ACS,
+	},
 	[SPRDWL_VENDOR_EVENT_NAN_INDEX] = {
 		.vendor_id = OUI_SPREAD,
 		.subcmd = SPRDWL_VENDOR_EVENT_NAN,

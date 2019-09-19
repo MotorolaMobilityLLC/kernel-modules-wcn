@@ -692,6 +692,8 @@ enum SPRDWL_EVENT_LIST {
 	WIFI_EVENT_WFD_MIB_CNT = 0xf9,
 	WIFI_EVENT_FW_PWR_DOWN = 0xfa,
 	WIFI_EVENT_CHAN_CHANGED = 0xfb,
+	WIFI_EVENT_ACS_DONE = 0xfc,
+	WIFI_EVENT_ACS_LTE_CONFLICT_EVENT = 0xfd,
 	WIFI_EVENT_MAX
 };
 
@@ -923,6 +925,15 @@ enum IOCTL_TLV_TYPE_LIST {
 struct vowifi_info {
 	u8 data;	/* vowifi status: 0:disable,1:enable */
 	u8 call_type;	/* vowifi type: 0:video,1:voice */
+};
+
+/* recv acs result from firmware */
+struct acs_result {
+        u8 ch;
+        s8 noise;
+        u32 time;
+        u32 time_busy;
+        u32 time_ext_busy;
 };
 
 int sprdwl_cmd_rsp(struct sprdwl_priv *priv, u8 *msg);

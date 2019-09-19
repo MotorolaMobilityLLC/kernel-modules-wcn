@@ -3239,6 +3239,55 @@ void sprdwl_event_coex_bt_on_off(u8 *data, u16 len)
 	set_coex_bt_on_off(coex_bt_on_off->action);
 }
 
+int sprdwl_event_acs_done(struct sprdwl_vif *vif, u8 *data, u16 len)
+{
+        u16 res_cnt = 0;
+        struct ieee80211_channel *chan;
+        unsigned int freq;
+        struct acs_result *acs_res;
+        struct sprdwl_survey_info_new*info;
+        u8 i = 0;
+        struct wiphy *wiphy = vif->wdev.wiphy;
+
+        /* save acs result to survey list */
+        res_cnt = len / sizeof(struct acs_result);
+
+        wl_info("%s, tot len %d, acs len %d", __func__, len, (int)sizeof(struct acs_result));
+
+        sprdwl_hex_dump("sprdwl_event_acs_done", data, len);
+
+        acs_res = (struct acs_result *)data;
+
+        for(i = 0; i < res_cnt; i++) {
+                info = kmalloc(sizeof(struct sprdwl_survey_info_new), GFP_KERNEL);
+                if(!info) {
+                        netdev_info(vif->ndev, "%s alloc info failed\n", __func__);
+                        return -ENOMEM;
+                }
+
+                freq = ieee80211_channel_to_frequency(acs_res[i].ch,
+                                acs_res[i].ch <= CH_MAX_2G_CHANNEL ?
+                                /*IEEE80211_BAND_2GHZ : IEEE80211_BAND_5GHZ*/NL80211_BAND_2GHZ : NL80211_BAND_5GHZ);
+                chan = ieee80211_get_channel(wiphy, freq);
+                if(chan) {
+                        info->channel = chan;
+                        info->cca_busy_time = acs_res[i].time_busy;
+                        info->busy_ext_time = acs_res[i].time_ext_busy;
+                        info->time = acs_res[i].time;
+                        info->noise = acs_res[i].noise;
+
+                        list_add_tail(&info->survey_list,&vif->survey_info_list);
+                }
+        }
+
+        return 0;
+}
+
+int sprdwl_event_acs_lte_event(struct sprdwl_vif *vif)
+{
+        return sprdwl_report_acs_lte_event(vif);
+}
+
 static const char *evt2str(u8 evt)
 {
 #define E2S(x) case x: return #x;
@@ -3272,6 +3321,8 @@ static const char *evt2str(u8 evt)
 	E2S(WIFI_EVENT_FW_PWR_DOWN)
 	E2S(WIFI_EVENT_CHAN_CHANGED)
 	E2S(WIFI_EVENT_COEX_BT_ON_OFF)
+	E2S(WIFI_EVENT_ACS_DONE)
+	E2S(WIFI_EVENT_ACS_LTE_CONFLICT_EVENT)
 	default : return "WIFI_EVENT_UNKNOWN";
 	}
 #undef E2S
@@ -3418,6 +3469,12 @@ unsigned short sprdwl_rx_event_process(struct sprdwl_priv *priv, u8 *msg)
 		break;
 	case WIFI_EVENT_COEX_BT_ON_OFF:
 		sprdwl_event_coex_bt_on_off(data, len);
+		break;
+	case WIFI_EVENT_ACS_DONE:
+		sprdwl_event_acs_done(vif, data, len);
+		break;
+	case WIFI_EVENT_ACS_LTE_CONFLICT_EVENT:
+		sprdwl_event_acs_lte_event(vif);
 		break;
 	default:
 		wl_info("unsupported event: %d\n", hdr->cmd_id);
