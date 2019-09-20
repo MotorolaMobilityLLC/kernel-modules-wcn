@@ -508,6 +508,7 @@ int fm_powerup(struct fm_tune_parm *p)
 		return -ENODEV;
 	}
 
+	parm = *p;
 	parm.freq *= 10;
 	pr_info("fm ioctl power up freq= %d\n", parm.freq);
 
