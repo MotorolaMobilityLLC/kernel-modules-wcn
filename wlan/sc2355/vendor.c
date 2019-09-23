@@ -3556,6 +3556,106 @@ out:
         return ret;
 }
 
+static int sprdwl_start_offload_packet(struct sprdwl_priv *priv,
+				       u8 vif_ctx_id,
+				       struct nlattr **tb,
+				       u32 request_id)
+{
+	u8 src[ETH_ALEN], dest[ETH_ALEN];
+	u32 period, len;
+	u16 prot_type;
+	u8 *data, *pos;
+	int ret;
+
+	if (!tb[OFFLOADED_PACKETS_IP_PACKET_DATA] ||
+	    !tb[OFFLOADED_PACKETS_SRC_MAC_ADDR] ||
+	    !tb[OFFLOADED_PACKETS_DST_MAC_ADDR] ||
+	    !tb[OFFLOADED_PACKETS_PERIOD] ||
+	    !tb[OFFLOADED_PACKETS_ETHER_PROTO_TYPE]) {
+		pr_err("check start offload para failed\n");
+		return -EINVAL;
+	}
+
+	period = nla_get_u32(tb[OFFLOADED_PACKETS_PERIOD]);
+	prot_type = nla_get_u16(tb[OFFLOADED_PACKETS_ETHER_PROTO_TYPE]);
+	prot_type = htons(prot_type);
+	nla_memcpy(src, tb[OFFLOADED_PACKETS_SRC_MAC_ADDR], ETH_ALEN);
+	nla_memcpy(dest, tb[OFFLOADED_PACKETS_DST_MAC_ADDR], ETH_ALEN);
+	len = nla_len(tb[OFFLOADED_PACKETS_IP_PACKET_DATA]);
+
+	data = kzalloc(len + 14, GFP_KERNEL);
+	if (!data)
+		return -ENOMEM;
+
+	pos = data;
+	memcpy(pos, dest, ETH_ALEN);
+	pos += ETH_ALEN;
+	memcpy(pos, src, ETH_ALEN);
+	pos += ETH_ALEN;
+	memcpy(pos, &prot_type, 2);
+	pos += 2;
+	memcpy(pos, nla_data(tb[OFFLOADED_PACKETS_IP_PACKET_DATA]), len);
+
+	ret = sprdwl_set_packet_offload(priv, vif_ctx_id,
+					request_id, 1, period,
+					len + 14,  data);
+	kfree(data);
+
+	return ret;
+}
+
+static int sprdwl_stop_offload_packet(struct sprdwl_priv *priv,
+				      u8 vif_ctx_id, u32 request_id)
+{
+	return sprdwl_set_packet_offload(priv, vif_ctx_id,
+					 request_id, 0, 0, 0, NULL);
+}
+
+static int sprdwl_set_offload_packet(struct wiphy *wiphy,
+				     struct wireless_dev *wdev,
+				     const void *data, int len)
+{
+	int err;
+	u8 control;
+	u32 req;
+	struct nlattr *tb[OFFLOADED_PACKETS_MAX + 1];
+	struct sprdwl_vif *vif = container_of(wdev, struct sprdwl_vif, wdev);
+	struct sprdwl_priv *priv = wiphy_priv(wiphy);
+
+	if (!data) {
+		wiphy_err(wiphy, "%s offload failed\n", __func__);
+		return -EINVAL;
+	}
+
+	err = nla_parse(tb, OFFLOADED_PACKETS_MAX, data,
+			len, NULL, NULL);
+	if (err) {
+		wiphy_err(wiphy, "%s parse attr failed", __func__);
+		return err;
+	}
+
+	if (!tb[OFFLOADED_PACKETS_REQUEST_ID] ||
+	    !tb[OFFLOADED_PACKETS_SENDING_CONTROL]) {
+		wiphy_err(wiphy, "check request id or control failed\n");
+		return -EINVAL;
+	}
+
+	req = nla_get_u32(tb[OFFLOADED_PACKETS_REQUEST_ID]);
+	control = nla_get_u32(tb[OFFLOADED_PACKETS_SENDING_CONTROL]);
+
+	switch (control) {
+	case OFFLOADED_PACKETS_SENDING_STOP:
+		return sprdwl_stop_offload_packet(priv, vif->ctx_id, req);
+	case OFFLOADED_PACKETS_SENDING_START:
+		return  sprdwl_start_offload_packet(priv, vif->ctx_id, tb, req);
+	default:
+		wiphy_err(wiphy, "control value is invalid\n");
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
 const struct wiphy_vendor_command sprdwl_vendor_cmd[] = {
 	{/*9*/
 		{
@@ -3817,6 +3917,15 @@ const struct wiphy_vendor_command sprdwl_vendor_cmd[] = {
 		.flags = WIPHY_VENDOR_CMD_NEED_WDEV |
 			 WIPHY_VENDOR_CMD_NEED_NETDEV,
 		.doit = sprdwl_vendor_get_ring_data,
+	},
+	{/*79*/
+		{
+			.vendor_id = OUI_SPREAD,
+			.subcmd = SPRDWL_VENDOR_SUBCMD_OFFLOADED_PACKETS,
+		},
+		.flags = WIPHY_VENDOR_CMD_NEED_WDEV |
+			 WIPHY_VENDOR_CMD_NEED_RUNNING,
+		.doit = sprdwl_set_offload_packet,
 	},
 	{/*80*/
 		{

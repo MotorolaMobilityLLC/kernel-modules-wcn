@@ -176,6 +176,7 @@ enum SPRDWL_CMD_LIST {
 	/*Please add new command above line,
 	* conditional compile flag is not recommended
 	*/
+	WIFI_CMD_PACKET_OFFLOAD = 84,
 	WIFI_CMD_MAX
 };
 
@@ -935,6 +936,15 @@ struct acs_result {
         u32 time_busy;
         u32 time_ext_busy;
 };
+
+/* packet offload struct */
+struct sprdwl_cmd_packet_offload {
+	u32 req_id;
+	u8 enable;
+	u32 period;
+	u16 len;
+	u8 data[0];
+} __packed;
 
 int sprdwl_cmd_rsp(struct sprdwl_priv *priv, u8 *msg);
 /*driver & fw API sync function start*/
