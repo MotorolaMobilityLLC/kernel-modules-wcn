@@ -37,7 +37,7 @@
 #ifdef CONFIG_SPRD_WCN_DEBUG
 int sprdwl_debug_level = L_INFO;
 #else
-int sprdwl_debug_level = L_INFO;
+int sprdwl_debug_level = L_WARN;
 #endif
 struct device *sprdwl_dev;
 void adjust_debug_level(char *buf, unsigned char offset)

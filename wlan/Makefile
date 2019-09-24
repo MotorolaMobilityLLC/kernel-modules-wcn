@@ -17,7 +17,9 @@ ccflags-y += -DRND_MAC_SUPPORT
 ccflags-y += -DSOFTAP_HOOK
 ccflags-y += -DATCMD_ASSERT
 ccflags-y += -DTCPACK_DELAY_SUPPORT
-ccflags-$(DEBUGMODE) += -DCONFIG_SPRD_WCN_DEBUG
+ifeq ($(strip $(BSP_BUILD_VARIANT)),userdebug)
+ccflags-y += -DCONFIG_SPRD_WCN_DEBUG
+endif
 ccflags-y += -DSPLIT_STACK
 
 endif
