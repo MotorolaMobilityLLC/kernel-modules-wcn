@@ -3408,6 +3408,7 @@ void sprdwl_setup_wiphy(struct wiphy *wiphy, struct sprdwl_priv *priv)
 	if (priv->fw_std & SPRDWL_STD_11D) {
 		wl_info("\tIEEE802.11d supported\n");
 		wiphy->reg_notifier = sprdwl_reg_notify;
+		wiphy->regulatory_flags |= REGULATORY_DISABLE_BEACON_HINTS;
 	}
 
 	if (priv->fw_std & SPRDWL_STD_11E) {
