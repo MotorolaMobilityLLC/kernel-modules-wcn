@@ -1531,6 +1531,9 @@ static int sprdwl_vendor_get_wake_state(struct wiphy *wiphy,
 
 	skb = cfg80211_vendor_cmd_alloc_reply_skb(wiphy, payload);
 
+	if (!skb)
+		return -ENOMEM;
+
 	if (nla_put_u32(skb, SPRDWL_WAKE_TOTAL_CMD_EVENT_WAKE, 0) ||
 	    nla_put_u32(skb, SPRDWL_WAKE_CMD_EVENT_WAKE_CNT_PTR, 0) ||
 	    nla_put_u32(skb, SPRDWL_WAKE_CMD_EVENT_WAKE_CNT_SZ, 0) ||
@@ -1561,7 +1564,6 @@ static int sprdwl_vendor_get_wake_state(struct wiphy *wiphy,
 out_put_fail:
 	kfree_skb(skb);
 	return -EMSGSIZE;
-	return WIFI_SUCCESS;
 }
 
 static int sprdwl_vendor_enable_nd_offload(struct wiphy *wiphy,
