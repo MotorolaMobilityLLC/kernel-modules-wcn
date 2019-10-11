@@ -1683,12 +1683,18 @@ static int sprdwl_vendor_get_akm_suite(struct wiphy *wiphy,
 	reply = cfg80211_vendor_cmd_alloc_reply_skb(wiphy, len);
 	if (!reply)
 		return -ENOMEM;
-	nla_put(reply, NL80211_ATTR_AKM_SUITES, akm_len, akm);
+	ret = nla_put(reply, NL80211_ATTR_AKM_SUITES, akm_len, akm);
+	if (ret) {
+		wiphy_err(wiphy, "put akm suite error\n");
+		kfree_skb(reply);
+		return ret;
+	}
 	ret = cfg80211_vendor_cmd_reply(reply);
-	if (ret)
+	if (ret) {
 		wiphy_err(wiphy, "reply cmd error\n");
-	return ret;
-
+		return ret;
+	}
+	return 0;
 }
 
 static int sprdwl_start_offload_packet(struct wiphy *wiphy,
