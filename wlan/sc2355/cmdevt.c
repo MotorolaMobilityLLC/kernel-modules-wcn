@@ -692,7 +692,8 @@ void sprdwl_download_ini(struct sprdwl_priv *priv)
 		(long unsigned int)sizeof(*sec2));
 	/*devide wifi_conf into sec1 and sec2 since it's too large*/
 	sec1 = (struct wifi_conf_sec1_t *)wifi_data;
-	sec2 = (struct wifi_conf_sec2_t *)(&wifi_data->tx_scale);
+	sec2 = (struct wifi_conf_sec2_t *)((char *)wifi_data +
+					   sizeof(struct wifi_conf_sec1_t));
 
 	wl_info("download the first section of config file\n");
 	ret = sprdwl_down_ini_cmd(priv, (uint8_t *)sec1, sizeof(*sec1), SEC1);
