@@ -407,6 +407,12 @@ int sprdwl_init_fw(struct sprdwl_vif *vif)
 	else
 		mac = vif->ndev->dev_addr;
 
+	if (vif->mode ==SPRDWL_MODE_P2P_GO) {
+		if (vif->has_rand_mac) {
+			netdev_info(vif->ndev, "GO use random mac addr: %pM\n", vif->random_mac);
+			mac = vif->random_mac;
+		}
+	}
 	if (sprdwl_open_fw(priv, &vif_ctx_id, vif->mode, mac)) {
 		netdev_err(vif->ndev, "%s failed!\n", __func__);
 		vif->mode = SPRDWL_MODE_NONE;
