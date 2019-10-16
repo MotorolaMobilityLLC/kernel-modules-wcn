@@ -507,8 +507,7 @@ int fm_powerup(struct fm_tune_parm *p)
 			fmdev->pdata->dst, fmdev->pdata->rx_channel);
 		return -ENODEV;
 	}
-
-	parm = *p;
+	parm.freq = 875;
 	parm.freq *= 10;
 	pr_info("fm ioctl power up freq= %d\n", parm.freq);
 
@@ -596,11 +595,11 @@ int fm_tune(void *arg)
 		pr_info("fm tune 's ret value is -eFAULT\n");
 		return -EFAULT;
 	}
-	pr_info("fm tune 50k/100k test freq:%d\n",parm.freq);
+
 #ifdef RDS_DEBUG
 	global_freq = parm.freq;
 #endif
-	pr_info("fm ioctl tune freq = %d\n", parm.freq);
+	pr_info("fm ioctl tune 50k/100k freq = %d\n", parm.freq);
 	ret = fm_write_cmd(FM_TUNE_CMD, &parm.freq, sizeof(parm.freq),
 		respond_buf, &respond_len);
 	if (ret < 0) {
