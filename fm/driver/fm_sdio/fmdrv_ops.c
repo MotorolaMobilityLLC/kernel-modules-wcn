@@ -318,7 +318,8 @@ long fm_ioctl(struct file *filep, unsigned int cmd, unsigned long arg) {
 
 int fm_open(struct inode *inode, struct file *filep) {
 	struct fm_tune_parm powerup_parm;
-	powerup_parm.freq=875;
+	powerup_parm.err = 0;
+	powerup_parm.freq = 875;
 	fm_powerup(&powerup_parm);
 	pr_info("start open SPRD fm module...\n");
 	return 0;

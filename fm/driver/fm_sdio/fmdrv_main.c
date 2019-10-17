@@ -515,8 +515,7 @@ int fm_powerup(struct fm_tune_parm *p) {
         pr_err("marlin3 chip %s failed\n", __func__);
         return -ENODEV;
     }
-
-    parm = *p;
+    parm.freq = 875;
     parm.freq *= 10;
     pr_info("fm ioctl power up freq= %d\n", parm.freq);
     get_fm_config_param(&fm_data);
