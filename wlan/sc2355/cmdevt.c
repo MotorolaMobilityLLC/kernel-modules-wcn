@@ -3260,9 +3260,9 @@ int sprdwl_event_acs_done(struct sprdwl_vif *vif, u8 *data, u16 len)
 
         acs_res = (struct acs_result *)data;
 
-        for(i = 0; i < res_cnt; i++) {
+        for (i = 0; i < res_cnt; i++) {
                 info = kmalloc(sizeof(struct sprdwl_survey_info_new), GFP_KERNEL);
-                if(!info) {
+                if (!info) {
                         netdev_info(vif->ndev, "%s alloc info failed\n", __func__);
                         return -ENOMEM;
                 }
@@ -3271,7 +3271,7 @@ int sprdwl_event_acs_done(struct sprdwl_vif *vif, u8 *data, u16 len)
                                 acs_res[i].ch <= CH_MAX_2G_CHANNEL ?
                                 /*IEEE80211_BAND_2GHZ : IEEE80211_BAND_5GHZ*/NL80211_BAND_2GHZ : NL80211_BAND_5GHZ);
                 chan = ieee80211_get_channel(wiphy, freq);
-                if(chan) {
+                if (chan) {
                         info->channel = chan;
                         info->cca_busy_time = acs_res[i].time_busy;
                         info->busy_ext_time = acs_res[i].time_ext_busy;
@@ -3279,7 +3279,10 @@ int sprdwl_event_acs_done(struct sprdwl_vif *vif, u8 *data, u16 len)
                         info->noise = acs_res[i].noise;
 
                         list_add_tail(&info->survey_list,&vif->survey_info_list);
-                }
+                } else {
+			kfree(info);
+			netdev_info(vif->ndev, "%s channel is 0\n", __func__);
+		}
         }
 
         return 0;
