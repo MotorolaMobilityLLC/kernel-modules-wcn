@@ -3540,7 +3540,7 @@ int sprdwl_report_acs_lte_event(struct sprdwl_vif *vif)
         struct sprdwl_priv *priv = vif->priv;
         struct wiphy *wiphy = priv->wiphy;
         struct sk_buff *reply;
-        int payload, ret;
+        int payload, ret = 0;
 
         payload = 4;
         reply = cfg80211_vendor_event_alloc(wiphy, &vif->wdev, payload, SPRDWL_ACS_LTE_EVENT_INDEX,
