@@ -595,7 +595,7 @@ static int sprdwl_vendor_get_llstat_handler(struct wiphy *wiphy,
 					    struct wireless_dev *wdev,
 					    const void *data, int len)
 {
-	struct sk_buff *reply_radio, *reply_iface;
+	struct sk_buff *reply_radio = NULL, *reply_iface = NULL;
 	struct sprdwl_llstat_data *llst;
 	struct wifi_radio_stat *radio_st;
 	struct wifi_iface_stat *iface_st;
@@ -651,13 +651,13 @@ static int sprdwl_vendor_get_llstat_handler(struct wiphy *wiphy,
 		return -ENOMEM;
 	}
 	if (nla_put_u32(reply_radio, NL80211_ATTR_VENDOR_ID, OUI_SPREAD))
-		goto out_put_fail;
+		goto put_radio_fail;
 	if (nla_put_u32(reply_radio, NL80211_ATTR_VENDOR_SUBCMD,
 			SPRDWL_VENDOR_GET_LLSTAT))
-		goto out_put_fail;
+		goto put_radio_fail;
 	if (nla_put_u32(reply_radio, SPRDWL_ATTR_LL_STATS_TYPE,
 			SPRDWL_NL80211_VENDOR_SUBCMD_LL_STATS_TYPE_RADIO))
-		goto out_put_fail;
+		goto put_radio_fail;
 	ret = sprdwl_compose_radio_st(reply_radio, radio_st);
 	ret = cfg80211_vendor_cmd_reply(reply_radio);
 
@@ -669,19 +669,24 @@ static int sprdwl_vendor_get_llstat_handler(struct wiphy *wiphy,
 		return -ENOMEM;
 	}
 	if (nla_put_u32(reply_iface, NL80211_ATTR_VENDOR_ID, OUI_SPREAD))
-		goto out_put_fail;
+		goto put_iface_fail;
 	if (nla_put_u32(reply_iface, NL80211_ATTR_VENDOR_SUBCMD,
 			SPRDWL_VENDOR_GET_LLSTAT))
-		goto out_put_fail;
+		goto put_iface_fail;
 	if (nla_put_u32(reply_iface, SPRDWL_ATTR_LL_STATS_TYPE,
 			SPRDWL_NL80211_VENDOR_SUBCMD_LL_STATS_TYPE_IFACE))
-		goto out_put_fail;
+		goto put_iface_fail;
 	ret = sprdwl_compose_iface_st(reply_iface, iface_st);
 	ret = cfg80211_vendor_cmd_reply(reply_iface);
 
 	kfree(radio_st);
 	kfree(iface_st);
 	return ret;
+put_radio_fail:
+	kfree_skb(reply_radio);
+put_iface_fail:
+	if (reply_iface)
+		kfree_skb(reply_iface);
 out_put_fail:
 	if (radio_st)
 		kfree(radio_st);
