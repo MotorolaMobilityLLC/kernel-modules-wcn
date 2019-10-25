@@ -264,6 +264,7 @@ struct sprdwl_priv {
 #define OTT_SUPT	(1)
 	unsigned char ott_supt;
 	__le32 extend_feature;
+	int is_suspending;
 };
 
 struct sprdwl_eap_hdr {

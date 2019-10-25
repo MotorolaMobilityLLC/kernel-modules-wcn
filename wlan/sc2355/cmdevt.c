@@ -33,6 +33,7 @@
 #include "11h.h"
 #endif
 #include "rf_marlin3.h"
+#include <linux/completion.h>
 
 #ifdef WMMAC_WFA_CERTIFICATION
 #include "qos.h"
@@ -48,7 +49,10 @@ struct sprdwl_cmd {
 	spinlock_t lock;
 	/* mutex for command */
 	struct mutex cmd_lock;
-	wait_queue_head_t waitq;
+	/* wake_lock for command */
+	struct wakeup_source wake_lock;
+	/*complettion for command*/
+	struct completion	completed;
 };
 
 static struct sprdwl_cmd g_sprdwl_cmd;
@@ -226,13 +230,14 @@ void sprdwl_cmd_init(void)
 	cmd->data = NULL;
 	spin_lock_init(&cmd->lock);
 	mutex_init(&cmd->cmd_lock);
-	init_waitqueue_head(&cmd->waitq);
+	wakeup_source_init(&cmd->wake_lock, "Wi-Fi_cmd_wakelock");
+	init_completion(&cmd->completed);
 	cmd->init_ok = 1;
 }
 
 void sprdwl_cmd_wake_upall(void)
 {
-	wake_up_all(&g_sprdwl_cmd.waitq);
+	complete(&g_sprdwl_cmd.completed);
 }
 
 static void sprdwl_cmd_set(struct sprdwl_cmd_hdr *hdr)
@@ -273,7 +278,8 @@ void sprdwl_cmd_deinit(void)
 	struct sprdwl_cmd *cmd = &g_sprdwl_cmd;
 
 	atomic_add(SPRDWL_CMD_EXIT_VAL, &cmd->refcnt);
-	wake_up_all(&cmd->waitq);
+	complete(&cmd->completed);
+
 	timeout = jiffies + msecs_to_jiffies(1000);
 	while (atomic_read(&cmd->refcnt) > SPRDWL_CMD_EXIT_VAL) {
 		if (time_after(jiffies, timeout)) {
@@ -284,10 +290,14 @@ void sprdwl_cmd_deinit(void)
 	}
 	sprdwl_cmd_clean(cmd);
 	mutex_destroy(&cmd->cmd_lock);
+	wakeup_source_trash(&cmd->wake_lock);
 }
 
+extern struct sprdwl_intf_sc2355 g_intf_sc2355;
 static int sprdwl_cmd_lock(struct sprdwl_cmd *cmd)
 {
+	struct sprdwl_intf *intf = (struct sprdwl_intf *)g_intf_sc2355.intf;
+
 	if (atomic_inc_return(&cmd->refcnt) >= SPRDWL_CMD_EXIT_VAL) {
 		atomic_dec(&cmd->refcnt);
 		wl_err("%s failed, cmd->refcnt=%d\n",
@@ -296,6 +306,8 @@ static int sprdwl_cmd_lock(struct sprdwl_cmd *cmd)
 		return -1;
 	}
 	mutex_lock(&cmd->cmd_lock);
+	if(intf->priv->is_suspending == 0)
+		__pm_stay_awake(&cmd->wake_lock);
 	wl_info("cmd->refcnt=%x\n", atomic_read(&cmd->refcnt));
 
 	return 0;
@@ -303,8 +315,14 @@ static int sprdwl_cmd_lock(struct sprdwl_cmd *cmd)
 
 static void sprdwl_cmd_unlock(struct sprdwl_cmd *cmd)
 {
+	struct sprdwl_intf *intf = (struct sprdwl_intf *)g_intf_sc2355.intf;
+
 	mutex_unlock(&cmd->cmd_lock);
 	atomic_dec(&cmd->refcnt);
+	if(intf->priv->is_suspending == 0)
+		__pm_relax(&cmd->wake_lock);
+	if(intf->priv->is_suspending == 1)
+		intf->priv->is_suspending = 0;
 }
 
 struct sprdwl_msg_buf *__sprdwl_cmd_getbuf(struct sprdwl_priv *priv,
@@ -414,11 +432,9 @@ static int sprdwl_timeout_recv_rsp(struct sprdwl_priv *priv,
 	struct sprdwl_intf *intf = (struct sprdwl_intf *)(priv->hw_priv);
 	struct sprdwl_tx_msg *tx_msg = (struct sprdwl_tx_msg *)intf->sprdwl_tx;
 
-	ret = wait_event_timeout(cmd->waitq,
-				 (cmd->data || sprdwl_intf_is_exit(priv)
-				 || (tx_msg->hang_recovery_status == HANG_RECOVERY_ACKED
-				 && cmd->cmd_id != WIFI_CMD_HANG_RECEIVED)),
-				 msecs_to_jiffies(timeout));
+	wl_info("%s, completion begin=0X%x\n", __func__, cmd->completed.done);
+	ret = wait_for_completion_timeout(&cmd->completed, msecs_to_jiffies(timeout));
+	wl_info("%s, ret=%d, completion done=0X%x\n", __func__, ret, cmd->completed.done);
 	if (!ret) {
 		wl_err("[%s]timeout\n", cmd2str(cmd->cmd_id));
 		return -1;
@@ -512,6 +528,7 @@ int sprdwl_cmd_send_recv(struct sprdwl_priv *priv,
 	cmd_id = hdr->cmd_id;
 	ctx_id = hdr->common.ctx_id;
 
+	reinit_completion(&cmd->completed);
 	ret = sprdwl_cmd_send_to_ic(priv, msg);
 	if (ret) {
 		sprdwl_cmd_unlock(cmd);
@@ -2164,8 +2181,14 @@ void sprdwl_add_hang_cmd(struct sprdwl_vif *vif)
 {
 	struct sprdwl_work *misc_work;
 	struct sprdwl_cmd *cmd = &g_sprdwl_cmd;
+	struct sprdwl_intf *intf = (struct sprdwl_intf *)(vif->priv->hw_priv);
+	struct sprdwl_tx_msg *tx_msg = (struct sprdwl_tx_msg *)intf->sprdwl_tx;
 
-	wake_up_all(&cmd->waitq);
+	if (sprdwl_intf_is_exit(vif->priv)
+		|| (tx_msg->hang_recovery_status == HANG_RECOVERY_ACKED
+		&& cmd->cmd_id != WIFI_CMD_HANG_RECEIVED)) {
+		complete(&cmd->completed);
+	}
 	misc_work = sprdwl_alloc_work(0);
 	if (!misc_work) {
 		wl_err("%s out of memory\n", __func__);
@@ -2551,7 +2574,7 @@ unsigned short sprdwl_rx_rsp_process(struct sprdwl_priv *priv, u8 *msg)
 
 		}
 		cmd->data = data;
-		wake_up(&cmd->waitq);
+		complete(&cmd->completed);
 	} else {
 		kfree(data);
 		wl_err("%s ctx_id %d recv mismatched rsp[%s] status[%s]\n",

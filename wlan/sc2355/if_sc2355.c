@@ -1254,6 +1254,7 @@ int sprdwl_suspend_resume_handle(int chn, int mode)
 		intf->suspend_mode = SPRDWL_PS_SUSPENDING;
 		getnstimeofday(&time);
 		intf->sleep_time = timespec_to_ns(&time);
+		priv->is_suspending= 1;
 		ret = sprdwl_power_save(priv,
 					vif->ctx_id,
 					SPRDWL_SUSPEND_RESUME,
