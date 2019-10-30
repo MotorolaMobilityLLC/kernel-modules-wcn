@@ -3528,7 +3528,10 @@ static int sprdwl_vendor_get_akm_suite(struct wiphy *wiphy,
 	reply = cfg80211_vendor_cmd_alloc_reply_skb(wiphy, len);
 	if (!reply)
 		return -ENOMEM;
-	nla_put(reply, NL80211_ATTR_AKM_SUITES, akm_len, akm);
+	if(nla_put(reply, NL80211_ATTR_AKM_SUITES, akm_len, akm)) {
+		kfree_skb(reply);
+		return -EMSGSIZE;
+	}
 	ret = cfg80211_vendor_cmd_reply(reply);
 	if (ret)
 		wiphy_err(wiphy, "reply cmd error\n");
