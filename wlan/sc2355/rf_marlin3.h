@@ -158,6 +158,18 @@ struct wifi_conf_sec2_t {
 	/*struct rf_config_t rf_config;*/
 };
 
+#if defined(CONFIG_UMW2652)
+struct roaming_param_t {
+	uint8_t trigger;
+	uint8_t delta;
+	uint8_t band_5g_prefer;
+};
+
+struct wifi_config_param_t {
+	struct roaming_param_t roaming_param;
+};
+#endif
+
 /*wifi config struct*/
 struct wifi_conf_t {
 	struct version_t version;
@@ -174,6 +186,9 @@ struct wifi_conf_t {
 	struct debug_reg_t debug_reg;
 	struct coex_config_t coex_config;
 	struct rf_config_t rf_config;
+#if defined(CONFIG_UMW2652)
+	struct wifi_config_param_t wifi_param;
+#endif
 };
 
 int get_wifi_config_param(struct wifi_conf_t *p);

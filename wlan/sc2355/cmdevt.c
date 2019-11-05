@@ -678,11 +678,16 @@ void sprdwl_download_ini(struct sprdwl_priv *priv)
 #define SEC1	1
 #define SEC2	2
 #define SEC3	3
-
+#if defined(CONFIG_UMW2652)
+#define SEC4	4
+#endif
 	int ret;
 	struct wifi_conf_t *wifi_data;
 	struct wifi_conf_sec1_t *sec1;
 	struct wifi_conf_sec2_t *sec2;
+#if defined(CONFIG_UMW2652)
+	struct wifi_config_param_t *wifi_param;
+#endif
 
 	pr_info("%s enter:", __func__);
 	/*if ini file has been download already, return*/
@@ -711,6 +716,13 @@ void sprdwl_download_ini(struct sprdwl_priv *priv)
 	sec1 = (struct wifi_conf_sec1_t *)wifi_data;
 	sec2 = (struct wifi_conf_sec2_t *)((char *)wifi_data +
 					   sizeof(struct wifi_conf_sec1_t));
+#if defined(CONFIG_UMW2652)
+	wifi_param = (struct wifi_config_param_t *)(&wifi_data->wifi_param);
+
+	wl_info("total config len:%ld,sec1 len:%ld, sec2 len:%ld, sec4 len:%ld\n",
+		(long unsigned int)sizeof(*wifi_data), (long unsigned int)sizeof(*sec1),
+		(long unsigned int)sizeof(*sec2), (long unsigned int)sizeof(*wifi_param));
+#endif
 
 	wl_info("download the first section of config file\n");
 	ret = sprdwl_down_ini_cmd(priv, (uint8_t *)sec1, sizeof(*sec1), SEC1);
@@ -748,6 +760,20 @@ void sprdwl_download_ini(struct sprdwl_priv *priv)
 			return;
 		}
 	}
+
+#if defined(CONFIG_UMW2652)
+	wl_info("download the 4th section of config file\n");
+	wl_info("trigger = %d, delta = %d, prefer = %d\n", wifi_param->roaming_param.trigger, wifi_param->roaming_param.delta, wifi_param->roaming_param.band_5g_prefer);
+	ret = sprdwl_down_ini_cmd(priv, (uint8_t *)wifi_param, sizeof(*wifi_param), SEC4);
+	if (ret) {
+		wl_err("download the 4th section of ini fail,return\n");
+		kfree(wifi_data);
+		wlan_set_assert(priv, SPRDWL_MODE_NONE,
+				WIFI_CMD_DOWNLOAD_INI,
+				DOWNLOAD_INI_DATA_FAILED);
+		return;
+	}
+#endif
 
 	kfree(wifi_data);
 }

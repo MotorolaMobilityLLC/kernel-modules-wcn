@@ -229,6 +229,12 @@ static struct nvm_name_table g_config_table[] = {
 	 * [SETCTION 14] rf_config:rf_config_t
 	 */
 	CF_TAB("rf_config", rf_config.rf_data, 1),
+#if defined(CONFIG_UMW2652)
+	/* [SECTION 15] wifi_param:wifi_config_param_t */
+	CF_TAB("roaming_trigger", wifi_param.roaming_param.trigger, 1),
+	CF_TAB("roaming_delta", wifi_param.roaming_param.delta, 1),
+	CF_TAB("roaming_5g_prefer", wifi_param.roaming_param.band_5g_prefer, 1),
+#endif
 };
 
 static int find_type(char key)
