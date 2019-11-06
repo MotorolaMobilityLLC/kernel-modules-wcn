@@ -169,7 +169,7 @@ static int sprdwl_vendor_gscan_start(struct wiphy *wiphy,
 	struct nlattr *mattributes[SPRDWL_ATTR_GSCAN_MAX + 1];
 	struct sprdwl_cmd_gscan_rsp_header rsp;
 	u16 slen, rlen;
-	int ret, start = 1, index;
+	int ret = 0, start = 1, index;
 
 	rlen = sizeof(struct sprdwl_cmd_gscan_rsp_header);
 	memset(&config, 0, sizeof(config));
@@ -276,7 +276,7 @@ static int sprdwl_vendor_gscan_stop(struct wiphy *wiphy,
 				    struct wireless_dev *wdev,
 				    const void *data, int len)
 {
-	int ret, enable = SPRDWL_GSCAN_STOP;
+	int ret = 0, enable = SPRDWL_GSCAN_STOP;
 	u16 rlen;
 	struct sprdwl_cmd_gscan_rsp_header rsp;
 	struct sprdwl_vif *vif = netdev_priv(wdev->netdev);
@@ -600,7 +600,7 @@ static int sprdwl_vendor_get_llstat_handler(struct wiphy *wiphy,
 	struct wifi_radio_stat *radio_st;
 	struct wifi_iface_stat *iface_st;
 	u16 r_len = sizeof(*llst);
-	u8 r_buf[r_len], ret, i;
+	u8 r_buf[r_len], ret = 0, i;
 	u32 reply_radio_length, reply_iface_length;
 
 	struct sprdwl_priv *priv = wiphy_priv(wiphy);
@@ -706,7 +706,7 @@ static int sprdwl_vendor_clr_llstat_handler(struct wiphy *wiphy,
 	u32 *stats_clear_rsp_mask, stats_clear_req_mask = 0;
 	u16 r_len = sizeof(*stats_clear_rsp_mask);
 	u8 r_buf[r_len];
-	u32 reply_length, ret, err;
+	u32 reply_length, ret = 0, err;
 
 	struct sprdwl_priv *priv = wiphy_priv(wiphy);
 	struct sprdwl_vif *vif = container_of(wdev, struct sprdwl_vif, wdev);
@@ -841,7 +841,7 @@ static int sprdwl_vendor_get_channel_list(struct wiphy *wiphy,
 					  const void *data, int len)
 {
 	struct sk_buff *reply;
-	int payload, ret, band, max_channels;
+	int payload, ret = 0, band, max_channels;
 	u16 rlen;
 	void *rbuf;
 	struct sprdwl_vif *vif = netdev_priv(wdev->netdev);
@@ -1206,7 +1206,7 @@ static int sprdwl_vendor_report_full_scan(struct sprdwl_vif *vif,
 	struct sprdwl_priv *priv = vif->priv;
 	struct wiphy *wiphy = priv->wiphy;
 	struct sk_buff *reply;
-	int payload, rlen, ret;
+	int payload, rlen, ret = 0;
 
 	rlen = sizeof(struct sprdwl_gscan_result) + item->ie_length;
 	payload = rlen + 0x100;
@@ -1361,7 +1361,7 @@ int sprdwl_buffer_full_event(struct sprdwl_vif *vif)
 	struct sprdwl_priv *priv = vif->priv;
 	struct wiphy *wiphy = priv->wiphy;
 	struct sk_buff *reply;
-	int payload, rlen, ret;
+	int payload, rlen, ret = 0;
 
 	rlen = sizeof(enum sprdwl_gscan_event) + sizeof(u32);
 	payload = rlen + 0x100;
@@ -1419,7 +1419,7 @@ int sprdwl_gscan_done(struct sprdwl_vif *vif, u8 bucketid)
 	struct sprdwl_priv *priv = vif->priv;
 	struct wiphy *wiphy = priv->wiphy;
 	struct sk_buff *reply;
-	int payload, rlen, ret;
+	int payload, rlen, ret = 0;
 	int value;
 	unsigned char *tmp;
 
@@ -1444,7 +1444,7 @@ static int sprdwl_vendor_get_logger_feature(struct wiphy *wiphy,
 					    struct wireless_dev *wdev,
 					    const void *data, int len)
 {
-	int ret;
+	int ret = 0;
 	struct sk_buff *reply;
 	int feature, payload;
 
@@ -1479,7 +1479,7 @@ static int sprdwl_vendor_get_feature(struct wiphy *wiphy,
 				     struct wireless_dev *wdev,
 				     const void *data, int len)
 {
-	int ret;
+	int ret = 0;
 	struct sk_buff *reply;
 	int feature = 0, payload;
 	struct sprdwl_priv *priv = wiphy_priv(wiphy);
@@ -1525,7 +1525,7 @@ static int sprdwl_vendor_get_wake_state(struct wiphy *wiphy,
 					struct wireless_dev *wdev,
 					const void *data, int len)
 {
-	int ret;
+	int ret = 0;
 	struct sk_buff *skb;
 	int  payload;
 
@@ -1620,7 +1620,7 @@ static int sprdwl_vendor_get_driver_info(struct wiphy *wiphy,
 					 struct wireless_dev *wdev,
 					 const void *data, int len)
 {
-	int ret, payload;
+	int ret = 0, payload;
 	struct sk_buff *reply;
 	char *version = "1.0";
 
@@ -1669,7 +1669,7 @@ static int sprdwl_vendor_get_akm_suite(struct wiphy *wiphy,
 		struct wireless_dev *wdev,
 		const void *data, int len)
 {
-	int ret, akm_len;
+	int ret = 0, akm_len;
 	struct sprdwl_priv *priv;
 	struct sk_buff *reply;
 	int index = 0;
@@ -1712,7 +1712,7 @@ static int sprdwl_start_offload_packet(struct wiphy *wiphy,
 	u32 period, len;
 	u16 prot_type;
 	u8 *data, *pos;
-	int ret;
+	int ret = 0;
 	struct sprdwl_priv *priv = wiphy_priv(wiphy);
 
 	if (!tb[OFFLOADED_PACKETS_IP_PACKET_DATA] ||
