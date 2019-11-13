@@ -90,7 +90,7 @@ enum {
 /* scan CQI register */
 #define ADDR_CQI_TH			0xE1
 /* 4 sec */
-#define FM_DRV_TX_TIMEOUT		(4*HZ)
+#define FM_DRV_TX_TIMEOUT		(1*HZ)
 /* 20 sec */
 #define FM_DRV_RX_SEEK_TIMEOUT		(20*HZ)
 
