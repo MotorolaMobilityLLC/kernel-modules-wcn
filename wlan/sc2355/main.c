@@ -1089,6 +1089,10 @@ static void sprdwl_set_mac_addr(struct sprdwl_vif *vif, u8 *pending_addr,
 		write_mac_addr(addr);
 	}
 
+	if (!priv) {
+		netdev_err(vif->ndev, "%s get pirv failed\n", __func__);
+		return;
+	}
 	switch (type) {
 	case NL80211_IFTYPE_STATION:
 	case NL80211_IFTYPE_AP:
