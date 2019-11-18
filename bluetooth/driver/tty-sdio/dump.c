@@ -61,7 +61,7 @@ void bt_host_data_save(const unsigned char *buf, int count, unsigned char data_i
     if ((buf[0] == HCI_COMMAND) ||
         ((buf[0] == HCI_EVENT) && (buf[1] == HCI_COMMAND_STATUS)) ||
         ((buf[0] == HCI_EVENT) && (buf[1] == HCI_COMMAND_COMPELET))) {
-        pr_debug("bt_host_data_save: data %d \n", data_inout);
+        //pr_debug("bt_host_data_save: data %d \n", data_inout);
         data_left_shift(data_inout);
         get_time(data_inout);
     } else {

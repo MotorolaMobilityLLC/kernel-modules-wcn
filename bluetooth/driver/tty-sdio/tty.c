@@ -100,7 +100,7 @@ static ssize_t chipid_show(struct device *dev,
     i = scnprintf(buf, PAGE_SIZE, "%d/", id);
     pr_info("%s: buf: %s, i = %d", __func__, buf, i);
     strcat(buf, id_str);
-    i += scnprintf(buf + i, PAGE_SIZE - i, buf + i);
+    i += scnprintf(buf + i, PAGE_SIZE - i, "%s", buf + i);
     pr_info("%s: buf: %s, i = %d", __func__, buf, i);
     return i;
 }
