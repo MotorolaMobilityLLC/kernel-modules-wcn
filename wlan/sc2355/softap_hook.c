@@ -6,7 +6,7 @@
 
 #include "sprdwl.h"
 
-#define SOFTAP_INI_PATH "/data/misc/wifi/softap.ini"
+#define SOFTAP_INI_PATH "/data/vendor/wifi/softap.ini"
 
 static bool is_valid_channel(struct wiphy *wiphy, int chn)
 {
