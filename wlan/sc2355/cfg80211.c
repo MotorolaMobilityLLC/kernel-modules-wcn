@@ -3044,7 +3044,8 @@ out:
 		                                SURVEY_INFO_TIME_BUSY |
 		                                SURVEY_INFO_TIME_EXT_BUSY);
 		        }
-		        netdev_err(vif->ndev,"%s, time %llu\n", __func__, s_info->time);
+		        netdev_err(vif->ndev,"%s, noise:%d, time:%llu, time_busy:%llu, time_ext_busy:%llu\n", __func__,
+					s_info->noise, s_info->time, s_info->time_busy, s_info->time_ext_busy);
 		        survey_cnt++;
 		        kfree(info);
 
