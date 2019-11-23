@@ -28,13 +28,15 @@ static const char bt_name[] = "bluetooth";
 
 static int bluetooth_set_power(void *data, bool blocked)
 {
+	int ret = 0;
+
 	pr_info("%s: start_block=%d\n", __func__, blocked);
 	if (!blocked)
-		start_marlin(MARLIN_BLUETOOTH);
+		ret = start_marlin(MARLIN_BLUETOOTH);
 	else
-		stop_marlin(MARLIN_BLUETOOTH);
+		ret = stop_marlin(MARLIN_BLUETOOTH);
 
-	pr_info("%s: end_block=%d\n", __func__, blocked);
+	pr_info("%s: end_block=%d,ret=%d\n", __func__, blocked, ret);
 	return 0;
 }
 
