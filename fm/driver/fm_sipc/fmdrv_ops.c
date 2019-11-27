@@ -327,6 +327,7 @@ static int fm_probe(struct platform_device *pdev)
 {
 	int ret = -EINVAL;
 	char *ver_str = FM_VERSION;
+	int rval = 0;
 
 	struct fm_init_data *pdata = (struct fm_init_data *)pdev->dev.platform_data;
 
@@ -356,6 +357,8 @@ static int fm_probe(struct platform_device *pdev)
 	ret = misc_register(&fm_misc_device);
 	if (ret < 0) {
 		pr_info("misc_register failed!");
+		rval = sbuf_register_notifier(fmdev->pdata->dst, fmdev->pdata->tx_channel,
+					fmdev->pdata->rx_bufid, NULL, NULL);
 		return ret;
 	}
 	pr_info("fm_init success.\n");
