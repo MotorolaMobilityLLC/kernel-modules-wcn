@@ -1190,8 +1190,8 @@ void prepare_addba(struct sprdwl_intf *intf, unsigned char lut_index,
 			wl_info("%s, %d, tx_addba, tid=%d\n",
 				__func__, __LINE__, tid);
 			getnstimeofday(&peer_entry->time[tid]);
-			test_and_set_bit(tid, &peer_entry->ba_tx_done_map);
-			sprdwl_tx_addba(intf, peer_entry, tid);
+			if (!test_and_set_bit(tid, &peer_entry->ba_tx_done_map))
+				sprdwl_tx_addba(intf, peer_entry, tid);
 		}
 	}
 }
