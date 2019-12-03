@@ -71,7 +71,10 @@ void sprdwl_netif_rx(struct sk_buff *skb, struct net_device *ndev)
 	ndev->stats.rx_packets++;
 	ndev->stats.rx_bytes += skb->len;
 
-	netif_rx_ni(skb);
+	//netif_rx_ni(skb);
+	local_bh_disable();
+	netif_receive_skb(skb);
+	local_bh_enable();
 }
 
 void sprdwl_stop_net(struct sprdwl_vif *vif)
