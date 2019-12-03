@@ -1,42 +1,28 @@
-ccflags-y += -DDEBUG
+#
+# sprdbt_tty.ko
+#
+# Makefile: for external make invocation
+#
+# Note:
+# - Please refer to modules/sample/Makefile to find out what should be
+#   done in this Makefile
+#
 
-ifeq ($(BSP_BOARD_UNISOC_WCN_SOCKET),sipc)
-	WCN_BT_BSP_PATH := $(shell cd $(BSP_ROOT_DIR)/modules/wcn/bluetooth/driver/tty-sipc; pwd)
-else ifeq ($(BSP_BOARD_UNISOC_WCN_SOCKET),sdio)
-	WCN_BT_BSP_PATH := $(shell cd $(BSP_ROOT_DIR)/modules/wcn/bluetooth/driver/tty-sdio; pwd)
-else
-	$(error "no BSP_BOARD_UNISOC_WCN_SOCKET, pls fix it !!!")
-endif
+KO_MODULE_NAME := sprdbt_tty
+KO_MODULE_OUT := $(BSP_MODULES_OUT)/$(KO_MODULE_NAME)
+KO_MODULE_KBUILD := $(CURDIR)/Kbuild
 
-WCN_BT_LOCAL_SRC := $(wildcard $(WCN_BT_BSP_PATH)/*.c)
-WCN_BT_LOCAL_ALI_SRC := $(wildcard $(WCN_BT_BSP_PATH)/alignment/*.c)
-
-WCN_BT_BSP_SRC := $(wildcard $(WCN_BT_LOCAL_SRC))
-WCN_BT_BSP_DIR := $(notdir $(WCN_BT_BSP_SRC))
-WCN_BT_BSP_ALI_SRC := $(wildcard $(WCN_BT_LOCAL_ALI_SRC))
-WCN_BT_BSP_ALI_DIR := $(notdir $(WCN_BT_BSP_ALI_SRC))
-ifeq ($(BSP_BOARD_UNISOC_WCN_SOCKET),sipc)
-	WCN_BT_BSP_OBJ := $(patsubst %.c, tty-sipc/%.o, $(WCN_BT_BSP_DIR))
-	WCN_BT_BSP_ALI_OBJ := $(patsubst %.c, tty-sipc/alignment/%.o, $(WCN_BT_BSP_ALI_DIR))
-else ifeq ($(BSP_BOARD_UNISOC_WCN_SOCKET),sdio)
-	WCN_BT_BSP_OBJ := $(patsubst %.c, tty-sdio/%.o, $(WCN_BT_BSP_DIR))
-	WCN_BT_BSP_ALI_OBJ := $(patsubst %.c, tty-sdio/alignment/%.o, $(WCN_BT_BSP_ALI_DIR))
-else
-	$(error "no BSP_BOARD_UNISOC_WCN_SOCKET, pls fix it !!!")
-endif
-
-sprdbt_tty-objs += $(WCN_BT_BSP_OBJ) \
-	$(WCN_BT_BSP_ALI_OBJ)
-
-obj-m := sprdbt_tty.o
-
-.PHONY:modules
+.PHONY: modules modules_install clean
 
 modules:
-	$(MAKE) $(BSP_MAKE_EXTRA_ARGS) ARCH=$(BSP_BOARD_ARCH) CROSS_COMPILE=$(BSP_KERNEL_CROSS_COMPILE) -C $(BSP_KERNEL_PATH) O=$(BSP_KERNEL_OUT) M=`pwd` $@
+	@mkdir -p $(KO_MODULE_OUT) && ln -snf $(KO_MODULE_KBUILD) $(KO_MODULE_OUT)/Kbuild
+	@ln -snf $(CURDIR) $(KO_MODULE_OUT)/source
+	$(MAKE) -C $(BSP_KERNEL_PATH) M=$(KO_MODULE_OUT) src=$(CURDIR) $@
 
 modules_install:
-	$(MAKE) $(BSP_MAKE_EXTRA_ARGS) ARCH=$(BSP_BOARD_ARCH) CROSS_COMPILE=$(BSP_KERNEL_CROSS_COMPILE) -C $(BSP_KERNEL_PATH) O=$(BSP_KERNEL_OUT) M=`pwd` INSTALL_MOD_PATH=$(BSP_MODULES_OUT) $@
+	$(MAKE) -C $(BSP_KERNEL_PATH) M=$(KO_MODULE_OUT) $@
 
+# Remove the out directory wholly
 clean:
-	$(MAKE) -C $(BSP_KERNEL_PATH) O=$(BSP_KERNEL_OUT) M=`pwd` $@
+	@#$(MAKE) -C $(BSP_KERNEL_PATH) M=$(KO_MODULE_OUT) src=$(CURDIR) $@
+	rm -rf $(KO_MODULE_OUT)

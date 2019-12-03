@@ -1,41 +1,28 @@
-LOCAL_PATH := $(shell cd $(BSP_ROOT_DIR)/modules/wcn/wlan; pwd)
-$(warning shell echo "$(BSP_BOARD_WLAN_DEVICE)")
+#
+# sprdwl_ng.ko
+#
+# Makefile: for external make invocation
+#
+# Note:
+# - Please refer to modules/sample/Makefile to find out what should be
+#   done in this Makefile
+#
 
-ifeq ($(strip $(BSP_BOARD_WLAN_DEVICE)),sc2332)
-ccflags-y += -DDEBUG
+KO_MODULE_NAME := sprdwl_ng
+KO_MODULE_OUT := $(BSP_MODULES_OUT)/$(KO_MODULE_NAME)
+KO_MODULE_KBUILD := $(CURDIR)/Kbuild
 
-else ifeq ($(strip $(BSP_BOARD_WLAN_DEVICE)),sc2355)
-ccflags-y += -DSC2355_FTR -DSC2355_TX_FILTER -DSC2355_QOS_MAP
-ccflags-y += -DIBSS_SUPPORT -DIBSS_RSN_SUPPORT
-ccflags-y += -DNAN_SUPPORT
-ccflags-y += -DRTT_SUPPORT
-ccflags-y += -DSC2355_RX_NO_LOOP
-ccflags-y += -DACS_SUPPORT -DSC2355_HW_CSUM
-ccflags-y += -DWMMAC_WFA_CERTIFICATION
-ccflags-y += -DCOMPAT_SAMPILE_CODE
-ccflags-y += -DRND_MAC_SUPPORT
-ccflags-y += -DSOFTAP_HOOK
-ccflags-y += -DATCMD_ASSERT
-ccflags-y += -DTCPACK_DELAY_SUPPORT
-ifeq ($(strip $(BSP_BUILD_VARIANT)),userdebug)
-ccflags-y += -DCONFIG_SPRD_WCN_DEBUG
-endif
-ccflags-y += -DSPLIT_STACK
-
-endif
-
-SPRDWL_SRC := $(shell find $(LOCAL_PATH)/$(BSP_BOARD_WLAN_DEVICE) -name "*.c")
-SPRDWL_DIR :=  $(SPRDWL_SRC:$(LOCAL_PATH)/%=%)
-sprdwl_ng-objs += $(SPRDWL_DIR:%.c=%.o)
-obj-m += sprdwl_ng.o
-
-.PHONY:modules
+.PHONY: modules modules_install clean
 
 modules:
-	$(MAKE) $(BSP_MAKE_EXTRA_ARGS) ARCH=$(BSP_BOARD_ARCH) CROSS_COMPILE=$(BSP_KERNEL_CROSS_COMPILE) -C $(BSP_KERNEL_PATH) O=$(BSP_KERNEL_OUT) M=`pwd` $@
+	@mkdir -p $(KO_MODULE_OUT) && ln -snf $(KO_MODULE_KBUILD) $(KO_MODULE_OUT)/Kbuild
+	@ln -snf $(CURDIR) $(KO_MODULE_OUT)/source
+	$(MAKE) -C $(BSP_KERNEL_PATH) M=$(KO_MODULE_OUT) src=$(CURDIR) $@
 
 modules_install:
-	$(MAKE) $(BSP_MAKE_EXTRA_ARGS) ARCH=$(BSP_BOARD_ARCH) CROSS_COMPILE=$(BSP_KERNEL_CROSS_COMPILE) -C $(BSP_KERNEL_PATH) O=$(BSP_KERNEL_OUT) M=`pwd` INSTALL_MOD_PATH=$(BSP_MODULES_OUT) $@
+	$(MAKE) -C $(BSP_KERNEL_PATH) M=$(KO_MODULE_OUT) $@
 
+# Remove the out directory wholly
 clean:
-	$(MAKE) -C $(BSP_KERNEL_PATH) O=$(BSP_KERNEL_OUT) M=`pwd` $@
+	@#$(MAKE) -C $(BSP_KERNEL_PATH) M=$(KO_MODULE_OUT) src=$(CURDIR) $@
+	rm -rf $(KO_MODULE_OUT)
