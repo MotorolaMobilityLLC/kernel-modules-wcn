@@ -1208,6 +1208,8 @@ int __init init_fm_driver(void) {
     /* malloc mem for rds struct */
     fm_rds_info = kzalloc(sizeof(struct fm_rds_data), GFP_KERNEL);
     if (NULL == fm_rds_info) {
+        kfree(fmdev);
+        fmdev = NULL;
         pr_err("fm can't allocate FM RDS buffer\n");
         return ret;
     }
@@ -1242,6 +1244,8 @@ void __exit exit_fm_driver(void) {
     tasklet_kill(&fmdev->rx_task);
     //kfree(fmdev->read_buf);
     //fmdev->read_buf = NULL;
+    kfree(g_rds_data_string);
+    g_rds_data_string = NULL;
     kfree(fmdev);
     fmdev = NULL;
 }
