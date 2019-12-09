@@ -670,7 +670,7 @@ static void sprdwl_sipc_event_handler(int event, void *data)
 
 static void sprdwl_sipc_clean_swcnblk(void)
 {
-	int ret, block_num;
+	int ret = 0, block_num;
 	struct swcnblk_blk blk;
 
 	block_num = 0;
@@ -716,7 +716,7 @@ static void sprdwl_sipc_clean_swcnblk(void)
 
 static int sprdwl_sipc_swcnblk_init(struct sprdwl_intf *intf)
 {
-	int ret;
+	int ret = 0;
 	int channel[3];
 	int i = 0;
 	unsigned long timeout;
