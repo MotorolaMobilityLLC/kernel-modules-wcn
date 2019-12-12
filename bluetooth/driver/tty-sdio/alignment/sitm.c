@@ -39,6 +39,8 @@ int sitm_ini(void)
 
 int sitm_cleanup(void)
 {
+	if (rd == NULL)
+		return 0;
 	kfifo_free(&rd->fifo);
 	kfree(rd);
 	rd = NULL;
