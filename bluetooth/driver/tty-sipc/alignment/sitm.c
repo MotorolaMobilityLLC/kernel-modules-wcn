@@ -29,6 +29,8 @@ int sitm_ini(void)
 {
 	rd = kmalloc(sizeof(struct packet_receive_data_t),
 		GFP_KERNEL);
+	if(NULL == rd)
+		pr_err("no memory for packet_receive_data_t");
 	memset(rd, 0, sizeof(struct packet_receive_data_t));
 	if (kfifo_alloc(&rd->fifo,
 		HCI_HAL_SERIAL_BUFFER_SIZE, GFP_KERNEL)) {
