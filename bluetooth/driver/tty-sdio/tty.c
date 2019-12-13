@@ -119,8 +119,8 @@ static ssize_t dumpmem_store(struct device *dev,
         //mdbg_assert_interface("BT command timeout assert !!!");
         bt_host_data_printf();
         if (data_dump != NULL) {
-            data_dump = NULL;
             vfree(data_dump);
+            data_dump = NULL;
         }
         sdiohal_dump_aon_reg();
     } else {
