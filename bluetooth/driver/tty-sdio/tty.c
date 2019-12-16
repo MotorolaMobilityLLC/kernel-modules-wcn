@@ -645,6 +645,10 @@ static int  mtty_probe(struct platform_device *pdev)
     mtty->bt_rx_workqueue =
         create_singlethread_workqueue("SPRDBT_RX_QUEUE");
     if (!mtty->bt_rx_workqueue) {
+        mtty_tty_driver_exit(mtty);
+        kfree(mtty->port);
+        kfree(mtty);
+        mtty_destroy_pdata(&pdata);
         pr_err("%s SPRDBT_RX_QUEUE create failed", __func__);
         return -ENOMEM;
     }
