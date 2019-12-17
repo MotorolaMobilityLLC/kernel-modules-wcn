@@ -121,8 +121,6 @@ fail:
 	remove_proc_entry("btwrite", sleep_dir);
 	remove_proc_entry("sleep", bluetooth_dir);
 	remove_proc_entry("bluetooth", 0);
-	wake_lock_destroy(&tx_wakelock);
-	wake_lock_destroy(&rx_wakelock);
 	return retval;
 }
 
