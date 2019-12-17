@@ -11,7 +11,6 @@
  * GNU General Public License for more details.
  */
 
-//#include <../../kernel/kernel4.14/include/linux/compat.h>
 #include <linux/console.h>
 #include <linux/delay.h>
 #include <linux/init.h>
@@ -177,7 +176,6 @@ static void stty_handler (int event, void *data)
 
 	buf = kzalloc(STTY_MAX_DATA_LEN, GFP_KERNEL);
 	if (!buf) {
-		kfree(buf);
 		return;
 	}
 
