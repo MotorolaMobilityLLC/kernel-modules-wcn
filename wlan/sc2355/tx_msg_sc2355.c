@@ -369,7 +369,7 @@ void sprdwl_init_xmit_list(struct sprdwl_tx_msg *tx_msg)
 	spin_lock_init(&tx_msg->xmit_msg_list.free_lock);
 }
 
-static void
+static int
 add_xmit_list_tail(struct sprdwl_tx_msg *tx_msg,
 		   struct peer_list *p_list,
 		   int add_num)
@@ -378,8 +378,8 @@ add_xmit_list_tail(struct sprdwl_tx_msg *tx_msg,
 	struct list_head temp_list;
 	int num = 0;
 
-	if (add_num == 0)
-		return;
+	if (add_num == 0 || list_empty(&p_list->head_list))
+		return -ENOMEM;
 	spin_lock_bh(&p_list->p_lock);
 	list_for_each_safe(pos_list, n_list, &p_list->head_list) {
 		num++;
@@ -401,6 +401,8 @@ add_xmit_list_tail(struct sprdwl_tx_msg *tx_msg,
 	wl_debug("%s,%d,q_num%d,tosend_num%d\n", __func__, __LINE__,
 		 get_list_num(&p_list->head_list),
 		 get_list_num(&tx_msg->xmit_msg_list.to_send_list));
+
+	return 0;
 }
 
 unsigned int queue_is_empty(struct sprdwl_tx_msg *tx_msg, enum sprdwl_mode mode)
@@ -633,7 +635,7 @@ int sprdwl_fc_get_send_num(struct sprdwl_tx_msg *tx_msg,
 			       shared_flow_num, data_num);
 			return -ENOMEM;
 		}
-		wl_info("%s,mode:%d,e_n:%d,s_n:%d,d_n:%d,{%d,%d,%d,%d}\n",
+		wl_debug("%s,mode:%d,e_n:%d,s_n:%d,d_n:%d,{%d,%d,%d,%d}\n",
 			__func__, mode, excusive_flow_num,
 			shared_flow_num, data_num,
 			tx_msg->color_num[0], tx_msg->color_num[1],
@@ -779,6 +781,7 @@ int handle_tx_timeout(struct sprdwl_tx_msg *tx_msg,
 	int cnt, i, del_list_num;
 	struct list_head *tx_list;
 	struct sprdwl_msg_buf *pos_buf, *temp_buf, *tailbuf;
+	struct sprdwl_priv *priv = tx_msg->intf->priv;
 
 	if (SPRDWL_AC_MAX != ac_index) {
 		tx_list = &p_list->head_list;
@@ -799,21 +802,22 @@ int handle_tx_timeout(struct sprdwl_tx_msg *tx_msg,
 
 	if (time_after(jiffies, tailbuf->timeout)) {
 		mode = tailbuf->mode;
+		sprdwl_net_flowcontrl(priv, mode, false);
 		i = 0;
 		lock = &p_list->p_lock;
 		spin_lock_bh(lock);
-		del_list_num = atomic_read(&p_list->l_num) * atomic_read(&p_list->l_num) /
-						msg_list->maxnum;
+		del_list_num = TX_TIMEOUT_DROP_RATE *
+			atomic_read(&p_list->l_num) / 100;
 		if (del_list_num >= atomic_read(&p_list->l_num))
 			del_list_num = atomic_read(&p_list->l_num);
-		wl_info("tx timeout drop num:%d, l_num:%d, maxnum:%d",
-			del_list_num, atomic_read(&p_list->l_num), msg_list->maxnum);
+		wl_info("tx timeout drop num:%d, l_num:%d",
+			del_list_num, atomic_read(&p_list->l_num));
 		spin_unlock_bh(lock);
 		list_for_each_entry_safe(pos_buf,
 		temp_buf, tx_list, list) {
 			if (i >= del_list_num)
 				break;
-			wl_err("%s:%d buf->timeout\n",
+			wl_debug("%s:%d buf->timeout\n",
 			       __func__, __LINE__);
 			if (pos_buf->mode <= SPRDWL_MODE_AP) {
 				pinfo = "STA/AP mode";
@@ -822,7 +826,7 @@ int handle_tx_timeout(struct sprdwl_tx_msg *tx_msg,
 				pinfo = "P2P mode";
 				cnt = tx_msg->drop_data2_cnt++;
 			}
-			wl_err("tx drop %s, dropcnt:%u\n",
+			wl_debug("tx drop %s, dropcnt:%u\n",
 			       pinfo, cnt);
 			sprdwl_dequeue_qos_buf(pos_buf, ac_index);
 			atomic_dec(&tx_msg->tx_list[mode]->mode_list_num);
@@ -955,9 +959,10 @@ static int sprdwl_tx_eachmode_data(struct sprdwl_intf *intf,
 				continue;
 			for (j = 0; j < MAX_LUT_NUM; j++) {
 				p_list = &q_list->p_list[j];
-				if (p_list_num[i][j] ==  0)
+				if (p_list_num[i][j] <= 0 || list_empty(&p_list->head_list))
 					continue;
-				add_xmit_list_tail(tx_msg, p_list, p_list_num[i][j]);
+				if (add_xmit_list_tail(tx_msg, p_list, p_list_num[i][j]))
+					continue;
 				atomic_sub(p_list_num[i][j], &p_list->l_num);
 				atomic_sub(p_list_num[i][j], &tx_list->mode_list_num);
 				wl_debug("%s, %d, mode=%d, TID=%d, lut=%d, %d add to xmit_list, then l_num=%d, mode_list_num=%d\n",
@@ -1345,6 +1350,8 @@ RETRY:
 			struct sprdwl_vif *vif;
 
 			vif = mode_to_vif(priv, tx_msg->mode);
+			if (!vif)
+				return;
 			intf->fw_power_down = 0;
 			sprdwl_work_host_wakeup_fw(vif);
 			sprdwl_put_vif(vif);
@@ -1370,13 +1377,22 @@ RETRY:
 
 	for (mode = SPRDWL_MODE_NONE; mode < SPRDWL_MODE_MAX; mode++) {
 		int num = atomic_read(&tx_msg->tx_list[mode]->mode_list_num);
+		struct sprdwl_vif *vif;
 
 		if (num <= 0)
 			continue;
-		if (num > 0 && priv->fw_stat[mode] != SPRDWL_INTF_OPEN) {
+		vif = mode_to_vif(priv, mode);
+		if (!vif)
+			continue;
+		if (num > 0 && ((priv->fw_stat[mode] != SPRDWL_INTF_OPEN) ||
+			((mode == SPRDWL_MODE_STATION ||
+			mode == SPRDWL_MODE_P2P_CLIENT) &&
+			vif->sm_state != SPRDWL_CONNECTED))) {
 			sprdwl_flush_mode_txlist(tx_msg, mode);
+			sprdwl_put_vif(vif);
 			continue;
 		}
+		sprdwl_put_vif(vif);
 
 		send_num = sprdwl_fc_test_send_num(tx_msg, mode, num);
 		if (send_num > 0)

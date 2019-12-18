@@ -14,6 +14,7 @@
 #define SPRDWL_SDIO_MASK_LIST_CMD	0x1
 #define SPRDWL_SDIO_MASK_LIST_SPECIAL	0x2
 #define SPRDWL_SDIO_MASK_LIST_DATA	0x4
+#define TX_TIMEOUT_DROP_RATE	50
 
 /*The number of bytes in an ethernet (MAC) address.*/
 #define	ETHER_ADDR_LEN 6

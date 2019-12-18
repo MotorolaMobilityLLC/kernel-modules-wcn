@@ -548,8 +548,8 @@ int sprdwl_cmd_send_recv(struct sprdwl_priv *priv,
 				rbuf[0] = hdr->common.ctx_id;
 		}
 	} else {
-		wl_err("ctx_id %d [%s]rsp timeout\n",
-		       ctx_id, cmd2str(cmd_id));
+		wl_err("ctx_id %d [%s]rsp timeout, printk=%d\n",
+		       ctx_id, cmd2str(cmd_id), console_loglevel);
 		if (cmd_id == WIFI_CMD_CLOSE) {
 			sprdwl_atcmd_assert(priv, ctx_id, cmd_id, CMD_RSP_TIMEOUT_ERROR);
 			sprdwl_cmd_unlock(cmd);
