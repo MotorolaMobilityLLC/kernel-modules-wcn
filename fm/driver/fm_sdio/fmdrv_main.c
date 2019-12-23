@@ -141,8 +141,7 @@ static int fm_send_cmd(unsigned char subcmd, void *payload, int payload_len) {
     int size;
 
     size = sizeof(struct fm_cmd_hdr) + ((payload == NULL) ? 0 : payload_len);
-    cmd_buf = kmalloc(size + FM_SDIO_HEAD_LEN, GFP_KERNEL);
-    memset(cmd_buf, 0, size + FM_SDIO_HEAD_LEN);
+    cmd_buf = kzalloc(size + FM_SDIO_HEAD_LEN, GFP_KERNEL);
     if (!cmd_buf) {
         pr_err("(fmdrv):%s():No memory to create new command buf\n", __func__);
         return -ENOMEM;
@@ -196,6 +195,7 @@ static int fm_write_cmd(unsigned char subcmd, void *payload,
     if (ret < 0) {
         /*marlin_set_sleep(MARLIN_FM, 1);*/
         wake_unlock(&fm_wakelock);
+        mutex_unlock(&fmdev->mutex);
         return ret;
     }
 
@@ -268,12 +268,17 @@ static void receive_tasklet(unsigned long arg)
         sdio_hdr = kmalloc(sizeof(struct fm_sdio_hdr), GFP_ATOMIC);
         if (!sdio_hdr){
             pr_err("fm sdio_hdr kmalloc fail\n");
+            return;
         }
         parse_sdio_header(head, tail, num, sdio_hdr);
         if (sdio_hdr->subtype != FM_RX_CHANNEL - 12) {
             pr_info("%s sub type is wrong [%d]\n", __func__, sdio_hdr->subtype);
+            spin_unlock_bh(&fmdev->rw_lock);
+            sprdwcn_bus_list_free(channel, head, tail, num);
             kfree(sdio_hdr);
             sdio_hdr = NULL;
+            kfree(rx);
+            rx = NULL;
             return;
         }
         receive_buf = head->buf + FM_SDIO_HEAD_LEN;

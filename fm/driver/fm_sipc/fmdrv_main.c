@@ -417,19 +417,17 @@ void fm_handler (int event, void *data)
     unsigned char *buf;
 
     wake_lock_timeout(&fm_wakelock, HZ*1);
-
-    buf = kzalloc(FM_READ_SIZE, GFP_KERNEL);
-    if (!buf) {
-		pr_err("(fmdrv): %s(): failed to create buffer.\n", __func__);
-		return;
-    }
-
     pr_info("fm handler event=%d\n", event);
 
 	switch (event) {
 	case SBUF_NOTIFY_WRITE:
 		break;
 	case SBUF_NOTIFY_READ:
+		buf = kzalloc(FM_READ_SIZE, GFP_KERNEL);
+		if (!buf) {
+			pr_err("(fmdrv): %s(): failed to create buffer.\n", __func__);
+			return;
+		}
 		cnt = sbuf_read(pdata->dst,
 				pdata->rx_channel,
 				pdata->rx_bufid,
