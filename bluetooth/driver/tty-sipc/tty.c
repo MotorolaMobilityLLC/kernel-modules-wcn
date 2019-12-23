@@ -437,8 +437,11 @@ static int stty_driver_init(struct stty_device *device)
 		return -ENOMEM;
 
 	driver = alloc_tty_driver(STTY_DEV_MAX_NR);
-	if (!driver)
+	if (!driver) {
+		kfree(device->port);
 		return -ENOMEM;
+	}
+
 	/*
 	 * Initialize the tty_driver structure
 	 * Entries in stty_driver that are NOT initialized:
@@ -460,6 +463,7 @@ static int stty_driver_init(struct stty_device *device)
 	if (ret) {
 		put_tty_driver(driver);
 		tty_port_destroy(device->port);
+		kfree(device->port);
 		return ret;
 	}
 	return ret;
@@ -470,6 +474,7 @@ static void stty_driver_exit(struct stty_device *device)
 	struct tty_driver *driver = device->driver;
 
 	tty_unregister_driver(driver);
+	put_tty_driver(driver);
 	tty_port_destroy(device->port);
 }
 
