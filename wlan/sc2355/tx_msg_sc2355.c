@@ -100,7 +100,7 @@ struct sprdwl_msg_buf *sprdwl_get_msg_buf(void *pdev,
 		sprdwl_net_flowcontrl(dev->priv, mode, false);
 		atomic_set(&list->flow, 1);
 	}
-	printk_ratelimited("%s no more msgbuf for %s\n",
+	wl_err_ratelimited("%s no more msgbuf for %s\n",
 			   __func__, type == SPRDWL_TYPE_DATA ?
 			   "data" : "cmd");
 
@@ -710,7 +710,7 @@ int sprdwl_fc_test_send_num(struct sprdwl_tx_msg *tx_msg,
 		       __func__, __LINE__,
 		       (u8)mode);
 		for (i = 0; i < MAX_COLOR_BIT; i++)
-			printk_ratelimited("color[%d] assigned mode%d\n",
+			wl_err_ratelimited("color[%d] assigned mode%d\n",
 			       i, (u8)tx_msg->flow_ctrl[i].mode);
 		return -ENOMEM;
 	}
@@ -744,7 +744,7 @@ void sprdwl_handle_tx_return(struct sprdwl_tx_msg *tx_msg,
 	struct sprdwl_priv *priv = tx_msg->intf->priv;
 
 	if (ret) {
-		printk_ratelimited(
+		wl_err_ratelimited(
 		"%s sprdwl_intf_tx_list err:%d\n",
 				   __func__, ret);
 		memset(tx_msg->color_num, 0x00, MAX_COLOR_BIT);
@@ -1320,20 +1320,20 @@ RETRY:
 	* but we still need to send cmd to cp2
 	*/
 	if (tx_msg->hang_recovery_status != HANG_RECOVERY_END) {
-		printk_ratelimited("sc2355, %s, hang happened\n", __func__);
+		wl_err_ratelimited("sc2355, %s, hang happened\n", __func__);
 		if (sprdwl_msg_tx_pended(&tx_msg->tx_list_cmd))
 			sprdwl_tx_cmd(intf, &tx_msg->tx_list_cmd);
 		goto RETRY;
 	}
 
 	if (tx_msg->thermal_status == THERMAL_WIFI_DOWN) {
-		printk_ratelimited("sc2355, %s, THERMAL_WIFI_DOWN\n", __func__);
+		wl_err_ratelimited("sc2355, %s, THERMAL_WIFI_DOWN\n", __func__);
 		if (sprdwl_msg_tx_pended(&tx_msg->tx_list_cmd))
 			sprdwl_tx_cmd(intf, &tx_msg->tx_list_cmd);
 		goto RETRY;
 	}
 	if (tx_msg->thermal_status == THERMAL_TX_STOP) {
-		printk_ratelimited("sc2355, %s, THERMAL_TX_STOP\n", __func__);
+		wl_err_ratelimited("sc2355, %s, THERMAL_TX_STOP\n", __func__);
 		if (sprdwl_msg_tx_pended(&tx_msg->tx_list_cmd))
 			sprdwl_tx_cmd(intf, &tx_msg->tx_list_cmd);
 		return;
@@ -1359,12 +1359,12 @@ RETRY:
 	}
 
 	if (intf->fw_awake == 0) {
-		printk_ratelimited("sc2355, %s, fw_awake = 0\n", __func__);
+		wl_err_ratelimited("sc2355, %s, fw_awake = 0\n", __func__);
 		return;
 	}
 
 	if (intf->suspend_mode != SPRDWL_PS_RESUMED) {
-		printk_ratelimited("sc2355, %s, not RESUMED\n", __func__);
+		wl_err_ratelimited("sc2355, %s, not RESUMED\n", __func__);
 		return;
 	}
 

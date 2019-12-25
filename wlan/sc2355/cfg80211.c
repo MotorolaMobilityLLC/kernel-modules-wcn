@@ -458,7 +458,7 @@ int sprdwl_uninit_fw(struct sprdwl_vif *vif)
 	while ((!list_empty(&tx_msg->xmit_msg_list.to_send_list) ||
 			!list_empty(&tx_msg->xmit_msg_list.to_free_list)) &&
 			count < 100) {
-		printk_ratelimited("error! %s data q not empty, wait\n", __func__);
+		wl_err_ratelimited("error! %s data q not empty, wait\n", __func__);
 		usleep_range(2500, 3000);
 		count++;
 	}

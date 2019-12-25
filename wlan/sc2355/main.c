@@ -209,7 +209,7 @@ static int sprdwl_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 
 	/*mode not open, so we will not send data*/
 	if (vif->priv->fw_stat[vif->mode] != SPRDWL_INTF_OPEN) {
-		printk_ratelimited("%s, %d, error! should not send this data\n",
+		wl_err_ratelimited("%s, %d, error! should not send this data\n",
 		       __func__, __LINE__);
 		return NETDEV_TX_BUSY;
 	}
