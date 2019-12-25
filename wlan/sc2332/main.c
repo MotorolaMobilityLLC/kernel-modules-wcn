@@ -953,7 +953,36 @@ read_operation:
 	} else {
 		vif->local_mac_flag = 0;
 	}
+	return 0;
+}
 
+static int write_mac_addr(u8 *addr)
+{
+	struct file *fp = 0;
+	mm_segment_t old_fs;
+	char buf[18];
+	loff_t pos = 0;
+
+	/*open file*/
+	fp = filp_open(WIFI_MAC_ADDR_TEMP, O_CREAT | O_RDWR | O_TRUNC, 0666);
+	if (IS_ERR(fp)) {
+		pr_err("can't create WIFI MAC file!\n");
+		return -ENOENT;
+	}
+	/*format MAC address*/
+	sprintf(buf, "%02x:%02x:%02x:%02x:%02x:%02x", addr[0], addr[1],
+	     addr[2], addr[3], addr[4], addr[5]);
+	/*save old fs: should be USER_DS*/
+	old_fs = get_fs();
+	/*change it to KERNEL_DS*/
+	set_fs(KERNEL_DS);
+	/*write file*/
+	vfs_write(fp, buf, sizeof(buf), &pos);
+	/*close file*/
+	filp_close(fp, NULL);
+	/*restore to old fs*/
+	set_fs(old_fs);
+	
 	return 0;
 }
 
@@ -977,6 +1006,8 @@ static void sprdwl_set_mac_addr(struct sprdwl_vif *vif, u8 *pending_addr,
 		addr[0] = 0x40;
 		addr[1] = 0x45;
 		addr[2] = 0xda;
+		/*write random mac to WIFI FILE*/
+		write_mac_addr(addr);
 	}
 
 	switch (type) {
