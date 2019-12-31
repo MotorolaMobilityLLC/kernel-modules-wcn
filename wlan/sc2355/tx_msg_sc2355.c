@@ -1348,8 +1348,21 @@ RETRY:
 	     !list_empty(&tx_msg->xmit_msg_list.to_send_list) ||
 	     !list_empty(&tx_msg->xmit_msg_list.to_free_list))) {
 			struct sprdwl_vif *vif;
+			enum sprdwl_mode sprdwl_mode = SPRDWL_MODE_STATION;
+			u8 mode_found = 0;
 
-			vif = mode_to_vif(priv, tx_msg->mode);
+			for (sprdwl_mode = SPRDWL_MODE_STATION; sprdwl_mode < SPRDWL_MODE_MAX; sprdwl_mode++) {
+				if (priv->fw_stat[sprdwl_mode] == SPRDWL_INTF_OPEN) {
+					mode_found = 1;
+					break;
+				}
+			}
+
+			if (0 == mode_found)
+				return;
+
+			vif = mode_to_vif(priv, sprdwl_mode);
+
 			if (!vif)
 				return;
 			intf->fw_power_down = 0;
