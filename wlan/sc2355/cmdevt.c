@@ -346,6 +346,12 @@ struct sprdwl_msg_buf *__sprdwl_cmd_getbuf(struct sprdwl_priv *priv,
 		else
 			mode =  vif->mode;
 		sprdwl_put_vif(vif);
+
+		if (cmd_id == WIFI_CMD_POWER_SAVE &&
+		    priv->fw_stat[vif->mode] == SPRDWL_INTF_CLOSE) {
+			wl_err("%s:send [%s] fail because mode close", __func__, cmd2str(cmd_id));
+			return NULL;
+		}
 	}
 #endif
 	msg = sprdwl_intf_get_msg_buf(priv, SPRDWL_TYPE_CMD, mode, ctx_id);

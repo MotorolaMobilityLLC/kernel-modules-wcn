@@ -207,11 +207,13 @@ static int sprdwl_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 			return NETDEV_TX_OK;
 	}
 
-	/*mode not open, so we will not send data*/
-	if (vif->priv->fw_stat[vif->mode] != SPRDWL_INTF_OPEN) {
-		wl_err_ratelimited("%s, %d, error! should not send this data\n",
-		       __func__, __LINE__);
-		return NETDEV_TX_BUSY;
+	/*do not send packet before connected*/
+	if ((vif->mode == SPRDWL_MODE_STATION && vif->sm_state != SPRDWL_CONNECTED) ||
+		(vif->mode != SPRDWL_MODE_STATION && vif->priv->fw_stat[vif->mode] != SPRDWL_INTF_OPEN)) {
+		printk_ratelimited("%s, %d, error! should not send this data\n",
+			__func__, __LINE__);
+		dev_kfree_skb(skb);
+		return NETDEV_TX_OK;
 	}
 
 	msg = sprdwl_intf_get_msg_buf(vif->priv,
