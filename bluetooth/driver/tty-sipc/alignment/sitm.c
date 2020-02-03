@@ -14,7 +14,9 @@
 #include <linux/slab.h>
 #include <linux/kfifo.h>
 #include "sitm.h"
+#include "../unisoc_bt_log.h"
 
+extern struct device *ttyBT_dev;
 
 static const uint8_t preamble_sizes[] = {
 	HCI_COMMAND_PREAMBLE_SIZE,
@@ -30,11 +32,13 @@ int sitm_ini(void)
 	rd = kmalloc(sizeof(struct packet_receive_data_t),
 		GFP_KERNEL);
 	if(NULL == rd)
-		pr_err("no memory for packet_receive_data_t");
+		dev_unisoc_bt_err(ttyBT_dev,
+							"no memory for packet_receive_data_t");
 	memset(rd, 0, sizeof(struct packet_receive_data_t));
 	if (kfifo_alloc(&rd->fifo,
 		HCI_HAL_SERIAL_BUFFER_SIZE, GFP_KERNEL)) {
-		pr_err("no memory for sitm ring buf");
+		dev_unisoc_bt_err(ttyBT_dev,
+							"no memory for sitm ring buf");
 	}
 	return 0;
 }
@@ -67,7 +71,9 @@ void parse_frame(data_ready_cb data_ready, frame_complete_cb frame_complete)
 		case BRAND_NEW:
 			if (byte > DATA_TYPE_EVENT
 				|| byte < DATA_TYPE_COMMAND) {
-				pr_err("unknown head: 0x%02x\n", byte);
+				dev_unisoc_bt_err(ttyBT_dev,
+									"unknown head: 0x%02x\n",
+									byte);
 				break;
 			}
 			rd->type = byte;
@@ -111,7 +117,8 @@ void parse_frame(data_ready_cb data_ready, frame_complete_cb frame_complete)
 				FINISHED : rd->state;
 			break;
 		case IGNORE:
-			pr_err("PARSE IGNORE\n");
+			dev_unisoc_bt_err(ttyBT_dev,
+								"PARSE IGNORE\n");
 			rd->bytes_remaining--;
 			if (rd->bytes_remaining == 0) {
 				rd->state = BRAND_NEW;
@@ -119,10 +126,13 @@ void parse_frame(data_ready_cb data_ready, frame_complete_cb frame_complete)
 			}
 			break;
 		case FINISHED:
-			pr_err("%s state.\n", __func__);
+			dev_unisoc_bt_err(ttyBT_dev,
+								"%s state.\n",
+								__func__);
 			break;
 		default:
-			pr_err("PARSE DEFAULT\n");
+			dev_unisoc_bt_err(ttyBT_dev,
+								"PARSE DEFAULT\n");
 			break;
 		}
 
@@ -149,16 +159,19 @@ int sitm_write(const uint8_t *buf, int count, frame_complete_cb frame_complete)
 	int ret;
 
 	if (!rd) {
-		pr_err("hci fifo no memory\n");
+		dev_unisoc_bt_err(ttyBT_dev,
+							"hci fifo no memory\n");
 		return count;
 	}
 
 	ret = kfifo_avail(&rd->fifo);
 	if (ret == 0) {
-		pr_err("hci fifo no memory\n");
+		dev_unisoc_bt_err(ttyBT_dev,
+							"hci fifo no memory\n");
 		return ret;
 	} else if (ret < count) {
-		pr_err("hci fifo low memory\n");
+		dev_unisoc_bt_err(ttyBT_dev,
+							"hci fifo low memory\n");
 		count = ret;
 	}
 

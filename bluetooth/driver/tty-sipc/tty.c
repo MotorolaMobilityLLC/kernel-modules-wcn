@@ -28,6 +28,7 @@
 #include <linux/sipc.h>
 #include <linux/io.h>
 #include "alignment/sitm.h"
+#include "unisoc_bt_log.h"
 
 #include <misc/wcn_integrate_platform.h>
 
@@ -41,19 +42,6 @@
 #define STTY_STATE_OPEN		1
 #define STTY_STATE_CLOSE	0
 #define COMMAND_HEAD        1
-
-static unsigned int log_level = MTTY_LOG_LEVEL_DEBUG;
-
-#define BT_VER(fmt, ...)						\
-	do {										\
-		if (log_level >= MTTY_LOG_LEVEL_VER)	\
-			pr_err(fmt, ##__VA_ARGS__);			\
-	} while (0)
-#define BT_DEBUG(fmt, ...)						\
-	do {										\
-		if (log_level >= MTTY_LOG_LEVEL_DEBUG)	\
-			pr_err(fmt, ##__VA_ARGS__);			\
-	} while (0)
 
 struct stty_device {
 	struct stty_init_data	*pdata;
@@ -69,6 +57,7 @@ struct stty_device {
 static bool is_user_debug = false;
 bt_host_data_dump *data_dump = NULL;
 static bool is_dumped = false;
+struct device *ttyBT_dev = NULL;
 
 #if 0
 static void stty_address_init(void);
@@ -81,20 +70,23 @@ static ssize_t dumpmem_store(struct device *dev,
     struct device_attribute *attr, const char *buf, size_t count)
 {
     if (buf[0] == 2) {
-        pr_info("Set is_user_debug true!\n");
+        dev_unisoc_bt_info(ttyBT_dev,
+                           "Set is_user_debug true!\n");
         is_user_debug = true;
         return 0;
     }
 
     if (is_dumped == false) {
-		pr_info("mtty BT start dump cp mem !\n");
+        dev_unisoc_bt_info(ttyBT_dev,
+                           "mtty BT start dump cp mem !\n");
         bt_host_data_printf();
         if (data_dump != NULL) {
-			vfree(data_dump);
+            vfree(data_dump);
             data_dump = NULL;
         }
     } else {
-        pr_info("mtty BT has dumped cp mem, pls restart phone!\n");
+        dev_unisoc_bt_info(ttyBT_dev,
+                           "mtty BT has dumped cp mem, pls restart phone!\n");
     }
     is_dumped = true;
 
@@ -117,7 +109,8 @@ static void hex_dump(unsigned char *bin, size_t binsz)
       str[(i * 3) + 2] = ' ';
   }
   str[(binsz * 3) - 1] = 0x00;
-  pr_info("%s\n", str);
+  dev_unisoc_bt_info(ttyBT_dev,
+                     "%s\n", str);
   vfree(str);
 }
 
@@ -147,7 +140,9 @@ static ssize_t chipid_show(struct device *dev,
 	int i = 0, id;
 
 	id = wcn_get_aon_chip_id();
-	pr_info("%s: %d", __func__, id);
+	dev_unisoc_bt_info(ttyBT_dev,
+						"%s: %d",
+						__func__, id);
 
 	i += scnprintf(buf + i, PAGE_SIZE - i, "%d\n", id);
 	return i;
@@ -179,7 +174,8 @@ static void stty_handler (int event, void *data)
 		return;
 	}
 
-	BT_VER("stty handler event=%d\n", event);
+	dev_unisoc_bt_dbg(ttyBT_dev,
+						"stty handler event=%d\n", event);
 
 	switch (event) {
 	case SBUF_NOTIFY_WRITE:
@@ -192,7 +188,8 @@ static void stty_handler (int event, void *data)
 					(void *)buf,
 					STTY_MAX_DATA_LEN,
 					0);
-			BT_VER("%s read data len =%d\n",__func__, cnt);
+			dev_unisoc_bt_dbg(ttyBT_dev,
+								"%s read data len =%d\n",__func__, cnt);
 			if (is_user_debug && (cnt > 0)) {
 				bt_host_data_save(buf, cnt, BT_DATA_IN);
 			}
@@ -204,7 +201,9 @@ static void stty_handler (int event, void *data)
 								TTY_NORMAL);
 					while((ret != 1) && retry_count--) {
 						msleep(2);
-						pr_info("stty insert data fail ret =%d, retry_count = %d\n", ret, 10 - retry_count);
+						dev_unisoc_bt_info(ttyBT_dev,
+											"stty insert data fail ret =%d, retry_count = %d\n",
+											ret, 10 - retry_count);
 						ret = tty_insert_flip_char(stty->port,
 									buf[i],
 									TTY_NORMAL);
@@ -218,7 +217,8 @@ static void stty_handler (int event, void *data)
 		} while(cnt == STTY_MAX_DATA_LEN);
 		break;
 	default:
-		BT_VER("Received event is invalid(event=%d)\n", event);
+		dev_unisoc_bt_info(ttyBT_dev,
+							"Received event is invalid(event=%d)\n", event);
 	}
 
 	kfree(buf);
@@ -232,23 +232,27 @@ static int stty_open(struct tty_struct *tty, struct file *filp)
     data_dump = (bt_host_data_dump* )vmalloc(sizeof(bt_host_data_dump));
     memset(data_dump, 0 , sizeof(bt_host_data_dump));
 
-	pr_debug("stty_open\n");
+	dev_unisoc_bt_info(ttyBT_dev,
+						"stty_open\n");
 
 	if (tty == NULL) {
-		pr_debug("stty open input tty is NULL!\n");
+		dev_unisoc_bt_err(ttyBT_dev,
+							"stty open input tty is NULL!\n");
 		return -ENOMEM;
 	}
 	driver = tty->driver;
 	stty = (struct stty_device *)driver->driver_state;
 
 	if (stty == NULL) {
-		pr_debug("stty open input stty NULL!\n");
+		dev_unisoc_bt_err(ttyBT_dev,
+							"stty open input stty NULL!\n");
 		return -ENOMEM;
 	}
 
 	if (sbuf_status(stty->pdata->dst, stty->pdata->channel) != 0) {
-		pr_debug("stty_open sbuf not ready to open!dst=%d,channel=%d\n",
-			stty->pdata->dst, stty->pdata->channel);
+		dev_unisoc_bt_err(ttyBT_dev,
+							"stty_open sbuf not ready to open!dst=%d,channel=%d\n",
+							stty->pdata->dst, stty->pdata->channel);
 		return -ENODEV;
 	}
 	stty->tty = tty;
@@ -264,7 +268,8 @@ static int stty_open(struct tty_struct *tty, struct file *filp)
 	rf2351_vddwpa_ctrl_power_enable(1);
 #endif
 
-	pr_debug("stty_open device success!\n");
+	dev_unisoc_bt_info(ttyBT_dev,
+						"stty_open device success!\n");
 	sitm_ini();
 #if 0
 	stty_address_init();
@@ -276,15 +281,18 @@ static void stty_close(struct tty_struct *tty, struct file *filp)
 {
 	struct stty_device *stty = NULL;
 
-	pr_debug("stty_close\n");
+	dev_unisoc_bt_info(ttyBT_dev,
+						"stty_close\n");
 
 	if (tty == NULL) {
-		pr_debug("stty close input tty is NULL!\n");
+		dev_unisoc_bt_err(ttyBT_dev,
+							"stty close input tty is NULL!\n");
 		return;
 	}
 	stty = (struct stty_device *) tty->driver_data;
 	if (stty == NULL) {
-		pr_debug("stty close s tty is NULL!\n");
+		dev_unisoc_bt_err(ttyBT_dev,
+							"stty close s tty is NULL!\n");
 		return;
 	}
 
@@ -292,7 +300,8 @@ static void stty_close(struct tty_struct *tty, struct file *filp)
 	stty->state = STTY_STATE_CLOSE;
 	mutex_unlock(&(stty->stat_lock));
 
-	pr_debug("stty_close device success !\n");
+	dev_unisoc_bt_info(ttyBT_dev,
+						"stty_close device success !\n");
 	sitm_cleanup();
 #ifdef CONFIG_ARCH_SCX20
 	rf2351_vddwpa_ctrl_power_enable(0);
@@ -331,7 +340,8 @@ static int stty_write(struct tty_struct *tty,
     memset(tx_buf, 0, count);
     memcpy(tx_buf, buf, count);
 
-	pr_debug("stty write buf length = %d\n",count);
+	dev_unisoc_bt_dbg(ttyBT_dev,
+						"stty write buf length = %d\n",count);
 
     for(loop_count_i = 0; loop_count_i < loop_count; loop_count_i++)
     {
@@ -356,16 +366,16 @@ static int stty_write(struct tty_struct *tty,
 		bt_host_data_save(buf, count, BT_DATA_OUT);
 	}
 	if(COMMAND_HEAD == buf[0]){
-		BT_DEBUG("%s bufwrite_length = %d\n",__func__, count);
-		if(log_level >= MTTY_LOG_LEVEL_DEBUG){
-			if(count <= 16){
-				hex_dump_block((unsigned char *)buf, count);
-			}
-			else{
-				hex_dump_block((unsigned char*)buf, 8);
-				hex_dump_block((unsigned char*)(buf+count-8), 8);
-			}
-	    }
+		dev_unisoc_bt_info(ttyBT_dev,
+							"%s bufwrite_length = %d\n",
+							__func__, count);
+		if(count <= 16){
+			hex_dump_block((unsigned char *)buf, count);
+		}
+		else{
+			hex_dump_block((unsigned char*)buf, 8);
+			hex_dump_block((unsigned char*)(buf+count-8), 8);
+		}
 	}
 	left_legnth = count;
 	while(left_legnth > 0) {
@@ -373,7 +383,9 @@ static int stty_write(struct tty_struct *tty,
 				 stty->pdata->channel,
 				 stty->pdata->tx_bufid,
 				 (void *)(buf + count - left_legnth), count, -1);
-		BT_VER("stty write bufwrite_length = %d, left_legnth = %d\n",write_length, left_legnth);
+		dev_unisoc_bt_dbg(ttyBT_dev,
+							"stty write bufwrite_length = %d, left_legnth = %d\n",
+							write_length, left_legnth);
 		left_legnth = left_legnth - write_length;
 	}
 	return left_legnth;
@@ -385,7 +397,8 @@ static int stty_data_transmit(uint8_t *data, size_t count)
 #if 0
 	return stty_write(NULL, data, count);
 #else
-	BT_VER("stty_data_transmit\n");
+	dev_unisoc_bt_dbg(ttyBT_dev,
+						"stty_data_transmit\n");
 	return stty_write(mtty, data, count);
 #endif
 }
@@ -393,7 +406,8 @@ static int stty_data_transmit(uint8_t *data, size_t count)
 static int stty_write_plus(struct tty_struct *tty,
 	      const unsigned char *buf, int count)
 {
-	BT_VER("stty_write_plus\n");
+	dev_unisoc_bt_dbg(ttyBT_dev,
+						"stty_write_plus\n");
 	return sitm_write(buf, count, stty_data_transmit);
 }
 
@@ -542,18 +556,22 @@ static int  stty_probe(struct platform_device *pdev)
 	if (pdev->dev.of_node && !pdata) {
 		rval = stty_parse_dt(&pdata, &pdev->dev);
 		if (rval) {
-			pr_debug("failed to parse styy device tree, ret=%d\n",
-				rval);
+			dev_unisoc_bt_err(ttyBT_dev,
+								"failed to parse styy device tree, ret=%d\n",
+								rval);
 			return rval;
 		}
 	}
-	pr_debug("stty: after parse device tree, name=%s, dst=%u, channel=%u, tx_bufid=%u, rx_bufid=%u\n",
-		pdata->name, pdata->dst, pdata->channel, pdata->tx_bufid, pdata->rx_bufid);
+	dev_unisoc_bt_info(ttyBT_dev,
+						"stty: after parse device tree, name=%s, dst=%u, channel=%u, tx_bufid=%u, rx_bufid=%u\n",
+						pdata->name, pdata->dst, pdata->channel, pdata->tx_bufid, pdata->rx_bufid);
 
 	stty = devm_kzalloc(&pdev->dev, sizeof(struct stty_device), GFP_KERNEL);
+    ttyBT_dev = &pdev->dev;
 	if (stty == NULL) {
 		stty_destroy_pdata(&pdata, &pdev->dev);
-		pr_debug("stty Failed to allocate device!\n");
+		dev_unisoc_bt_err(ttyBT_dev,
+							"stty Failed to allocate device!\n");
 		return -ENOMEM;
 	}
 
@@ -562,7 +580,8 @@ static int  stty_probe(struct platform_device *pdev)
 	if (rval) {
 		devm_kfree(&pdev->dev, stty);
 		stty_destroy_pdata(&pdata, &pdev->dev);
-		pr_debug("stty driver init error!\n");
+		dev_unisoc_bt_err(ttyBT_dev,
+							"stty driver init error!\n");
 		return -EINVAL;
 	}
 
@@ -572,16 +591,22 @@ static int  stty_probe(struct platform_device *pdev)
 		stty_driver_exit(stty);
 		kfree(stty->port);
 		devm_kfree(&pdev->dev, stty);
-		pr_debug("regitster notifier failed (%d)\n", rval);
+		dev_unisoc_bt_err(ttyBT_dev,
+							"regitster notifier failed (%d)\n",
+							rval);
 		return rval;
 	}
 
-	pr_debug("stty_probe init device addr: 0x%p\n", stty);
+	dev_unisoc_bt_info(ttyBT_dev,
+						"stty_probe init device addr: 0x%p\n",
+						stty);
 	platform_set_drvdata(pdev, stty);
 
 	if (sysfs_create_group(&pdev->dev.kobj,
 			&bluetooth_group)) {
-		pr_err("%s failed to create bluetooth tty attributes.\n", __func__);
+		dev_unisoc_bt_err(ttyBT_dev,
+							"%s failed to create bluetooth tty attributes.\n",
+							__func__);
 	}
 
 	rfkill_bluetooth_init(pdev);
@@ -596,7 +621,9 @@ static int  stty_remove(struct platform_device *pdev)
 	rval = sbuf_register_notifier(stty->pdata->dst, stty->pdata->channel,
 					stty->pdata->rx_bufid, NULL, NULL);
 	if (rval) {
-		pr_debug("unregitster notifier failed (%d)\n", rval);
+		dev_unisoc_bt_err(ttyBT_dev,
+							"unregitster notifier failed (%d)\n",
+							rval);
 		return rval;
 	}
 
