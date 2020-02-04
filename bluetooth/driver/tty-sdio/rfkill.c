@@ -22,21 +22,27 @@
 #include <linux/clk.h>
 #include <linux/of_gpio.h>
 #include <misc/marlin_platform.h>
+#include "unisoc_bt_log.h"
 
 static struct rfkill *bt_rfk;
 static const char bt_name[] = "bluetooth";
+extern struct device *ttyBT_dev;
 
 static int bluetooth_set_power(void *data, bool blocked)
 {
 	int ret = 0;
 
-	pr_info("%s: start_block=%d\n", __func__, blocked);
+	dev_unisoc_bt_info(ttyBT_dev,
+						"%s: start_block=%d\n",
+						__func__, blocked);
 	if (!blocked)
 		ret = start_marlin(MARLIN_BLUETOOTH);
 	else
 		ret = stop_marlin(MARLIN_BLUETOOTH);
 
-	pr_info("%s: end_block=%d,ret=%d\n", __func__, blocked, ret);
+	dev_unisoc_bt_info(ttyBT_dev,
+						"%s: end_block=%d,ret=%d\n",
+						__func__, blocked, ret);
 	return 0;
 }
 
@@ -49,7 +55,9 @@ int rfkill_bluetooth_init(struct platform_device *pdev)
 
 	int rc = 0;
 
-	pr_info("-->%s\n", __func__);
+	dev_unisoc_bt_info(ttyBT_dev,
+						"-->%s\n",
+						__func__);
 	bt_rfk = rfkill_alloc(bt_name, &pdev->dev, RFKILL_TYPE_BLUETOOTH,
 			&rfkill_bluetooth_ops, NULL);
 	if (!bt_rfk) {
@@ -62,7 +70,9 @@ int rfkill_bluetooth_init(struct platform_device *pdev)
 	if (rc)
 		goto err_rfkill_reg;
 
-	pr_info("<--%s\n", __func__);
+	dev_unisoc_bt_info(ttyBT_dev,
+						"<--%s\n",
+						__func__);
 
 	return 0;
 
@@ -74,10 +84,14 @@ err_rfkill_alloc:
 
 int rfkill_bluetooth_remove(struct platform_device *dev)
 {
-	pr_info("-->%s\n", __func__);
+	dev_unisoc_bt_info(ttyBT_dev,
+						"-->%s\n",
+						__func__);
 	rfkill_unregister(bt_rfk);
 	rfkill_destroy(bt_rfk);
-	pr_info("<--%s\n", __func__);
+	dev_unisoc_bt_info(ttyBT_dev,
+						"<--%s\n",
+						__func__);
 	return 0;
 }
 
