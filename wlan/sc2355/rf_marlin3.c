@@ -1,3 +1,4 @@
+#include "sprdwl.h"
 #include <linux/types.h>
 #include <linux/kernel.h>
 #include <linux/device.h>
@@ -337,7 +338,7 @@ static void get_cmd_par(char *str, struct nvm_cali_cmd *cmd)
 			} else {
 				if (kstrtol(tmp, 0, &val))
 					pr_info(" %s ", tmp);
-			/* pr_err("kstrtol %s: error\n", tmp); */
+			/* wl_err("kstrtol %s: error\n", tmp); */
 				cmd->par[cmd->num] = val & 0xFFFFFFFF;
 				cmd->num++;
 			}
@@ -421,7 +422,7 @@ static int wifi_nvm_parse(const char *path, void *p_data)
 
 	file = filp_open(path, O_RDONLY, 0);
 	if (IS_ERR(file)) {
-		pr_err("open file %s error\n", path);
+		wl_err("open file %s error\n", path);
 		return -1;
 	}
 
@@ -431,7 +432,7 @@ static int wifi_nvm_parse(const char *path, void *p_data)
 	p_buf = buffer;
 	if (!buffer) {
 		fput(file);
-		pr_err("no memory\n");
+		wl_err("no memory\n");
 		return -1;
 	}
 
@@ -461,7 +462,7 @@ int get_wifi_config_param(struct wifi_conf_t *p)
 {
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0)
 	if (wcn_get_chip_type() == WCN_CHIP_ID_INVALID) {
-		pr_err("%s, marlin chip ID is invalid\n", __func__);
+		wl_err("%s, marlin chip ID is invalid\n", __func__);
 		return -1;
 	} else if (wcn_get_chip_type() == WCN_CHIP_ID_AA) {
 		pr_info("%s, chip id of marlin3 lite is %d, open %s\n",
@@ -481,7 +482,7 @@ int get_wifi_config_param(struct wifi_conf_t *p)
 
 	ret = sprdwcn_bus_reg_read(CHIPID_REG, &chip_id, 4);
 	if (ret < 0) {
-		pr_err("%s,marlin read chip ID fail\n", __func__);
+		wl_err("%s,marlin read chip ID fail\n", __func__);
 		return -1;
 	}
 	pr_info("marlin: chipid=%lx, %s\n", chip_id, __func__);

@@ -1130,7 +1130,7 @@ void clean_scan_list(struct sprdwl_vif *vif)
 		kfree(node);
 		count++;
 	}
-	pr_err("delete scan node num:%d\n", count);
+	wl_err("delete scan node num:%d\n", count);
 }
 
 #ifdef ACS_SUPPORT

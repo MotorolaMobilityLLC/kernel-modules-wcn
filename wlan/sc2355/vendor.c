@@ -3591,7 +3591,7 @@ static int sprdwl_start_offload_packet(struct sprdwl_priv *priv,
 	    !tb[OFFLOADED_PACKETS_DST_MAC_ADDR] ||
 	    !tb[OFFLOADED_PACKETS_PERIOD] ||
 	    !tb[OFFLOADED_PACKETS_ETHER_PROTO_TYPE]) {
-		pr_err("check start offload para failed\n");
+		wl_err("check start offload para failed\n");
 		return -EINVAL;
 	}
 

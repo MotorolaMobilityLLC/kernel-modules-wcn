@@ -2069,7 +2069,7 @@ void sprdwl_report_scan_result(struct sprdwl_vif *vif, u16 chan, s16 rssi,
 	signal_level_enhance(vif, mgmt, &signal);
 	/*if signal has been update & enhanced*/
 	if ((rssi * 100) != signal)
-		pr_err("old signal level:%d,new signal level:%d\n",
+		wl_err("old signal level:%d,new signal level:%d\n",
 		       (rssi*100), signal);
 
 

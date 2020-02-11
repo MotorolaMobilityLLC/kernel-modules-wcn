@@ -1054,7 +1054,7 @@ int sprdwl_add_topop_list(int chn, struct mbuf_t *head,
 
 	misc_work = sprdwl_alloc_work(sizeof(struct sprdwl_pop_work));
 	if (!misc_work) {
-		pr_err("%s out of memory\n", __func__);
+		wl_err("%s out of memory\n", __func__);
 		return -1;
 	}
 	misc_work->vif = NULL;
