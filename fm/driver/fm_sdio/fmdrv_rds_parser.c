@@ -25,7 +25,10 @@
 #include <misc/marlin_platform.h>
 #include "fm_rf_marlin3.h"
 
+#include "unisoc_fm_log.h"
+
 static struct fm_rds_data *g_rds_data_p;
+extern struct device *fm_miscdev;
 
 struct rds_state_machine {
 	signed int state;
@@ -95,7 +98,7 @@ static signed int rds_bm_get_pos(struct rds_bitmap *thiz)
 #ifdef FM_RDS_USE_SOLUTION_B
 	for (j = i; j >= 0; j--) {
 		if (!(thiz->bm & (1 << j))) {
-			pr_info("uncomplete msg 0x%04x, delete it\n", thiz->bm);
+			dev_unisoc_fm_info(fm_miscdev,"uncomplete msg 0x%04x, delete it\n", thiz->bm);
 			return -1;
 		}
 	}
@@ -124,7 +127,7 @@ static signed int rds_bm_set(struct rds_bitmap *thiz, unsigned char addr)
 
 	/* text segment addr rang */
 	if (addr > thiz->max_addr) {
-		pr_err("addr invalid(0x%02x)\n", addr);
+		dev_unisoc_fm_err(fm_miscdev,"addr invalid(0x%02x)\n", addr);
 		return -EFAULT;
 	}
 	bm_old.bm = thiz->bm;
@@ -133,7 +136,7 @@ static signed int rds_bm_set(struct rds_bitmap *thiz, unsigned char addr)
 		thiz->cnt++; /* multi get a segment */
 	else if (thiz->cnt > 0)
 		thiz->cnt--;
-	pr_info("bitmap=0x%04x, bmcnt=%d\n", thiz->bm, thiz->cnt);
+	dev_unisoc_fm_info(fm_miscdev,"bitmap=0x%04x, bmcnt=%d\n", thiz->bm, thiz->cnt);
 
 	return 0;
 }
@@ -149,7 +152,7 @@ void rds_parser_init(void)
 void  fmr_assert(unsigned short *a)
 {
 	if (a == NULL)
-		pr_info("%s,invalid pointer\n", __func__);
+		dev_unisoc_fm_info(fm_miscdev,"%s,invalid pointer\n", __func__);
 }
 
 /*
@@ -385,7 +388,7 @@ static void rds_rt_txtab_get(unsigned char blk,
 		/* txtab is the same as last one */
 		*dirty = fm_false;
 	}
-	pr_info("txtab=%d, %s\n", *txtab, *dirty ? "new" : "old");
+	dev_unisoc_fm_info(fm_miscdev,"txtab=%d, %s\n", *txtab, *dirty ? "new" : "old");
 }
 
 static signed int rds_rt_get(unsigned char subtype,
@@ -396,7 +399,7 @@ static signed int rds_rt_get(unsigned char subtype,
 
 	/* text segment addr rang 0~15 */
 	if (addr > 0x0F) {
-		pr_info("addr invalid(0x%02x)\n", addr);
+		dev_unisoc_fm_info(fm_miscdev,"addr invalid(0x%02x)\n", addr);
 		return -EFAULT;
 	}
 	switch (subtype) {
@@ -406,14 +409,14 @@ static signed int rds_rt_get(unsigned char subtype,
 		buf[idx+1] = *(blkc + 2);
 		buf[idx+2] = *(blkd + 1);
 		buf[idx+3] = *(blkd + 2);
-		pr_info("rt addr[%02x]:0x%02x 0x%02x 0x%02x 0x%02x\n",
+		dev_unisoc_fm_info(fm_miscdev,"rt addr[%02x]:0x%02x 0x%02x 0x%02x 0x%02x\n",
 			addr, buf[idx], buf[idx+1], buf[idx+2], buf[idx+3]);
 		break;
 	case RDS_GRP_VER_B:
 		idx = 2 * addr;
 		buf[idx] = *(blkd + 1);
 		buf[idx+1] = *(blkd + 2);
-		pr_info("rt addr[%02x]:0x%02x 0x%02x\n",
+		dev_unisoc_fm_info(fm_miscdev,"rt addr[%02x]:0x%02x 0x%02x\n",
 			addr, buf[idx], buf[idx+1]);
 		break;
 	default:
@@ -472,7 +475,7 @@ static void rds_rt_cmp(unsigned char addr, unsigned char subtype,
 		*valid = fm_true;
 	else
 		*valid = fm_false;
-	pr_info("RT seg=%s, end=%s, len=%d\n",
+	dev_unisoc_fm_info(fm_miscdev,"RT seg=%s, end=%s, len=%d\n",
 		*valid == fm_true ? "fm_true" : "fm_false",
 		*end == fm_true ? "fm_true" : "fm_false",
 		*len);
@@ -567,10 +570,10 @@ void rds_get_rt_cmp(unsigned char *buf, unsigned char grp_type)
 			if (rt_len > 0 &&
 				((txt_end == fm_true) ||
 				(rt_bm.bm_get(&rt_bm) == 0xFFFF))) {
-				pr_info("RT is %s\n",
+				dev_unisoc_fm_info(fm_miscdev,"RT is %s\n",
 					fmdev->rds_data.rt_data.textdata[3]);
 				/* yes we got a new RT */
-				pr_info("Yes, get an RT! [len=%d]\n", rt_len);
+				dev_unisoc_fm_info(fm_miscdev,"Yes, get an RT! [len=%d]\n", rt_len);
 			}
 			rt_bm.bm_clr(&rt_bm);
 			if (txtab_change == fm_true) {
@@ -597,7 +600,7 @@ void rds_get_rt_cmp(unsigned char *buf, unsigned char grp_type)
 	}
 
 out:
-	pr_info("The RT[3] is %s\n", fmdev->rds_data.rt_data.textdata[3]);
+	dev_unisoc_fm_info(fm_miscdev,"The RT[3] is %s\n", fmdev->rds_data.rt_data.textdata[3]);
 }
 #endif
 /*
@@ -615,7 +618,7 @@ void rds_get_rt(unsigned char *buf, unsigned char grp_type)
 	unsigned char text_flag = ((*(buf + rds_data_unit_size + 2)) & 0x10);
 
 
-	pr_info("RT Text A/B Flag is %d\n", text_flag);
+	dev_unisoc_fm_info(fm_miscdev,"RT Text A/B Flag is %d\n", text_flag);
 /* add for RT not support two types*/
 	if (text_flag != 0)
 	{
@@ -670,7 +673,7 @@ void rds_get_rt(unsigned char *buf, unsigned char grp_type)
 	}
 	rds_event_set(&(fmdev->rds_data.event_status),
 		RDS_EVENT_LAST_RADIOTEXT);
-	pr_info("RT is %s\n", fmdev->rds_data.rt_data.textdata[3]);
+	dev_unisoc_fm_info(fm_miscdev,"RT is %s\n", fmdev->rds_data.rt_data.textdata[3]);
 }
 
 /* PIN = Programme Item Number */
@@ -730,7 +733,7 @@ void rds_get_slc(unsigned char *buf)
 static void rds_ps_addr_get(unsigned char blkB, unsigned char *addr)
 {
 	*addr = blkB & 0x03;
-	pr_info("addr=0x%02x\n", *addr);
+	dev_unisoc_fm_info(fm_miscdev,"addr=0x%02x\n", *addr);
 }
 
 static signed int rds_ps_get(unsigned char *blkD,
@@ -740,14 +743,14 @@ static signed int rds_ps_get(unsigned char *blkD,
 
 	/* ps segment addr rang 0~3 */
 	if (addr > 0x03) {
-		pr_err("addr invalid(0x%02x)\n", addr);
+		dev_unisoc_fm_err(fm_miscdev,"addr invalid(0x%02x)\n", addr);
 		return -EFAULT;
 	}
 	idx = 2 * addr;
 	buf[idx] = *(blkD + 1);
 	buf[idx+1] = *(blkD + 2);
 
-	pr_info("addr[%02x]:0x%02x 0x%02x\n", addr, buf[idx], buf[idx+1]);
+	dev_unisoc_fm_info(fm_miscdev,"ps addr[%02x]:0x%02x 0x%02x\n", addr, buf[idx], buf[idx+1]);
 
 	return 0;
 }
@@ -784,7 +787,7 @@ static void rds_ps_cmp(unsigned char addr, unsigned char *fresh,
 		*valid = fm_true;
 	else
 		*valid = fm_false;
-	pr_info("PS seg = %s\n", *valid == fm_true ? "fm_true" : "fm_false");
+	dev_unisoc_fm_info(fm_miscdev,"PS seg = %s\n", *valid == fm_true ? "fm_true" : "fm_false");
 }
 
 /*
@@ -818,12 +821,12 @@ void rds_get_ps(unsigned char *buf)
 	};
 	uint16_t *event = &(fmdev->rds_data.event_status);
 
-	pr_info("PS start receive\n");
-	pr_info("blk2=%d, blk4=%d\n", *blk_2, *blk_4);
+	dev_unisoc_fm_info(fm_miscdev,"PS start receive\n");
+	dev_unisoc_fm_info(fm_miscdev,"blk2=%d, blk4=%d\n", *blk_2, *blk_4);
 	/* parsing Program service name segment (in BlockB/D) */
 	valid = *blk_2;
 	if (valid == fm_false) {
-		pr_err("Group0 BlockB crc err\n");
+		dev_unisoc_fm_err(fm_miscdev,"Group0 BlockB crc err\n");
 		rds_event_set(&(fmdev->rds_data.event_status),
 			RDS_EVENT_PROGRAMNAME);
 		return;
@@ -841,7 +844,7 @@ void rds_get_ps(unsigned char *buf)
 			if (valid == fm_true) {
 				ps_bm.bm_set(&ps_bm, ps_addr);
 			} else {
-			   pr_info("before PS[2] is %s\n", fmdev->rds_data.ps_data.PS[2]);
+			   dev_unisoc_fm_info(fm_miscdev,"before PS[2] is %s\n", fmdev->rds_data.ps_data.PS[2]);
 			   memset(fmdev->rds_data.ps_data.PS[2], 0x20, 8);
 			   ps_bm.bm_clr(&ps_bm);
 			}
@@ -865,9 +868,8 @@ void rds_get_ps(unsigned char *buf)
 				/* yes we got a new PS */
 				memcpy(fmdev->rds_data.ps_data.PS[3],
 					fmdev->rds_data.ps_data.PS[2], 8);
-				pr_info("PS is %s\n",
-					fmdev->rds_data.ps_data.PS[3]);
-				pr_info("Yes, get an PS!\n");
+				dev_unisoc_fm_info(fm_miscdev,"PS is %s\n",fmdev->rds_data.ps_data.PS[3]);
+				dev_unisoc_fm_info(fm_miscdev,"Yes, get an PS!\n");
 			}
 			ps_bm.bm_clr(&ps_bm);
 			/* clear buf */
@@ -886,8 +888,8 @@ void rds_get_ps(unsigned char *buf)
 	}
 
 out:
-	pr_info("The event is %x\n", fmdev->rds_data.event_status);
-	pr_info("The PS[3] is %s\n", fmdev->rds_data.ps_data.PS[3]);
+	dev_unisoc_fm_info(fm_miscdev,"The event is %x\n", fmdev->rds_data.event_status);
+	dev_unisoc_fm_info(fm_miscdev,"The PS[3] is %s\n", fmdev->rds_data.ps_data.PS[3]);
 }
 unsigned short rds_get_freq(void)
 {
@@ -898,7 +900,7 @@ void rds_get_af_method(unsigned char AFH, unsigned char AFL)
 	static signed short pre_af_num;
 	unsigned char  indx, indx2, num;
 
-	pr_info("af code is %d and %d\n", AFH, AFL);
+	dev_unisoc_fm_info(fm_miscdev,"af code is %d and %d\n", AFH, AFL);
 	if (AFH >= RDS_AF_NUM_1 && AFH <= RDS_AF_NUM_25) {
 		if (AFH == RDS_AF_NUM_1) {
 			fmdev->rds_data.af_data.ismethod_a = RDS_AF_M_A;
@@ -947,7 +949,7 @@ void rds_get_af_method(unsigned char AFH, unsigned char AFL)
 			if ((AFH == (fmdev->rds_data.af_data.AF[0][2*num-1]))
 				&& (AFL ==
 				(fmdev->rds_data.af_data.AF[0][2*indx]))) {
-				pr_info("AF same as\n");
+				dev_unisoc_fm_info(fm_miscdev,"AF same as\n");
 				break;
 				}
 			else if (!(fmdev->rds_data.af_data.AF[0][2 * indx-1])) {
@@ -1095,7 +1097,7 @@ void rds_get_pty(unsigned char *buf)
 	if ((*blk_2) == 1)
 		pty = ((byte2 >> 5) | ((byte1 & 0x3) << 3));
 	fmdev->rds_data.PTY = pty;
-	pr_info("fm PTY is %d\n", pty);
+	dev_unisoc_fm_info(fm_miscdev,"fm PTY is %d\n", pty);
 	rds_event_set(&(fmdev->rds_data.event_status), RDS_EVENT_PTY_CODE);
 }
 
@@ -1130,7 +1132,7 @@ void rds_get_pi_code(unsigned char *buf, unsigned char version)
 		pi_code = pi_code_b;
 /* send pi_code value to global and copy to user space in read rds interface */
 	fmdev->rds_data.PI = pi_code;
-	pr_info("fm PI code is %d\n", pi_code);
+	dev_unisoc_fm_info(fm_miscdev,"fm PI code is %d\n", pi_code);
 	rds_event_set(&(fmdev->rds_data.event_status), RDS_EVENT_PI_CODE);
 }
 
@@ -1169,10 +1171,10 @@ void dump_rx_data(unsigned char *buffer, unsigned int len)
 {
 	char i;
 
-	pr_info("\n fm rx data(%d): ", len);
+	dev_unisoc_fm_info(fm_miscdev,"\n fm rx data(%d): ", len);
 	for (i = 0; i < len; i++)
-		pr_info("0x%x__", *(buffer+i));
-	pr_err("\n");
+		dev_unisoc_fm_info(fm_miscdev,"0x%x__", *(buffer+i));
+	dev_unisoc_fm_info(fm_miscdev,"\n");
 }
 
 /*
@@ -1200,7 +1202,7 @@ void rds_parser(unsigned char *buffer)
 	fmdev->rds_han.rds_parse_start_time = get_seconds();
 	//dump_rx_data(buffer, len);
 	grp_type = rds_get_group_type(buffer);
-	pr_info("group type is : 0x%x\n", grp_type);
+	dev_unisoc_fm_info(fm_miscdev,"group type is : 0x%x\n", grp_type);
 
 	rds_get_pi_code(buffer, grp_type & grp_ver_mask);
 	rds_get_pty(buffer);
@@ -1209,7 +1211,7 @@ void rds_parser(unsigned char *buffer)
 	switch (grp_type) {
 
 	case invalid_grp_type:
-		pr_info("invalid group type\n");
+		dev_unisoc_fm_info(fm_miscdev,"invalid group type\n");
 		break;
 	/* Processing group 0A */
 	case 0x0A:
@@ -1280,7 +1282,7 @@ void rds_parser(unsigned char *buffer)
 		rds_get_oda(buffer);
 		break;
 	default:
-		pr_info("rds group type[0x%x] not to be processed\n", grp_type);
+		dev_unisoc_fm_info(fm_miscdev,"rds group type[0x%x] not to be processed\n", grp_type);
 		break;
 	}
 }

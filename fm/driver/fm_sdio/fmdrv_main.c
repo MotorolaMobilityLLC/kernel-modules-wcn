@@ -46,6 +46,8 @@
 #include <misc/marlin_platform.h>
 #include "wakelock.h"
 
+#include "unisoc_fm_log.h"
+
 /*#define RDS_DEBUG*/
 
 #ifdef CONFIG_OF
@@ -79,6 +81,7 @@ unsigned global_freq = 8750;
 struct fm_rds_data rds_debug_data;
 #endif
 
+extern struct device *fm_miscdev;
 /**************************for test*************************************/
 #ifdef FM_TEST
 #define RX_NUM 100
@@ -99,9 +102,9 @@ unsigned int sdiom_pt_write(void *buf, unsigned int len, int type, int subtype) 
     int i = 0;
 
     buf_addr = buf;
-    pr_err("fmdrv sdiom_pt_write len is %d\n", len);
+	dev_unisoc_fm_info(fm_miscdev,"FM_IOCTL cmd: 0x%x.\n","fmdrv sdiom_pt_write len is %d\n", len);
     for (i = 0; i < len; i++)
-        pr_err("fmdrv send data is %x\n", *(buf_addr+i));
+		dev_unisoc_fm_info(fm_miscdev,"fmdrv send data is %x\n", *(buf_addr+i));
     mod_timer(&test_timer, jiffies + msecs_to_jiffies(30));
     return 0;
 }
@@ -127,10 +130,10 @@ void test_init(void) {
 #ifdef FM_DUMP_DATA
 static void dump_buf(unsigned char *buf, unsigned char len, const char *func) {
     int i;
-    pr_info("%s buf size: (%d)\n", func, len);
+	dev_unisoc_fm_info(fm_miscdev,"%s buf size: (%d)\n", func, len);
     for (i = 0; i < len; i++)
-        pr_info("%s buf [%d]: 0x%02X\n", func, i, buf[i]);
-    pr_info("\n");
+		dev_unisoc_fm_info(fm_miscdev,"%s buf [%d]: 0x%02X\n", func, i, buf[i]);
+	dev_unisoc_fm_info(fm_miscdev,"\n");
 }
 #endif
 
@@ -143,7 +146,7 @@ static int fm_send_cmd(unsigned char subcmd, void *payload, int payload_len) {
     size = sizeof(struct fm_cmd_hdr) + ((payload == NULL) ? 0 : payload_len);
     cmd_buf = kzalloc(size + FM_SDIO_HEAD_LEN, GFP_KERNEL);
     if (!cmd_buf) {
-        pr_err("(fmdrv):%s():No memory to create new command buf\n", __func__);
+		dev_unisoc_fm_err(fm_miscdev,"(fmdrv):%s():No memory to create new command buf\n", __func__);
         return -ENOMEM;
     }
 
@@ -166,13 +169,13 @@ static int fm_send_cmd(unsigned char subcmd, void *payload, int payload_len) {
 	dump_buf((unsigned char *)fmdev->tx_head->buf, (unsigned char)size, __func__);
 #endif
         if ( sprdwcn_bus_push_list(FM_TX_CHANNEL, fmdev->tx_head, fmdev->tx_tail, num)) {
-            pr_err("fmdrv write cmd to sdiom fail, free buf\n");
+			dev_unisoc_fm_err(fm_miscdev,"fmdrv write cmd to sdiom fail, free buf\n");
             kfree(fmdev->tx_head->buf);
             fmdev->tx_head->buf = NULL;
             sprdwcn_bus_list_free(FM_TX_CHANNEL, fmdev->tx_head, fmdev->tx_tail, num);
         }
     } else {
-        pr_err("%s:%d sprdwcn_bus_list_alloc fail\n", __func__, __LINE__);
+		dev_unisoc_fm_err(fm_miscdev,"%s:%d sprdwcn_bus_list_alloc fail\n", __func__, __LINE__);
     }
     return 0;
 }
@@ -187,7 +190,7 @@ static int fm_write_cmd(unsigned char subcmd, void *payload,
     wake_lock(&fm_wakelock);
     /*marlin_set_sleep(MARLIN_FM, 0);
     if (marlin_set_wakeup(MARLIN_FM) != 0) {
-        pr_err("AP wake up marlin3 %s failed\n", __func__);
+		dev_unisoc_fm_err(fm_miscdev,"AP wake up marlin3 %s failed\n", __func__);
         return -EFAULT;
     }*/
     mutex_lock(&fmdev->mutex);
@@ -201,20 +204,23 @@ static int fm_write_cmd(unsigned char subcmd, void *payload,
 
     timeleft = wait_for_completion_timeout(&fmdev->commontask_completion, FM_DRV_TX_TIMEOUT);
     if (!timeleft) {
-        pr_err(timeoutformat"\n", __func__, jiffies_to_msecs(FM_DRV_TX_TIMEOUT) / 1000, subcmd);
+        //pr_err(timeoutformat"\n", __func__, jiffies_to_msecs(FM_DRV_TX_TIMEOUT) / 1000, subcmd);
+		dev_unisoc_fm_err(fm_miscdev,timeoutformat"\n", __func__, jiffies_to_msecs(FM_DRV_TX_TIMEOUT) / 1000, subcmd);
         /*marlin_set_sleep(MARLIN_FM, 1);*/
         wake_unlock(&fm_wakelock);
         mutex_unlock(&fmdev->mutex);
         return -ETIMEDOUT;
     }
     mutex_unlock(&fmdev->mutex);
-    pr_debug("fmdrv wait command have complete\n");
+	dev_unisoc_fm_dbg(fm_miscdev,"fmdrv wait command have complete\n")
     /* 0:len; XX XX XX sttaus*/
     if ((fmdev->com_respbuf[4]) != 0) {
-        pr_err("(fmdrv) %s(): Response status not success for 0x%02X\n", __func__, subcmd);
+		dev_unisoc_fm_err(fm_miscdev,"(fmdrv) %s(): Response status not success for 0x%02X\n",
+			__func__, subcmd);
         return -EFAULT;
     }
-    pr_info("(fmdrv) %s(): Response status success for 0x%02X: %d\n", __func__, subcmd, fmdev->com_respbuf[4]);
+	dev_unisoc_fm_info(fm_miscdev,"(fmdrv) %s(): Response status success for 0x%02X: %d\n",
+			__func__, subcmd, fmdev->com_respbuf[4]);
     /*the event : 04 0e len 01 8C  fc  00(status) rssi snr freq .p->len*/
     if (response != NULL && response_len != NULL)
         memcpy(response, &(fmdev->com_respbuf[5]), fmdev->com_respbuf[0]-4);
@@ -248,10 +254,10 @@ static void receive_tasklet(unsigned long arg)
     fmdev = (struct fmdrv_ops *)arg;
 
     if (unlikely(!fmdev)) {
-        pr_err("fm_rx_task fmdev is NULL\n");
+		dev_unisoc_fm_err(fm_miscdev,"fm_rx_task fmdev is NULL\n");
         return;
     }
-    pr_info("fm receive_tasklet start running\n");
+	dev_unisoc_fm_info(fm_miscdev,"fm receive_tasklet start running\n");
     while (!list_empty(&fmdev->rx_head)) {
         spin_lock_bh(&fmdev->rw_lock);
         rx = list_first_entry_or_null(&fmdev->rx_head, struct fm_rx_data, entry);
@@ -267,12 +273,12 @@ static void receive_tasklet(unsigned long arg)
         num = rx->num;
         sdio_hdr = kmalloc(sizeof(struct fm_sdio_hdr), GFP_ATOMIC);
         if (!sdio_hdr){
-            pr_err("fm sdio_hdr kmalloc fail\n");
+			dev_unisoc_fm_err(fm_miscdev,"fm sdio_hdr kmalloc fail\n");
             return;
         }
         parse_sdio_header(head, tail, num, sdio_hdr);
         if (sdio_hdr->subtype != FM_RX_CHANNEL - 12) {
-            pr_info("%s sub type is wrong [%d]\n", __func__, sdio_hdr->subtype);
+			dev_unisoc_fm_err(fm_miscdev,"%s sub type is wrong [%d]\n", __func__, sdio_hdr->subtype);
             spin_unlock_bh(&fmdev->rw_lock);
             sprdwcn_bus_list_free(channel, head, tail, num);
             kfree(sdio_hdr);
@@ -284,18 +290,18 @@ static void receive_tasklet(unsigned long arg)
         receive_buf = head->buf + FM_SDIO_HEAD_LEN;
         if ((*(receive_buf + 1)) == 0x0e) {
             memcpy(fmdev->com_respbuf, receive_buf + 2, (*(receive_buf+2)) + 1);
-            pr_debug("fm RX before commontask_completion=0x%x\n", fmdev->commontask_completion.done);
+			dev_unisoc_fm_dbg(fm_miscdev,"fm RX before commontask_completion=0x%x\n", fmdev->commontask_completion.done);
             complete(&fmdev->commontask_completion);
-            pr_debug("fm RX after commontask_completion=0x%x\n", fmdev->commontask_completion.done);
+			dev_unisoc_fm_dbg(fm_miscdev,"fm RX after commontask_completion=0x%x\n", fmdev->commontask_completion.done);
         } else if (((*((receive_buf)+1)) == 0xFF) && ((*(receive_buf+3)) == 0x30)) {
             memcpy(fmdev->seek_respbuf, receive_buf + 2, (*(receive_buf+2)) + 1);
-            pr_debug("fm RX before seektask_completion=0x%x\n", fmdev->seektask_completion.done);
+			dev_unisoc_fm_dbg(fm_miscdev,"fm RX before seektask_completion=0x%x\n", fmdev->seektask_completion.done);
             complete(&fmdev->seektask_completion);
-            pr_debug("fm RX after seektask_completion=0x%x\n", fmdev->seektask_completion.done);
+			dev_unisoc_fm_dbg(fm_miscdev,"fm RX after seektask_completion=0x%x\n", fmdev->seektask_completion.done);
         } else if (((*(receive_buf+1)) == 0xFF) && ((*(receive_buf+3)) == 0x00)) {
             rds_parser(receive_buf + 4);
         } else {
-            pr_err("fmdrv error:unknown event !!!\n");
+				dev_unisoc_fm_err(fm_miscdev,"fmdrv error:unknown event !!!\n");
         }
         sprdwcn_bus_push_list(channel, head, tail, num);
         kfree(sdio_hdr);
@@ -308,11 +314,11 @@ static void receive_tasklet(unsigned long arg)
 
 ssize_t fm_read_rds_data(struct file *filp, char __user *buf, size_t count, loff_t *pos) {
     int timeout = -1;
-    pr_info("(FM_RDS) fm start to read RDS data\n");
+	dev_unisoc_fm_info(fm_miscdev,"(FM_RDS) fm start to read RDS data\n");
 #ifdef RDS_DEBUG
     sprintf(rds_debug_data.ps_data.PS[3], "PS_debug");
     sprintf(rds_debug_data.rt_data.textdata[3], "Welcome to spreadtrum, This is for RT data debug");
-    pr_info("fm ioctl read rds freq =%d\n", global_freq);
+	dev_unisoc_fm_info(fm_miscdev,"fm ioctl read rds freq =%d\n", global_freq);
     rds_debug_data.af_data.AF_NUM = 3;
     rds_debug_data.af_data.AF[1][0] = 1065;
     rds_debug_data.af_data.AF[1][1] = 1077;
@@ -321,7 +327,7 @@ ssize_t fm_read_rds_data(struct file *filp, char __user *buf, size_t count, loff
     rds_debug_data.rt_data.textlength = strlen(rds_debug_data.rt_data.textdata[3]);
 
     if (copy_to_user(buf, &(rds_debug_data), sizeof(rds_debug_data))) {
-        pr_err("fm_read_rds_data ret value is -eFAULT\n");
+		dev_unisoc_fm_err(fm_miscdev,"fm_read_rds_data ret value is -eFAULT\n");
         return -EFAULT;
     }
     return sizeof(rds_debug_data);
@@ -329,29 +335,29 @@ ssize_t fm_read_rds_data(struct file *filp, char __user *buf, size_t count, loff
 
     if (filp->f_flags & O_NONBLOCK) {
         timeout = 0;
-        pr_err("fm_read_rds_data NON BLOCK!!!\n");
+		dev_unisoc_fm_err(fm_miscdev,"fm_read_rds_data NON BLOCK!!!\n");
         return -EWOULDBLOCK;
     }
 
     fmdev->rds_data.rt_data.textlength = strlen(fmdev->rds_data.rt_data.textdata[3]);
-    pr_info("fm RT len is %d\n", fmdev->rds_data.rt_data.textlength);
+	dev_unisoc_fm_info(fm_miscdev,"fm RT len is %d\n", fmdev->rds_data.rt_data.textlength);
     if (copy_to_user(buf, &(fmdev->rds_data), sizeof(fmdev->rds_data))) {
-        pr_info("fm_read_rds_data ret value is -eFAULT\n");
+		dev_unisoc_fm_info(fm_miscdev,"fm_read_rds_data ret value is -eFAULT\n");
         return -EFAULT;
     }
-    pr_info("(fm drs) fm event is %x\n", fmdev->rds_data.event_status);
+	dev_unisoc_fm_info(fm_miscdev,"(fm drs) fm event is %x\n", fmdev->rds_data.event_status);
     fmdev->rds_han.rds_parse_stop_time = get_seconds();
     if ((fmdev->rds_han.rds_parse_stop_time -
         fmdev->rds_han.rds_parse_start_time) >
         FM_RDS_PARSE_TIME) {
-        pr_info("fm clear RDS event! [%ld]-[%ld]\n",
+		dev_unisoc_fm_info(fm_miscdev,"fm clear RDS event! [%ld]-[%ld]\n",
             fmdev->rds_han.rds_parse_start_time,
             fmdev->rds_han.rds_parse_stop_time);
         fmdev->rds_data.event_status = 0;
     }
-    pr_info("PS=%s\n", fmdev->rds_data.ps_data.PS[3]);
-	pr_info("RT=%s\n", fmdev->rds_data.rt_data.textdata[3]);
-    pr_info("fm_read_rds_data end....\n");
+
+	dev_unisoc_fm_info(fm_miscdev,"PS=%s,RT=%s\n", fmdev->rds_data.ps_data.PS[3],fmdev->rds_data.rt_data.textdata[3]);
+	dev_unisoc_fm_info(fm_miscdev,"fm_read_rds_data end....\n");
     return sizeof(fmdev->rds_data);
 }
 
@@ -360,7 +366,7 @@ int parse_sdio_header(struct mbuf_t *head,struct mbuf_t *tail, int num, struct f
     hdr->length = ((head->buf[2] & 0x7F) << 9) + (head->buf[1] << 1) + (head->buf[0] >> 7);
     hdr->type = head->buf[3] >> 4;
     hdr->subtype = head->buf[3];
-    pr_info("%s length: %d, type: %d, subtype: %d", __func__, hdr->length, hdr->type, hdr->subtype);
+	dev_unisoc_fm_info(fm_miscdev,"%s length: %d, type: %d, subtype: %d", __func__, hdr->length, hdr->type, hdr->subtype);
     dump_buf((unsigned char *)head->buf, (hdr->length)+4, __func__);
     return 0;
 }
@@ -400,7 +406,7 @@ void parse_at_fm_cmd(unsigned int *freq_found)
 	for (i = 1; i < len; i++)
 		result = result * 10 + cur_ptr[i] - '0';
 	*freq_found = result;
-	pr_info("fm seek event have come freq=%d\n", result);
+	dev_unisoc_fm_info(fm_miscdev,"fm seek event have come freq=%d\n", result);
 }
 #endif
 
@@ -410,14 +416,14 @@ void fm_sdio_read(void) {
     memset(fmdev->read_buf, 0, FM_READ_SIZE);
     /* fmdev->rcv_len = sdio_dev_get_chn_datalen(FM_CHANNEL_READ); */
     if (fmdev->rcv_len <= 0) {
-        pr_err("FM_CHANNEL_READ len err\n");
+		dev_unisoc_fm_err(fm_miscdev,"FM_CHANNEL_READ len err\n");
         return;
     }
     if (fmdev->rcv_len > FM_READ_SIZE)
-        pr_err("The read data len:%d, beyond max read:%d",
-    fmdev->rcv_len, FM_READ_SIZE);
+		dev_unisoc_fm_err(fm_miscdev,"The read data len:%d, beyond max read:%d",
+							fmdev->rcv_len, FM_READ_SIZE);
     /* sdio_dev_read(FM_CHANNEL_READ, fmdev->read_buf, &fmdev->rcv_len); */
-    pr_info("* fmdev->read_buf: %s *\n", (char *)fmdev->read_buf);
+	dev_unisoc_fm_info(fm_miscdev,"* fmdev->read_buf: %s *\n", (char *)fmdev->read_buf);
 }
 
 int fm_sdio_write(unsigned char *buffer, unsigned int size) {
@@ -436,15 +442,15 @@ return 0;
 static int fm_rx_cback(int chn, struct mbuf_t *head,struct mbuf_t *tail, int num)
 {
     wake_lock_timeout(&fm_wakelock, HZ*1);
-    pr_info("%s: channel:%d head:%p tail:%p num:%d\n",__func__, chn, head, tail, num);
+	dev_unisoc_fm_info(fm_miscdev,"%s: channel:%d head:%p tail:%p num:%d\n",__func__, chn, head, tail, num);
 #ifdef FM_DUMP_DATA
     dump_buf((unsigned char *)head->buf, (unsigned char)(head->len + FM_SDIO_HEAD_LEN), __func__);
-    pr_info("reveive data length: %d",head->len);
+	dev_unisoc_fm_info(fm_miscdev,"reveive data length: %d",head->len);
 #endif
     if (fmdev != NULL) {
         struct fm_rx_data *rx = kmalloc(sizeof(struct fm_rx_data), GFP_KERNEL);
         if (!rx) {
-            pr_err("(fmdrv): %s(): No memory to create fm rx buf\n", __func__);
+			dev_unisoc_fm_err(fm_miscdev,"(fmdrv): %s(): No memory to create fm rx buf\n", __func__);
             sprdwcn_bus_list_free(chn, head, tail, num);
             return -ENOMEM;
         }
@@ -455,7 +461,7 @@ static int fm_rx_cback(int chn, struct mbuf_t *head,struct mbuf_t *tail, int num
         spin_lock_bh(&fmdev->rw_lock);
         list_add_tail(&rx->entry, &fmdev->rx_head);
         spin_unlock_bh(&fmdev->rw_lock);
-        pr_debug("(fmdrv) %s(): tasklet_schedule start\n", __func__);
+		dev_unisoc_fm_dbg(fm_miscdev,"(fmdrv) %s(): tasklet_schedule start\n", __func__);
         tasklet_schedule(&fmdev->rx_task);
     }
     return 0;
@@ -466,10 +472,10 @@ int fm_tx_cback(int channel, struct mbuf_t *head,struct mbuf_t *tail, int num)
 {
     int i;
     struct mbuf_t *pos = NULL;
-    pr_info("%s channel: %d, head: %p, tail: %p num: %d\n", __func__, channel, head, tail, num);
+	dev_unisoc_fm_info(fm_miscdev,"%s channel: %d, head: %p, tail: %p num: %d\n", __func__, channel, head, tail, num);
     if (head->buf)
         for (i = 0; i < head->len + 4; i++)
-            pr_info("%s i%d 0x%x\n", __func__, i, head->buf[i]);
+			dev_unisoc_fm_info(fm_miscdev,"%s i%d 0x%x\n", __func__, i, head->buf[i]);
     pos = head;
     for (i = 0; i < num; i++, pos = pos->next) {
         kfree(pos->buf);
@@ -490,17 +496,16 @@ int fm_write(unsigned char *array, unsigned char len)
 	cnt = 0;
 	/* len = strlen(array); */
 	fm_sdio_write(array, len);
-	pr_info("fm: write_buf[0]: %x\n", array[0]);
-	pr_info("TX before_completion done=0X%x\n", fmdev->completed.done);
+	dev_unisoc_fm_info(fm_miscdev,"fm: write_buf[0]: %x\n", array[0]);
+	dev_unisoc_fm_info(fm_miscdev,"TX before_completion done=0X%x\n", fmdev->completed.done);
 	timeleft = wait_for_completion_timeout(&fmdev->completed,
 		FM_DRV_TX_TIMEOUT);
-	pr_info("TX_after_completion done=0X%x\n", fmdev->completed.done);
+	dev_unisoc_fm_info(fm_miscdev,"TX_after_completion done=0X%x\n", fmdev->completed.done);
 	if (!timeleft) {
-		pr_err("Timeout, %d\n", ETIMEDOUT);
+		dev_unisoc_fm_err(fm_miscdev,"Timeout, %d\n", ETIMEDOUT);
 		return -ETIMEDOUT;
-
 	} else {
-		pr_info("success!\n");
+		dev_unisoc_fm_info(fm_miscdev,"success!\n");
 	}
 
 	return 0;
@@ -517,18 +522,18 @@ int fm_powerup(struct fm_tune_parm *p) {
     fmdev-> fm_pd = 0;
 
     if (start_marlin(MARLIN_FM)) {
-        pr_err("marlin3 chip %s failed\n", __func__);
+		dev_unisoc_fm_err(fm_miscdev,"marlin3 chip %s failed\n", __func__);
         return -ENODEV;
     }
     parm.freq = 875;
     parm.freq *= 10;
-    pr_info("fm ioctl power up freq= %d\n", parm.freq);
+	dev_unisoc_fm_info(fm_miscdev,"fm ioctl power up freq= %d\n", parm.freq);
     get_fm_config_param(&fm_data);
     payload[0] = parm.freq;
     memcpy(&payload[1],&fm_data,sizeof(struct fm_config_t));
     ret = fm_write_cmd(FM_POWERUP_CMD, payload, sizeof(payload), NULL, NULL);
     if (ret < 0) {
-        pr_err("(fmdrv) %s FM write pwrup cmd status failed %d\n", __func__, ret);
+		dev_unisoc_fm_err(fm_miscdev,"(fmdrv) %s FM write pwrup cmd status failed %d\n", __func__, ret);
         return ret;
     }
     return ret;
@@ -541,17 +546,18 @@ int fm_powerdown(void) {
     fmdev->fm_pd = 1;
 
     payload = FM_OFF;
-    pr_info("fm ioctl power down\n");
+	dev_unisoc_fm_info(fm_miscdev,"fm ioctl power down\n");
     fmdev->rds_han.new_data_flag = 1;
     wake_up_interruptible(&fmdev->rds_han.rx_queue);
     ret = fm_write_cmd(FM_POWERDOWN_CMD, &payload, sizeof(payload),NULL, NULL);
     if (ret < 0) {
-        pr_err("(fmdrv) %s FM write pwrdown cmd status failed %d\n", __func__, ret);
+		dev_unisoc_fm_err(fm_miscdev,"(fmdrv) %s FM write pwrdown cmd status failed %d\n",
+			__func__, ret);
         return ret;
     }
     /* stop_marlin(MARLIN_FM); */
     if (stop_marlin(MARLIN_FM) < 0) {
-        pr_info("fm_powerdown stop_marlin failed");
+		dev_unisoc_fm_err(fm_miscdev,"fm_powerdown stop_marlin failed");
     }
     return ret;
 }
@@ -564,21 +570,22 @@ int fm_tune(void *arg){
     unsigned short freq;
 
     if (copy_from_user(&parm, arg, sizeof(parm))) {
-        pr_info("fm tune 's ret value is -eFAULT\n");
+		dev_unisoc_fm_info(fm_miscdev,"fm tune 's ret value is -eFAULT\n");
         return -EFAULT;
     }
 
 #ifdef RDS_DEBUG
     global_freq = parm.freq;
 #endif
-    pr_info("fm ioctl tune freq = %d\n", parm.freq);
+	dev_unisoc_fm_info(fm_miscdev,"fm ioctl tune 50k/100k freq = %d\n", parm.freq);
     ret = fm_write_cmd(FM_TUNE_CMD, &parm.freq, sizeof(parm.freq), respond_buf, &respond_len);
     if (ret < 0) {
-        pr_err("(fmdrv) %s FM write tune cmd status failed %d\n", __func__, ret);
+		dev_unisoc_fm_err(fm_miscdev,"(fmdrv) %s FM write tune cmd status failed %d\n",
+			__func__, ret);
         return ret;
     }
     freq = respond_buf[3] + (respond_buf[4] << 8);
-    pr_info("(fmdrv) fm tune have finshed!!status =%d,RSSI=%d,SNR=%d,freq=%d\n", respond_buf[0], respond_buf[1],respond_buf[2], freq);
+	dev_unisoc_fm_info(fm_miscdev,"(fmdrv) fm tune have finshed!!status =%d,RSSI=%d,SNR=%d,freq=%d\n", respond_buf[0], respond_buf[1],respond_buf[2], freq);
     return ret;
 }
 /*
@@ -594,24 +601,26 @@ int fm_seek(void *arg) {
     unsigned long timeleft;
 
     if (copy_from_user(&parm, arg, sizeof(parm))) {
-        pr_info("fm seek 's ret value is -eFAULT\n");
+		dev_unisoc_fm_info(fm_miscdev,"fm seek 's ret value is -eFAULT\n");
         return -EFAULT;
     }
 
     payload[0] = (parm.freq & 0xFF);
     payload[1] = (parm.freq >> 8);
     payload[2] = parm.seekdir;
-    pr_info("fm ioctl seek freq=%d,dir =%d\n", parm.freq, parm.seekdir);
+	dev_unisoc_fm_info(fm_miscdev,"fm ioctl seek freq=%d,dir =%d\n", parm.freq, parm.seekdir);
     ret = fm_write_cmd(FM_SEEK_CMD, payload, sizeof(payload), NULL, NULL);
     if (ret < 0) {
-        pr_err("(fmdrv) %s FM write seek cmd status failed %d\n", __func__, ret);
+		dev_unisoc_fm_err(fm_miscdev,"(fmdrv) %s FM write seek cmd status failed %d\n",
+			__func__, ret);
         return ret;
     }
     init_completion(&fmdev->seektask_completion);
     timeleft = wait_for_completion_timeout(&fmdev->seektask_completion,
     FM_DRV_RX_SEEK_TIMEOUT);
     if (!timeleft) {
-        pr_err("(fmdrv) %s(): Timeout(%d sec),didn't get fm seek end !\n", __func__, jiffies_to_msecs(FM_DRV_RX_SEEK_TIMEOUT) / 1000);
+		dev_unisoc_fm_err(fm_miscdev,"(fmdrv) %s(): Timeout(%d sec),didn't get fm seek end !\n",
+		__func__, jiffies_to_msecs(FM_DRV_RX_SEEK_TIMEOUT) / 1000);
         /* -110 */
         return -ETIMEDOUT;
     }
@@ -621,19 +630,21 @@ int fm_seek(void *arg) {
 #if 0
 	rx = fmdev->seek_response;
 	if (fmdev->seek_response == NULL)
-		pr_err("(fmdrv): error:fmdev->seek_response is  NULL\n");
+		dev_unisoc_fm_err(fm_miscdev,"(fmdrv): error:fmdev->seek_response is  NULL\n");
 	fm_evt_head = (struct fm_event_hdr *)rx->addr;
 	p_data = &(fm_evt_head->len);
-	pr_info("fm seek event id is 0x%x\n", fm_evt_head->id);
+	dev_unisoc_fm_info(fm_miscdev,"fm seek event id is 0x%x\n", fm_evt_head->id);
 	if (fm_evt_head->id == HCI_VS_EVENT) {
 		if (*(p_data + 1) == 0x30)
 			memcpy(respond_buf, p_data + 2, fm_evt_head->len - 1);
 		else
-			pr_err("fm seek data error\n");
+			dev_unisoc_fm_err(fm_miscdev,"fm seek data error\n");
 	}
 #endif
     parm.freq = respond_buf[3] + (respond_buf[4] << 8);
-    pr_info("(fmdrv) fm seek have finshed!!status=%d, RSSI=%d, SNR=%d, freq=%d\n", respond_buf[0], respond_buf[1], respond_buf[2], parm.freq);
+	dev_unisoc_fm_info(fm_miscdev,"(fmdrv) fm seek have finshed!!status = %d, RSSI=%d\n"
+		"(fmdrv) fm seek SNR=%d, freq=%d\n", respond_buf[0],
+		respond_buf[1], respond_buf[2], parm.freq);
     /* pass the value to user space */
     if (copy_to_user(arg, &parm, sizeof(parm)))
         ret = -EFAULT;
@@ -649,17 +660,17 @@ int fm_mute(void *arg) {
     unsigned char mute = 0;
     int ret = -1;
     if (copy_from_user(&mute, arg, sizeof(mute))) {
-        pr_err("fm mute 's ret value is -eFAULT\n");
+		dev_unisoc_fm_err(fm_miscdev,"fm mute 's ret value is -eFAULT\n");
         return -EFAULT;
     }
-    pr_info("fm ioctl mute: %d (1:mute 0:unmute)\n", mute);
+	dev_unisoc_fm_info(fm_miscdev,"fm ioctl mute: %d (1:mute 0:unmute)\n", mute);
     if (mute != 1  && mute != 0) {
-        pr_err("fm ioctl mute get wrong parameter\n");
+		dev_unisoc_fm_err(fm_miscdev,"fm ioctl mute get wrong parameter\n");
         return ret;
     }
     ret = fm_write_cmd(FM_MUTE_CMD, &mute, sizeof(mute), NULL, NULL);
     if (ret < 0) {
-        pr_err("(fmdrv) %s FM write mute cmd result failed %d\n", __func__, ret);
+		dev_unisoc_fm_err(fm_miscdev,"(fmdrv) %s FM write mute cmd result failed %d\n", __func__, ret);
         return ret;
     }
     return ret;
@@ -670,13 +681,14 @@ int fm_set_volume(void *arg) {
     int ret = 0;
 
     if (copy_from_user(&vol, arg, sizeof(vol))) {
-        pr_err("fm set volume 's ret value is -eFAULT\n");
+		dev_unisoc_fm_err(fm_miscdev,"fm set volume 's ret value is -eFAULT\n");
         return -EFAULT;
     }
-    pr_info("fm ioctl set_volume =%d\n", vol);
+	dev_unisoc_fm_info(fm_miscdev,"fm ioctl set_volume =%d\n", vol);
     ret = fm_write_cmd(FM_SET_VOLUME_CMD, &vol, sizeof(vol), NULL, NULL);
     if (ret < 0) {
-        pr_err("(fmdrv) %s FM set volume result failed %d\n", __func__, ret);
+		dev_unisoc_fm_err(fm_miscdev,"(fmdrv) %s FM set volume status failed %d\n",
+			__func__, ret);
         return ret;
     }
     return ret;
@@ -691,12 +703,13 @@ int fm_get_volume(void *arg) {
 
     ret = fm_write_cmd(FM_GET_VOLUME_CMD, &payload, sizeof(payload), &resp_buf[0], &res_len);
     if (ret < 0) {
-        pr_err("(fmdrv) %s FM write get volime cmd result failed %d\n", __func__, ret);
+		dev_unisoc_fm_err(fm_miscdev,"(fmdrv) %s FM get volume status failed %d\n",
+			__func__, ret);
         return ret;
     }
 
     volume = (int)resp_buf[0];
-    pr_info("fm ioctl get volume =0x%x\n", volume);
+	dev_unisoc_fm_info(fm_miscdev,"fm ioctl get volume =0x%x\n", volume);
     if (copy_to_user(arg, &volume, sizeof(volume)))
         ret = -EFAULT;
     return ret;
@@ -705,10 +718,11 @@ int fm_get_volume(void *arg) {
 int fm_stop_scan(void *arg) {
     int ret = -EINVAL;
 
-    pr_info("fm ioctl stop scan\n");
+	dev_unisoc_fm_info(fm_miscdev,"fm ioctl stop scan\n");
     ret = fm_write_cmd(FM_SEARCH_ABORT, NULL, 0, NULL, NULL);
     if (ret < 0) {
-        pr_err("(fmdrv) %s FM write stop scan cmd result failed %d\n", __func__, ret);
+		dev_unisoc_fm_err(fm_miscdev,"(fmdrv) %s FM write stop scan cmd status failed %d\n",
+			__func__, ret);
         return ret;
     }
     return ret;
@@ -720,15 +734,16 @@ int fm_scan_all(void *arg) {
     unsigned char respond_len;
     struct fm_scan_all_parm respond_buf;
 
-    pr_info("fm ioctl scan all\n");
+	dev_unisoc_fm_info(fm_miscdev,"fm ioctl scan all\n");
     if (copy_from_user(&parm, arg, sizeof(parm))) {
-        pr_err("fm search all 's ret value is -eFAULT\n");
+		dev_unisoc_fm_err(fm_miscdev,"fm search all 's ret value is -eFAULT\n");
         return -EFAULT;
     }
 
     ret = fm_write_cmd(FM_SCAN_ALL_CMD, &parm, sizeof(parm), &respond_buf, &respond_len);
     if (ret < 0) {
-        pr_err("(fmdrv) %s FM write scan all cmd result failed %d\n", __func__, ret);
+		dev_unisoc_fm_err(fm_miscdev,"(fmdrv) %s FM write scan all cmd status failed %d\n",
+			__func__, ret);
         return ret;
     }
     if (copy_to_user(arg, &parm, sizeof(parm)))
@@ -742,13 +757,14 @@ int fm_rw_reg(void *arg) {
     unsigned char  respond_len;
 
     if (copy_from_user(&parm, arg, sizeof(parm))) {
-        pr_err("fm read and write register 's ret value is -eFAULT\n");
+		dev_unisoc_fm_err(fm_miscdev,"fm read and write register 's ret value is -eFAULT\n");
         return -EFAULT;
     }
-    pr_info("fm ioctl read write reg = %d\n", parm.rw_flag);
+	dev_unisoc_fm_info(fm_miscdev,"fm ioctl read write reg = %d\n", parm.rw_flag);
     ret = fm_write_cmd(FM_READ_WRITE_REG_CMD, &parm, sizeof(parm), &parm, &respond_len);
     if (ret < 0) {
-        pr_err("(fmdrv) %s FM write register cmd result failed %d\n", __func__, ret);
+		dev_unisoc_fm_err(fm_miscdev,"(fmdrv) %s FM write register cmd status failed %d\n",
+			__func__, ret);
         return ret;
     }
     if (copy_to_user(arg, &parm, sizeof(parm)))
@@ -765,13 +781,14 @@ int fm_set_audio_mode(void *arg) {
     int ret = 0;
 
     if (copy_from_user(&mode, arg, sizeof(mode))) {
-        pr_err("fm set audio mode 's ret value is -eFAULT\n");
+		dev_unisoc_fm_err(fm_miscdev,"fm set audio mode 's ret value is -eFAULT\n");
         return -EFAULT;
     }
-    pr_info("fm ioctl set audio mode =%d\n", mode);
+	dev_unisoc_fm_info(fm_miscdev,"fm ioctl set audio mode =%d\n", mode);
     ret = fm_write_cmd(FM_SET_AUDIO_MODE, &mode, sizeof(mode), NULL, NULL);
     if (ret < 0) {
-        pr_err("(fmdrv) %s FM set audio mode result failed %d\n", __func__, ret);
+		dev_unisoc_fm_err(fm_miscdev,"(fmdrv) %s FM set audio mode status failed %d\n",
+			__func__, ret);
         return ret;
     }
     return ret;
@@ -794,13 +811,14 @@ int fm_set_region(void *arg) {
     int ret = 0;
 
     if (copy_from_user(&region, arg, sizeof(region))) {
-        pr_err("fm set region 's ret value is -eFAULT\n");
+		dev_unisoc_fm_err(fm_miscdev,"fm set region 's ret value is -eFAULT\n");
         return -EFAULT;
     }
-    pr_info("fm ioctl set region =%d\n", region);
+	dev_unisoc_fm_info(fm_miscdev,"fm ioctl set region =%d\n", region);
     ret = fm_write_cmd(FM_SET_REGION, &region, sizeof(region), NULL, NULL);
     if (ret < 0) {
-        pr_err("(fmdrv) %s FM set region result failed %d\n", __func__, ret);
+		dev_unisoc_fm_err(fm_miscdev,"(fmdrv) %s FM set region status failed %d\n",
+			__func__, ret);
         return ret;
     }
     return ret;
@@ -816,13 +834,14 @@ int fm_set_scan_step(void *arg) {
     int ret = 0;
 
     if (copy_from_user(&step, arg, sizeof(step))) {
-        pr_err("fm set scan step 's ret value is -eFAULT\n");
+		dev_unisoc_fm_err(fm_miscdev,"fm set scan step 's ret value is -eFAULT\n");
         return -EFAULT;
     }
-    pr_info("fm ioctl set scan step =%d\n", step);
+	dev_unisoc_fm_info(fm_miscdev,"fm ioctl set scan step =%d\n", step);
     ret = fm_write_cmd(FM_SET_SCAN_STEP, &step, sizeof(step), NULL, NULL);
     if (ret < 0) {
-        pr_err("(fmdrv) %s FM set scan step result failed %d\n", __func__, ret);
+		dev_unisoc_fm_err(fm_miscdev,"(fmdrv) %s FM set scan step status failed %d\n",
+			__func__, ret);
         return ret;
     }
     return ret;
@@ -833,13 +852,14 @@ int fm_config_deemphasis(void *arg) {
     int ret = 0;
 
     if (copy_from_user(&dp, arg, sizeof(dp))) {
-        pr_err("fm config_deemphasis 's ret value is -eFAULT\n");
+		dev_unisoc_fm_err(fm_miscdev,"fm config_deemphasis 's ret value is -eFAULT\n");
         return -EFAULT;
     }
-    pr_info("fm ioctl config_deemphasis =%d\n", dp);
+	dev_unisoc_fm_info(fm_miscdev,"fm ioctl config_deemphasis =%d\n", dp);
     ret = fm_write_cmd(FM_CONFIG_DEEMPHASIS, &dp, sizeof(dp), NULL, NULL);
     if (ret < 0) {
-        pr_err("(fmdrv) %s FM config_deemphasis result failed %d\n", __func__, ret);
+		dev_unisoc_fm_err(fm_miscdev,"(fmdrv) %s FM config_deemphasis status failed %d\n",
+			__func__, ret);
         return ret;
     }
     return ret;
@@ -851,10 +871,11 @@ int fm_get_audio_mode(void *arg) {
     unsigned char resp_buf[2];
     int ret = -1;
 
-    pr_info("fm ioctl get audio mode\n");
+	dev_unisoc_fm_info(fm_miscdev,"fm ioctl get audio mode\n");
     ret = fm_write_cmd(FM_GET_AUDIO_MODE, NULL, 0, &resp_buf[0], &res_len);
     if (ret < 0) {
-        pr_err("(fmdrv) %s FM get audio mode cmd result failed %d\n", __func__, ret);
+		dev_unisoc_fm_err(fm_miscdev,"(fmdrv) %s FM get audio mode cmd status failed %d\n",
+			__func__, ret);
         return ret;
     }
 
@@ -870,10 +891,11 @@ int fm_get_current_bler(void *arg) {
     unsigned char resp_buf[1];
     int ret = -1;
 
-    pr_info("fm ioctl get current BLER\n");
+	dev_unisoc_fm_info(fm_miscdev,"fm ioctl get current BLER\n");
     ret = fm_write_cmd(DM_GET_CUR_BLER_CMD, NULL, 0, &resp_buf[0], &res_len);
     if (ret < 0) {
-        pr_err("(fmdrv) %s FM get BLER cmd result failed %d\n", __func__, ret);
+		dev_unisoc_fm_err(fm_miscdev,"(fmdrv) %s FM get BLER cmd status failed %d\n",
+			__func__, ret);
         return ret;
     }
 
@@ -889,10 +911,11 @@ int fm_get_cur_snr(void *arg) {
     unsigned char resp_buf[1];
     int ret = -1;
 
-    pr_info("fm ioctl get current SNR\n");
+	dev_unisoc_fm_info(fm_miscdev,"fm ioctl get current SNR\n");
     ret = fm_write_cmd(FM_GET_SNR_CMD, NULL, 0, &resp_buf[0], &res_len);
     if (ret < 0) {
-        pr_err("(fmdrv) %s FM get SNR cmd status failed %d\n", __func__, ret);
+		dev_unisoc_fm_err(fm_miscdev,"(fmdrv) %s FM get SNR cmd status failed %d\n",
+			__func__, ret);
         return ret;
     }
 
@@ -907,17 +930,18 @@ int fm_softmute_onoff(void *arg) {
     int ret = 0;
 
     if (copy_from_user(&softmute_on, arg, sizeof(softmute_on))) {
-        pr_err("fm softmute_onoff 's ret value is -eFAULT\n");
+		dev_unisoc_fm_err(fm_miscdev,"fm softmute_onoff 's ret value is -eFAULT\n");
         return -EFAULT;
     }
-    pr_info("fm ioctl softmute: %d (0:OFF  1:ON)\n", softmute_on);
+	dev_unisoc_fm_info(fm_miscdev,"fm ioctl softmute: %d (0:OFF  1:ON)\n", softmute_on);
     if (softmute_on != 0  && softmute_on != 1) {
-        pr_err("fm ioctl unknown softmute\n");
+		dev_unisoc_fm_err(fm_miscdev,"fm ioctl unknown softmute\n");
         return ret;
     }
     ret = fm_write_cmd(FM_SOFTMUTE_ONOFF_CMD, &softmute_on, sizeof(softmute_on), NULL, NULL);
     if (ret < 0) {
-        pr_err("(fmdrv) %s FM write softmute onoff cmd status failed %d\n", __func__, ret);
+		dev_unisoc_fm_err(fm_miscdev,"(fmdrv) %s FM write softmute onoff cmd status failed %d\n",
+			__func__, ret);
         return ret;
     }
     return ret;
@@ -929,16 +953,17 @@ int fm_set_seek_criteria(void *arg)
     int ret = 0;
 
     if (copy_from_user(&parm, arg, sizeof(parm))) {
-        pr_err("fm set_seek_criteria 's ret value is -eFAULT\n");
+		dev_unisoc_fm_err(fm_miscdev,"fm set_seek_criteria 's ret value is -eFAULT\n");
         return -EFAULT;
     }
 
-    pr_info("fm ioctl set_seek_criteria "seekformat"\n",
-                          parm.rssi_th,parm.snr_th, parm.freq_offset_th,
-                          parm.pilot_power_th, parm.noise_power_th);
+	dev_unisoc_fm_info(fm_miscdev,"fm ioctl set_seek_criteria "seekformat"\n", parm.rssi_th,
+		parm.snr_th, parm.freq_offset_th,parm.pilot_power_th, parm.noise_power_th);
+
     ret = fm_write_cmd(FM_SET_SEEK_CRITERIA_CMD, &parm, sizeof(parm), NULL, NULL);
     if (ret < 0) {
-        pr_err("(fmdrv) %s FM set seek criteria cmd status failed %d\n", __func__, ret);
+		dev_unisoc_fm_err(fm_miscdev,"(fmdrv) %s FM set seek criteria cmd status failed %d\n",
+			__func__, ret);
         return ret;
     }
     return ret;
@@ -970,16 +995,17 @@ int fm_set_audio_threshold(void *arg) {
     int ret = 0;
 
     if (copy_from_user(&parm, arg, sizeof(parm))) {
-        pr_err("fm set_audio_threshold 's ret value is -eFAULT\n");
+		dev_unisoc_fm_err(fm_miscdev,"fm set_audio_threshold 's ret value is -eFAULT\n");
         return -EFAULT;
     }
 
-    pr_info("fm ioctl set_audio_threshold" audioformat"\n",
+	dev_unisoc_fm_info(fm_miscdev,"fm ioctl set_audio_threshold" audioformat"\n",
                                parm.hbound, parm.lbound,
                                parm.power_th, parm.phyt, parm.snr_th);
     ret = fm_write_cmd(FM_SET_AUDIO_THRESHOLD_CMD, &parm, sizeof(parm), NULL, NULL);
     if (ret < 0) {
-        pr_err("(fmdrv) %s FM set audio threshold cmd status failed %d\n", __func__, ret);
+		dev_unisoc_fm_err(fm_miscdev,"(fmdrv) %s FM set audio threshold cmd status failed %d\n",
+			__func__, ret);
         return ret;
     }
     return ret;
@@ -990,10 +1016,11 @@ int fm_get_seek_criteria(void *arg) {
     unsigned char res_len;
     int ret = -1;
 
-    pr_info("fm ioctl get_seek_criteria\n");
+	dev_unisoc_fm_info(fm_miscdev,"fm ioctl get_seek_criteria\n");
     ret = fm_write_cmd(FM_GET_SEEK_CRITERIA_CMD, NULL, 0, &parm, &res_len);
     if (ret < 0) {
-        pr_err("(fmdrv) %s FM write get seek_criteria cmd status failed %d\n", __func__, ret);
+		dev_unisoc_fm_err(fm_miscdev,"(fmdrv) %s FM write get seek_criteria cmd status failed %d\n",
+			__func__, ret);
         return ret;
     }
     if (copy_to_user(arg, &parm, sizeof(parm)))
@@ -1006,10 +1033,11 @@ int fm_get_audio_threshold(void *arg) {
     unsigned char res_len;
     int ret = -1;
 
-    pr_info("fm ioctl get_audio_threshold\n");
+	dev_unisoc_fm_info(fm_miscdev,"fm ioctl get_audio_threshold\n");
     ret = fm_write_cmd(FM_GET_AUDIO_THRESHOLD_CMD, NULL, 0, &parm, &res_len);
     if (ret < 0) {
-        pr_err("(fmdrv) %s FM write get audio_thresholdi cmd status failed %d\n", __func__, ret);
+		dev_unisoc_fm_err(fm_miscdev,"(fmdrv) %s FM write get audio_thresholdi cmd status failed %d\n",
+			__func__, ret);
         return ret;
     }
 
@@ -1028,7 +1056,8 @@ int fm_getrssi(void *arg) {
 
     ret = fm_write_cmd(FM_GET_RSSI_CMD, &payload, sizeof(payload), &resp_buf[0], &res_len);
     if (ret < 0) {
-        pr_err("(fmdrv) %s FM write getrssi cmd status failed %d\n", __func__, ret);
+		dev_unisoc_fm_err(fm_miscdev,"(fmdrv) %s FM write getrssi cmd status failed %d\n",
+			__func__, ret);
         return ret;
     }
 
@@ -1039,7 +1068,7 @@ int fm_getrssi(void *arg) {
 }
 
 struct fm_rds_data *get_rds_data(void) {
-    pr_info("fm get rds data\n");
+	dev_unisoc_fm_info(fm_miscdev,"fm get rds data\n");
     return g_rds_data_string;
 }
 
@@ -1054,7 +1083,7 @@ int fm_rds_onoff(void *arg) {
     unsigned char payload[2];
 
     if (copy_from_user(&rds_on, arg, sizeof(rds_on))) {
-        pr_err("fm rds_onoff 's ret value is -eFAULT\n");
+		dev_unisoc_fm_err(fm_miscdev,"fm rds_onoff 's ret value is -eFAULT\n");
         return -EFAULT;
     }
     if (rds_on == 0) {
@@ -1062,21 +1091,22 @@ int fm_rds_onoff(void *arg) {
 		fmdev->rds_han.get_rt_cnt = 0;
         memset(&fmdev->rds_data, 0, sizeof(fmdev->rds_data));
         wake_up_interruptible(&fmdev->rds_han.rx_queue);
-        pr_info("fm ioctl RDS OFF\n");
+		dev_unisoc_fm_info(fm_miscdev,"fm ioctl RDS OFF\n");
     } else if (rds_on == 1) {
         fmdev->rds_han.new_data_flag = 0;
 		fmdev->rds_han.get_rt_cnt = 0;
-        pr_info("fm ioctl RDS ON\n");
+		dev_unisoc_fm_info(fm_miscdev,"fm ioctl RDS ON\n");
     }
     else
-        pr_info("fm ioctl unknown RDS\n");
+		dev_unisoc_fm_info(fm_miscdev,"fm ioctl unknown RDS\n");
     payload[0] = rds_on;
     payload[1] = rds_on;
     af_on = rds_on;
-    pr_debug("fm cmd: %d,%d,%d\n", FM_SET_RDS_MODE, rds_on, af_on);
+	dev_unisoc_fm_dbg(fm_miscdev,"fm cmd: %d,%d,%d\n", FM_SET_RDS_MODE, rds_on, af_on);
     ret = fm_write_cmd(FM_SET_RDS_MODE, payload, sizeof(payload), NULL, NULL);
     if (ret < 0) {
-        pr_err("(fmdrv) %s FM write rds mode cmd status failed %d\n", __func__, ret);
+		dev_unisoc_fm_err(fm_miscdev,"(fmdrv) %s FM write rds mode cmd status failed %d\n",
+			__func__, ret);
         return ret;
     }
 
@@ -1091,15 +1121,16 @@ int fm_ana_switch(void *arg) {
     unsigned char payload;
 
     if (copy_from_user(&antenna, arg, sizeof(antenna))) {
-        pr_err("fm ana switch 's ret value is -eFAULT\n");
+		dev_unisoc_fm_err(fm_miscdev,"fm ana switch 's ret value is -eFAULT\n");
         return -EFAULT;
     }
-    pr_info("fm ioctl ana switch is %d\n", antenna);
+	dev_unisoc_fm_info(fm_miscdev,"fm ioctl ana switch is %d\n", antenna);
 
     payload = antenna;
     ret = fm_write_cmd(FM_SET_ANA_SWITCH_CMD, &payload, sizeof(payload), NULL, NULL);
     if (ret < 0) {
-        pr_err("(fmdrv) %s FM write ANA switch cmd status failed %d\n", __func__, ret);
+		dev_unisoc_fm_err(fm_miscdev,"(fmdrv) %s FM write ANA switch cmd status failed %d\n",
+			__func__, ret);
         return ret;
     }
     return ret;
@@ -1110,17 +1141,18 @@ int fm_af_onoff(void *arg) {
     int ret = 0;
 
     if (copy_from_user(&af_on, arg, sizeof(af_on))) {
-        pr_err("fm af_onoff 's ret value is -eFAULT\n");
+		dev_unisoc_fm_err(fm_miscdev,"fm af_onoff 's ret value is -eFAULT\n");
         return -EFAULT;
     }
-    pr_info("fm ioctl AF: %d (0:OFF 1:ON)\n", af_on);
+	dev_unisoc_fm_info(fm_miscdev,"fm ioctl AF: %d (0:OFF 1:ON)\n", af_on);
     if (af_on != 0 && af_on != 1) {
-        pr_info("fm ioctl unknown AF\n");
+		dev_unisoc_fm_info(fm_miscdev,"fm ioctl unknown AF\n");
         return ret;
     }
     ret = fm_write_cmd(FM_SET_AF_ONOFF, &af_on, sizeof(af_on), NULL, NULL);
     if (ret < 0) {
-        pr_err("(fmdrv) %s FM write af on off cmd status failed %d\n", __func__, ret);
+		dev_unisoc_fm_err(fm_miscdev,"(fmdrv) %s FM write af on off cmd status failed %d\n",
+			__func__, ret);
         return ret;
     }
     return ret;
@@ -1160,12 +1192,13 @@ int fm_getcur_pamd(void *arg) {
 
     ret = fm_write_cmd(FM_GET_CURPAMD, NULL, 0, &resp_buf[0], &PAMD_LEN);
     if (ret < 0) {
-        pr_err("(fmdrv) %s FM write getcur PAMD cmd status failed %d\n", __func__, ret);
+		dev_unisoc_fm_err(fm_miscdev,"(fmdrv) %s FM write getcur PAMD cmd status failed %d\n",
+			__func__, ret);
         return ret;
     }
 
     PAMD = (unsigned short)resp_buf[0];
-    pr_info("fm get PAMD =%d\n", PAMD);
+	dev_unisoc_fm_info(fm_miscdev,"fm get PAMD =%d\n", PAMD);
     if (copy_to_user(arg, &PAMD, sizeof(PAMD)))
         ret = -EFAULT;
     return ret;
@@ -1215,7 +1248,7 @@ int __init init_fm_driver(void) {
     if (NULL == fm_rds_info) {
         kfree(fmdev);
         fmdev = NULL;
-        pr_err("fm can't allocate FM RDS buffer\n");
+		dev_unisoc_fm_err(fm_miscdev,"fm can't allocate FM RDS buffer\n");
         return ret;
     }
     set_rds_drv_data(fm_rds_info);
@@ -1223,7 +1256,7 @@ int __init init_fm_driver(void) {
     /* Register FM Tx and Rx callback */
     //sdiom_register_pt_rx_process(FM_TYPE, FM_SUBTYPE0, fm_rx_cback);
     //sdiom_register_pt_tx_release(FM_TYPE, FM_SUBTYPE0, fm_tx_cback);
-    pr_err("chinaycheng fm init channel...\n");
+	dev_unisoc_fm_info(fm_miscdev,"fm init channel...\n");
     sprdwcn_bus_chn_init(&fm_tx_ops);
     sprdwcn_bus_chn_init(&fm_rx_ops);
      /* retval = sdiodev_readchn_init(FM_CHANNEL_READ, fm_read, 0);*/

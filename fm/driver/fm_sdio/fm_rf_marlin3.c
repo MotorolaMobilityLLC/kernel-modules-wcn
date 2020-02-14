@@ -13,6 +13,10 @@
 #include <linux/proc_fs.h>
 #include "fm_rf_marlin3.h"
 
+#include "unisoc_fm_log.h"
+
+extern struct device *fm_miscdev;
+
 #define SYSTEM_FM_CONFIG_FILE "/vendor/etc/fm_board_config.ini"
 
 #define CF_TAB(NAME, MEM_OFFSET, TYPE) \
@@ -82,7 +86,7 @@ static int wifi_nvm_set_cmd(struct nvm_name_table *pTable,
 
 	p = (unsigned char *)(p_data) + pTable->mem_offset;
 
-	pr_info("[g_table]%s, offset:%u, num:%u, value:\
+	dev_unisoc_fm_info(fm_miscdev,"[g_table]%s, offset:%u, num:%u, value:\
 			%d %d %d %d %d %d %d %d %d %d \n",
 			pTable->itm, pTable->mem_offset, cmd->num,
 			cmd->par[0], cmd->par[1], cmd->par[2],
@@ -101,7 +105,7 @@ static int wifi_nvm_set_cmd(struct nvm_name_table *pTable,
 			*((unsigned int *)p + i)
 			= (unsigned int)(cmd->par[i]);
 		else
-			pr_info("%s, type err\n", __func__);
+			dev_unisoc_fm_info(fm_miscdev,"%s, type err\n", __func__);
 	}
 	return 0;
 }
@@ -145,8 +149,8 @@ static void get_cmd_par(char *str, struct nvm_cali_cmd *cmd)
 				flag = 1;
 			} else {
 				if (kstrtol(tmp, 0, &val))
-					pr_info(" %s ", tmp);
-			/* pr_err("kstrtol %s: error\n", tmp); */
+					dev_unisoc_fm_info(fm_miscdev," %s ", tmp);
+			/* dev_unisoc_fm_err(fm_miscdev,"kstrtol %s: error\n", tmp); */
 				cmd->par[cmd->num] = val & 0xFFFFFFFF;
 				cmd->num++;
 			}
@@ -213,11 +217,11 @@ static int wifi_nvm_parse(const char *path, void *p_data)
 	loff_t file_size = 0;
 	loff_t file_offset = 0;
 
-	pr_info("%s()...\n", __func__);
+	dev_unisoc_fm_info(fm_miscdev,"%s()...\n", __func__);
 
 	file = filp_open(path, O_RDONLY, 0);
 	if (IS_ERR(file)) {
-		pr_err("open file %s error\n", path);
+		dev_unisoc_fm_err(fm_miscdev,"open file %s error\n", path);
 		return -1;
 	}
 
@@ -227,7 +231,7 @@ static int wifi_nvm_parse(const char *path, void *p_data)
 	p_buf = buffer;
 	if (!buffer) {
 		fput(file);
-		pr_err("no memory\n");
+		dev_unisoc_fm_err(fm_miscdev,"no memory\n");
 		return -1;
 	}
 
@@ -242,10 +246,10 @@ static int wifi_nvm_parse(const char *path, void *p_data)
 
 	fput(file);
 
-	pr_info("%s read %s data_len:0x%x\n", __func__, path, buffer_len);
+	dev_unisoc_fm_info(fm_miscdev,"%s read %s data_len:0x%x\n", __func__, path, buffer_len);
 	wifi_nvm_buf_operate(buffer, buffer_len, p_data);
 	vfree(buffer);
-	pr_info("%s(), ok!\n", __func__);
+	dev_unisoc_fm_info(fm_miscdev,"%s(), ok!\n", __func__);
 	return 0;
 }
 

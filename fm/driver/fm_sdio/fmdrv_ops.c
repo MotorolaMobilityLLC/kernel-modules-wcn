@@ -47,16 +47,19 @@
 
 #include "fm_rf_marlin3.h"
 
+#include "unisoc_fm_log.h"
+
 struct wake_lock fm_wakelock;
+struct device *fm_miscdev = NULL;
 
 long fm_ioctl(struct file *filep, unsigned int cmd, unsigned long arg) {
     void __user *argp = (void __user *)arg;
     long ret = 0;
     u32 iarg = 0;
-    pr_debug("FM_IOCTL cmd: 0x%x.\n", cmd);
+	dev_unisoc_fm_dbg(fm_miscdev,"FM_IOCTL cmd: 0x%x.\n", cmd);
     if (fmdev->fm_pd == 1 && cmd != FM_IOCTL_POWERUP && cmd != FM_IOCTL_RDS_SUPPORT){
         ret = 1;
-        pr_debug("fm stay power down status,return 1");
+		dev_unisoc_fm_dbg(fm_miscdev,"fm stay power down status,return 1");
         return ret;
     }
 
@@ -75,30 +78,30 @@ long fm_ioctl(struct file *filep, unsigned int cmd, unsigned long arg) {
         ret = fm_seek(argp);
         break;
     case FM_IOCTL_SETVOL:
-        pr_info("fm ioctl set volume\n");
+		dev_unisoc_fm_info(fm_miscdev,"fm ioctl set volume\n");
         ret = fm_set_volume(argp);
         break;
     case FM_IOCTL_GETVOL:
-        pr_info("fm ioctl get volume\n");
+		dev_unisoc_fm_info(fm_miscdev,"fm ioctl get volume\n");
         ret = fm_get_volume(argp);
         break;
     case FM_IOCTL_MUTE:
         ret = fm_mute(argp);
         break;
     case FM_IOCTL_GETRSSI:
-        pr_info("fm ioctl get RSSI\n");
+		dev_unisoc_fm_info(fm_miscdev,"fm ioctl get RSSI\n");
         ret = fm_getrssi(argp);
         break;
     case FM_IOCTL_SCAN:
-        pr_info("fm ioctl SCAN\n");
+		dev_unisoc_fm_info(fm_miscdev,"fm ioctl SCAN\n");
         ret = fm_scan_all(argp);
         break;
     case FM_IOCTL_STOP_SCAN:
-        pr_info("fm ioctl STOP SCAN\n");
+		dev_unisoc_fm_info(fm_miscdev,"fm ioctl STOP SCAN\n");
         ret = fm_stop_scan(argp);
         break;
     case FM_IOCTL_GETCHIPID:
-        pr_info("fm ioctl GET chipID\n");
+		dev_unisoc_fm_info(fm_miscdev,"fm ioctl GET chipID\n");
         iarg = 0x2341;
         if (copy_to_user(argp, &iarg, sizeof(iarg)))
             ret = -EFAULT;
@@ -106,19 +109,19 @@ long fm_ioctl(struct file *filep, unsigned int cmd, unsigned long arg) {
             ret = 0;
         break;
     case FM_IOCTL_EM_TEST:
-        pr_info("fm ioctl EM_TEST\n");
+		dev_unisoc_fm_info(fm_miscdev,"fm ioctl EM_TEST\n");
         ret = 0;
         break;
     case FM_IOCTL_RW_REG:
-        pr_info("fm ioctl RW_REG\n");
+		dev_unisoc_fm_info(fm_miscdev,"fm ioctl RW_REG\n");
         ret = fm_rw_reg(argp);
         break;
     case FM_IOCTL_GETMONOSTERO:
-        pr_info("fm ioctl GETMONOSTERO\n");
+		dev_unisoc_fm_info(fm_miscdev,"fm ioctl GETMONOSTERO\n");
         ret = fm_get_monostero(argp);
         break;
     case FM_IOCTL_GETCURPAMD:
-        pr_info("fm ioctl get PAMD\n");
+		dev_unisoc_fm_info(fm_miscdev,"fm ioctl get PAMD\n");
         ret = fm_getcur_pamd(argp);
         break;
 	case FM_IOCTL_GETGOODBCNT:
@@ -134,14 +137,14 @@ long fm_ioctl(struct file *filep, unsigned int cmd, unsigned long arg) {
 		break;
 
 	case FM_IOCTL_RDS_ONOFF:
-		pr_info("----RDS_ONOFF----");
+		dev_unisoc_fm_info(fm_miscdev,"----RDS_ONOFF----");
         ret = fm_rds_onoff(argp);
         break;
     case FM_IOCTL_RDS_SUPPORT:
-        pr_info("fm ioctl is RDS_SUPPORT\n");
+		dev_unisoc_fm_info(fm_miscdev,"fm ioctl is RDS_SUPPORT\n");
         ret = 0;
         if (copy_from_user(&iarg, (void __user *)arg, sizeof(iarg))) {
-            pr_err("fm RDS support 's ret value is -eFAULT\n");
+			dev_unisoc_fm_info(fm_miscdev,"fm RDS support 's ret value is -eFAULT\n");
             return -EFAULT;
         }
         iarg = FM_RDS_ENABLE;
@@ -308,8 +311,7 @@ long fm_ioctl(struct file *filep, unsigned int cmd, unsigned long arg) {
 		break;
 
 	default:
-		pr_info("Unknown FM IOCTL!\n");
-		pr_info("****************: 0x%x.\n", cmd);
+		dev_unisoc_fm_info(fm_miscdev,"Unknown FM IOCTL!\n****************: 0x%x.\n", cmd);
 		return -EINVAL;
 	}
 
@@ -321,22 +323,22 @@ int fm_open(struct inode *inode, struct file *filep) {
 	powerup_parm.err = 0;
 	powerup_parm.freq = 875;
 	fm_powerup(&powerup_parm);
-	pr_info("start open SPRD fm module...\n");
+	dev_unisoc_fm_info(fm_miscdev,"start open SPRD fm module...\n");
 	return 0;
 }
 
 int fm_release(struct inode *inode, struct file *filep) {
-	pr_info("fm_misc_release, power status:%d\n",fmdev->power_status);
+	dev_unisoc_fm_info(fm_miscdev,"fm_misc_release, power status:%d\n",fmdev->power_status);
 	fm_powerdown();
 	return 0;
 }
 
 #ifdef CONFIG_COMPAT
 static long fm_compat_ioctl(struct file *file, unsigned int cmd, unsigned long data) {
-    pr_debug("start_fm_compat_ioctl FM_IOCTL cmd: 0x%x.\n", cmd);
+	dev_unisoc_fm_dbg(fm_miscdev,"start_fm_compat_ioctl FM_IOCTL cmd: 0x%x.\n", cmd);
     cmd = cmd & 0xFFF0FFFF;
     cmd = cmd | 0x00080000;
-    pr_debug("fm_compat_ioctl FM_IOCTL cmd: 0x%x.\n", cmd);
+	dev_unisoc_fm_dbg(fm_miscdev,"fm_compat_ioctl FM_IOCTL cmd: 0x%x.\n", cmd);
     return fm_ioctl(file, cmd, (unsigned long)compat_ptr(data));
 }
 #endif
@@ -375,20 +377,20 @@ static int fm_probe(struct platform_device *pdev) {
     np = pdev->dev.of_node;
 #endif
 
-    pr_info(" marlin3 FM driver ");
-    pr_info(" Version: %s", ver_str);
+	dev_unisoc_fm_info(fm_miscdev," marlin3 FM driver，Version: %s", ver_str);
+	fm_miscdev = &pdev->dev;
 
     ret = misc_register(&fm_misc_device);
     if (ret < 0) {
-        pr_info("misc_register failed!");
+		dev_unisoc_fm_info(fm_miscdev,"misc_register failed!");
         return ret;
     }
-    pr_info("fm_init success.\n");
+	dev_unisoc_fm_info(fm_miscdev,"fm_init success.\n");
     return 0;
 }
 
 static int fm_remove(struct platform_device *pdev) {
-    pr_info("exit_fm_driver!\n");
+	dev_unisoc_fm_info(fm_miscdev,"exit_fm_driver!\n");
     misc_deregister(&fm_misc_device);
     return 0;
 }
@@ -434,7 +436,7 @@ int  fm_device_init_driver(void) {
 #ifndef CONFIG_OF
     ret = platform_device_register(&fm_device);
     if (ret) {
-        pr_info("fm: platform_device_register failed: %d\n", ret);
+		dev_unisoc_fm_info(fm_miscdev,"fm: platform_device_register failed: %d\n", ret);
         return ret;
     }
 #endif
@@ -443,9 +445,9 @@ int  fm_device_init_driver(void) {
 #ifndef CONFIG_OF
         platform_device_unregister(&fm_device);
 #endif
-        pr_info("fm: probe failed: %d\n", ret);
+		dev_unisoc_fm_info(fm_miscdev,"fm: probe failed: %d\n", ret);
     }
-    pr_info("fm: probe success: %d\n", ret);
+	dev_unisoc_fm_info(fm_miscdev,"fm: probe success: %d\n", ret);
     wake_lock_init(&fm_wakelock, WAKE_LOCK_SUSPEND, "FM_wakelock");
     return ret;
 }
