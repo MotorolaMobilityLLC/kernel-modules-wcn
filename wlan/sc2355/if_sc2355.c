@@ -327,6 +327,9 @@ int sprdwl_intf_tx_list(struct sprdwl_intf *dev,
 	int tx_count_saved = tx_count;
 	int list_num;
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0)
+	coex_bt_on = 0;
+#endif
 	wl_debug("%s:%d tx_count is %d\n", __func__, __LINE__, tx_count);
 	list_num = get_list_num(tx_list);
 	if (list_num < tx_count) {
