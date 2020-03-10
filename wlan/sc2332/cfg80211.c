@@ -2836,7 +2836,7 @@ struct sprdwl_priv *sprdwl_core_create(struct sprdwl_intf *intf)
 
 	wiphy = wiphy_new(&sprdwl_cfg80211_ops, sizeof(*priv));
 	if (!wiphy) {
-		pr_err("failed to allocate wiphy!\n");
+		wl_err("failed to allocate wiphy!\n");
 		return NULL;
 	}
 	priv = wiphy_priv(wiphy);

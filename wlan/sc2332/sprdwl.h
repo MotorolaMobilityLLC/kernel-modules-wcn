@@ -209,6 +209,9 @@ struct sprdwl_eap_hdr {
 	u8 id;
 };
 
+#define wl_err(fmt, args...) \
+	pr_err("sc2332 sprd-wlan:" fmt, ##args)
+
 extern unsigned int dump_data;
 extern struct sprdwl_priv *g_sprdwl_priv;
 

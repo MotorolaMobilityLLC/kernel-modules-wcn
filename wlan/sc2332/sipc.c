@@ -332,13 +332,13 @@ static int sprdwl_sipc_msg_send(void *xmit_data, u16 xmit_len, int channel)
 	/* Get a free swcnblk. */
 	ret = swcnblk_get(WLAN_CP_ID, channel, &blk, 0);
 	if (ret) {
-		pr_err("%s Failed to get free swcnblk(%d)!\n",
+		wl_err("%s Failed to get free swcnblk(%d)!\n",
 		       sprdwl_sipc_channel_tostr(channel), ret);
 		return -ENOMEM;
 	}
 
 	if (blk.length < xmit_len) {
-		pr_err("%s The size of swcnblk is so tiny!\n",
+		wl_err("%s The size of swcnblk is so tiny!\n",
 		       sprdwl_sipc_channel_tostr(channel));
 		swcnblk_put(WLAN_CP_ID, channel, &blk);
 		WARN_ON(1);
@@ -350,7 +350,7 @@ static int sprdwl_sipc_msg_send(void *xmit_data, u16 xmit_len, int channel)
 	memcpy(((u8 *)addr), xmit_data, xmit_len);
 	ret = swcnblk_send_prepare(WLAN_CP_ID, channel, &blk);
 	if (ret) {
-		pr_err("%s err:%d\n",
+		wl_err("%s err:%d\n",
 		       sprdwl_sipc_channel_tostr(channel), ret);
 		swcnblk_put(WLAN_CP_ID, channel, &blk);
 	}
@@ -615,7 +615,7 @@ static void sprdwl_sipc_msg_receive(int channel)
 				      SPRDWL_SIPC_HEAD_RESERV, length);
 		ret = swcnblk_release(WLAN_CP_ID, channel, &blk);
 		if (ret)
-			pr_err("release swcnblk[%d] err:%d\n",
+			wl_err("release swcnblk[%d] err:%d\n",
 			       channel, ret);
 	}
 }
@@ -632,7 +632,7 @@ static void sprdwl_sipc_data0_handler(int event, void *data)
 	case SBLOCK_NOTIFY_STATUS:
 		break;
 	default:
-		pr_err("Invalid data0 swcnblk notify:%d\n", event);
+		wl_err("Invalid data0 swcnblk notify:%d\n", event);
 		break;
 	}
 }
@@ -647,7 +647,7 @@ static void sprdwl_sipc_data1_handler(int event, void *data)
 	case SBLOCK_NOTIFY_STATUS:
 		break;
 	default:
-		pr_err("Invalid data1 swcnblk notify:%d\n", event);
+		wl_err("Invalid data1 swcnblk notify:%d\n", event);
 		break;
 	}
 }
@@ -663,7 +663,7 @@ static void sprdwl_sipc_event_handler(int event, void *data)
 	case SBLOCK_NOTIFY_STATUS:
 		break;
 	default:
-		pr_err("Invalid event swcnblk notify:%d\n", event);
+		wl_err("Invalid event swcnblk notify:%d\n", event);
 		break;
 	}
 }
@@ -684,7 +684,7 @@ static void sprdwl_sipc_clean_swcnblk(void)
 		}
 	} while (!ret);
 	if (block_num)
-		pr_err("release event rubbish num:%d\n",
+		wl_err("release event rubbish num:%d\n",
 		       block_num);
 
 	block_num = 0;
@@ -697,7 +697,7 @@ static void sprdwl_sipc_clean_swcnblk(void)
 		}
 	} while (!ret);
 	if (block_num)
-		pr_err("release data0 rubbish num:%d\n",
+		wl_err("release data0 rubbish num:%d\n",
 		       block_num);
 
 	block_num = 0;
@@ -710,7 +710,7 @@ static void sprdwl_sipc_clean_swcnblk(void)
 		}
 	} while (!ret);
 	if (block_num)
-		pr_err("release data1 rubbish num:%d\n",
+		wl_err("release data1 rubbish num:%d\n",
 		       block_num);
 }
 
@@ -737,7 +737,7 @@ static int sprdwl_sipc_swcnblk_init(struct sprdwl_intf *intf)
 		}
 	}
 	if (i != 3) {
-		pr_err("cp swcnblk not ready (%d %d)!\n",
+		wl_err("cp swcnblk not ready (%d %d)!\n",
 		       i, ret);
 		return ret;
 	}
@@ -746,7 +746,7 @@ static int sprdwl_sipc_swcnblk_init(struct sprdwl_intf *intf)
 	ret = swcnblk_register_notifier(WLAN_CP_ID, SPRDWL_SWCNBLK_CMD_EVENT,
 					sprdwl_sipc_event_handler, intf->priv);
 	if (ret) {
-		pr_err("Failed to regitster event swcnblk notifier (%d)!\n",
+		wl_err("Failed to regitster event swcnblk notifier (%d)!\n",
 		       ret);
 		return ret;
 	}
@@ -754,7 +754,7 @@ static int sprdwl_sipc_swcnblk_init(struct sprdwl_intf *intf)
 	ret = swcnblk_register_notifier(WLAN_CP_ID, SPRDWL_SWCNBLK_DATA0,
 					sprdwl_sipc_data0_handler, intf->priv);
 	if (ret) {
-		pr_err("Failed to regitster data0 swcnblk notifier(%d)!\n",
+		wl_err("Failed to regitster data0 swcnblk notifier(%d)!\n",
 		       ret);
 		goto err_data0;
 	}
@@ -762,7 +762,7 @@ static int sprdwl_sipc_swcnblk_init(struct sprdwl_intf *intf)
 	ret = swcnblk_register_notifier(WLAN_CP_ID, SPRDWL_SWCNBLK_DATA1,
 					sprdwl_sipc_data1_handler, intf->priv);
 	if (ret) {
-		pr_err("Failed to regitster data1 swcnblk notifier(%d)!\n",
+		wl_err("Failed to regitster data1 swcnblk notifier(%d)!\n",
 		       ret);
 		goto err_data1;
 	}
@@ -785,7 +785,7 @@ struct sprdwl_intf *sprdwl_intf_create()
 
 	intf = kzalloc(sizeof(*intf), GFP_ATOMIC);
 	if (IS_ERR(intf)) {
-		pr_err("allocate fail\n");
+		wl_err("allocate fail\n");
 		return NULL;
 	}
 	intf->if_ops = &sprdwl_sipc_ops;
@@ -810,7 +810,7 @@ int sprdwl_intf_init(struct sprdwl_intf *intf,
 
 	ret = start_marlin(WCN_MARLIN_WIFI);
 	if (ret) {
-		pr_err("start wcn err\n");
+		wl_err("start wcn err\n");
 		return -ENXIO;
 	}
 

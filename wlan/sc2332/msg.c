@@ -42,7 +42,7 @@ int sprdwl_msg_init(int num, struct sprdwl_msg_list *list)
 			INIT_LIST_HEAD(&msg_buf->list);
 			list_add_tail(&msg_buf->list, &list->freelist);
 		} else {
-			pr_err("%s failed to alloc msg_buf!\n", __func__);
+			wl_err("%s failed to alloc msg_buf!\n", __func__);
 			goto err_alloc_buf;
 		}
 	}
@@ -69,14 +69,14 @@ void sprdwl_msg_deinit(struct sprdwl_msg_list *list)
 	timeout = jiffies + msecs_to_jiffies(2000);
 	while (atomic_read(&list->ref) > SPRDWL_MSG_EXIT_VAL) {
 		if (time_after(jiffies, timeout)) {
-			pr_err("%s cmd lock timeout!\n", __func__);
+			wl_err("%s cmd lock timeout!\n", __func__);
 			WARN_ON(1);
 			break;
 		}
 		usleep_range(2000, 2500);
 	}
 	if (!list_empty(&list->busylist)) {
-		pr_err("%s list->ref=[%d], busylist not empty!\n", __func__,
+		wl_err("%s list->ref=[%d], busylist not empty!\n", __func__,
 			atomic_read(&list->ref) - SPRDWL_MSG_EXIT_VAL);
 		WARN_ON(1);
 	}

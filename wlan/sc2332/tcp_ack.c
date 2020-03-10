@@ -110,7 +110,7 @@ void sprdwl_tcp_ack_deinit(void)
 	timeout = jiffies + msecs_to_jiffies(1000);
 	while (atomic_read(&ack_m->ref) > SPRDWL_TCP_ACK_EXIT_VAL) {
 		if (time_after(jiffies, timeout)) {
-			pr_err("%s cmd lock timeout!\n", __func__);
+			wl_err("%s cmd lock timeout!\n", __func__);
 			WARN_ON(1);
 		}
 		usleep_range(2000, 2500);

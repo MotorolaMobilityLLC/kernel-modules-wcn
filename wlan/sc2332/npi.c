@@ -40,7 +40,7 @@ static int sprdwl_get_flag(void)
 
 	fp = filp_open(SPRDWL_PSM_PATH, O_RDONLY, 0);
 	if (IS_ERR(fp)) {
-		pr_err("open file:%s failed\n", SPRDWL_PSM_PATH);
+		wl_err("open file:%s failed\n", SPRDWL_PSM_PATH);
 		return PTR_ERR(fp);
 	}
 	fs = get_fs();
@@ -54,7 +54,7 @@ static int sprdwl_get_flag(void)
 
 	file_data[1] = 0;
 	if (kstrtoull(file_data, 10, &tmp)) {
-		pr_err("%s: get value invald\n", __func__);
+		wl_err("%s: get value invald\n", __func__);
 		return flag;
 	}
 	if (tmp)
@@ -73,13 +73,13 @@ static int sprdwl_cmd_set_psm_cap(struct sprdwl_vif *vif)
 	int s_len, flag, ret;
 
 	if (!vif) {
-		pr_err("%s: parameters invalid\n", __func__);
+		wl_err("%s: parameters invalid\n", __func__);
 		return -EINVAL;
 	}
 	priv = vif->priv;
 	flag = sprdwl_get_flag();
 	if (flag < 0) {
-		pr_err("%s: get flag failed\n", __func__);
+		wl_err("%s: get flag failed\n", __func__);
 		return 0;
 	}
 
@@ -106,7 +106,7 @@ static int sprdwl_npi_pre_doit(const struct genl_ops *ops,
 	int ifindex;
 
 	if (!info) {
-		pr_err("%s NULL info!\n", __func__);
+		wl_err("%s NULL info!\n", __func__);
 		return -EINVAL;
 	}
 
@@ -114,7 +114,7 @@ static int sprdwl_npi_pre_doit(const struct genl_ops *ops,
 		ifindex = nla_get_u32(info->attrs[SPRDWL_NL_ATTR_IFINDEX]);
 		ndev = dev_get_by_index(genl_info_net(info), ifindex);
 		if (!ndev) {
-			pr_err("NPI: Could not find ndev\n");
+			wl_err("NPI: Could not find ndev\n");
 			return -EFAULT;
 		}
 		vif = netdev_priv(ndev);
@@ -122,7 +122,7 @@ static int sprdwl_npi_pre_doit(const struct genl_ops *ops,
 		info->user_ptr[0] = ndev;
 		info->user_ptr[1] = priv;
 	} else {
-		pr_err("nl80211_pre_doit: Not have attr_ifindex\n");
+		wl_err("nl80211_pre_doit: Not have attr_ifindex\n");
 		return -EFAULT;
 	}
 	return 0;
@@ -167,7 +167,7 @@ static int sprdwl_nl_npi_handler(struct sk_buff *skb_2, struct genl_info *info)
 	vif = netdev_priv(ndev);
 	priv = info->user_ptr[1];
 	if (!info->attrs[SPRDWL_NL_ATTR_AP2CP]) {
-		pr_err("%s: invalid content\n", __func__);
+		wl_err("%s: invalid content\n", __func__);
 		return -EPERM;
 	}
 	r_buf = kmalloc(1024, GFP_KERNEL);
@@ -179,7 +179,7 @@ static int sprdwl_nl_npi_handler(struct sk_buff *skb_2, struct genl_info *info)
 	if (sprdwl_npi_cmd_is_start(s_buf) && sta_or_p2p_is_opened()) {
 		hdr = kzalloc(sizeof(*hdr), GFP_KERNEL);
 		if (!hdr) {
-			pr_err("%s: failed to alloc hdr!\n", __func__);
+			wl_err("%s: failed to alloc hdr!\n", __func__);
 			kfree(r_buf);
 			return -ENOMEM;
 		}
@@ -198,12 +198,12 @@ static int sprdwl_nl_npi_handler(struct sk_buff *skb_2, struct genl_info *info)
 
 	sprintf(dbgstr, "[iwnpi][SEND][%d]:", s_len);
 	hdr = (struct sprdwl_npi_cmd_hdr *)s_buf;
-	pr_err("%s type is %d, subtype %d\n", dbgstr, hdr->type, hdr->subtype);
+	wl_err("%s type is %d, subtype %d\n", dbgstr, hdr->type, hdr->subtype);
 	sprdwl_npi_send_recv(priv, vif->mode, s_buf, s_len, r_buf, &r_len);
 
 	sprintf(dbgstr, "[iwnpi][RECV][%d]:", r_len);
 	hdr = (struct sprdwl_npi_cmd_hdr *)r_buf;
-	pr_err("%s type is %d, subtype %d\n", dbgstr, hdr->type, hdr->subtype);
+	wl_err("%s type is %d, subtype %d\n", dbgstr, hdr->type, hdr->subtype);
 
 	ret = sprdwl_nl_send_generic(info, SPRDWL_NL_ATTR_CP2AP,
 				     SPRDWL_NL_CMD_NPI, r_len, r_buf);
@@ -233,7 +233,7 @@ static int sprdwl_nl_get_info_handler(struct sk_buff *skb_2,
 					     SPRDWL_NL_CMD_GET_INFO, r_len,
 					     r_buf);
 	} else {
-		pr_err("%s NULL vif!\n", __func__);
+		wl_err("%s NULL vif!\n", __func__);
 		ret = -1;
 	}
 	return ret;
@@ -310,9 +310,9 @@ void sprdwl_init_npi(void)
 #endif
 	if (ret)
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0)
-		pr_err("genl_register_family_with_ops error: %d, %p\n", ret, &sprdwl_nl_ops);
+		wl_err("genl_register_family_with_ops error: %d, %p\n", ret, &sprdwl_nl_ops);
 #else
-		pr_err("genl_register_family_with_ops error: %d\n", ret);
+		wl_err("genl_register_family_with_ops error: %d\n", ret);
 #endif
 }
 
@@ -321,5 +321,5 @@ void sprdwl_deinit_npi(void)
 	int ret = genl_unregister_family(&sprdwl_nl_genl_family);
 
 	if (ret)
-		pr_err("genl_unregister_family error:%d\n", ret);
+		wl_err("genl_unregister_family error:%d\n", ret);
 }

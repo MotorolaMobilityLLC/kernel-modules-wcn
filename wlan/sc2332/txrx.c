@@ -96,7 +96,7 @@ int sprdwl_send_data(struct sprdwl_vif *vif,
 	if (ret) {
 		if (type == SPRDWL_DATA_TYPE_WAPI)
 			dev_kfree_skb(skb);
-		pr_err("%s TX data Err: %d\n", __func__, ret);
+		wl_err("%s TX data Err: %d\n", __func__, ret);
 	}
 
 	return ret;
@@ -110,7 +110,7 @@ int sprdwl_send_cmd(struct sprdwl_priv *priv, struct sprdwl_msg_buf *msg)
 	skb = msg->skb;
 	ret = priv->if_ops->tx(priv->hw_intf, msg);
 	if (ret) {
-		pr_err("%s TX cmd Err: %d\n", __func__, ret);
+		wl_err("%s TX cmd Err: %d\n", __func__, ret);
 		/* now cmd msg droped */
 		dev_kfree_skb(skb);
 	}
@@ -227,7 +227,7 @@ unsigned short sprdwl_rx_data_process(struct sprdwl_priv *priv,
 	data_type = SPRDWL_GET_DATA_TYPE(hdr->info1);
 	if (mode == SPRDWL_MODE_NONE || mode > SPRDWL_MODE_MAX ||
 	    data_type > SPRDWL_DATA_TYPE_MAX) {
-		pr_err("%s [mode %d]RX err[type %d]\n", __func__, mode,
+		wl_err("%s [mode %d]RX err[type %d]\n", __func__, mode,
 		       data_type);
 		return 0;
 	}
@@ -236,13 +236,13 @@ unsigned short sprdwl_rx_data_process(struct sprdwl_priv *priv,
 	data += sizeof(*hdr) + (hdr->info1 & SPRDWL_DATA_OFFSET_MASK);
 	plen = SPRDWL_GET_LE16(hdr->plen);
 	if (!priv) {
-		pr_err("%s sdio->priv not init.\n", __func__);
+		wl_err("%s sdio->priv not init.\n", __func__);
 		return plen;
 	}
 
 	vif = mode_to_vif(priv, mode);
 	if (!vif) {
-		pr_err("%s cant't get vif %d\n", __func__, mode);
+		wl_err("%s cant't get vif %d\n", __func__, mode);
 		return plen;
 	}
 
