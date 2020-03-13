@@ -79,6 +79,7 @@ static ssize_t dumpmem_store(struct device *dev,
     if (is_dumped == false) {
         dev_unisoc_bt_info(ttyBT_dev,
                            "mtty BT start dump cp mem !\n");
+        mdbg_assert_interface("BT command timeout assert !!!");
         bt_host_data_printf();
         if (data_dump != NULL) {
             vfree(data_dump);
