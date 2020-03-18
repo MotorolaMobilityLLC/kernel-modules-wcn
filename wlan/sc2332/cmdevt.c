@@ -201,7 +201,7 @@ void sprdwl_cmd_deinit(void)
 	timeout = jiffies + msecs_to_jiffies(1000);
 	while (atomic_read(&cmd->refcnt) > SPRDWL_CMD_EXIT_VAL) {
 		if (time_after(jiffies, timeout)) {
-			pr_err("%s cmd lock timeout\n", __func__);
+			wl_err("%s cmd lock timeout\n", __func__);
 			break;
 		}
 		usleep_range(2000, 2500);
@@ -214,7 +214,7 @@ static int sprdwl_cmd_lock(struct sprdwl_cmd *cmd)
 {
 	if (atomic_inc_return(&cmd->refcnt) >= SPRDWL_CMD_EXIT_VAL) {
 		atomic_dec(&cmd->refcnt);
-		pr_err("%s failed\n", __func__);
+		wl_err("%s failed\n", __func__);
 		return -1;
 	}
 	mutex_lock(&cmd->cmd_lock);
@@ -253,7 +253,7 @@ struct sprdwl_msg_buf *sprdwl_cmd_getbuf(struct sprdwl_priv *priv,
 		sprdwl_fill_msg(msg, msg->skb, msg->skb->data, plen);
 		msg->data = hdr + 1;
 	} else {
-		pr_err("%s failed to allocate skb\n", __func__);
+		wl_err("%s failed to allocate skb\n", __func__);
 		priv->if_ops->free_msg_buf(priv->hw_intf, msg);
 		return NULL;
 	}
@@ -1554,7 +1554,7 @@ int sprdwl_xmit_data2mgmt(struct sk_buff *skb, struct net_device *ndev)
 		sizeof(struct ethhdr);
 
 	if (!ndev || !ndev->ieee80211_ptr) {
-		pr_err("%s can not get channel\n", __func__);
+		wl_err("%s can not get channel\n", __func__);
 		return -EINVAL;
 	}
 	if (vif->mode == SPRDWL_MODE_P2P_GO || vif->mode == SPRDWL_MODE_AP)
@@ -1634,7 +1634,7 @@ unsigned short sprdwl_rx_rsp_process(struct sprdwl_priv *priv, u8 *msg)
 	/* 2048 use mac */
 	if (mode > SPRDWL_MODE_MAX || hdr->cmd_id > WIFI_CMD_MAX ||
 	    plen > 2048) {
-		pr_err("%s wrong CMD_RSP: %d\n", __func__, (int)hdr->cmd_id);
+		wl_err("%s wrong CMD_RSP: %d\n", __func__, (int)hdr->cmd_id);
 		return 0;
 	}
 	if (atomic_inc_return(&cmd->refcnt) >= SPRDWL_CMD_EXIT_VAL) {
@@ -1654,7 +1654,7 @@ unsigned short sprdwl_rx_rsp_process(struct sprdwl_priv *priv, u8 *msg)
 		wiphy_info(priv->wiphy, "mode %d recv rsp[%s]\n",
 			   (int)mode, cmd2str(hdr->cmd_id));
 		if (unlikely(hdr->status != 0)) {
-			pr_err("%s mode %d recv rsp[%s] status[%s]\n",
+			wl_err("%s mode %d recv rsp[%s] status[%s]\n",
 			       __func__, (int)mode, cmd2str(hdr->cmd_id),
 			       err2str(hdr->status));
 		}
@@ -1662,7 +1662,7 @@ unsigned short sprdwl_rx_rsp_process(struct sprdwl_priv *priv, u8 *msg)
 		wake_up(&cmd->waitq);
 	} else {
 		kfree(data);
-		pr_err("%s mode %d recv mismatched rsp[%s] status[%s] mstime:[%u %u]\n",
+		wl_err("%s mode %d recv mismatched rsp[%s] status[%s] mstime:[%u %u]\n",
 		       __func__, (int)mode, cmd2str(hdr->cmd_id),
 		       err2str(hdr->status),
 		       SPRDWL_GET_LE32(hdr->mstime), cmd->mstime);
@@ -2049,7 +2049,7 @@ unsigned short sprdwl_rx_event_process(struct sprdwl_priv *priv, u8 *msg)
 
 	plen = SPRDWL_GET_LE16(hdr->plen);
 	if (!priv) {
-		pr_err("%s priv is NULL [%u]mode %d recv[%s]len: %d\n",
+		wl_err("%s priv is NULL [%u]mode %d recv[%s]len: %d\n",
 		       __func__, le32_to_cpu(hdr->mstime), mode,
 		       evt2str(hdr->cmd_id), hdr->plen);
 		return plen;

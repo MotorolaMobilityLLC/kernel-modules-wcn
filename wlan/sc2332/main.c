@@ -47,7 +47,7 @@ static void str2mac(const char *mac_addr, u8 *mac)
 
 	if (sscanf(mac_addr, "%02x:%02x:%02x:%02x:%02x:%02x",
 		   &m[0], &m[1], &m[2], &m[3], &m[4], &m[5]) != ETH_ALEN) {
-		pr_err("failed to parse mac address '%s'", mac_addr);
+		wl_err("failed to parse mac address '%s'", mac_addr);
 		memset(m, 0, sizeof(unsigned int) * ETH_ALEN);
 	}
 	mac[0] = m[0];
@@ -923,7 +923,7 @@ static int sprdwl_get_mac_from_file(struct sprdwl_vif *vif, u8 *addr)
 	fp = filp_open(WIFI_MAC_ADDR_TEMP, O_RDONLY, 0);
 	if (!IS_ERR(fp))
 		goto read_operation;
-	pr_err("%s read error\n", WIFI_MAC_ADDR_TEMP);
+	wl_err("%s read error\n", WIFI_MAC_ADDR_TEMP);
 
 	return -ENOENT;
 
@@ -966,7 +966,7 @@ static int write_mac_addr(u8 *addr)
 	/*open file*/
 	fp = filp_open(WIFI_MAC_ADDR_TEMP, O_CREAT | O_RDWR | O_TRUNC, 0666);
 	if (IS_ERR(fp)) {
-		pr_err("can't create WIFI MAC file!\n");
+		wl_err("can't create WIFI MAC file!\n");
 		return -ENOENT;
 	}
 	/*format MAC address*/
@@ -1116,7 +1116,7 @@ static struct sprdwl_vif *sprdwl_register_netdev(struct sprdwl_priv *priv,
 
 	ndev = alloc_netdev(sizeof(*vif), name, name_assign_type, ether_setup);
 	if (!ndev) {
-		pr_err("%s failed to alloc net_device!\n", __func__);
+		wl_err("%s failed to alloc net_device!\n", __func__);
 		return ERR_PTR(-ENOMEM);
 	}
 
@@ -1196,7 +1196,7 @@ struct wireless_dev *sprdwl_add_iface(struct sprdwl_priv *priv,
 					     type, addr);
 
 	if (IS_ERR(vif)) {
-		pr_err("failed to add iface '%s'\n", name);
+		wl_err("failed to add iface '%s'\n", name);
 		return (void *)vif;
 	}
 
@@ -1276,20 +1276,20 @@ int sprdwl_core_init(struct device *dev, struct sprdwl_priv *priv)
 	sprdwl_init_npi();
 	ret = register_inetaddr_notifier(&sprdwl_inetaddr_cb);
 	if (ret)
-		pr_err("%s failed to register inetaddr notifier(%d)!\n",
+		wl_err("%s failed to register inetaddr notifier(%d)!\n",
 		       __func__, ret);
 	if (priv->fw_capa & SPRDWL_CAPA_NS_OFFLOAD) {
 		pr_info("\tIPV6 NS Offload supported\n");
 		ret = register_inet6addr_notifier(&sprdwl_inet6addr_cb);
 		if (ret)
-			pr_err("%s failed to register inet6addr notifier(%d)!\n",
+			wl_err("%s failed to register inet6addr notifier(%d)!\n",
 			       __func__, ret);
 	}
 
 #if defined(SPRDWL_INTF_SDIO) || defined(SPRDWL_INTF_SIPC)
 	ret = marlin_reset_register_notify(priv->if_ops->force_exit, NULL);
 	if (ret) {
-		pr_err("%s failed to register wcn cp rest notify(%d)!\n",
+		wl_err("%s failed to register wcn cp rest notify(%d)!\n",
 		       __func__, ret);
 	}
 #endif
@@ -1351,7 +1351,7 @@ err_intf_init:
 	sprdwl_core_free((struct sprdwl_priv *)intf->priv);
 err_core_create:
 	sprdwl_intf_free(intf);
-	pr_err("err, driver is not ok\n");
+	wl_err("err, driver is not ok\n");
 	return ret;
 }
 
