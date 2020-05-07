@@ -16,6 +16,7 @@
  */
 
 #include <linux/utsname.h>
+#include <misc/wcn_bus.h>
 #include "sprdwl.h"
 #include "wapi.h"
 #include "npi.h"
@@ -40,6 +41,7 @@ module_param(tcp_ack_drop_cnt, uint, 0);
 MODULE_PARM_DESC(tcp_ack_drop_cnt, "valid values: [1, 13]");
 
 struct sprdwl_priv *g_sprdwl_priv;
+struct device *sprdwl_dev;
 
 static void str2mac(const char *mac_addr, u8 *mac)
 {
@@ -1245,6 +1247,38 @@ static void sprdwl_init_debugfs(struct sprdwl_priv *priv)
 	priv->if_ops->debugfs(priv->debugfs);
 }
 
+static int sprdwl_host_reset(struct notifier_block *nb,
+			     unsigned long data, void *ptr)
+{
+	struct sprdwl_vif *vif;
+
+	char *envp[3] = {
+		[0] = "SOURCE=unisocwl",
+		[1] = "EVENT=FW_ERROR",
+		[2] = NULL,
+	};
+
+	kobject_uevent_env(&sprdwl_dev->kobj, KOBJ_CHANGE, envp);
+
+	if (!g_sprdwl_priv) {
+		pr_err("%s g_sprdwl_priv is NULL\n", __func__);
+		return NOTIFY_OK;
+	}
+
+	vif = list_first_entry(&g_sprdwl_priv->vif_list,
+			       struct sprdwl_vif, vif_node);
+	if (!vif) {
+		pr_err("%s vif list is NULL\n", __func__);
+		return NOTIFY_OK;
+	}
+
+	return NOTIFY_OK;
+}
+
+static struct notifier_block wifi_host_reset = {
+	.notifier_call = sprdwl_host_reset,
+};
+
 int sprdwl_core_init(struct device *dev, struct sprdwl_priv *priv)
 {
 	struct wiphy *wiphy = priv->wiphy;
@@ -1272,6 +1306,8 @@ int sprdwl_core_init(struct device *dev, struct sprdwl_priv *priv)
 		ret = -ENXIO;
 		goto out;
 	}
+	atomic_notifier_chain_register(&wcn_reset_notifier_list,
+				       &wifi_host_reset);
 
 	sprdwl_init_npi();
 	ret = register_inetaddr_notifier(&sprdwl_inetaddr_cb);
@@ -1303,6 +1339,8 @@ int sprdwl_core_deinit(struct sprdwl_priv *priv)
 #if defined(SPRDWL_INTF_SDIO) || defined(SPRDWL_INTF_SIPC)
 	marlin_reset_unregister_notify();
 #endif
+	atomic_notifier_chain_unregister(&wcn_reset_notifier_list,
+					 &wifi_host_reset);
 	unregister_inetaddr_notifier(&sprdwl_inetaddr_cb);
 	if (priv->fw_capa & SPRDWL_CAPA_NS_OFFLOAD)
 		unregister_inet6addr_notifier(&sprdwl_inet6addr_cb);
@@ -1335,6 +1373,7 @@ static int sprdwl_probe(struct platform_device *pdev)
 		goto err_core_create;
 	}
 	platform_set_drvdata(pdev, priv);
+	sprdwl_dev = &pdev->dev;
 
 	ret = sprdwl_intf_init(intf, pdev, priv);
 	if (ret)

@@ -24,12 +24,12 @@
 struct sprdwl_work {
 	struct list_head list;
 	struct sprdwl_vif *vif;
-#define SPRDWL_WORK_NONE	0
-#define SPRDWL_WORK_REG_MGMT	1
-#define SPRDWL_WORK_DEAUTH	2
-#define SPRDWL_WORK_DISASSOC	3
-#define SPRDWL_WORK_MC_FILTER	4
-#define SPRDWL_WORK_NOTIFY_IP	5
+#define SPRDWL_WORK_NONE		0
+#define SPRDWL_WORK_REG_MGMT		1
+#define SPRDWL_WORK_DEAUTH		2
+#define SPRDWL_WORK_DISASSOC		3
+#define SPRDWL_WORK_MC_FILTER		4
+#define SPRDWL_WORK_NOTIFY_IP		5
 	u8 id;
 	u32 len;
 	u8 data[0];
