@@ -380,7 +380,7 @@ int sprdwl_pkt_log_save(struct sprdwl_intf *intf, void *data)
 	/*for pkt log space key and enter key*/
 	char temp_space, temp_enter;
 	/*for pkt log txt line number and write pkt log into file*/
-	char temphdr[6], tempdata[2];
+	char temphdr[6], tempdata[3];
 
 	intf->pfile = filp_open(
 					"storage/sdcard0/Download/sprdwl_pkt_log.txt",
@@ -407,8 +407,8 @@ int sprdwl_pkt_log_save(struct sprdwl_intf *intf, void *data)
 		vfs_write(intf->pfile, &temp_space, 1, &intf->lp);
 		memset(tempdata, 0x00, 2);
 		for (i = 0; i < data_len; i++) {
-				sprintf(tempdata, "%02x",
-						*(unsigned char *)data);
+				snprintf(tempdata, sizeof(tempdata), "%02x",
+					*(unsigned char *)data);
 				vfs_write(intf->pfile, tempdata,
 						  2, &intf->lp);
 				memset(tempdata, 0x00, 2);
