@@ -1803,6 +1803,15 @@ static int sprdwl_set_offload_packet(struct wiphy *wiphy,
 	return 0;
 }
 
+int sprdwl_ftm_get_capabilities(struct wiphy *wiphy,
+				struct wireless_dev *wdev,
+				const void *data, int len)
+{
+	/*Marlin2 not support RTT*/
+	return WIFI_ERROR_NOT_SUPPORTED;
+}
+
+
 const struct wiphy_vendor_command sprdwl_vendor_cmd[] = {
 	{
 		{
@@ -1966,6 +1975,15 @@ const struct wiphy_vendor_command sprdwl_vendor_cmd[] = {
 		.flags = WIPHY_VENDOR_CMD_NEED_WDEV |
 			 WIPHY_VENDOR_CMD_NEED_NETDEV,
 		.doit = sprdwl_vendor_memory_dump,
+	},
+	{
+		{
+		    .vendor_id = OUI_SPREAD,
+		    .subcmd = SPRD_NL80211_VENDOR_SUBCMD_RTT_GET_CAPA,
+		},
+		.flags = WIPHY_VENDOR_CMD_NEED_WDEV |
+			WIPHY_VENDOR_CMD_NEED_RUNNING,
+		.doit = sprdwl_ftm_get_capabilities
 	},
 	{
 		{

@@ -689,6 +689,9 @@ enum wifi_traffic_ac {
 	WIFI_AC_MAX = 4,
 };
 
+/* FTM/indoor location subcommands */
+#define SPRD_NL80211_VENDOR_SUBCMD_RTT_GET_CAPA  0x1102
+
 /* configuration params */
 struct wifi_link_layer_params {
 	u32 mpdu_size_threshold;
