@@ -33,6 +33,13 @@
 #include "txrx.h"
 #include "debug.h"
 #include "tcp_ack.h"
+#include <linux/of_address.h>
+#include <linux/io.h>
+#include <linux/regmap.h>
+#include <linux/mfd/syscon.h>
+#include <linux/interrupt.h>
+#include "work.h"
+#include <linux/irq.h>
 
 #ifdef CONFIG_SPRD_WCN_DEBUG
 int sprdwl_debug_level = L_INFO;
@@ -40,6 +47,10 @@ int sprdwl_debug_level = L_INFO;
 int sprdwl_debug_level = L_WARN;
 #endif
 struct device *sprdwl_dev;
+
+extern struct sprdwl_intf *g_intf;
+extern unsigned int g_max_fw_tx_dscr;
+
 void adjust_debug_level(char *buf, unsigned char offset)
 {
 	int level = buf[offset] - '0';
@@ -65,6 +76,40 @@ void adjust_debug_level(char *buf, unsigned char offset)
 
 	wl_err("set sprdwl_debug_level: %d\n", sprdwl_debug_level);
 }
+
+#ifdef ENABLE_PAM_WIFI
+extern struct sprdwl_intf_sc2355 g_intf_sc2355;
+extern void set_reg_bits_all_one(u64 u4_addr, u32 mask);
+void pam_wifi_debug(char *buf, unsigned char offset)
+{
+	unsigned int pam_wifi_start_pkt;
+	struct sprdwl_intf *intf = (struct sprdwl_intf *)g_intf_sc2355.intf;
+	struct sprdwl_priv *priv = intf->priv;
+	int ret = 0;
+
+	wl_err("%s, %s\n", __func__, buf);
+	pam_wifi_start_pkt = buf[9] - '0';
+
+	if(pam_wifi_start_pkt == 0) {
+		wl_err("pam wifi start!\n");
+		set_reg_bits_all_one(REG_CFG_START,  BIT_PAM_WIFI_CFG_START_PAM_WIFI_START);
+		wl_err("pam wifi end!\n");
+	} else if (pam_wifi_start_pkt == 1) {
+		/*register pam wifi miss irq*/
+		priv->pam_wifi_miss_irq = platform_get_irq_byname(intf->pdev, "pam-wifi-miss-irq-gpio");
+
+		ret = request_irq(priv->pam_wifi_miss_irq,
+				  pam_wifi_miss_handle,
+				  IRQF_TRIGGER_RISING | IRQF_NO_SUSPEND,
+				  "pam_wifi_miss_irq",
+				  NULL);
+		wl_err("pam_wifi_miss_irq-%d , ret: %d!!!\n", priv->pam_wifi_miss_irq, ret);
+	} else if (pam_wifi_start_pkt == 2) {
+		disable_irq(priv->pam_wifi_miss_irq);
+		free_irq(priv->pam_wifi_miss_irq, NULL);
+	}
+}
+#endif
 
 extern unsigned int vo_ratio;
 extern unsigned int vi_ratio;
@@ -111,6 +156,90 @@ void adjust_tdls_threshold(char *buf, unsigned char offset)
 	wl_err("%s, change tdls_threshold to %d\n", __func__, value);
 }
 
+void adjust_tsq_shift(char *buf, unsigned char offset)
+{
+	unsigned int value = 0;
+	unsigned int i = 0;
+	unsigned int len = strlen(buf) - strlen("tsq_shift=");
+
+	for(i = 0; i < len; (value *= 10), i++) {
+		if((buf[offset + i] >= '0') &&
+		   (buf[offset + i] <= '9')) {
+			value += (buf[offset + i] - '0');
+		} else {
+			value /= 10;
+			break;
+		}
+	}
+	g_intf->tsq_shift = value;
+	wl_err("%s, change tsq_shift to %d\n", __func__, value);
+}
+
+void adjust_tcpack_th_in_mb(char *buf, unsigned char offset)
+{
+#define MAX_LEN 4
+	unsigned int cnt = 0;
+	unsigned int i = 0;
+
+	for(i = 0; i < MAX_LEN; (cnt *= 10), i++) {
+		if((buf[offset + i] >= '0') &&
+		   (buf[offset + i] <= '9')) {
+			cnt += (buf[offset + i] - '0');
+		} else {
+			cnt /= 10;
+			break;
+		}
+	}
+
+	if (cnt < 0 || cnt > 9999)
+		cnt = DROPACK_TP_TH_IN_M;
+	g_intf->tcpack_delay_th_in_mb = cnt;
+	wl_info("tcpack_delay_th_in_mb: %d\n", g_intf->tcpack_delay_th_in_mb);
+#undef MAX_LEN
+}
+
+void adjust_tcpack_time_in_ms(char *buf, unsigned char offset)
+{
+#define MAX_LEN 4
+	unsigned int cnt = 0;
+	unsigned int i = 0;
+
+	for(i = 0; i < MAX_LEN; (cnt *= 10), i++) {
+		if((buf[offset + i] >= '0') &&
+		   (buf[offset + i] <= '9')) {
+			cnt += (buf[offset + i] - '0');
+		} else {
+			cnt /= 10;
+			break;
+		}
+	}
+
+	if (cnt < 0 || cnt > 9999)
+		cnt = RX_TP_COUNT_IN_MS;
+	g_intf->tcpack_time_in_ms = cnt;
+	wl_info("tcpack_time_in_ms: %d\n", g_intf->tcpack_time_in_ms);
+#undef MAX_LEN
+}
+
+void adjust_max_fw_tx_dscr(char *buf, unsigned char offset)
+{
+	unsigned int value = 0;
+	unsigned int i = 0;
+	unsigned int len = strlen(buf) - strlen("max_fw_tx_dscr=");
+
+	for(i = 0; i < len; (value *= 10), i++) {
+		if((buf[offset + i] >= '0') &&
+		   (buf[offset + i] <= '9')) {
+			value += (buf[offset + i] - '0');
+		} else {
+			value /= 10;
+			break;
+		}
+	}
+	g_max_fw_tx_dscr = value;
+	wl_err("%s, change max_fw_tx_dscr to %d\n", __func__, value);
+}
+
 struct debuginfo_s {
 	void (*func)(char *, unsigned char offset);
 	char str[30];
@@ -122,6 +251,13 @@ struct debuginfo_s {
 	{adjust_tcp_ack_delay, "tcpack_delay_cnt="},
 	{adjust_tcp_ack_delay_win, "tcpack_delay_win="},
 	{adjust_tdls_threshold, "tdls_threshold="},
+	{adjust_tsq_shift, "tsq_shift="},
+	{adjust_tcpack_th_in_mb, "tcpack_delay_th_in_mb="},
+	{adjust_tcpack_time_in_ms, "tcpack_time_in_ms="},
+	{adjust_max_fw_tx_dscr, "max_fw_tx_dscr="},
+#ifdef ENABLE_PAM_WIFI
+	{pam_wifi_debug, "pam_wifi="},
+#endif
 };
 
 /* TODO: Could we use netdev_alloc_frag instead of kmalloc?
@@ -532,6 +668,33 @@ enum sprdwl_hw_type sprd_core_get_hwintf_mode(void)
 	return SPRDWL_HW_SC2355_SDIO;/*TBD*/
 }
 
+void config_wifi_ddr_priority(struct platform_device *pdev)
+{
+	struct resource *res;
+	unsigned long long ipa_qos_remap = 0;
+	unsigned char temp;
+
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "wifi_ipaqos");
+	if (!res) {
+		wl_err("wifi_ipaqos get_resource fail!\n");
+		return;
+	}
+
+	ipa_qos_remap = (unsigned long long)devm_ioremap_nocache(sprdwl_dev, res ->start, resource_size(res));
+	wl_debug("ipa_qos_remap=0x%llx\n", ipa_qos_remap);
+
+	/*IPA: 0x21040064*/
+	/*11:8 arqos_m1(PCIE2), 15:12 awqos_m1(PCIE2)*/
+	/*set arqos_m1 and  awqos_m1 to 0x0A*/
+	/*other byte by default set to 0x09*/
+
+	temp = readb_relaxed((void *)(ipa_qos_remap + 1));
+	wl_info("%s read ipa_qos: %x\n", __func__, temp);
+	writeb_relaxed(HIGHER_DDR_PRIORITY, (void *)(ipa_qos_remap + 1));
+	temp = readb_relaxed((void *)(ipa_qos_remap + 1));
+	wl_info("%s write ipa_qos: %x\n", __func__, temp);
+}
+
 static int sprdwl_probe(struct platform_device *pdev)
 {
 	struct sprdwl_intf *intf;
@@ -539,6 +702,10 @@ static int sprdwl_probe(struct platform_device *pdev)
 	int ret;
 	u8 i;
 
+	sprdwl_dev = &pdev->dev;
+#ifdef ENABLE_PAM_WIFI
+	sprdwl_pamwifi_probe(pdev);
+#endif
 	if (start_marlin(MARLIN_WIFI)) {
 		wl_err("%s power on chipset failed\n", __func__);
 		return -ENODEV;
@@ -565,6 +732,11 @@ static int sprdwl_probe(struct platform_device *pdev)
 		ret = -ENXIO;
 		goto err_core_create;
 	}
+
+#ifdef ENABLE_PAM_WIFI
+	ipa_to_pam_wifi_init(priv, pdev);
+#endif
+
 	memcpy(priv->wl_ver.kernel_ver, utsname()->release,
 			strlen(utsname()->release));
 	memcpy(priv->wl_ver.drv_ver, SPRDWL_DRIVER_VERSION,
@@ -582,11 +754,17 @@ static int sprdwl_probe(struct platform_device *pdev)
 		intf->rx_data_port = SDIO_RX_DATA_PORT;
 		intf->tx_cmd_port = SDIO_TX_CMD_PORT;
 		intf->tx_data_port = SDIO_TX_DATA_PORT;
-	} else {
+	} else if (priv->hw_type == SPRDWL_HW_SC2355_PCIE) {
 		intf->rx_cmd_port = PCIE_RX_CMD_PORT;
 		intf->rx_data_port = PCIE_RX_DATA_PORT;
 		intf->tx_cmd_port = PCIE_TX_CMD_PORT;
 		intf->tx_data_port = PCIE_TX_DATA_PORT;
+	} else if (priv->hw_type == SPRDWL_HW_SC2355_USB) {
+		intf->hif_offset = 0;
+		intf->rx_cmd_port = USB_RX_CMD_PORT;
+		intf->rx_data_port = USB_RX_DATA_PORT;
+		intf->tx_cmd_port = USB_TX_CMD_PORT;
+		intf->tx_data_port = USB_TX_DATA_PORT;
 	}
 
 	ret = sprdwl_intf_init(priv, intf);
@@ -608,8 +786,14 @@ static int sprdwl_probe(struct platform_device *pdev)
 	}
 
 	ret = sprdwl_core_init(&pdev->dev, priv);
-	if (ret)
-		goto err_core_init;
+	if (ret) {
+		sprdwl_intf_deinit(intf);
+		sprdwl_tx_deinit(intf);
+		sprdwl_rx_deinit(intf);
+		sprdwl_core_free((struct sprdwl_priv *)intf->priv);
+		kfree(intf);
+		return ret;
+	}
 
 #if defined FPGA_LOOPBACK_TEST
 	intf->loopback_n = 0;
@@ -618,10 +802,11 @@ static int sprdwl_probe(struct platform_device *pdev)
 
 	sprdwl_debugfs_init();
 
+	if(priv->hw_type == SPRDWL_HW_SC2355_PCIE)
+		config_wifi_ddr_priority(pdev);
+
 	return ret;
 
-err_core_init:
-	sprdwl_tx_deinit(intf);
 err_tx_init:
 	sprdwl_rx_deinit(intf);
 err_rx_init:
@@ -639,14 +824,17 @@ static int sprdwl_remove(struct platform_device *pdev)
 	struct sprdwl_intf *intf = platform_get_drvdata(pdev);
 	struct sprdwl_priv *priv = intf->priv;
 
+#ifdef ENABLE_PAM_WIFI
+	sprdwl_deinit_pamwifi_fifo(priv, intf->pdev);
+#endif
 	sprdwl_debugfs_deinit();
 	sprdwl_core_deinit(priv);
+	sprdwl_intf_deinit(intf);
 	sprdwl_tx_deinit(intf);
 	sprdwl_rx_deinit(intf);
-	sprdwl_intf_deinit(intf);
+	stop_marlin(MARLIN_WIFI);
 	sprdwl_core_free(priv);
 	kfree(intf);
-	stop_marlin(MARLIN_WIFI);
 	wl_info("%s\n", __func__);
 
 	return 0;

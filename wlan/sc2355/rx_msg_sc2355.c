@@ -24,8 +24,11 @@
 #include "if_sc2355.h"
 #include "tx_msg_sc2355.h"
 #include <net/ip6_checksum.h>
+#include "work.h"
 #include "debug.h"
 #include "tcp_ack.h"
+#include <linux/kthread.h>
+#include <uapi/linux/sched/types.h>
 
 #ifdef SC2355_HW_CSUM
 bool mh_ipv6_ext_hdr(unsigned char nexthdr)
@@ -138,6 +141,30 @@ void sprdwl_rx_send_cmd(struct sprdwl_intf *intf, void *data, int len,
 	sprdwl_rx_send_cmd_process(priv, data, len, id, ctx_id);
 }
 
+void sprdwl_queue_rx_buff_work(struct sprdwl_priv *priv, unsigned char id)
+{
+	struct sprdwl_work *misc_work;
+
+	misc_work = sprdwl_alloc_work(0);
+	switch (id) {
+	case SPRDWL_PCIE_RX_ALLOC_BUF:
+	case SPRDWL_PCIE_RX_FLUSH_BUF:
+		misc_work->id = id;
+		sprdwl_queue_work(priv, misc_work);
+		break;
+	default:
+		wl_err("%s: err id: %d\n", __func__, id);
+		kfree(misc_work);
+		break;
+	}
+
+}
+
+void rx_up(struct sprdwl_rx_if *rx_if)
+{
+	complete(&rx_if->rx_completed);
+}
+
 void sprdwl_rx_process(struct sprdwl_rx_if *rx_if, struct sk_buff *pskb)
 {
 #ifndef SPLIT_STACK
@@ -176,14 +203,39 @@ sprdwl_rx_mh_addr_process(struct sprdwl_rx_if *rx_if, void *data,
 	struct sprdwl_intf *intf = rx_if->intf;
 	struct sprdwl_common_hdr *hdr =
 		(struct sprdwl_common_hdr *)(data + intf->hif_offset);
+	struct sprdwl_work *misc_work = NULL;
+	static unsigned long time = 0;
+
+	wl_debug("%s: rx_data_addr=0x%lx\n", __func__, (unsigned long int)data);
 
 	if (hdr->reserv) {
+		wl_debug("%s: Add RX code here\n", __func__);
 		mm_mh_data_event_process(&rx_if->mm_entry, data,
 					 len, buffer_type);
+		sprdwl_free_data(data, buffer_type);
 	} else {
 		/* TODO: Add TX complete code here */
-		sprdwl_tx_free_pcie_data(intf, (unsigned char *)data, len);
-		wl_err("%s: Add TX complete code here\n", __func__);
+		wl_debug("%s: Add TX complete code here\n", __func__);
+
+		if ((time != 0) && ((jiffies - time) >= msecs_to_jiffies(1000))) {
+			wl_err("%s: out of time %d\n",
+				__func__, jiffies_to_msecs(jiffies - time));
+		}
+
+		time = jiffies;
+
+		sprdwl_tx_free_pcie_data_num(intf, (unsigned char *)data);
+		misc_work = sprdwl_alloc_work(sizeof(void *));
+
+		if (misc_work) {
+			misc_work->id = SPRDWL_PCIE_TX_FREE_BUF;
+			memcpy(misc_work->data, &data, sizeof(void *));
+			misc_work->len = buffer_type;
+
+			sprdwl_queue_work(intf->priv, misc_work);
+		} else {
+			wl_err("%s fail\n", __func__);
+		}
 	}
 }
 
@@ -315,7 +367,7 @@ static void sprdwl_rx_work_queue(struct work_struct *work)
 			case SPRDWL_TYPE_PKT_LOG:
 				if (sprdwl_pkt_log_save(intf, data) == 1)
 					wl_err("%s: pkt log file open or create	failed!\n",
-							__func__);
+					       __func__);
 				break;
 			case SPRDWL_TYPE_EVENT:
 				if (msg->len > SPRDWL_MAX_CMD_RXLEN)
@@ -380,7 +432,7 @@ int sprdwl_pkt_log_save(struct sprdwl_intf *intf, void *data)
 	/*for pkt log space key and enter key*/
 	char temp_space, temp_enter;
 	/*for pkt log txt line number and write pkt log into file*/
-	char temphdr[6], tempdata[3];
+	char temphdr[6], tempdata[2];
 
 	intf->pfile = filp_open(
 					"storage/sdcard0/Download/sprdwl_pkt_log.txt",
@@ -439,6 +491,51 @@ int sprdwl_pkt_log_save(struct sprdwl_intf *intf, void *data)
 	filp_close(intf->pfile, NULL);
 	set_fs(fs);
 	return 0;
+}
+
+int sprdwl_mm_fill_buffer(void *intf)
+{
+	struct sprdwl_rx_if *rx_if =
+		(struct sprdwl_rx_if *)((struct sprdwl_intf *)intf)->sprdwl_rx;
+	struct sprdwl_mm *mm_entry = &rx_if->mm_entry;
+	unsigned int num = 0, alloc_num = atomic_xchg(&mm_entry->alloc_num, 0);
+
+	num = mm_buffer_alloc(&rx_if->mm_entry, alloc_num);
+	if_tx_addr_trans_pcie(intf, NULL, 0, true);
+
+	if (num)
+		num = atomic_add_return(num, &mm_entry->alloc_num);
+
+	if (num > SPRDWL_MAX_ADD_MH_BUF_ONCE || rx_if->addr_trans_head)
+		sprdwl_queue_rx_buff_work(rx_if->intf->priv,
+					  SPRDWL_PCIE_RX_ALLOC_BUF);
+
+	return num;
+}
+
+void sprdwl_mm_fill_all_buffer(void *intf)
+{
+	struct sprdwl_rx_if *rx_if =
+		(struct sprdwl_rx_if *)((struct sprdwl_intf *)intf)->sprdwl_rx;
+	struct sprdwl_mm *mm_entry = &rx_if->mm_entry;
+	int num = SPRDWL_MAX_MH_BUF - skb_queue_len(&mm_entry->buffer_list);
+
+	if (num >= 0) {
+		atomic_add(num, &mm_entry->alloc_num);
+		sprdwl_mm_fill_buffer(intf);
+	}
+}
+
+void sprdwl_rx_flush_buffer(void *intf)
+{
+	struct sprdwl_rx_if *rx_if =
+		(struct sprdwl_rx_if *)((struct sprdwl_intf *)intf)->sprdwl_rx;
+	struct sprdwl_mm *mm_entry = &rx_if->mm_entry;
+
+	if (rx_if->addr_trans_head != NULL)
+		if_tx_addr_trans_free(intf);
+
+	mm_flush_buffer(mm_entry);
 }
 
 #ifdef SC2355_RX_NAPI

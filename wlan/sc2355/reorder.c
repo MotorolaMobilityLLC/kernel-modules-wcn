@@ -537,22 +537,15 @@ static struct rx_ba_node
 
 void reset_pn(struct sprdwl_priv *priv, const u8 *mac_addr)
 {
-	struct sprdwl_intf *intf = NULL;
-	struct sprdwl_rx_if *rx_if = NULL;
-	struct sprdwl_rx_ba_entry *ba_entry = NULL;
+	struct sprdwl_intf *intf = (struct sprdwl_intf *)(priv->hw_priv);
+	struct sprdwl_rx_if *rx_if = (struct sprdwl_rx_if *)intf->sprdwl_rx;
+	struct sprdwl_rx_ba_entry *ba_entry = &rx_if->ba_entry;
 	unsigned char i, tid, lut_id = 0xff;
 	struct rx_ba_node *ba_node = NULL;
 
-	if (!mac_addr)
+	if (!mac_addr || !priv)
 		return;
-	if (priv) {
-		intf = (struct sprdwl_intf *)(priv->hw_priv);
-		rx_if = (struct sprdwl_rx_if *)intf->sprdwl_rx;
-		ba_entry = &rx_if->ba_entry;
-	} else {
-		wl_err("%s: parameter priv is NULL\n", __func__);
-		return;
-	}
+
 	for (i = 0; i < MAX_LUT_NUM; i++) {
 		if (ether_addr_equal(intf->peer_entry[i].tx.da, mac_addr)) {
 			lut_id = intf->peer_entry[i].lut_index;

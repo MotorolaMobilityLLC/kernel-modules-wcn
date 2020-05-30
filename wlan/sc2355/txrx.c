@@ -29,6 +29,7 @@
 #include "rx_msg_sc2355.h"
 #include "tcp_ack.h"
 #include "core_sc2355.h"
+#include "tx_msg_sc2355.h"
 
 /* if err, the caller judge the skb if need free,
  * here just free the msg buf to the freelist
@@ -63,6 +64,9 @@ int sprdwl_send_data(struct sprdwl_vif *vif, struct sprdwl_msg_buf *msg,
 
 	sprdwl_fill_msg(msg, skb, skb->data, skb->len);
 
+	if(intf->priv->hw_type == SPRDWL_HW_SC2355_PCIE)
+		buf = skb->data + MSDU_DSCR_RSVD + DSCR_LEN;
+
 	if (sprdwl_filter_send_tcp_ack(vif->priv, msg, buf, plen))
 		return 0;
 
@@ -72,10 +76,15 @@ int sprdwl_send_data(struct sprdwl_vif *vif, struct sprdwl_msg_buf *msg,
 
 	if (intf->tdls_flow_count_enable == 1 &&
 		vif->sm_state == SPRDWL_CONNECTED) {
-#define DSCR_LEN 11
-		count_tdls_flow(vif,
-				skb->data + offset + DSCR_LEN,
-				skb->len - offset - DSCR_LEN);
+		if (intf->priv->hw_type == SPRDWL_HW_SC2355_PCIE) {
+			count_tdls_flow(vif,
+					buf,
+					skb->len);
+		} else {
+			count_tdls_flow(vif,
+					skb->data + offset + DSCR_LEN,
+					skb->len - offset - DSCR_LEN);
+		}
 	}
 
 	return ret;
@@ -223,6 +232,9 @@ void sprdwl_rx_skb_process(struct sprdwl_priv *priv, struct sk_buff *skb)
 
 		/* skb->data MUST point to ETH HDR */
 		sprdwl_filter_rx_tcp_ack(priv, skb->data, msdu_desc->msdu_len);
+		if (intf->priv->hw_type == SPRDWL_HW_SC2355_PCIE) {
+			sprdwl_count_rx_tp(intf, msdu_desc->msdu_len);
+		}
 		sprdwl_netif_rx(skb, ndev);
 	}
 

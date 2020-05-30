@@ -20,6 +20,9 @@
 #include "tx_msg_sc2355.h"
 #include "cmdevt.h"
 #include "work.h"
+#include <linux/dma-mapping.h>
+
+extern struct sprdwl_intf_sc2355 g_intf_sc2355;
 
 #define GET_NEXT_ADDR_TRANS_VALUE(value, offset) \
 	(struct sprdwl_addr_trans_value *)((unsigned char *)value + offset)
@@ -37,22 +40,12 @@ void check_mh_buffer(struct device *dev, void *buffer, dma_addr_t pa,
 		struct rx_msdu_desc *desc = buffer + sizeof(struct rx_mh_desc);
 
 		/* Check whether this buffer is ok to use */
-		while ((desc->data_write_done != 1) ||
+		while ((desc->data_write_done != 1) &&
 		       (retry < MAX_RETRY_NUM)) {
 			wl_err("%s: hw still writing: 0x%lx, 0x%lx\n",
 			       __func__, (unsigned long)buffer,
 			       (unsigned long)pa);
 			/* FIXME: Should we delay here? */
-			dma_sync_single_for_device(dev, pa, size, direction);
-			retry++;
-		}
-	} else {
-		while (((((struct pcie_addr_buffer *)buffer)->
-			buffer_ctrl.buffer_inuse) != 0) ||
-			(retry < MAX_RETRY_NUM)) {
-			wl_err("%s: hw still writing: 0x%lx, 0x%lx\n",
-			       __func__, (unsigned long)buffer,
-			       (unsigned long)pa);
 			dma_sync_single_for_device(dev, pa, size, direction);
 			retry++;
 		}
@@ -66,15 +59,30 @@ void check_mh_buffer(struct device *dev, void *buffer, dma_addr_t pa,
 	}
 }
 
+void clear_mh_buffer(void *buffer)
+{
+	struct rx_msdu_desc *desc = buffer + sizeof(struct rx_mh_desc);
+	desc->data_write_done = 0;
+}
+
 unsigned long mm_virt_to_phys(struct device *dev, void *buffer, size_t size,
 			      enum dma_data_direction direction)
 {
 	dma_addr_t pa = 0;
 	unsigned long pcie_addr = 0;
 
+again:
+	if (direction == DMA_FROM_DEVICE)
+		clear_mh_buffer(buffer);
+
+	mb();
 	pa = dma_map_single(dev, buffer, size, direction);
 	if (likely(!dma_mapping_error(dev, pa)))
 		pcie_addr = pa | SPRDWL_MH_ADDRESS_BIT;
+	else {
+		wl_err("%s: dma_mapping_error\n", __func__);
+		goto again;
+	}
 
 	return pcie_addr;
 }
@@ -115,12 +123,24 @@ static struct sk_buff
 	return skb;
 }
 
-static inline void mm_flush_buffer(struct sprdwl_mm *mm_entry)
+static inline void mm_free_addr_buf(struct sprdwl_mm *mm_entry)
+{
+	void *p = (mm_entry->hdr - mm_entry->hif_offset);
+
+	kfree(p);
+	mm_entry->hdr = NULL;
+	mm_entry->addr_trans = NULL;
+}
+
+void mm_flush_buffer(struct sprdwl_mm *mm_entry)
 {
 	/* TODO: Should we stop something here? */
 
 	/* Free all skbs */
 	skb_queue_purge(&mm_entry->buffer_list);
+	mm_free_addr_buf(mm_entry);
+	atomic_set(&mm_entry->alloc_num, 0);
+	wl_err("%s, %d, alloc_num set to 0\n", __func__, __LINE__);
 }
 
 static inline void mm_alloc_addr_buf(struct sprdwl_mm *mm_entry)
@@ -155,12 +175,38 @@ static inline int mm_do_addr_buf(struct sprdwl_mm *mm_entry)
 			container_of(mm_entry, struct sprdwl_rx_if, mm_entry);
 	struct sprdwl_addr_trans_value *value =
 		(struct sprdwl_addr_trans_value *)mm_entry->addr_trans;
+	struct sprdwl_intf  *intf = rx_if->intf;
+	struct sprdwl_vif *vif;
 	int ret = 0;
 	int addr_trans_len = 0;
+	enum sprdwl_mode mode = SPRDWL_MODE_STATION;
+	u8 mode_found = 0;
 
 	/* NOTE: addr_buf should be allocating after being sent,
 	 *       JUST avoid addr_buf allocating fail after being sent here
 	 */
+	if(0 == intf->fw_awake) {
+		wl_info("%s, fw power save, need to wake up it!\n", __func__);
+		for (mode = SPRDWL_MODE_STATION; mode < SPRDWL_MODE_MAX; mode++) {
+			if (intf->priv->fw_stat[mode] == SPRDWL_INTF_OPEN) {
+				mode_found = 1;
+				break;
+			}
+		}
+		if (mode_found == 0)
+			return -EIO;
+		vif = mode_to_vif(intf->priv, mode);
+		if (!vif)
+			return -EIO;
+		sprdwl_put_vif(vif);
+		if(!sprdwl_cmd_host_wakeup_fw(vif->priv, vif->ctx_id))
+			intf->fw_power_down = 0;
+		else {
+			wl_err("%s, wake up fw failed!!\n", __func__);
+			return -EIO;
+		}
+	}
+
 	if (unlikely(!value)) {
 		wl_debug("%s: addr buf is NULL, re-alloc here\n", __func__);
 		mm_alloc_addr_buf(mm_entry);
@@ -337,6 +383,12 @@ static int mm_buffer_unlink(struct sprdwl_mm *mm_entry,
 	struct sprdwl_rx_if *rx_if =
 			container_of(mm_entry, struct sprdwl_rx_if, mm_entry);
 
+	if (atomic_add_return(value->num, &mm_entry->alloc_num) >=
+		SPRDWL_MAX_ADD_MH_BUF_ONCE) {
+		sprdwl_queue_rx_buff_work(rx_if->intf->priv,
+					  SPRDWL_PCIE_RX_ALLOC_BUF);
+	}
+
 	for (num = 0; num < value->num; num++) {
 		len += SPRDWL_PHYS_LEN;
 		if (unlikely(len > total_len)) {
@@ -350,9 +402,12 @@ static int mm_buffer_unlink(struct sprdwl_mm *mm_entry,
 
 		memcpy(&pcie_addr, value->address[num], SPRDWL_PHYS_LEN);
 		pcie_addr &= SPRDWL_PHYS_MASK;
+		wl_debug("%s: pcie_addr=0x%lx", __func__, pcie_addr);
 
 		skb = mm_single_buffer_unlink(mm_entry, pcie_addr);
 		if (likely(skb)) {
+			if (sprdwl_debug_level >= L_DBG)
+				sprdwl_hex_dump("rx_mh_desc rx:", skb->data, 500);
 			csum = get_pcie_data_csum((void *)rx_if->intf,
 						  skb->data);
 			skb_reserve(skb, sizeof(struct rx_mh_desc));
@@ -521,7 +576,7 @@ static int mm_single_event_process(struct sprdwl_mm *mm_entry,
 		/* NOTE: Not need to do anything here */
 		break;
 	case SPRDWL_FLUSH_BUFFER:
-		mm_flush_buffer(mm_entry);
+		sprdwl_rx_flush_buffer(mm_entry);
 		break;
 	default:
 		wl_err("%s: err type: %d\n", __func__, value->type);
@@ -529,7 +584,7 @@ static int mm_single_event_process(struct sprdwl_mm *mm_entry,
 	}
 
 	if (value->type < SPRDWL_FLUSH_BUFFER)
-		mm_refill_buffer(mm_entry);
+		sprdwl_rx_flush_buffer(mm_entry);
 
 	return (ret < 0) ? ret : (ret + sizeof(*value));
 }
@@ -545,10 +600,13 @@ void mm_mh_data_event_process(struct sprdwl_mm *mm_entry, void *data,
 		(struct sprdwl_addr_trans *)hdr->paydata;
 	struct sprdwl_addr_trans_value *value = addr_trans->value;
 	unsigned char tlv_num = addr_trans->tlv_num;
-	int remain_len = len - sizeof(*addr_trans);
+	int remain_len = len - mm_entry->hif_offset -
+					sizeof(*hdr) -
+					sizeof(*addr_trans) -
+					sizeof(*value);
 
 	while (tlv_num--) {
-		remain_len = remain_len - offset - sizeof(*value);
+		remain_len = remain_len - offset;
 		if (remain_len < 0) {
 			wl_err("%s: remain tlv num: %d\n", __func__, tlv_num);
 			break;

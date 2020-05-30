@@ -32,6 +32,11 @@
 #include "intf_ops.h"
 #include "cmdevt.h"
 #include "debug.h"
+#include "work.h"
+#include <linux/kthread.h>
+
+#define MAX_FW_TX_DSCR (1024)
+unsigned int g_max_fw_tx_dscr = 0;
 
 struct sprdwl_msg_buf *sprdwl_get_msg_buf(void *pdev,
 					  enum sprdwl_head_type type,
@@ -100,7 +105,7 @@ struct sprdwl_msg_buf *sprdwl_get_msg_buf(void *pdev,
 		sprdwl_net_flowcontrl(dev->priv, mode, false);
 		atomic_set(&list->flow, 1);
 	}
-	wl_err_ratelimited("%s no more msgbuf for %s\n",
+	printk_ratelimited("%s no more msgbuf for %s\n",
 			   __func__, type == SPRDWL_TYPE_DATA ?
 			   "data" : "cmd");
 
@@ -157,6 +162,18 @@ sprdwl_dequeue_qos_buf(struct sprdwl_msg_buf *msg_buf, int ac_index)
 		lock = &msg_buf->data_list->p_lock;
 	else
 		lock = &msg_buf->xmit_msg_list->send_lock;
+	spin_lock_bh(lock);
+	dev_kfree_skb(msg_buf->skb);
+	list_del(&msg_buf->list);
+	sprdwl_free_msg_buf(msg_buf, msg_buf->msglist);
+	spin_unlock_bh(lock);
+}
+
+void sprdwl_dequeue_tofreelist_buf(struct sprdwl_msg_buf *msg_buf)
+{
+	spinlock_t *lock;/*to lock qos list*/
+
+	lock = &msg_buf->xmit_msg_list->free_lock;
 	spin_lock_bh(lock);
 	dev_kfree_skb(msg_buf->skb);
 	list_del(&msg_buf->list);
@@ -251,6 +268,7 @@ static void sprdwl_flush_data_txlist(struct sprdwl_tx_msg *tx_msg)
 	enum sprdwl_mode mode;
 	struct list_head *data_list;
 	int cnt = 0;
+	struct sprdwl_priv *priv = tx_msg->intf->priv;
 
 	for (mode = SPRDWL_MODE_STATION; mode < SPRDWL_MODE_MAX; mode++) {
 		if (atomic_read(&tx_msg->tx_list[mode]->mode_list_num) == 0)
@@ -263,10 +281,19 @@ static void sprdwl_flush_data_txlist(struct sprdwl_tx_msg *tx_msg)
 	/*wait until data list sent completely and freed by HIF*/
 	wl_err("%s check if data freed complete start\n", __func__);
 	while (!list_empty(data_list) && (cnt < 1000)) {
+		if (priv->hw_type == SPRDWL_HW_SC2355_PCIE &&
+			sprdwcn_bus_get_status() == WCN_BUS_DOWN) {
+			struct sprdwl_msg_buf *pos_buf, *temp_buf;
+
+			list_for_each_entry_safe(pos_buf, temp_buf,
+						 data_list, list)
+				sprdwl_dequeue_tofreelist_buf(pos_buf);
+			goto out;
+		}
 		usleep_range(2500, 3000);
 		cnt++;
 	}
-
+out:
 	wl_err("%s check if data freed complete end\n", __func__);
 }
 
@@ -339,6 +366,10 @@ void handle_tx_status_after_close(struct sprdwl_vif *vif)
 			tx_msg->ring_cp = 0;
 			tx_msg->ring_ap = 0;
 			atomic_set(&tx_msg->flow_ctrl[i].flow, 0);
+		}
+
+		if (priv->hw_type == SPRDWL_HW_SC2355_PCIE) {
+			sprdwl_rx_flush_buffer(priv->hw_priv);
 		}
 	} else {
 		/*a mode closed,
@@ -496,6 +527,7 @@ static int sprdwl_tx_cmd(struct sprdwl_intf *intf, struct sprdwl_msg_list *list)
 		if (ret) {
 			wl_err("%s err:%d\n", __func__, ret);
 			/* fixme if need retry */
+			kfree(msgbuf->tran_data);
 			msgbuf->tran_data = NULL;
 			sprdwl_free_cmd_buf(msgbuf, list);
 		}
@@ -601,8 +633,25 @@ int sprdwl_fc_get_send_num(struct sprdwl_tx_msg *tx_msg,
 	if (data_num <= 0 || mode == SPRDWL_MODE_NONE)
 		return 0;
 	/*send all data in buff with PCIe interface*/
-	if (priv->hw_type == SPRDWL_HW_SC2355_PCIE)
-		return data_num;
+	if (priv->hw_type == SPRDWL_HW_SC2355_PCIE) {
+		int free_num = 0;
+		static unsigned long caller_jiffies = 0;
+
+		free_num = atomic_read(&tx_msg->xmit_msg_list.free_num);
+		if (printk_timed_ratelimit(&caller_jiffies, 1000)) {
+			wl_info("%s, free_num=%d, data_num=%d\n", __func__,
+				free_num, data_num);
+			if (list_empty(&tx_msg->xmit_msg_list.to_free_list)) {
+				wl_info("%s: to free list empty\n", __func__);
+			}
+		}
+
+		if ((free_num + data_num) >= MAX_FW_TX_DSCR) {
+			return (MAX_FW_TX_DSCR - free_num);
+		} else {
+			return data_num;
+		}
+	}
 
 	if (data_num > 64)
 		data_num = 64;
@@ -635,7 +684,7 @@ int sprdwl_fc_get_send_num(struct sprdwl_tx_msg *tx_msg,
 			       shared_flow_num, data_num);
 			return -ENOMEM;
 		}
-		wl_debug("%s,mode:%d,e_n:%d,s_n:%d,d_n:%d,{%d,%d,%d,%d}\n",
+		wl_info("%s,mode:%d,e_n:%d,s_n:%d,d_n:%d,{%d,%d,%d,%d}\n",
 			__func__, mode, excusive_flow_num,
 			shared_flow_num, data_num,
 			tx_msg->color_num[0], tx_msg->color_num[1],
@@ -682,8 +731,27 @@ int sprdwl_fc_test_send_num(struct sprdwl_tx_msg *tx_msg,
 	if (data_num <= 0 || mode == SPRDWL_MODE_NONE)
 		return 0;
 	/*send all data in buff with PCIe interface, TODO*/
-	if (priv->hw_type == SPRDWL_HW_SC2355_PCIE)
-		return data_num;
+	if (priv->hw_type == SPRDWL_HW_SC2355_PCIE) {
+		//TO_TEST
+		int free_num = 0;
+		static unsigned long caller_jiffies = 0;
+		free_num = atomic_read(&tx_msg->xmit_msg_list.free_num);
+		if (printk_timed_ratelimit(&caller_jiffies, 1000)) {
+			wl_info("%s, free_num=%d, data_num=%d\n", __func__,
+				free_num, data_num);
+			if (list_empty(&tx_msg->xmit_msg_list.to_free_list)) {
+				wl_info("%s: to free list empty\n", __func__);
+			}
+		}
+
+		if((free_num + data_num) >= g_max_fw_tx_dscr) {
+			wl_err("%s, free_num=%d, data_num=%d\n", __func__,
+				free_num, data_num);
+			return (g_max_fw_tx_dscr - free_num);
+		} else {
+			return data_num;
+		}
+	}
 
 	if (data_num > 64)
 		data_num = 64;
@@ -710,7 +778,7 @@ int sprdwl_fc_test_send_num(struct sprdwl_tx_msg *tx_msg,
 		       __func__, __LINE__,
 		       (u8)mode);
 		for (i = 0; i < MAX_COLOR_BIT; i++)
-			wl_err_ratelimited("color[%d] assigned mode%d\n",
+			printk_ratelimited("color[%d] assigned mode%d\n",
 			       i, (u8)tx_msg->flow_ctrl[i].mode);
 		return -ENOMEM;
 	}
@@ -744,7 +812,7 @@ void sprdwl_handle_tx_return(struct sprdwl_tx_msg *tx_msg,
 	struct sprdwl_priv *priv = tx_msg->intf->priv;
 
 	if (ret) {
-		wl_err_ratelimited(
+		printk_ratelimited(
 		"%s sprdwl_intf_tx_list err:%d\n",
 				   __func__, ret);
 		memset(tx_msg->color_num, 0x00, MAX_COLOR_BIT);
@@ -817,7 +885,7 @@ int handle_tx_timeout(struct sprdwl_tx_msg *tx_msg,
 		temp_buf, tx_list, list) {
 			if (i >= del_list_num)
 				break;
-			wl_debug("%s:%d buf->timeout\n",
+			wl_err("%s:%d buf->timeout\n",
 			       __func__, __LINE__);
 			if (pos_buf->mode <= SPRDWL_MODE_AP) {
 				pinfo = "STA/AP mode";
@@ -826,7 +894,7 @@ int handle_tx_timeout(struct sprdwl_tx_msg *tx_msg,
 				pinfo = "P2P mode";
 				cnt = tx_msg->drop_data2_cnt++;
 			}
-			wl_debug("tx drop %s, dropcnt:%u\n",
+			wl_err("tx drop %s, dropcnt:%u\n",
 			       pinfo, cnt);
 			sprdwl_dequeue_qos_buf(pos_buf, ac_index);
 			atomic_dec(&tx_msg->tx_list[mode]->mode_list_num);
@@ -1196,16 +1264,12 @@ void prepare_addba(struct sprdwl_intf *intf, unsigned char lut_index,
 	}
 }
 
-int sprdwl_tx_msg_func(void *pdev, struct sprdwl_msg_buf *msg)
+static int sprdwl_tx_msg_prepare(void *pdev, struct sprdwl_msg_buf *msg)
 {
 	u16 len;
 	unsigned char *info;
 	struct sprdwl_intf *intf = (struct sprdwl_intf *)pdev;
 	struct sprdwl_tx_msg *tx_msg = (struct sprdwl_tx_msg *)intf->sprdwl_tx;
-	unsigned int qos_index = 0;
-	struct sprdwl_peer_entry *peer_entry = NULL;
-	unsigned char tid = 0, tos = 0;
-	struct tx_msdu_dscr *dscr = (struct tx_msdu_dscr *)msg->tran_data;
 
 	if (msg->msglist == &tx_msg->tx_list_cmd) {
 		len = SPRDWL_MAX_CMD_TXLEN;
@@ -1225,13 +1289,35 @@ int sprdwl_tx_msg_func(void *pdev, struct sprdwl_msg_buf *msg)
 #endif
 		INIT_LIST_HEAD(&msg->list);
 		sprdwl_free_msg_buf(msg, msg->msglist);
-		return -EPERM;
+		return -1;
 	}
+
+	return 0;
+}
+
+int sprdwl_tx_msg_func(void *pdev, struct sprdwl_msg_buf *msg)
+{
+	struct sprdwl_intf *intf = (struct sprdwl_intf *)pdev;
+	unsigned int qos_index = 0;
+	struct sprdwl_peer_entry *peer_entry = NULL;
+	unsigned char tid = 0, tos = 0;
+	struct tx_msdu_dscr *dscr = (struct tx_msdu_dscr *)msg->tran_data;
+	struct sprdwl_tx_msg *tx_msg = (struct sprdwl_tx_msg *)intf->sprdwl_tx;
+
+	if (-1 == sprdwl_tx_msg_prepare(pdev, msg))
+		return -EPERM;
 
 	if (msg->msglist == &tx_msg->tx_list_qos_pool) {
 		struct peer_list *data_list;
 
-		qos_index = get_tid_qosindex(msg->skb, 11, &tid, &tos);
+		if(intf->priv->hw_type == SPRDWL_HW_SC2355_PCIE) {
+			dscr = (struct tx_msdu_dscr *)(msg->tran_data + MSDU_DSCR_RSVD);
+			qos_index = get_tid_qosindex(msg->skb, MSDU_DSCR_RSVD + DSCR_LEN, &tid, &tos);
+		} else {
+			dscr = (struct tx_msdu_dscr *)(msg->tran_data);
+			qos_index = get_tid_qosindex(msg->skb, DSCR_LEN, &tid, &tos);
+		}
+
 
 #ifdef WMMAC_WFA_CERTIFICATION
 		qos_index = change_priority_if(intf->priv, &tid, &tos, msg->len);
@@ -1267,9 +1353,17 @@ int sprdwl_tx_msg_func(void *pdev, struct sprdwl_msg_buf *msg)
 			(qos_index == SPRDWL_AC_BE && data_list->l_num <= BE_TOTAL_QUOTA) ||
 			(qos_index == SPRDWL_AC_BK && data_list->l_num <= BK_TOTAL_QUOTA)
 			) {*/
-			msg->data_list = data_list;
-			sprdwl_queue_data_msg_buf(msg);
-			atomic_inc(&tx_msg->tx_list[msg->mode]->mode_list_num);
+		msg->data_list = data_list;
+
+		if (intf->priv->hw_type == SPRDWL_HW_SC2355_PCIE) {
+			msg->pcie_addr = mm_virt_to_phys(&intf->pdev->dev,
+							 msg->tran_data, msg->len,
+							 DMA_TO_DEVICE);
+			SAVE_ADDR(msg->tran_data, msg, sizeof(msg));
+		}
+
+		sprdwl_queue_data_msg_buf(msg);
+		atomic_inc(&tx_msg->tx_list[msg->mode]->mode_list_num);
 		/*} else {
 			dev_kfree_skb(msg->skb);
 			INIT_LIST_HEAD(&msg->list);
@@ -1320,20 +1414,20 @@ RETRY:
 	* but we still need to send cmd to cp2
 	*/
 	if (tx_msg->hang_recovery_status != HANG_RECOVERY_END) {
-		wl_err_ratelimited("sc2355, %s, hang happened\n", __func__);
+		printk_ratelimited("sc2355, %s, hang happened\n", __func__);
 		if (sprdwl_msg_tx_pended(&tx_msg->tx_list_cmd))
 			sprdwl_tx_cmd(intf, &tx_msg->tx_list_cmd);
 		goto RETRY;
 	}
 
 	if (tx_msg->thermal_status == THERMAL_WIFI_DOWN) {
-		wl_err_ratelimited("sc2355, %s, THERMAL_WIFI_DOWN\n", __func__);
+		printk_ratelimited("sc2355, %s, THERMAL_WIFI_DOWN\n", __func__);
 		if (sprdwl_msg_tx_pended(&tx_msg->tx_list_cmd))
 			sprdwl_tx_cmd(intf, &tx_msg->tx_list_cmd);
 		goto RETRY;
 	}
 	if (tx_msg->thermal_status == THERMAL_TX_STOP) {
-		wl_err_ratelimited("sc2355, %s, THERMAL_TX_STOP\n", __func__);
+		printk_ratelimited("sc2355, %s, THERMAL_TX_STOP\n", __func__);
 		if (sprdwl_msg_tx_pended(&tx_msg->tx_list_cmd))
 			sprdwl_tx_cmd(intf, &tx_msg->tx_list_cmd);
 		return;
@@ -1372,12 +1466,12 @@ RETRY:
 	}
 
 	if (intf->fw_awake == 0) {
-		wl_err_ratelimited("sc2355, %s, fw_awake = 0\n", __func__);
+		printk_ratelimited("sc2355, %s, fw_awake = 0\n", __func__);
 		return;
 	}
 
 	if (intf->suspend_mode != SPRDWL_PS_RESUMED) {
-		wl_err_ratelimited("sc2355, %s, not RESUMED\n", __func__);
+		printk_ratelimited("sc2355, %s, not RESUMED\n", __func__);
 		return;
 	}
 
@@ -1413,7 +1507,11 @@ RETRY:
 		else
 			need_polling |= (1 << (u8)mode);
 	}
-
+	/*sleep more time if screen off*/
+	if (priv->is_screen_off == 1 &&
+		priv->hw_type == SPRDWL_HW_SC2355_PCIE) {
+		usleep_range(590, 610);
+	}
 	if (need_polling) {
 		/* retry to wait credit */
 		udelay(10);

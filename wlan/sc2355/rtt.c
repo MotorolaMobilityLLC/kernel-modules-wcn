@@ -21,6 +21,8 @@
 #include <net/netlink.h>
 #include "sprdwl.h"
 #include "rtt.h"
+#include "if_sc2355.h"
+#include "vendor.h"
 
 /* FTM session ID we use with FW */
 #define FTM_ESSION_ID		1
@@ -187,6 +189,25 @@ nla_policy sprdwl_nl80211_ftm_meas_param_policy[
 	[SPRDWL_VENDOR_ATTR_FTM_PARAM_BURST_PERIOD] = { .type = NLA_U16 },
 };
 
+static const struct nla_policy sprdwl_rtt_policy
+	[SPRD_VENDOR_RTT_ATTRIBUTE_MAX + 1] = {
+	[SPRD_VENDOR_RTT_ATTRIBUTE_TARGET_MAC] = { .len = ETH_ALEN },
+	[SPRD_VENDOR_RTT_ATTRIBUTE_TARGET_TYPE] = { .type = NLA_U8 },
+	[SPRD_VENDOR_RTT_ATTRIBUTE_TARGET_PEER] = { .type = NLA_U8 },
+	[SPRD_VENDOR_RTT_ATTRIBUTE_TARGET_CHAN] = { .len = sizeof(struct wifi_channel_info) },
+	[SPRD_VENDOR_RTT_ATTRIBUTE_TARGET_PERIOD] = { .type = NLA_U32 },
+	[SPRD_VENDOR_RTT_ATTRIBUTE_TARGET_NUM_BURST] = { .type = NLA_U32 },
+	[SPRD_VENDOR_RTT_ATTRIBUTE_TARGET_NUM_FTM_BURST] = { .type = NLA_U32 },
+	[SPRD_VENDOR_RTT_ATTRIBUTE_TARGET_NUM_RETRY_FTM] = { .type = NLA_U32 },
+	[SPRD_VENDOR_RTT_ATTRIBUTE_TARGET_NUM_RETRY_FTMR] = { .type = NLA_U32 },
+	[SPRD_VENDOR_RTT_ATTRIBUTE_TARGET_LCI] = { .type = NLA_U8 },
+	[SPRD_VENDOR_RTT_ATTRIBUTE_TARGET_LCR] = { .type = NLA_U8 },
+	[SPRD_VENDOR_RTT_ATTRIBUTE_TARGET_BURST_DURATION] = { .type = NLA_U32 },
+	[SPRD_VENDOR_RTT_ATTRIBUTE_TARGET_PREAMBLE] = { .type = NLA_U8 },
+	[SPRD_VENDOR_RTT_ATTRIBUTE_TARGET_BW] = { .type = NLA_U8 },
+	[SPRD_VENDOR_RTT_ATTRIBUTE_TARGET_RESPONDER_INFO] = { .type = NLA_U32 }
+
+};
 static u8 sprdwl_ftm_get_channel(struct wiphy *wiphy,
 				 const u8 *mac_addr, u32 freq)
 {
@@ -535,7 +556,7 @@ sprdwl_ftm_cfg80211_start_session(struct sprdwl_priv *priv,
 		goto out_cmd;
 	}
 	rtt = (struct sprdwl_cmd_rtt *)msg->data;
-	rtt->sub_cmd = RTT_GET_CAPABILITIES;
+	rtt->sub_cmd = RTT_RANGE_REQUEST;
 	rtt->len = cmd_len;
 	memcpy(rtt->data, cmd, cmd_len);
 
@@ -690,6 +711,91 @@ out:
 	mutex_unlock(&priv->ftm.lock);
 }
 
+void sprdwl_ftm_event_end(struct sprdwl_priv *priv)
+{
+	struct sk_buff *reply;
+	struct wiphy *wiphy = priv->wiphy;
+	struct sprdwl_vif *vif= mode_to_vif(priv, SPRDWL_MODE_STATION);
+	int i;
+	struct nlattr *nl_res;
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 4, 83)
+	reply = cfg80211_vendor_event_alloc(wiphy, &vif->wdev,
+#else
+	reply = cfg80211_vendor_event_alloc(wiphy,
+#endif
+					    priv->rtt_results.peer_num * sizeof(struct wifi_hal_rtt_result) + NLMSG_HDRLEN,
+		SPRD_RTT_EVENT_COMPLETE_INDEX,
+		GFP_KERNEL);
+	if (!reply) {
+		printk("%s, %d\n", __func__, __LINE__);
+		return;
+	}
+
+	for (i = 0; i < priv->rtt_results.peer_num; i++) {
+		wl_err("%s, %d\n", __func__, i);
+		nl_res = nla_nest_start(reply, SPRD_VENDOR_RTT_ATTRIBUTE_RESULTS_PER_TARGET);
+		if (!nl_res) {
+			wl_err("%s, %d\n", __func__, __LINE__);
+			goto out;
+		}
+		if(nla_put(reply, SPRD_VENDOR_RTT_ATTRIBUTE_RESULT_MAC,
+			   6, priv->rtt_results.peer_rtt_result[i]->mac_addr) ||
+			   nla_put_u32(reply, SPRD_VENDOR_RTT_ATTRIBUTE_RESULT_CNT_CNT, i + 1) ||
+		nla_put(reply, SPRD_VENDOR_RTT_ATTRIBUTE_RESULT,
+			2 * sizeof(struct wifi_hal_rtt_result), priv->rtt_results.peer_rtt_result[i])) {
+			wl_info("%s, %d\n", __func__, __LINE__);
+			goto out;
+		}
+
+		nla_nest_end(reply, nl_res);
+	}
+	nla_put_u32(reply, SPRD_VENDOR_RTT_ATTRIBUTE_RESULTS_COMPLETE, 1);
+	cfg80211_vendor_event(reply, GFP_KERNEL);
+	reply = NULL;
+	wl_info("report rtt result\n");
+	priv->ftm.session_started = 0;
+
+	priv->rtt_results.peer_num  = 0;
+out:
+	if (reply)
+		kfree_skb(reply);
+}
+
+#define BITS_PER_LONG 64
+unsigned long int_sqrt(unsigned long x)
+{
+	unsigned long op, res, one;
+	op = x;
+	res = 0;
+	one = 1UL << (BITS_PER_LONG - 2);
+	while (one > op)
+		one >>= 2;
+
+	while (one != 0) {
+		if (op >= res + one) {
+			op = op - (res + one);
+			res = res +  2 * one;
+		}
+		res /= 2;
+		one /= 4;
+	}
+	return res;
+}
+
+int power(int base, int exponent)
+{
+	int result = 1;
+	int i = 0;
+
+	for (i = 0; i < exponent; i++)
+	{
+		result *= base;
+	}
+
+	return result;
+}
+
 int sprdwl_event_ftm(struct sprdwl_vif *vif, u8 *data, u16 len)
 {
 	struct sprdwl_priv *priv = vif->priv;
@@ -704,7 +810,7 @@ int sprdwl_event_ftm(struct sprdwl_vif *vif, u8 *data, u16 len)
 	switch (sub_event) {
 	case RTT_SESSION_END:
 		memcpy(&status, data, sizeof(status));
-		sprdwl_ftm_session_ended(priv, status);
+		sprdwl_ftm_event_end(priv);
 		break;
 	case RTT_PER_DEST_RES:
 		res = (struct ftm_per_dest_res *)data;
@@ -949,6 +1055,7 @@ int sprdwl_ftm_configure_responder(struct wiphy *wiphy,
 
 void sprdwl_ftm_init(struct sprdwl_priv *priv)
 {
+	priv->ftm.session_started = 0;
 	mutex_init(&priv->ftm.lock);
 }
 

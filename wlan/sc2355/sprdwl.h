@@ -44,6 +44,7 @@
 #include "rtt.h"
 #include "version.h"
 #include "tracer.h"
+#include <linux/sipa.h>
 
 #define SPRDWL_UNALIAGN		1
 #ifdef SPRDWL_UNALIAGN
@@ -123,6 +124,7 @@ struct sprdwl_vif {
 #ifdef ACS_SUPPORT
 	/* ACS stuff */
 	struct list_head survey_info_list;
+	u8 acs_scan_index;
 #endif /* ACS_SUPPORT*/
 #ifdef DFS_MASTER
 	/* dfs master mode */
@@ -142,7 +144,8 @@ enum sprdwl_hw_type {
 	SPRDWL_HW_SIPC,
 	SPRDWL_HW_SDIO_BA,
 	SPRDWL_HW_SC2355_SDIO,
-	SPRDWL_HW_SC2355_PCIE
+	SPRDWL_HW_SC2355_PCIE,
+	SPRDWL_HW_SC2355_USB
 };
 
 #ifdef WMMAC_WFA_CERTIFICATION
@@ -173,6 +176,13 @@ struct sprdwl_wmmac_params {
 struct sprdwl_channel_list {
 	int num_channels;
 	int channels[TOTAL_2G_5G_CHANNEL_NUM];
+};
+
+struct sprdwl_recv_rtt_result {
+	u8 peer_num;
+	struct wifi_hal_rtt_result *peer_rtt_result[10];
+	struct sprdwl_dot11_rm_ie *ele1[10];
+	struct sprdwl_dot11_rm_ie *ele2[10];
 };
 
 struct sprdwl_priv {
@@ -245,6 +255,8 @@ struct sprdwl_priv {
 	struct sprdwl_tcp_ack_manage ack_m;
 
 	/* FTM */
+	struct sprdwl_recv_rtt_result rtt_results;
+
 	struct sprdwl_ftm_priv ftm;
 	struct wakeup_trace wakeup_tracer;
 #ifdef WMMAC_WFA_CERTIFICATION
@@ -264,7 +276,19 @@ struct sprdwl_priv {
 #define OTT_SUPT	(1)
 	unsigned char ott_supt;
 	__le32 extend_feature;
+#ifdef ENABLE_PAM_WIFI
+	struct sipa_connect_params sipa_params;
+	struct sipa_to_pam_info sipa_info;
+	int state;
+	enum sipa_nic_id nic_id;
+	wait_queue_head_t sipa_recv_wq;
+	struct task_struct *recv_thread;
+	int kthread_stop;
+	struct sk_buff_head buffer_list;
+	unsigned int pam_wifi_miss_irq;
+#endif
 	int is_suspending;
+	int is_screen_off;
 };
 
 struct sprdwl_eap_hdr {
@@ -317,12 +341,6 @@ extern struct device *sprdwl_dev;
 		if (sprdwl_debug_level >= L_INFO) { \
 			pr_info("sc2355 sprd-wlan:" fmt, ##args); \
 		} \
-	} while (0)
-
-#define wl_err_ratelimited(fmt, args...) \
-	do { \
-		if (sprdwl_debug_level >= L_ERR) \
-			printk_ratelimited("sc2355 sprd-wlan:" fmt, ##args); \
 	} while (0)
 
 #ifdef ACS_SUPPORT

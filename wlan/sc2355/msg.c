@@ -92,18 +92,19 @@ void sprdwl_msg_deinit(struct sprdwl_msg_list *list)
 struct sprdwl_msg_buf *sprdwl_alloc_msg_buf(struct sprdwl_msg_list *list)
 {
 	struct sprdwl_msg_buf *msg_buf = NULL;
+	unsigned long flags = 0;
 
 	if (atomic_inc_return(&list->ref) >= SPRDWL_MSG_EXIT_VAL) {
 		atomic_dec(&list->ref);
 		return NULL;
 	}
-	spin_lock_bh(&list->freelock);
+	spin_lock_irqsave(&list->freelock, flags);
 	if (!list_empty(&list->freelist)) {
 		msg_buf = list_first_entry(&list->freelist,
 					   struct sprdwl_msg_buf, list);
 		list_del(&msg_buf->list);
 	}
-	spin_unlock_bh(&list->freelock);
+	spin_unlock_irqrestore(&list->freelock, flags);
 
 	if (!msg_buf)
 		atomic_dec(&list->ref);
@@ -113,29 +114,33 @@ struct sprdwl_msg_buf *sprdwl_alloc_msg_buf(struct sprdwl_msg_list *list)
 void sprdwl_free_msg_buf(struct sprdwl_msg_buf *msg_buf,
 			 struct sprdwl_msg_list *list)
 {
-	spin_lock_bh(&list->freelock);
+	unsigned long flags = 0;
+
+	spin_lock_irqsave(&list->freelock, flags);
 	list_add_tail(&msg_buf->list, &list->freelist);
 	atomic_dec(&list->ref);
-	spin_unlock_bh(&list->freelock);
+	spin_unlock_irqrestore(&list->freelock, flags);
 }
 
 void sprdwl_queue_msg_buf(struct sprdwl_msg_buf *msg_buf,
 			  struct sprdwl_msg_list *list)
 {
-	spin_lock_bh(&list->busylock);
+	unsigned long flags = 0;
+	spin_lock_irqsave(&list->busylock, flags);
 	list_add_tail(&msg_buf->list, &list->busylist);
-	spin_unlock_bh(&list->busylock);
+	spin_unlock_irqrestore(&list->busylock, flags);
 }
 
 struct sprdwl_msg_buf *sprdwl_peek_msg_buf(struct sprdwl_msg_list *list)
 {
 	struct sprdwl_msg_buf *msg_buf = NULL;
+	unsigned long flags = 0;
 
-	spin_lock_bh(&list->busylock);
+	spin_lock_irqsave(&list->busylock, flags);
 	if (!list_empty(&list->busylist))
 		msg_buf = list_first_entry(&list->busylist,
 				   struct sprdwl_msg_buf, list);
-	spin_unlock_bh(&list->busylock);
+	spin_unlock_irqrestore(&list->busylock, flags);
 
 	return msg_buf;
 }
@@ -143,10 +148,44 @@ struct sprdwl_msg_buf *sprdwl_peek_msg_buf(struct sprdwl_msg_list *list)
 void sprdwl_dequeue_msg_buf(struct sprdwl_msg_buf *msg_buf,
 			    struct sprdwl_msg_list *list)
 {
-	spin_lock_bh(&list->busylock);
+unsigned long flags = 0;
+
+	spin_lock_irqsave(&list->busylock, flags);
 	list_del(&msg_buf->list);
-	spin_unlock_bh(&list->busylock);
+	spin_unlock_irqrestore(&list->busylock, flags);
 	sprdwl_free_msg_buf(msg_buf, list);
 }
 
+struct sprdwl_msg_buf *sprdwl_get_msgbuf_by_data(void *data,
+						 struct sprdwl_msg_list *list)
+{
+	int find = 0;
+	struct sprdwl_msg_buf *pos;
+	struct sprdwl_msg_buf *msg_buf;
 
+	spin_lock_bh(&list->busylock);
+	list_for_each_entry_safe(msg_buf, pos,  &list->busylist, list) {
+		if (data == msg_buf->tran_data) {
+			list_del(&msg_buf->list);
+			find = 1;
+			break;
+		}
+	}
+	spin_unlock_bh(&list->busylock);
+
+	return find ? msg_buf : NULL;
+}
+
+#if defined(SC2355_FTR)
+struct sprdwl_msg_buf *sprdwl_get_tail_msg_buf(struct sprdwl_msg_list *list)
+{
+	struct sprdwl_msg_buf *msg_buf = NULL;
+
+	spin_lock_bh(&list->busylock);
+	if (!list_empty(&list->busylist))
+		msg_buf = list_last_entry(&list->busylist,
+					  struct sprdwl_msg_buf, list);
+	spin_unlock_bh(&list->busylock);
+	return msg_buf;
+}
+#endif

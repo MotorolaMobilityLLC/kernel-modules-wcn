@@ -462,23 +462,15 @@ static int sprdwl_vendor_get_llstat_handler(struct wiphy *wiphy,
 		return -ENOTSUPP;
 	memset(r_buf, 0, r_len);
 	radio_st = kzalloc(sizeof(*radio_st), GFP_KERNEL);
-	if (!radio_st)
-		return -ENOMEM;
 	iface_st = kzalloc(sizeof(*iface_st), GFP_KERNEL);
-	if (!iface_st) {
-		kfree(radio_st);
-		return -ENOMEM;
-	}
 	dif_radio = kzalloc(sizeof(*dif_radio), GFP_KERNEL);
-	if (!dif_radio) {
-		kfree(radio_st);
-		kfree(iface_st);
-		return  -ENOMEM;
-	}
+
+	if (!radio_st || !iface_st || !dif_radio)
+		goto out_put_fail;
 	ret = sprdwl_llstat(priv, vif->ctx_id, SPRDWL_SUBCMD_GET, NULL, 0,
 			    r_buf, &r_len);
 	if (ret)
-		goto clean;
+		goto out_put_fail;
 
 	llst = (struct sprdwl_llstat_data *)r_buf;
 
@@ -522,16 +514,16 @@ static int sprdwl_vendor_get_llstat_handler(struct wiphy *wiphy,
 	reply_radio = cfg80211_vendor_cmd_alloc_reply_skb(wiphy,
 							  reply_radio_length);
 	if (!reply_radio)
-		goto clean;
+		goto out_put_fail;
 
 	if (nla_put_u32(reply_radio, NL80211_ATTR_VENDOR_ID, OUI_SPREAD))
-		goto radio_out_put_fail;
+		goto out_put_fail;
 	if (nla_put_u32(reply_radio, NL80211_ATTR_VENDOR_SUBCMD,
 			SPRDWL_VENDOR_GET_LLSTAT))
-		goto radio_out_put_fail;
+		goto out_put_fail;
 	if (nla_put_u32(reply_radio, SPRDWL_LL_STATS_TYPE,
 			SPRDWL_NL80211_VENDOR_SUBCMD_LL_STATS_TYPE_RADIO))
-		goto radio_out_put_fail;
+		goto out_put_fail;
 
 	ret = sprdwl_compose_radio_st(reply_radio, radio_st);
 
@@ -542,36 +534,28 @@ static int sprdwl_vendor_get_llstat_handler(struct wiphy *wiphy,
 	reply_iface = cfg80211_vendor_cmd_alloc_reply_skb(wiphy,
 							  reply_iface_length);
 	if (!reply_iface)
-		goto clean;
+		goto out_put_fail;
 
 	if (nla_put_u32(reply_iface, NL80211_ATTR_VENDOR_ID, OUI_SPREAD))
-		goto iface_out_put_fail;
+		goto out_put_fail;
 	if (nla_put_u32(reply_iface, NL80211_ATTR_VENDOR_SUBCMD,
 			SPRDWL_VENDOR_GET_LLSTAT))
-		goto iface_out_put_fail;
+		goto out_put_fail;
 	if (nla_put_u32(reply_iface, SPRDWL_LL_STATS_TYPE,
 			SPRDWL_NL80211_VENDOR_SUBCMD_LL_STATS_TYPE_IFACE))
-		goto iface_out_put_fail;
+		goto out_put_fail;
 	ret = sprdwl_compose_iface_st(reply_iface, iface_st);
 	ret = cfg80211_vendor_cmd_reply(reply_iface);
-clean:
+
 	kfree(radio_st);
 	kfree(iface_st);
 	kfree(dif_radio);
 	return ret;
-radio_out_put_fail:
+out_put_fail:
 	kfree(radio_st);
 	kfree(iface_st);
 	kfree(dif_radio);
-	kfree_skb(reply_radio);
-	wl_err("%s out put fail\n", __func__);
-	return -EMSGSIZE;
-iface_out_put_fail:
-	kfree(radio_st);
-	kfree(iface_st);
-	kfree(dif_radio);
-	kfree_skb(reply_iface);
-	wl_err("%s out put fail\n", __func__);
+	WARN_ON(1);
 	return -EMSGSIZE;
 }
 
@@ -3591,7 +3575,7 @@ static int sprdwl_start_offload_packet(struct sprdwl_priv *priv,
 	    !tb[OFFLOADED_PACKETS_DST_MAC_ADDR] ||
 	    !tb[OFFLOADED_PACKETS_PERIOD] ||
 	    !tb[OFFLOADED_PACKETS_ETHER_PROTO_TYPE]) {
-		wl_err("check start offload para failed\n");
+		pr_err("check start offload para failed\n");
 		return -EINVAL;
 	}
 
@@ -4069,66 +4053,66 @@ static const struct nl80211_vendor_cmd_info sprdwl_vendor_events[] = {
 		.subcmd = SPRD_RESERVED2,
 	},
 	/*reserver for array align*/
-	{
+	[SPRDWL_VENDOR_SUBCMD_GSCAN_START_INDEX]{
 		.vendor_id = OUI_SPREAD,
 		.subcmd = SPRDWL_VENDOR_SUBCMD_GSCAN_START
 	},
-	{
+	[SPRDWL_VENDOR_SUBCMD_GSCAN_STOP_INDEX]{
 		.vendor_id = OUI_SPREAD,
 		.subcmd = SPRDWL_VENDOR_SUBCMD_GSCAN_STOP
 	},
-	{
+	[SPRDWL_VENDOR_SUBCMD_GSCAN_GET_CAPABILITIES_INDEX]{
 		.vendor_id = OUI_SPREAD,
 		.subcmd = SPRDWL_VENDOR_SUBCMD_GSCAN_GET_CAPABILITIES
 	},
-	{
+	[SPRDWL_VENDOR_SUBCMD_GSCAN_GET_CACHE_RESULTS_INDEX]{
 		.vendor_id = OUI_SPREAD,
 		.subcmd = SPRDWL_VENDOR_SUBCMD_GSCAN_GET_CACHED_RESULTS
 	},
-	{
+	[SPRDWL_VENDOR_SUBCMD_GSCAN_SCAN_RESULTS_AVAILABLE_INDEX]{
 		.vendor_id = OUI_SPREAD,
 		.subcmd = SPRDWL_VENDOR_SUBCMD_GSCAN_SCAN_RESULTS_AVAILABLE
 	},
-	{
+	[SPRDWL_VENDOR_SUBCMD_GSCAN_FULL_SCAN_RESULT_INDEX]{
 		.vendor_id = OUI_SPREAD,
 		.subcmd = SPRDWL_VENDOR_SUBCMD_GSCAN_FULL_SCAN_RESULT
 	},
-	{
+	[SPRDWL_VENDOR_SUBCMD_GSCAN_SCAN_EVENT_INDEX]{
 		.vendor_id = OUI_SPREAD,
 		.subcmd = SPRDWL_VENDOR_SUBCMD_GSCAN_SCAN_EVENT
 	},
-	{
+	[SPRDWL_VENDOR_SUBCMD_GSCAN_HOTLIST_AP_FOUND_INDEX]{
 		.vendor_id = OUI_SPREAD,
 		.subcmd = SPRDWL_VENDOR_SUBCMD_GSCAN_HOTLIST_AP_FOUND
 	},
-	{
+	[SPRDWL_VENDOR_SUBCMD_GSCAN_HOTLIST_AP_LOST_INDEX]{
 		.vendor_id = OUI_SPREAD,
 		.subcmd = SPRDWL_VENDOR_SUBCMD_GSCAN_HOTLIST_AP_LOST
 	},
-	{
+	[SPRDWL_VENDOR_SUBCMD_GSCAN_SET_BSSID_HOTLIST_INDEX]{
 		.vendor_id = OUI_SPREAD,
 		.subcmd = SPRDWL_VENDOR_SUBCMD_GSCAN_SET_BSSID_HOTLIST
 	},
-	{
+	[SPRDWL_VENDOR_SUBCMD_GSCAN_RESET_BSSID_HOTLIST_INDEX]{
 		.vendor_id = OUI_SPREAD,
 		.subcmd = SPRDWL_VENDOR_SUBCMD_GSCAN_RESET_BSSID_HOTLIST
 	},
-	{
+	[SPRDWL_VENDOR_SUBCMD_GSCAN_SIGNIFICANT_CHANGE_INDEX]{
 		.vendor_id = OUI_SPREAD,
 		.subcmd = SPRDWL_VENDOR_SUBCMD_GSCAN_SIGNIFICANT_CHANGE
 	},
-	{
+	[SPRDWL_VENDOR_SUBCMD_GSCAN_SET_SIGNIFICANT_CHANGE_INDEX]{
 		.vendor_id = OUI_SPREAD,
 		.subcmd = SPRDWL_VENDOR_SUBCMD_GSCAN_SET_SIGNIFICANT_CHANGE
 	},
-	{
+	[SPRDWL_VENDOR_SUBCMD_GSCAN_RESET_SIGNIFICANT_CHANGE_INDEX]{
 		.vendor_id = OUI_SPREAD,
 		.subcmd = SPRDWL_VENDOR_SUBCMD_GSCAN_RESET_SIGNIFICANT_CHANGE
 	},
 	/*report acs lte event to uplayer*/
 	[SPRDWL_ACS_LTE_EVENT_INDEX] = {
-	        .vendor_id = OUI_SPREAD,
-	        .subcmd = SPRDWL_REINIT_ACS,
+		.vendor_id = OUI_SPREAD,
+		.subcmd = SPRDWL_REINIT_ACS,
 	},
 	[SPRDWL_VENDOR_EVENT_NAN_INDEX] = {
 		.vendor_id = OUI_SPREAD,
@@ -4139,12 +4123,16 @@ static const struct nl80211_vendor_cmd_info sprdwl_vendor_events[] = {
 		.subcmd = SPRDWL_VENDOR_EVENT_EPNO_FOUND,
 	},
 	[SPRD_VENDOR_EVENT_FTM_MEAS_RESULT_INDEX] = {
-			.vendor_id = OUI_SPREAD,
-			.subcmd = SPRD_NL80211_VENDOR_SUBCMD_FTM_MEAS_RESULT
+		.vendor_id = OUI_SPREAD,
+		.subcmd = SPRD_NL80211_VENDOR_SUBCMD_FTM_MEAS_RESULT
 	},
 	[SPRD_VENDOR_EVENT_FTM_SESSION_DONE_INDEX] = {
-			.vendor_id = OUI_SPREAD,
-			.subcmd = SPRD_NL80211_VENDOR_SUBCMD_FTM_SESSION_DONE
+		.vendor_id = OUI_SPREAD,
+		.subcmd = SPRD_NL80211_VENDOR_SUBCMD_FTM_SESSION_DONE
+	},
+	[SPRD_RTT_EVENT_COMPLETE_INDEX] = {
+		.vendor_id = OUI_SPREAD,
+		.subcmd = RTT_EVENT_COMPLETE
 	}
 };
 

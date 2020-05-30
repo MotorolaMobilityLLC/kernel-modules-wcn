@@ -155,6 +155,7 @@ struct sprdwl_xmit_msg_list {
 	spinlock_t free_lock;
 	u8 mode;
 	unsigned long failcount;
+	atomic_t free_num;
 };
 
 struct sprdwl_msg_buf {
@@ -163,6 +164,7 @@ struct sprdwl_msg_buf {
 	/* data just tx cmd use,not include the head */
 	void *data;
 	void *tran_data;
+	unsigned long pcie_addr;
 	u8 type;
 	u8 mode;
 	u16 len;
@@ -178,6 +180,7 @@ struct sprdwl_msg_buf {
 #if defined(MORE_DEBUG)
 	unsigned long tx_start_time;
 #endif
+	unsigned long last_time;
 };
 
 static inline void sprdwl_fill_msg(struct sprdwl_msg_buf *msg,
@@ -208,4 +211,9 @@ void sprdwl_queue_msg_buf(struct sprdwl_msg_buf *msg_buf,
 struct sprdwl_msg_buf *sprdwl_peek_msg_buf(struct sprdwl_msg_list *list);
 void sprdwl_dequeue_msg_buf(struct sprdwl_msg_buf *msg_buf,
 			    struct sprdwl_msg_list *list);
+struct sprdwl_msg_buf *sprdwl_get_msgbuf_by_data(void *data,
+						 struct sprdwl_msg_list *list);
+#if defined(SC2355_FTR)
+struct sprdwl_msg_buf *sprdwl_get_tail_msg_buf(struct sprdwl_msg_list *list);
+#endif
 #endif

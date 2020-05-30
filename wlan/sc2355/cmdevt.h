@@ -25,6 +25,11 @@
 #define SPRDWL_VALID_CONFIG		(0x80)
 #define  CMD_WAIT_TIMEOUT		(3000)
 #define CMD_DISCONNECT_TIMEOUT		(5500)
+
+#define ABORT_SCAN_MODE			(0x1)
+#define NORMAL_SCAN_MODE		(0)
+#define ABORT_SCAN_MODE		(0x1)
+
 /* Set scan timeout to 9s due to split scan
  * to several period in CP2
  * Framework && wpa_supplicant timeout is 10s
@@ -438,11 +443,12 @@ struct sprdwl_rate_info {
 
 /* WIFI_CMD_GET_STATION */
 struct sprdwl_cmd_get_station {
-	struct sprdwl_rate_info rate;
+	struct sprdwl_rate_info tx_rate;
 	s8 signal;
 	u8 noise;
 	u8 reserved;
 	__le32 txfailed;
+	struct sprdwl_rate_info rx_rate;
 } __packed;
 
 /* WIFI_CMD_SET_CHANNEL */
@@ -726,6 +732,7 @@ struct sprdwl_event_scan_done {
 #define	SPRDWL_SCHED_SCAN_DONE		2
 #define SPRDWL_SCAN_ERROR		3
 #define SPRDWL_GSCAN_DONE		4
+#define SPRDWL_SCAN_ABORT_DONE  5
 	u8 type;
 } __packed;
 
@@ -870,13 +877,33 @@ struct event_thermal_warn {
 	u32 action;
 } __packed;
 
+struct vdev_tx_stats {
+	u32 tx_mpdu_cnt[4];
+	u32 tx_mpdu_suc_cnt[4];
+	u32 tx_mpdu_lost_cnt[4];
+	u32 tx_retries[4];
+	u32 tx_mpdu_len;
+	u32 tx_tp_in_mbps;
+}__packed;
+
+struct vdev_rx_stats {
+	u32 rx_mpdu_cnt[4];
+	u32 rx_retry_cnt[4];
+	u32 rx_mpdu_len;
+	u32 rx_tp_in_mbps;
+}__packed;
+
 struct event_wfd_mib_cnt {
 	u32 wfd_throughput;
 	u32 sum_tx_throughput;
 	u32 tx_mpdu_lost_cnt[4];
+	u32 ctxt_id;
 	u32 tx_frame_cnt;
+	u32 rx_mine_cycle_cnt;
 	u32 rx_clear_cnt;
 	u32 mib_cycle_cnt;
+	struct vdev_tx_stats tx_stats;
+	struct vdev_rx_stats rx_stats;
 } __packed;
 
 struct event_coex_mode_changed {
@@ -1130,4 +1157,5 @@ int sprdwl_send_data2cmd(struct sprdwl_priv *priv, u8 vif_ctx_id,
 		void *data, u16 len);
 
 void mdbg_assert_interface(char *str);
+int sprdwl_abort_scan(struct sprdwl_priv *priv, u8 vif_ctxt_id);
 #endif

@@ -374,6 +374,10 @@ static inline enum sprdwl_mode type_to_mode(enum nl80211_iftype type)
 int sprdwl_init_fw(struct sprdwl_vif *vif)
 {
 	struct sprdwl_priv *priv = vif->priv;
+#ifdef ENABLE_PAM_WIFI
+	struct sprdwl_intf *intf = (struct sprdwl_intf *)(priv->hw_priv);
+	int ret = 0;
+#endif
 	enum nl80211_iftype type = vif->wdev.iftype;
 	enum sprdwl_mode mode;
 	u8 *mac;
@@ -419,11 +423,43 @@ int sprdwl_init_fw(struct sprdwl_vif *vif)
 		return -EIO;
 	}
 	vif->ctx_id  = vif_ctx_id;
+
+#ifdef ENABLE_PAM_WIFI
+	if (vif->mode == SPRDWL_MODE_AP) {
+		priv->pam_wifi_miss_irq = platform_get_irq_byname(intf->pdev, "pam-wifi-miss-irq-gpio");
+		ret = request_irq(priv->pam_wifi_miss_irq,
+				  pam_wifi_miss_handle,
+				  IRQF_TRIGGER_RISING | IRQF_NO_SUSPEND,
+				  "pam_wifi_miss_irq",
+				  NULL);
+		wl_err("pam_wifi_miss_irq-%d , ret: %d!!!\n", priv->pam_wifi_miss_irq, ret);
+
+		pam_wifi_update_tx_fifo_wptr(PSEL_UL, 500);
+		sprdwl_pamwifi_init(vif, intf->pdev);
+	}
+#endif
+
 	netdev_info(vif->ndev, "%s,open success type %d, mode:%d, ctx_id:%d\n",
 		    __func__, type,
 		    vif->mode, vif->ctx_id);
 	priv->fw_stat[vif->mode] = SPRDWL_INTF_OPEN;
+	if (priv->hw_type == SPRDWL_HW_SC2355_PCIE) {
+		u8 mode_opened = 0;
 
+		/*TODO make sure driver send buf only once*/
+		for (mode = SPRDWL_MODE_STATION; mode < SPRDWL_MODE_MAX; mode++)
+			if (priv->fw_stat[mode] == SPRDWL_INTF_OPEN)
+				mode_opened++;
+
+		if (mode_opened > 1) {
+			wl_info("%s, mm buffer already filled\n", __func__);
+			return 0;
+		}
+
+#ifndef ENABLE_PAM_WIFI
+		sprdwl_mm_fill_all_buffer(priv->hw_priv);
+#endif
+	}
 	return 0;
 }
 
@@ -458,7 +494,7 @@ int sprdwl_uninit_fw(struct sprdwl_vif *vif)
 	while ((!list_empty(&tx_msg->xmit_msg_list.to_send_list) ||
 			!list_empty(&tx_msg->xmit_msg_list.to_free_list)) &&
 			count < 100) {
-		wl_err_ratelimited("error! %s data q not empty, wait\n", __func__);
+		printk_ratelimited("error! %s data q not empty, wait\n", __func__);
 		usleep_range(2500, 3000);
 		count++;
 	}
@@ -471,6 +507,46 @@ int sprdwl_uninit_fw(struct sprdwl_vif *vif)
 	priv->fw_stat[vif->mode] = SPRDWL_INTF_CLOSE;
 
 	handle_tx_status_after_close(vif);
+
+#ifdef ENABLE_PAM_WIFI
+	/*power off pam wifi and disconnect ipa*/
+	if (vif->mode == SPRDWL_MODE_AP) {
+		u32 value = 0;
+		int timeout = 10;
+
+		sipa_disconnect(SIPA_EP_WIFI, SIPA_DISCONNECT_START);
+		//value = readl_relaxed(pamu3->base + PAM_U3_CTL0);
+			/*DL fill wr/rd == free wr/rd
+			UL fill wr/rd == free wr/rd
+			IPA DL/UL as so*/
+		value = check_pamwifi_ipa_fifo_status();
+		wl_info("%s, Start to close Pam wifi!\n", __func__);
+		while(!value) {
+			value = check_pamwifi_ipa_fifo_status();
+			if (!timeout--) {
+				wl_err("Pam wifi close fail!\n");
+				break;
+			}
+			wl_err("Pam wifi closing!\n");
+			usleep_range(10, 15);
+		}
+		sipa_disconnect( SIPA_EP_WIFI, SIPA_DISCONNECT_END);
+		wl_err("%d,Pam wifi close success!!\n", __LINE__);
+		/*stop pam wifi*/
+		clear_reg_bits(REG_CFG_START, BIT_PAM_WIFI_CFG_START_PAM_WIFI_START);
+		//set_reg_bits_all_one(REG_CFG_START,  BIT_PAM_WIFI_CFG_START_PAM_WIFI_STOP);
+		pam_wifi_disable();
+
+		priv->kthread_stop = 1;
+		wake_up(&priv->sipa_recv_wq);
+		kthread_stop(priv->recv_thread);
+
+		sipa_nic_close(priv->nic_id);
+
+		disable_irq(priv->pam_wifi_miss_irq);
+		free_irq(priv->pam_wifi_miss_irq, NULL);
+	}
+#endif
 
 	netdev_info(vif->ndev, "%s type %d, mode %d\n", __func__,
 		    vif->wdev.iftype, vif->mode);
@@ -808,6 +884,11 @@ static int sprdwl_cfg80211_start_ap(struct wiphy *wiphy,
 
 #ifdef ACS_SUPPORT
 	fw_ver = (api + WIFI_CMD_SCAN)->fw_version;
+	if (vif->priv->hw_type == SPRDWL_HW_SC2355_PCIE) {
+		u8 drv_ver = 0;
+		drv_ver = (api + WIFI_CMD_SCAN)->drv_version;
+		fw_ver = min(fw_ver, drv_ver);
+	}
 	if ((vif->mode == SPRDWL_MODE_AP) &&
 	    !list_empty(&vif->survey_info_list) &&
 	    fw_ver == 1) {
@@ -980,7 +1061,8 @@ static int sprdwl_cfg80211_get_station(struct wiphy *wiphy,
 {
 	struct sprdwl_vif *vif = netdev_priv(ndev);
 	struct sprdwl_cmd_get_station sta;
-	struct sprdwl_rate_info *rate;
+	struct sprdwl_rate_info *tx_rate;
+	struct sprdwl_rate_info *rx_rate;
 	int ret;
 
 	sinfo->filled |= BIT(NL80211_STA_INFO_TX_BYTES) |
@@ -997,7 +1079,9 @@ static int sprdwl_cfg80211_get_station(struct wiphy *wiphy,
 				 &sta);
 	if (ret)
 		goto out;
-	rate = (struct sprdwl_rate_info *)&sta;
+	/*tx_rate = (struct sprdwl_rate_info *)&sta;*/
+	tx_rate = &sta.tx_rate;
+	rx_rate = &sta.rx_rate;
 
 	sinfo->signal = sta.signal;
 	sinfo->filled |= BIT(NL80211_STA_INFO_SIGNAL);
@@ -1006,41 +1090,75 @@ static int sprdwl_cfg80211_get_station(struct wiphy *wiphy,
 	sinfo->filled |= BIT(NL80211_STA_INFO_TX_BITRATE) |
 		BIT(NL80211_STA_INFO_TX_FAILED);
 
+	sinfo->filled |= BIT(NL80211_STA_INFO_RX_BITRATE);
 	/*fill rate info */
 	/*if bit 2,3,4 not set*/
-	if (!(rate->flags & 0x1c))
+	if (!(tx_rate->flags & 0x1c))
 		sinfo->txrate.bw = RATE_INFO_BW_20;
 
-	if ((rate->flags) & BIT(2))
+	if ((tx_rate->flags) & BIT(2))
 		sinfo->txrate.bw = RATE_INFO_BW_40;
 
-	if ((rate->flags) & BIT(3))
+	if ((tx_rate->flags) & BIT(3))
 		sinfo->txrate.bw = RATE_INFO_BW_80;
 
-	if ((rate->flags) & BIT(4) ||
-		(rate->flags) & BIT(5))
+	if ((tx_rate->flags) & BIT(4) ||
+		(tx_rate->flags) & BIT(5))
 		sinfo->txrate.bw = RATE_INFO_BW_160;
 
-	if ((rate->flags) & BIT(6))
+	if ((tx_rate->flags) & BIT(6))
 		sinfo->txrate.flags |= RATE_INFO_FLAGS_SHORT_GI;
 
-	if ((rate->flags & RATE_INFO_FLAGS_MCS) ||
-		(rate->flags & RATE_INFO_FLAGS_VHT_MCS)) {
+	if ((tx_rate->flags & RATE_INFO_FLAGS_MCS) ||
+		(tx_rate->flags & RATE_INFO_FLAGS_VHT_MCS)) {
 
-		sinfo->txrate.flags = (rate->flags & 0x3);
-		sinfo->txrate.mcs = rate->mcs;
+		sinfo->txrate.flags = (tx_rate->flags & 0x3);
+		sinfo->txrate.mcs = tx_rate->mcs;
 
-		if ((rate->flags & RATE_INFO_FLAGS_VHT_MCS) &&
-			(0 != rate->nss)) {
-			sinfo->txrate.nss = rate->nss;
+		if ((tx_rate->flags & RATE_INFO_FLAGS_VHT_MCS) &&
+			(0 != tx_rate->nss)) {
+			sinfo->txrate.nss = tx_rate->nss;
 		}
 	} else {
-		sinfo->txrate.legacy = rate->legacy;
+		sinfo->txrate.legacy = tx_rate->legacy;
 	}
 
-	netdev_info(ndev, "%s signal %d legacy %d mcs:%d flags:0x:%x\n",
-			__func__, sinfo->signal, sinfo->txrate.legacy,
-			rate->mcs, rate->flags);
+	/*rx rate*/
+	if (!(rx_rate->flags & 0x1c))
+		sinfo->rxrate.bw = RATE_INFO_BW_20;
+
+	if ((rx_rate->flags) & BIT(2))
+		sinfo->rxrate.bw = RATE_INFO_BW_40;
+
+	if ((rx_rate->flags) & BIT(3))
+		sinfo->rxrate.bw = RATE_INFO_BW_80;
+
+	if ((rx_rate->flags) & BIT(4) ||
+		(rx_rate->flags) & BIT(5))
+		sinfo->rxrate.bw = RATE_INFO_BW_160;
+
+	if ((rx_rate->flags) & BIT(6))
+		sinfo->rxrate.flags |= RATE_INFO_FLAGS_SHORT_GI;
+
+	if ((rx_rate->flags & RATE_INFO_FLAGS_MCS) ||
+		(rx_rate->flags & RATE_INFO_FLAGS_VHT_MCS)) {
+
+		sinfo->rxrate.flags = (rx_rate->flags & 0x3);
+		sinfo->rxrate.mcs = rx_rate->mcs;
+
+		if ((rx_rate->flags & RATE_INFO_FLAGS_VHT_MCS) &&
+			(0 != rx_rate->nss)) {
+			sinfo->rxrate.nss = rx_rate->nss;
+		}
+	} else {
+			sinfo->rxrate.legacy = rx_rate->legacy;
+	}
+
+	netdev_info(ndev, "%s signal %d noise=%d, txlegacy %d txmcs:%d txflags:0x:%x,rxlegacy %d rxmcs:%d rxflags:0x:%x\n",
+		    __func__, sinfo->signal, sta.noise, sinfo->txrate.legacy,
+		    tx_rate->mcs, tx_rate->flags,
+		    sinfo->rxrate.legacy,
+		    rx_rate->mcs, rx_rate->flags);
 out:
 	return ret;
 }
@@ -1172,6 +1290,11 @@ static void sprdwl_cancel_scan(struct sprdwl_vif *vif)
 		if (priv->scan_request) {
 #ifdef ACS_SUPPORT
 			fw_ver = (api + WIFI_CMD_SCAN)->fw_version;
+			if (priv->hw_type == SPRDWL_HW_SC2355_PCIE) {
+				u8 drv_ver = 0;
+				drv_ver = (api + WIFI_CMD_SCAN)->drv_version;
+				fw_ver = min(fw_ver, drv_ver);
+			}
 			if (vif->mode == SPRDWL_MODE_AP && fw_ver == 1)
 				transfer_survey_info(vif);
 #endif
@@ -1236,6 +1359,11 @@ void sprdwl_scan_done(struct sprdwl_vif *vif, bool abort)
 		if (priv->scan_request) {
 #ifdef ACS_SUPPORT
 			fw_ver = (api + WIFI_CMD_SCAN)->fw_version;
+			if (priv->hw_type == SPRDWL_HW_SC2355_PCIE) {
+				u8 drv_ver = 0;
+				drv_ver = (api + WIFI_CMD_SCAN)->drv_version;
+				fw_ver = min(fw_ver, drv_ver);
+			}
 			if (vif->mode == SPRDWL_MODE_AP && fw_ver == 1)
 				transfer_survey_info(vif);
 #endif
@@ -1304,6 +1432,11 @@ void sprdwl_scan_timeout(unsigned long data)
 	if (priv->scan_request) {
 #ifdef ACS_SUPPORT
 		fw_ver = (api + WIFI_CMD_SCAN)->fw_version;
+		if (priv->hw_type == SPRDWL_HW_SC2355_PCIE) {
+			u8 drv_ver = 0;
+			drv_ver = (api + WIFI_CMD_SCAN)->drv_version;
+			fw_ver = min(fw_ver, drv_ver);
+		}
 		if (fw_ver == 1)
 			clean_survey_info_list(priv->scan_vif);
 #endif /* ACS_SUPPORT */
@@ -1405,6 +1538,11 @@ static int sprdwl_cfg80211_scan(struct wiphy *wiphy,
 		}
 #ifdef ACS_SUPPORT
 		fw_ver = (api + WIFI_CMD_SCAN)->fw_version;
+		if (priv->hw_type == SPRDWL_HW_SC2355_PCIE) {
+			u8 drv_ver = 0;
+			drv_ver = (api + WIFI_CMD_SCAN)->drv_version;
+			fw_ver = min(fw_ver, drv_ver);
+		}
 		if (vif->mode == SPRDWL_MODE_AP && fw_ver == 1) {
 			struct sprdwl_survey_info *info = NULL;
 
@@ -1485,6 +1623,39 @@ static int sprdwl_cfg80211_scan(struct wiphy *wiphy,
 err:
 	netdev_err(vif->ndev, "%s failed (%d)\n", __func__, ret);
 	return ret;
+}
+
+
+static void sprdwl_cfg80211_abort_scan(struct wiphy *wiphy,
+				struct wireless_dev *wdev)
+{
+	struct sprdwl_priv *priv = wiphy_priv(wiphy);
+	struct sprdwl_vif *vif =
+			container_of(wdev, struct sprdwl_vif, wdev);
+	struct api_version_t *api = (&priv->sync_api)->api_array;
+	u8 fw_ver = 0, drv_ver = 0;
+
+	fw_ver = (api + WIFI_CMD_SCAN)->fw_version;
+	drv_ver = (api + WIFI_CMD_SCAN)->drv_version;
+	fw_ver = min(fw_ver, drv_ver);
+	if (fw_ver < 3) {
+		wl_err("%s Abort scan not support.\n", __func__);
+		return;
+	}
+
+	if (!priv->scan_request) {
+		wl_err("%s Not running scan.\n", __func__);
+		return;
+	}
+
+	if (priv->scan_request->wdev != wdev) {
+		wl_err("%s Running scan[%u] isn't equal to abort scan[%u]\n",
+			__func__,
+			priv->scan_request->wdev->iftype,
+			wdev->iftype);
+		return;
+	}
+	sprdwl_abort_scan(priv, vif->ctx_id);
 }
 
 static int sprdwl_cfg80211_sched_scan_start(struct wiphy *wiphy,
@@ -1720,7 +1891,6 @@ static int sprdwl_cfg80211_connect(struct wiphy *wiphy, struct net_device *ndev,
 			if (ret)
 				goto err;
 		}
-
 	}
 
 	netdev_info(ndev, "wpa versions %#x\n", sme->crypto.wpa_versions);
@@ -2069,12 +2239,17 @@ void sprdwl_report_scan_result(struct sprdwl_vif *vif, u16 chan, s16 rssi,
 	signal_level_enhance(vif, mgmt, &signal);
 	/*if signal has been update & enhanced*/
 	if ((rssi * 100) != signal)
-		wl_err("old signal level:%d,new signal level:%d\n",
+		pr_err("old signal level:%d,new signal level:%d\n",
 		       (rssi*100), signal);
 
 
 #ifdef ACS_SUPPORT
 	fw_ver = (api + WIFI_CMD_SCAN)->fw_version;
+	if (priv->hw_type == SPRDWL_HW_SC2355_PCIE) {
+		u8 drv_ver = 0;
+		drv_ver = (api + WIFI_CMD_SCAN)->drv_version;
+		fw_ver = min(fw_ver, drv_ver);
+	}
 	if (vif->mode == SPRDWL_MODE_AP && fw_ver == 1)
 		acs_scan_result(vif, chan, mgmt);
 #endif
@@ -2333,8 +2508,8 @@ void sprdwl_report_disconnection(struct sprdwl_vif *vif, u16 reason_code)
 	}
 
 	vif->sm_state = SPRDWL_DISCONNECTED;
-
-	sprdwl_fc_add_share_credit(vif);
+	if (vif->priv->hw_type != SPRDWL_HW_SC2355_PCIE)
+		sprdwl_fc_add_share_credit(vif);
 
 	/* Clear bssid & ssid */
 	memset(vif->bssid, 0, sizeof(vif->bssid));
@@ -2965,8 +3140,12 @@ sprdwl_cfg80211_dump_survey(struct wiphy *wiphy, struct net_device *ndev,
 	struct sprdwl_vif *vif = netdev_priv(ndev);
 	struct api_version_t *api = (&vif->priv->sync_api)->api_array;
 	u8 fw_ver = 0;
-
 	fw_ver = (api + WIFI_CMD_SCAN)->fw_version;
+	if (vif->priv->hw_type == SPRDWL_HW_SC2355_PCIE) {
+		u8 drv_ver = 0;
+		drv_ver = (api + WIFI_CMD_SCAN)->drv_version;
+		fw_ver = min(fw_ver, drv_ver);
+	}
 	if (fw_ver == 1) {
 		struct sprdwl_vif *vif = netdev_priv(ndev);
 		struct sprdwl_survey_info *info = NULL;
@@ -3036,16 +3215,32 @@ out:
 		        if(info->channel){
 		                s_info->channel = info->channel;
 		                s_info->noise = info->noise;
-		                s_info->time = info->time;
-		                s_info->time_busy = info->cca_busy_time;
-		                s_info->time_ext_busy = info->busy_ext_time;
-		                s_info->filled = (SURVEY_INFO_NOISE_DBM |
-		                                SURVEY_INFO_TIME |
-		                                SURVEY_INFO_TIME_BUSY |
-		                                SURVEY_INFO_TIME_EXT_BUSY);
-		        }
-		        netdev_err(vif->ndev,"%s, noise:%d, time:%llu, time_busy:%llu, time_ext_busy:%llu\n", __func__,
-					s_info->noise, s_info->time, s_info->time_busy, s_info->time_ext_busy);
+				if (vif->priv->hw_type == SPRDWL_HW_SC2355_PCIE) {
+					if (vif->acs_scan_index < 6) {
+						s_info->time = info->time;
+						s_info->time_busy = info->cca_busy_time;
+						/*s_info->time_ext_busy = info->busy_ext_time;*/
+						s_info->filled = (SURVEY_INFO_NOISE_DBM |
+								  SURVEY_INFO_TIME |
+								  SURVEY_INFO_TIME_BUSY);
+						netdev_err(vif->ndev,"%s, noise:%d, time:%llu, time_busy:%llu, center_freq:%d\n", __func__,
+							   s_info->noise, s_info->time, s_info->time_busy, s_info->channel->center_freq);
+					} else {
+						s_info->filled = SURVEY_INFO_NOISE_DBM;
+						netdev_err(vif->ndev,"%s, noise:%d,center_freq:%d\n", __func__,
+							   s_info->noise,s_info->channel->center_freq);
+					}
+				} else {
+					s_info->time = info->time;
+					s_info->time_busy = info->cca_busy_time;
+
+					s_info->filled = (SURVEY_INFO_NOISE_DBM |
+							  SURVEY_INFO_TIME |
+							  SURVEY_INFO_TIME_BUSY |
+							  SURVEY_INFO_TIME_EXT_BUSY);
+				}
+			}
+		        netdev_err(vif->ndev,"%s, time %llu\n", __func__, s_info->time);
 		        survey_cnt++;
 		        kfree(info);
 
@@ -3076,6 +3271,7 @@ static struct cfg80211_ops sprdwl_cfg80211_ops = {
 	.get_station = sprdwl_cfg80211_get_station,
 	.libertas_set_mesh_channel = sprdwl_cfg80211_set_channel,
 	.scan = sprdwl_cfg80211_scan,
+	.abort_scan = sprdwl_cfg80211_abort_scan,
 	.connect = sprdwl_cfg80211_connect,
 	.disconnect = sprdwl_cfg80211_disconnect,
 #ifdef IBSS_SUPPORT
@@ -3399,10 +3595,15 @@ void sprdwl_setup_wiphy(struct wiphy *wiphy, struct sprdwl_priv *priv)
 	 * Random MAC addr is enabled by default. And needs to be
 	 * disabled to pass WFA Certification.
 	 */
-	if (!(wfa_cap & SPRDWL_WFA_CAP_NON_RAN_MAC)) {
-		wl_info("\tRandom MAC address scan default supported\n");
+	if (priv->hw_type == SPRDWL_HW_SC2355_PCIE) {
 		wiphy->features |= NL80211_FEATURE_SCAN_RANDOM_MAC_ADDR;
+	} else {
+		if (!(wfa_cap & SPRDWL_WFA_CAP_NON_RAN_MAC)) {
+			wl_info("\tRandom MAC address scan default supported\n");
+			wiphy->features |= NL80211_FEATURE_SCAN_RANDOM_MAC_ADDR;
+		}
 	}
+
 #endif
 	wiphy->features |= NL80211_FEATURE_CELL_BASE_REG_HINTS;
 
@@ -3522,7 +3723,8 @@ void sprdwl_setup_wiphy(struct wiphy *wiphy, struct sprdwl_priv *priv)
 	wiphy_ext_feature_set(wiphy,
 		NL80211_EXT_FEATURE_SCHED_SCAN_RELATIVE_RSSI);
 #endif
-	wiphy->features |= NL80211_FEATURE_SAE;
+	if (priv->hw_type != SPRDWL_HW_SC2355_PCIE)
+		wiphy->features |= NL80211_FEATURE_SAE;
 }
 
 static void sprdwl_check_intf_ops(struct sprdwl_if_ops *ops)

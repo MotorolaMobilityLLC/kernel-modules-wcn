@@ -29,6 +29,13 @@
 #include <soc/sprd/wcn_bus.h>
 #endif
 
+#define PCIE_TX_NUM 96
+
+#define HW_TYPE_SDIO 0
+#define HW_TYPE_PCIE 1
+#define HW_TYPE_SIPC 2
+#define HW_TYPE_USB 3
+
 #define SDIO_RX_CMD_PORT	22
 #define SDIO_RX_PKT_LOG_PORT	23
 /*use port 24 because fifo_len = 8*/
@@ -39,14 +46,27 @@
 
 #define PCIE_RX_CMD_PORT	22
 #define PCIE_RX_DATA_PORT	23
+#define PCIE_RX_ADDR_DATA_PORT	11
 #define PCIE_TX_CMD_PORT	2
 #define PCIE_TX_DATA_PORT	3
+#define PCIE_TX_ADDR_DATA_PORT  10
+
+#define USB_RX_CMD_PORT	20
+#define USB_RX_PKT_LOG_PORT	21
+#define USB_RX_DATA_PORT	22
+#define USB_TX_CMD_PORT	4
+#define USB_TX_DATA_PORT	6
 
 #define MSDU_DSCR_RSVD	5
 
 #define DEL_LUT_INDEX 0
 #define ADD_LUT_INDEX 1
 #define UPD_LUT_INDEX 2
+
+/*will not drop TCP ACK if TCPRX tp under this Mb level*/
+#define DROPACK_TP_TH_IN_M	40
+/*count RX TP timer in ms*/
+#define RX_TP_COUNT_IN_MS	500
 
 #ifdef SPRDWL_TX_SELF
 #include <linux/wakelock.h>
@@ -129,23 +149,23 @@ struct tx_msdu_dscr {
 	unsigned char rsvd:6;
 	unsigned short tcp_udp_header_offset;
 } __packed;
-
+#define DSCR_LEN sizeof(struct tx_msdu_dscr)
 struct pcie_addr_buffer {
 	struct {
 		unsigned char type:3;
 		/*direction of address buffer of cmd/event,*/
 		/*0:Tx, 1:Rx*/
 		unsigned char direction_ind:1;
-		unsigned char need_rsp:1;
+		unsigned char buffer_type:1;
 		unsigned char interface:3;
 	} common;
-	unsigned short number;
 	unsigned char offset;
 	struct {
-		unsigned char rsvd:6;
-		unsigned char buffer_type:1;
+		unsigned char rsvd:7;
 		unsigned char buffer_inuse:1;
 	} buffer_ctrl;
+	unsigned short number;
+	unsigned short rsvd;
 	unsigned char pcie_addr[0][5];
 } __packed;
 
@@ -257,8 +277,8 @@ int sprdwl_intf_fill_msdu_dscr(struct sprdwl_vif *vif,
 			       struct sk_buff *skb,
 				   u8 type,
 			       u8 offset);
-int sprdwl_tx_free_pcie_data(struct sprdwl_intf *dev, unsigned char *data,
-			     unsigned short len);
+void sprdwl_tx_free_pcie_data_num(struct sprdwl_intf *dev, unsigned char *data);
+int sprdwl_tx_free_pcie_data(struct sprdwl_priv *priv, unsigned char *data);
 void *sprdwl_get_rx_data(struct sprdwl_intf *intf, void *pos, void **data,
 			 void **tran_data, int *len, int offset);
 void sprdwl_free_rx_data(struct sprdwl_intf *intf,
@@ -294,4 +314,16 @@ void sprdwl_handle_pop_list(void *data);
 int sprdwl_add_topop_list(int chn, struct mbuf_t *head,
                           struct mbuf_t *tail, int num);
 void set_coex_bt_on_off(u8 action);
+int sprdwl_tx_data_pop_list(int channel, struct mbuf_t *head, struct mbuf_t *tail, int num);
+int sprdwl_push_link(struct sprdwl_intf *intf, int chn,
+			    struct mbuf_t *head, struct mbuf_t *tail, int num,
+			    int (*pop)(int, struct mbuf_t *, struct mbuf_t *, int));
+enum sprdwl_hw_type get_hwintf_type(void);
+void if_tx_addr_trans_free(struct sprdwl_intf *intf);
+int if_tx_addr_trans_pcie(struct sprdwl_intf *intf,
+                            unsigned char *data, int len, bool send_now);
+void sprdwl_count_rx_tp(struct sprdwl_intf *intf, int len);
+void sprdwl_add_to_free_list(struct sprdwl_priv *priv,
+			struct list_head *tx_list_head,
+			int tx_count);
 #endif /* __SPRDWL_INTF_SDIO_SC2355_H__ */

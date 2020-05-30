@@ -53,6 +53,7 @@ struct sprdwl_cmd {
 	struct wakeup_source wake_lock;
 	/*complettion for command*/
 	struct completion	completed;
+	atomic_t ignore_resp;
 };
 
 static struct sprdwl_cmd g_sprdwl_cmd;
@@ -117,6 +118,7 @@ static const char *cmd2str(u8 cmd)
 	C2S(WIFI_CMD_LLSTAT)
 
 	C2S(WIFI_CMD_GSCAN)
+	C2S(WIFI_CMD_RTT)
 	C2S(WIFI_CMD_RSSI_MONITOR)
 
 	C2S(WIFI_CMD_IBSS_JOIN)
@@ -136,6 +138,7 @@ static const char *cmd2str(u8 cmd)
 	C2S(WIFI_CMD_RADAR_DETECT)
 	C2S(WIFI_CMD_RESET_BEACON)
 #endif
+	C2S(WIFI_CMD_HANG_RECEIVED)
 	C2S(WIFI_CMD_VOWIFI_DATA_PROTECT)
 	C2S(WIFI_CMD_SET_TLV)
 	default : return "WIFI_CMD_UNKNOWN";
@@ -258,6 +261,8 @@ static void sprdwl_cmd_set(struct sprdwl_cmd_hdr *hdr)
 	cmd->data = NULL;
 	cmd->mstime = msec;
 	cmd->cmd_id = hdr->cmd_id;
+	atomic_set(&cmd->ignore_resp,
+		   hdr->common.rsp == SPRDWL_HEAD_NORSP ? 1 : 0);
 	spin_unlock_bh(&cmd->lock);
 }
 
@@ -348,9 +353,19 @@ struct sprdwl_msg_buf *__sprdwl_cmd_getbuf(struct sprdwl_priv *priv,
 		sprdwl_put_vif(vif);
 
 		if (cmd_id == WIFI_CMD_POWER_SAVE &&
-		    priv->fw_stat[vif->mode] == SPRDWL_INTF_CLOSE) {
-			wl_err("%s:send [%s] fail because mode close", __func__, cmd2str(cmd_id));
+		    (vif == NULL ||
+		    priv->fw_stat[vif->mode] == SPRDWL_INTF_CLOSE)) {
+			wl_err("%s:send [%s] fail because mode close",
+			       __func__, cmd2str(cmd_id));
 			return NULL;
+		}
+		if (priv->hw_type == SPRDWL_HW_SC2355_PCIE) {
+			if (cmd_id != WIFI_CMD_POWER_SAVE &&
+			    sprdwcn_bus_get_status() == WCN_BUS_DOWN) {
+				wl_err("%s:send [%s] fail because bus done",
+				       __func__, cmd2str(cmd_id));
+				return NULL;
+			}
 		}
 	}
 #endif
@@ -512,6 +527,12 @@ int sprdwl_cmd_send_recv(struct sprdwl_priv *priv,
 	struct sprdwl_intf *intf;
 	struct sprdwl_tx_msg *tx_msg;
 
+	intf = (struct sprdwl_intf *)(priv->hw_priv);
+	if (intf->cp_asserted == 1) {
+		wl_info("%s CP2 assert\n", __func__);
+		return -EIO;
+	}
+
 	ret = sprdwl_api_available_check(priv, msg);
 	if (ret || sprdwl_cmd_lock(cmd)) {
 		sprdwl_intf_free_msg_buf(priv, msg);
@@ -658,8 +679,8 @@ static int sprdwl_down_ini_cmd(struct sprdwl_priv *priv,
 
 	/*reserved 4 byte of section num for align */
 	msg = sprdwl_cmd_getbuf(priv, len + 4 + sizeof(CRC),
-			SPRDWL_MODE_NONE, SPRDWL_HEAD_RSP,
-			WIFI_CMD_DOWNLOAD_INI);
+				SPRDWL_MODE_NONE, SPRDWL_HEAD_RSP,
+				WIFI_CMD_DOWNLOAD_INI);
 	if (!msg)
 		return -ENOMEM;
 
@@ -684,16 +705,13 @@ void sprdwl_download_ini(struct sprdwl_priv *priv)
 #define SEC1	1
 #define SEC2	2
 #define SEC3	3
-#if defined(CONFIG_UMW2652)
 #define SEC4	4
-#endif
+
 	int ret;
 	struct wifi_conf_t *wifi_data;
 	struct wifi_conf_sec1_t *sec1;
 	struct wifi_conf_sec2_t *sec2;
-#if defined(CONFIG_UMW2652)
 	struct wifi_config_param_t *wifi_param;
-#endif
 
 	pr_info("%s enter:", __func__);
 	/*if ini file has been download already, return*/
@@ -722,13 +740,7 @@ void sprdwl_download_ini(struct sprdwl_priv *priv)
 	sec1 = (struct wifi_conf_sec1_t *)wifi_data;
 	sec2 = (struct wifi_conf_sec2_t *)((char *)wifi_data +
 					   sizeof(struct wifi_conf_sec1_t));
-#if defined(CONFIG_UMW2652)
 	wifi_param = (struct wifi_config_param_t *)(&wifi_data->wifi_param);
-
-	wl_info("total config len:%ld,sec1 len:%ld, sec2 len:%ld, sec4 len:%ld\n",
-		(long unsigned int)sizeof(*wifi_data), (long unsigned int)sizeof(*sec1),
-		(long unsigned int)sizeof(*sec2), (long unsigned int)sizeof(*wifi_param));
-#endif
 
 	wl_info("download the first section of config file\n");
 	ret = sprdwl_down_ini_cmd(priv, (uint8_t *)sec1, sizeof(*sec1), SEC1);
@@ -767,9 +779,9 @@ void sprdwl_download_ini(struct sprdwl_priv *priv)
 		}
 	}
 
-#if defined(CONFIG_UMW2652)
 	wl_info("download the 4th section of config file\n");
-	wl_info("trigger = %d, delta = %d, prefer = %d\n", wifi_param->roaming_param.trigger, wifi_param->roaming_param.delta, wifi_param->roaming_param.band_5g_prefer);
+	wl_info("trigger = %d, delta = %d, prefer = %d\n", wifi_param->roaming_param.trigger,
+		wifi_param->roaming_param.delta, wifi_param->roaming_param.band_5g_prefer);
 	ret = sprdwl_down_ini_cmd(priv, (uint8_t *)wifi_param, sizeof(*wifi_param), SEC4);
 	if (ret) {
 		wl_err("download the 4th section of ini fail,return\n");
@@ -779,7 +791,6 @@ void sprdwl_download_ini(struct sprdwl_priv *priv)
 				DOWNLOAD_INI_DATA_FAILED);
 		return;
 	}
-#endif
 
 	kfree(wifi_data);
 }
@@ -1296,6 +1307,29 @@ int sprdwl_scan(struct sprdwl_priv *priv, u8 vif_ctx_id,
 
 	return	sprdwl_cmd_send_recv(priv, msg, CMD_SCAN_WAIT_TIMEOUT,
 			     (u8 *)&state, &rlen);
+}
+
+int sprdwl_abort_scan(struct sprdwl_priv *priv, u8 vif_ctxt_id)
+{
+	struct sprdwl_msg_buf *msg;
+	struct sprdwl_cmd_scan *p;
+	struct sprdwl_cmd_rsp_state_code state;
+	u16 rlen;
+
+	msg = sprdwl_cmd_getbuf(priv, sizeof(struct sprdwl_cmd_scan),
+				vif_ctxt_id, SPRDWL_HEAD_RSP,
+				WIFI_CMD_SCAN);
+	if (!msg)
+		return -ENOMEM;
+
+	p= (struct sprdwl_cmd_scan *)msg->data;
+	p->reserved = ABORT_SCAN_MODE;
+
+	rlen = sizeof(state);
+
+	return sprdwl_cmd_send_recv(priv, msg, CMD_SCAN_WAIT_TIMEOUT,
+				   (u8 *)&state, &rlen);
+
 }
 
 int sprdwl_sched_scan_start(struct sprdwl_priv *priv, u8 vif_ctx_id,
@@ -2103,6 +2137,14 @@ int sprdwl_set_mc_filter(struct sprdwl_priv *priv,  u8 vif_ctx_id,
 	struct sprdwl_msg_buf *msg;
 	struct sprdwl_cmd_set_mac_addr *p;
 
+	if (priv->hw_type == SPRDWL_HW_SC2355_PCIE) {
+		/*wcn bus is down, drop skb*/
+		if (sprdwcn_bus_get_status() == WCN_BUS_DOWN) {
+			wl_err("%s,wcn bus is down, drop cmd!\n", __func__);
+			return 0;
+		}
+	}
+
 	msg = sprdwl_cmd_getbuf(priv, sizeof(*p) + num * ETH_ALEN,
 				vif_ctx_id, SPRDWL_HEAD_RSP,
 				WIFI_CMD_MULTICAST_FILTER);
@@ -2583,6 +2625,12 @@ unsigned short sprdwl_rx_rsp_process(struct sprdwl_priv *priv, u8 *msg)
 		wl_err("cmd->refcnt=%x\n", atomic_read(&cmd->refcnt));
 		return 0;
 	}
+
+	if (atomic_read(&cmd->ignore_resp)) {
+		atomic_dec(&cmd->refcnt);
+		wl_warn("ignore %s response \n", cmd2str(hdr->cmd_id));
+		return plen;
+	}
 	data = kmalloc(plen, GFP_KERNEL);
 	if (!data) {
 		atomic_dec(&cmd->refcnt);
@@ -2658,6 +2706,11 @@ void sprdwl_event_scan_done(struct sprdwl_vif *vif, u8 *data, u16 len)
 		sprdwl_gscan_done(vif, bucket_id);
 		netdev_info(vif->ndev, "%s gscan got %d bucketid done\n",
 			    __func__, bucket_id);
+		break;
+	case SPRDWL_SCAN_ABORT_DONE:
+		sprdwl_scan_done(vif, true);
+		netdev_info(vif->ndev, "%s scan abort got %d BSSes\n",
+			     __func__, bss_count);
 		break;
 	case SPRDWL_SCAN_ERROR:
 	default:
@@ -3165,19 +3218,20 @@ void sprdwl_wfd_mib_cnt(struct sprdwl_vif *vif, u8 *data, u16 len)
 		(struct event_wfd_mib_cnt *)data;
 	u32 tx_cnt, busy_cnt, wfd_rate;
 
-	wl_info("%s, %d, tp=%d, sum_tp=%d, drop=%d,%d,%d,%d, frame=%d, clear=%d, mib=%d\n",
+	wl_info("%s, %d, drop=%d,%d,%d,%d, frame=%d, clear=%d, mib=%d\n",
 		__func__, __LINE__,
-		wfd->wfd_throughput, wfd->sum_tx_throughput,
-		wfd->tx_mpdu_lost_cnt[0], wfd->tx_mpdu_lost_cnt[1], wfd->tx_mpdu_lost_cnt[2], wfd->tx_mpdu_lost_cnt[3],
 		wfd->tx_frame_cnt, wfd->rx_clear_cnt, wfd->mib_cycle_cnt);
-
-	tx_cnt = wfd->tx_frame_cnt / wfd->mib_cycle_cnt;
-	busy_cnt = (10 * wfd->rx_clear_cnt) / wfd->mib_cycle_cnt;
+	if(!wfd->mib_cycle_cnt)	{
+		return;
+	} else {
+		tx_cnt = wfd->tx_frame_cnt / wfd->mib_cycle_cnt;
+		busy_cnt = (10 * wfd->rx_clear_cnt) / wfd->mib_cycle_cnt;
+	}
 
 	if (busy_cnt > 8)
-		wfd_rate = wfd->sum_tx_throughput;
+		wfd_rate = wfd->tx_stats.tx_tp_in_mbps;
 	else
-		wfd_rate = wfd->sum_tx_throughput + wfd->sum_tx_throughput * (1 / tx_cnt) * ((10 - busy_cnt) / 10) / 2;
+		wfd_rate = wfd->tx_stats.tx_tp_in_mbps + wfd->tx_stats.tx_tp_in_mbps * (1 / tx_cnt) * ((10 - busy_cnt) / 10) / 2;
 	wl_info("%s, %d, wfd_rate=%d\n", __func__, __LINE__, wfd_rate);
 	wfd_rate = 2;
 	/* wfd_notifier_call_chain(WIFI_EVENT_WFD_RATE, (void *)(unsigned long)wfd_rate); */
@@ -3418,9 +3472,9 @@ unsigned short sprdwl_rx_event_process(struct sprdwl_priv *priv, u8 *msg)
 		return plen;
 	}
 
-	wl_warn("[%u]ctx_id %d recv[%s]len: %d\n",
+	wl_warn("[%u]ctx_id %d recv[%s]len: %d,rsp_cnt=%d\n",
 		le32_to_cpu(hdr->mstime), ctx_id,
-		evt2str(hdr->cmd_id), plen);
+		evt2str(hdr->cmd_id), plen, hdr->rsp_cnt);
 
 	print_hex_dump_debug("EVENT: ", DUMP_PREFIX_OFFSET, 16, 1,
 			     (u8 *)hdr, hdr->plen, 0);

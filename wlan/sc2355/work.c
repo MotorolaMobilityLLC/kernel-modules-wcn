@@ -60,6 +60,7 @@ static void sprdwl_do_work(struct work_struct *work)
 	struct sprdwl_assert_info *assert_info;
 	struct sprdwl_vif *vif;
 	struct sprdwl_priv *priv = container_of(work, struct sprdwl_priv, work);
+	unsigned char *data = NULL;
 
 	while (1) {
 		sprdwl_work = sprdwl_get_work(priv);
@@ -131,6 +132,23 @@ static void sprdwl_do_work(struct work_struct *work)
 							sprdwl_work->len);
 			break;
 #endif
+		case SPRDWL_PCIE_RX_ALLOC_BUF:
+			sprdwl_mm_fill_buffer(priv->hw_priv);
+			break;
+		case SPRDWL_PCIE_RX_FLUSH_BUF:
+			sprdwl_rx_flush_buffer(priv->hw_priv);
+			break;
+		case SPRDWL_PCIE_TX_MOVE_BUF:
+			sprdwl_add_to_free_list(priv,
+						(struct list_head *)sprdwl_work->data,
+						sprdwl_work->len);
+			break;
+		case SPRDWL_PCIE_TX_FREE_BUF:
+			memcpy((unsigned char *)&data, sprdwl_work->data,
+				sizeof(unsigned char *));
+			sprdwl_tx_free_pcie_data(priv, data);
+			sprdwl_free_data(data, sprdwl_work->len);
+			break;
 		case SPRDWL_CMD_TX_DATA:
 			sprdwl_send_data2cmd(vif->priv, vif->ctx_id,
 					sprdwl_work->data, sprdwl_work->len);
@@ -146,6 +164,11 @@ static void sprdwl_do_work(struct work_struct *work)
 						     sprdwl_work->data,
 						     sprdwl_work->len);
 			break;
+#ifdef ENABLE_PAM_WIFI
+		case SPRDWL_PAM_WIFI_MISS_NODE_WORK:
+			sprdwl_pam_wifi_miss_node_send(sprdwl_work->data);
+			break;
+#endif
 		default:
 			netdev_dbg(vif->ndev, "Unknown delayed work: %d\n",
 				   sprdwl_work->id);

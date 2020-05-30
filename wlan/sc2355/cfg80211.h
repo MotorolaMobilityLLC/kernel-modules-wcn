@@ -20,6 +20,7 @@
 
 #include <net/cfg80211.h>
 #include <linux/version.h>
+#include <linux/sipa.h>
 
 /* auth type */
 #define SPRDWL_AUTH_OPEN		0
@@ -50,6 +51,11 @@
 #define SPRDWL_AKM_SUITE_PSK_SHA256	(6)
 #define SPRDWL_AKM_SUITE_SAE		(8)
 #define SPRDWL_AKM_SUITE_WAPI_CERT	(12)
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0)
+#define WIPHY_FLAG_SUPPORTS_SCHED_SCAN	BIT(11)
+#endif
+
 #define SPRDWL_AKM_SUITE_OWE		(18)
 
 /* determine the actual values for the macros below*/

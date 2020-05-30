@@ -56,11 +56,19 @@ struct sprdwl_rx_if {
 	struct sprdwl_rx_ba_entry ba_entry;
 	struct sprdwl_rx_defrag_entry defrag_entry;
 	u8 rsp_event_cnt;
+	void *addr_trans_head;
+	void *addr_trans_tail;
+	int addr_trans_num;
 
 #ifdef SPLIT_STACK
 	struct work_struct rx_net_work;
 	struct workqueue_struct *rx_net_workq;
 #endif
+
+	struct completion rx_completed;
+	unsigned long rx_total_len;
+	ktime_t rxtimebegin;
+	ktime_t rxtimeend;
 };
 
 struct sprdwl_addr_trans_value {
@@ -75,6 +83,7 @@ struct sprdwl_addr_trans_value {
 
 struct sprdwl_addr_trans {
 	unsigned int timestamp;
+	unsigned short seq_num;
 	unsigned char tlv_num;
 	struct sprdwl_addr_trans_value value[0];
 } __packed;
@@ -255,8 +264,14 @@ static inline bool seqno_geq(unsigned short seq1, unsigned short seq2)
 void sprdwl_rx_process(struct sprdwl_rx_if *rx_if, struct sk_buff *pskb);
 void sprdwl_rx_send_cmd(struct sprdwl_intf *intf, void *data, int len,
 			unsigned char id, unsigned char ctx_id);
+void sprdwl_queue_rx_buff_work(struct sprdwl_priv *priv, unsigned char id);
+int sprdwl_mm_fill_buffer(void *intf);
+void sprdwl_mm_fill_all_buffer(void *intf);
+void sprdwl_rx_flush_buffer(void *intf);
 int sprdwl_pkt_log_save(struct sprdwl_intf *intf, void *data);
 void sprdwl_rx_napi_init(struct net_device *ndev, struct sprdwl_intf *intf);
+void rx_up(struct sprdwl_rx_if *rx_if);
+void rx_net_up(struct sprdwl_rx_if *rx_if);
 int sprdwl_rx_init(struct sprdwl_intf *intf);
 int sprdwl_rx_deinit(struct sprdwl_intf *intf);
 

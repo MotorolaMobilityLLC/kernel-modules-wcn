@@ -42,6 +42,8 @@
 #ifdef TCPACK_DELAY_SUPPORT
 #include "tcp_ack.h"
 #endif
+#include <net/ip.h>
+#include <net/sock.h>
 
 struct sprdwl_priv *g_sprdwl_priv;
 
@@ -156,24 +158,97 @@ void sprdwl_net_flowcontrl(struct sprdwl_priv *priv,
 		sprdwl_netflowcontrl_all(priv, state);
 }
 
-static int sprdwl_start_xmit(struct sk_buff *skb, struct net_device *ndev)
+static int sprdwl_start_xmit_prepare(struct sprdwl_vif *vif, struct net_device *ndev,
+				     struct sk_buff *skb)
 {
-	struct sprdwl_vif *vif = netdev_priv(ndev);
-	int ret = 0;
-	struct sprdwl_msg_buf *msg = NULL;
-	u8 *data_temp;
-	struct sprdwl_eap_hdr *eap_temp;
+	struct sprdwl_intf *intf = (struct sprdwl_intf *)vif->priv->hw_priv;
 
 	/* drop nonlinearize skb */
 	if (skb_linearize(skb)) {
 		wl_err("nonlinearize skb\n");
 		dev_kfree_skb(skb);
 		ndev->stats.tx_dropped++;
-		goto out;
+		return -1;
 	}
+
+	if (intf->cp_asserted == 1 || unlikely(intf->exit)) {
+		dev_kfree_skb(skb);
+		sprdwl_stop_net(vif);
+		return -1;
+	}
+
+	if (vif->priv->hw_type == SPRDWL_HW_SC2355_PCIE) {
+		if (sprdwcn_bus_get_status() == WCN_BUS_DOWN) {
+			wl_err("%s,wcn bus is down, drop skb!\n", __func__);
+			dev_kfree_skb(skb);
+			return -1;
+		}
+	}
+
+	return 0;
+}
+
+static void sprdwl_get_pcie_dma_addr(struct sprdwl_vif *vif, struct sk_buff *skb)
+{
+
+	struct sk_buff *tmp_skb = NULL;
+
+	if (vif->priv->hw_type == SPRDWL_HW_SC2355_PCIE) {
+		dma_addr_t dma_addr = 0;
+		dma_addr = PFN_PHYS(virt_to_pfn(skb->head)) + offset_in_page(skb->head);
+
+		if (!dma_capable(wiphy_dev(vif->priv->wiphy), dma_addr, skb->len)) {
+			/* current pa is lagrer than device dma mask
+			* need to use dma buffer
+			*/
+			wl_err("skb copy from dma addr(%lx)\n", (unsigned long)dma_addr);
+			tmp_skb = skb_copy(skb, (GFP_DMA | GFP_ATOMIC));
+			dev_kfree_skb(skb);
+			skb = tmp_skb;
+		}
+	}
+}
+
+static int sprdwl_realloc_skb_headroom(struct sk_buff *skb, struct net_device *ndev,
+				       struct sprdwl_msg_buf *msg)
+{
+	struct sprdwl_vif *vif = netdev_priv(ndev);
+	struct sk_buff *tmp_skb = NULL;
+
+	if (skb_headroom(skb) < ndev->needed_headroom) {
+		tmp_skb = skb;
+
+		skb = skb_realloc_headroom(skb, ndev->needed_headroom);
+		dev_kfree_skb(tmp_skb);
+		if (!skb) {
+			netdev_err(ndev,
+				   "%s skb_realloc_headroom failed\n",
+				   __func__);
+			sprdwl_intf_free_msg_buf(vif->priv, msg);
+			return -1;
+		}
+	}
+
+	return 0;
+}
+
+static int sprdwl_start_xmit(struct sk_buff *skb, struct net_device *ndev)
+{
+	int ret = 0;
+	u8 *data_temp;
+	struct sprdwl_vif *vif = netdev_priv(ndev);
+	struct sprdwl_msg_buf *msg = NULL;
+	struct sprdwl_eap_hdr *eap_temp;
+
+	ret = sprdwl_start_xmit_prepare(vif, ndev, skb);
+	if (-1 == ret)
+		goto out;
+
+	sprdwl_get_pcie_dma_addr(vif, skb);
 
 	data_temp = (u8 *)(skb->data) + sizeof(struct ethhdr);
 	eap_temp = (struct sprdwl_eap_hdr *)data_temp;
+
 	if (vif->mode == SPRDWL_MODE_P2P_GO &&
 		skb->protocol == cpu_to_be16(ETH_P_PAE) &&
 		eap_temp->type == EAP_PACKET_TYPE &&
@@ -207,6 +282,11 @@ static int sprdwl_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 			return NETDEV_TX_OK;
 	}
 
+#ifdef ENABLE_PAM_WIFI
+	ret = sprdwl_xmit_to_ipa_pamwifi(skb, ndev);
+	return ret;
+#endif
+
 	/*do not send packet before connected*/
 	if ((vif->mode == SPRDWL_MODE_STATION && vif->sm_state != SPRDWL_CONNECTED) ||
 		(vif->mode != SPRDWL_MODE_STATION && vif->priv->fw_stat[vif->mode] != SPRDWL_INTF_OPEN)) {
@@ -223,22 +303,13 @@ static int sprdwl_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 	if (!msg) {
 		wl_err("%s, %d, get msg bug failed\n", __func__, __LINE__);
 		ndev->stats.tx_fifo_errors++;
+		dev_kfree_skb(skb);
+		sprdwl_stop_net(vif);
 		return NETDEV_TX_BUSY;
 	}
 
-	if (skb_headroom(skb) < ndev->needed_headroom) {
-		struct sk_buff *tmp_skb = skb;
-
-		skb = skb_realloc_headroom(skb, ndev->needed_headroom);
-		dev_kfree_skb(tmp_skb);
-		if (!skb) {
-			netdev_err(ndev,
-				   "%s skb_realloc_headroom failed\n",
-				   __func__);
-			sprdwl_intf_free_msg_buf(vif->priv, msg);
-			goto out;
-		}
-	}
+	if (-1 == sprdwl_realloc_skb_headroom(skb, ndev, msg))
+		goto out;
 
 #if !defined(SC2355_FTR)
 	/* sprdwl_send_data: offset use 2 for cp bytes align */
@@ -569,6 +640,8 @@ static int sprdwl_set_power_save(struct net_device *ndev, struct ifreq *ifr)
 			goto out;
 		netdev_info(ndev, "%s: set suspend mode,value : %d\n",
 			    __func__, value);
+		if (priv->hw_type == SPRDWL_HW_SC2355_PCIE)
+			priv->is_screen_off = value;
 		ret = sprdwl_power_save(priv, vif->ctx_id,
 					SPRDWL_SCREEN_ON_OFF, value);
 	} else if (!strncasecmp(command, CMD_SET_FCC_CHANNEL,
@@ -1130,7 +1203,7 @@ void clean_scan_list(struct sprdwl_vif *vif)
 		kfree(node);
 		count++;
 	}
-	wl_err("delete scan node num:%d\n", count);
+	pr_err("delete scan node num:%d\n", count);
 }
 
 #ifdef ACS_SUPPORT
@@ -1405,7 +1478,10 @@ static struct sprdwl_vif *sprdwl_register_netdev(struct sprdwl_priv *priv,
 	ndev->needed_headroom = priv->skb_head_len;
 	ndev->watchdog_timeo = 2 * HZ;
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0)
-	ndev->features |= NETIF_F_CSUM_MASK | NETIF_F_SG;
+	if (priv->hw_type == SPRDWL_HW_SC2355_PCIE)
+		ndev->features |= NETIF_F_SG;
+	else
+		ndev->features |= NETIF_F_CSUM_MASK | NETIF_F_SG;
 #else
 	ndev->features |= NETIF_F_ALL_CSUM | NETIF_F_SG;
 #endif

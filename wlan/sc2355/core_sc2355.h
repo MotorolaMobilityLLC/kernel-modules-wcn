@@ -48,6 +48,10 @@
 #define SPRDWL_MAX_DATA_RXLEN	1676
 
 #define MAX_LUT_NUM 32
+#define SAVE_ADDR(data, buf, len) memcpy((data - len), &buf, len)
+#define RESTORE_ADDR(buf, data, len) memcpy(&buf, (data - len), len)
+#define CLEAR_ADDR(data, len) memset((data - len), 0x0, len)
+#define HIGHER_DDR_PRIORITY	0xAA
 
 struct tx_address {
 	u8 da[ETH_ALEN];
@@ -191,6 +195,12 @@ struct sprdwl_intf {
 	u8 cp_asserted;
 	/*wifi bt coex mode, 1:BT is on, 0:BT is off*/
 	u8 coex_bt_on;
+	void *mbuf_head;
+	void *mbuf_tail;
+	int mbuf_num;
+	u8 tsq_shift;
+	unsigned int tcpack_delay_th_in_mb;
+	unsigned int tcpack_time_in_ms;
 };
 
 /* HashTable */

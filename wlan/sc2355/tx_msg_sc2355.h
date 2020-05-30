@@ -88,6 +88,7 @@ struct sprdwl_tx_msg {
 	struct sprdwl_msg_list tx_list_qos_pool;
 	struct sprdwl_xmit_msg_list xmit_msg_list;
 	struct tx_t *tx_list[SPRDWL_MODE_MAX];
+	int net_stoped;
 };
 
 struct sprdwl_msg_buf *sprdwl_get_msg_buf(void *pdev,
@@ -117,5 +118,6 @@ void sprdwl_flush_tosendlist(struct sprdwl_tx_msg *tx_msg);
 void sprdwl_fc_add_share_credit(struct sprdwl_vif *vif);
 
 bool is_vowifi_pkt(struct sk_buff *skb, bool *b_cmd_path);
+void sprdwl_dequeue_tofreelist_buf(struct sprdwl_msg_buf *msg_buf);
 #endif
 

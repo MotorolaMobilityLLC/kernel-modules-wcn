@@ -3,6 +3,7 @@
 
 #include <linux/skbuff.h>
 #include <linux/dma-direction.h>
+#include <linux/dma-mapping.h>
 
 #define SPRDWL_PHYS_LEN 5
 #define SPRDWL_PHYS_MASK (((uint64_t)1 << 40) - 1)
@@ -22,6 +23,12 @@ struct sprdwl_mm {
 	void *hdr;
 	/* addr_trans point to addr trans of addr buf */
 	void *addr_trans;
+	atomic_t alloc_num;
+};
+
+struct sprdwl_mm_tmp {
+	int len;
+	void *hdr;
 };
 
 int sprdwl_mm_init(struct sprdwl_mm *mm_entry, void *intf);
@@ -37,4 +44,5 @@ void *mm_phys_to_virt(struct device *dev, unsigned long pcie_addr, size_t size,
 int sprdwl_tx_addr_buf_unmap(void *tx_msg,
 			     int complete, int tx_count);
 int mm_buffer_alloc(struct sprdwl_mm *mm_entry, int need_num);
+void mm_flush_buffer(struct sprdwl_mm *mm_entry);
 #endif /* __SPRDWL_MM_H__ */
