@@ -88,6 +88,7 @@ static struct fm_rds_data *g_rds_data_string;
 unsigned global_freq = 8750;
 struct fm_rds_data rds_debug_data;
 #endif
+unsigned short assert_reset_freq = 8750;
 
 extern struct device *fm_miscdev;
 
@@ -355,10 +356,47 @@ static void receive_tasklet(unsigned long arg)
 	}
 }
 
+static int fm_assert_reset(void){
+	int ret_tune = -1;
+	int ret = -1;
+	struct fm_tune_parm parm;
+	struct fm_tune_parm powerup_parm;
+	powerup_parm.err = (unsigned char)0;
+	powerup_parm.freq = 875;
+	parm.freq = assert_reset_freq;
+
+	dev_unisoc_fm_info(fm_miscdev,"start open SPRD fm module after assert reset\n");
+
+	ret = fm_powerup(&powerup_parm);
+	if (ret != 0) {
+		dev_unisoc_fm_info(fm_miscdev,"fm powerup fail after assert reset\n");
+		return ret;
+	} else {
+		fmdev->fm_invalid = 0;
+		dev_unisoc_fm_info(fm_miscdev,"fm powerup success after assert reset\n");
+		ret_tune = fm_write_cmd(FM_TUNE_CMD, &parm.freq, sizeof(parm.freq),NULL, NULL);
+		if (ret_tune == 0){
+			dev_unisoc_fm_info(fm_miscdev,"fm tune success after assert reset\n");
+		} else {
+			dev_unisoc_fm_info(fm_miscdev,"fm tune fail after assert reset\n");
+		}
+		return ret_tune;
+	}
+}
+
 ssize_t fm_read_rds_data(struct file *filp, char __user *buf,
 	size_t count, loff_t *pos)
 {
 	int timeout = -1;
+	int ret = -1;
+
+	if (fmdev->fm_invalid == 1){
+		mdelay(2000);
+		ret = fm_assert_reset();
+		if (ret != 0) {
+			dev_unisoc_fm_info(fm_miscdev,"fm assert reset fail\n");
+		}
+	}
 
 	dev_unisoc_fm_info(fm_miscdev,"(FM_RDS) fm start to read RDS data\n");
 
@@ -506,7 +544,7 @@ int fm_powerup(struct fm_tune_parm *p)
 			fmdev->pdata->dst, fmdev->pdata->rx_channel);
 		return -ENODEV;
 	}
-	parm.freq = 875;
+	parm.freq = (unsigned short)875;
 	parm.freq *= 10;
 	dev_unisoc_fm_info(fm_miscdev,"fm ioctl power up freq= %d\n", parm.freq);
 
@@ -1182,6 +1220,23 @@ int fm_rds_onoff(void *arg)
 	unsigned char rds_on, af_on;
 	int ret = 0;
 	unsigned char payload[2];
+	int status = 0;
+
+	struct fm_tune_parm powerup_parm;
+	powerup_parm.err = 0;
+	powerup_parm.freq = 875;
+
+	if (fmdev->fm_invalid == 1 ){
+		status = fm_powerup(&powerup_parm);
+		if(status != 0){
+			ret = 2;
+			dev_unisoc_fm_info(fm_miscdev,"fm wcnd reset stay command invalid status\n");
+			return ret;
+		} else {
+			fmdev->fm_invalid = 0;
+			dev_unisoc_fm_info(fm_miscdev,"fm wcnd reset stay command valid status\n");
+		}
+    }
 
 	if (copy_from_user(&rds_on, arg, sizeof(rds_on))) {
 		dev_unisoc_fm_err(fm_miscdev,"fm rds_onoff 's ret value is -eFAULT\n");

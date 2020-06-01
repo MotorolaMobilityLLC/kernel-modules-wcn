@@ -14,6 +14,7 @@
 #ifndef __MTTY_H
 #define __MTTY_H
 #include <misc/wcn_bus.h>
+#include <misc/mchn.h>
 
 enum mtty_state {
 	MTTY_STATE_CLOSE,
@@ -30,13 +31,18 @@ struct mtty_init_data {
 };
 
 #define MTTY_DEV_MAX_NR     1
-#define BT_TX_CHANNEL    3
-//#define BT_TX_CHANNEL1    4
-#define BT_RX_CHANNEL     17
-#define BT_TX_INOUT    1
+#define BT_SDIO_TX_CHANNEL    3
+#define BT_SDIO_RX_CHANNEL    17
+#define BT_TX_INOUT     1
 #define BT_RX_INOUT     0
-#define BT_TX_POOL_SIZE   64  // the max buffer is 64
-#define BT_RX_POOL_SIZE   1
+#define BT_TX_POOL_SIZE    64  // the max buffer is 64
+#define BT_RX_POOL_SIZE    1
 #define BT_SDIO_HEAD_LEN   4
+
+#define BT_PCIE_TX_CHANNEL    1
+#define BT_PCIE_RX_CHANNEL    2
+#define BT_PCIE_HEAD_LEN      0
+#define BT_PCIE_RX_MAX_NUM    4
+#define BT_PCIE_RX_DMA_SIZE   2048
 
 #endif

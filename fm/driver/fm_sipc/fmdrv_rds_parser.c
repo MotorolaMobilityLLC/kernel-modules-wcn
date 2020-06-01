@@ -512,6 +512,7 @@ void rds_get_rt_cmp(unsigned char *buf, unsigned char grp_type)
 	signed int pos = 0;
 	unsigned int rt_len = 0;
 	signed int bufsize = 0;
+	unsigned int rt_end_length = 0;
 
 	if (grp_type == 0x2B)
 		subtype = RDS_GRP_VER_B;
@@ -544,6 +545,7 @@ void rds_get_rt_cmp(unsigned char *buf, unsigned char grp_type)
 			rds_rt_cmp(rt_addr, subtype,
 				fresh, once, twice,
 				&seg_ok, &txt_end, &rt_len);
+			rt_end_length = rt_len;
 			if (seg_ok == fm_true)
 				rt_bm.bm_set(&rt_bm, rt_addr);
 			state_set(&rt_sm, RDS_RT_DECISION);
@@ -568,14 +570,11 @@ void rds_get_rt_cmp(unsigned char *buf, unsigned char grp_type)
 
 		case RDS_RT_GETLEN:
 			memcpy(display, twice, bufsize);
-			if (rt_len > 0 &&
-				((txt_end == fm_true) ||
-				(rt_bm.bm_get(&rt_bm) == 0xFFFF))) {
-				dev_unisoc_fm_info(fm_miscdev,"RT is %s\n",
-					fmdev->rds_data.rt_data.textdata[3]);
-				/* yes we got a new RT */
-				dev_unisoc_fm_info(fm_miscdev,"Yes, get an RT! [len=%d]\n", rt_len);
+			if (rt_end_length > 0 && txt_end == fm_true) {
+					memset(display + rt_end_length, 0x20, bufsize - rt_end_length);
+					dev_unisoc_fm_info(fm_miscdev,"set display! [rt_end_length=%d],display:%s\n", rt_end_length,display);
 			}
+			dev_unisoc_fm_info(fm_miscdev,"RT is %s\n,Yes, get an RT! [len=%d]\n",fmdev->rds_data.rt_data.textdata[3],rt_len);
 			rt_bm.bm_clr(&rt_bm);
 			if (txtab_change == fm_true) {
 				/* clear buf */

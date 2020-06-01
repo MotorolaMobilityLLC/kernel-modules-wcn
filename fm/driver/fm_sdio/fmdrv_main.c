@@ -58,6 +58,24 @@
 #include <linux/of_irq.h>
 #endif
 
+#include <misc/wcn_bus.h>
+#include <linux/dma-direction.h>
+#include <linux/dma-mapping.h>
+
+#define FM_DUMP_DATA
+struct platform_device *g_fm_pdev = NULL;
+static struct device *dm_rx_t = NULL;
+unsigned long dm_rx_phy[FM_PCIE_RX_MAX_NUM];
+unsigned char *(dm_rx_ptr[FM_PCIE_RX_MAX_NUM]);
+
+struct dma_buf {
+	unsigned long vir;
+	unsigned long phy;
+	int size;
+};
+
+uint8_t wcn_hw_type = 0;
+
 #define HCI_GRP_VENDOR_SPECIFIC		0x3F
 #define FM_SPRD_OP_CODE			0x008C
 #define hci_opcode_pack(ogf, ocf) \
@@ -137,7 +155,7 @@ static void dump_buf(unsigned char *buf, unsigned char len, const char *func) {
 }
 #endif
 
-static int fm_send_cmd(unsigned char subcmd, void *payload, int payload_len) {
+static int fm_sdio_send_cmd(unsigned char subcmd, void *payload, int payload_len) {
     int num = 1;
     unsigned char *cmd_buf;
     struct fm_cmd_hdr *cmd_hdr;
@@ -161,22 +179,100 @@ static int fm_send_cmd(unsigned char subcmd, void *payload, int payload_len) {
     if (payload != NULL)
         memcpy(cmd_buf + FM_SDIO_HEAD_LEN + sizeof(struct fm_cmd_hdr), payload, payload_len);
 
-    if (!sprdwcn_bus_list_alloc(FM_TX_CHANNEL, &fmdev->tx_head, &fmdev->tx_tail, &num)) {
+    if (!sprdwcn_bus_list_alloc(FM_SDIO_TX_CHANNEL, &fmdev->tx_head, &fmdev->tx_tail, &num)) {
         fmdev->tx_head->buf = cmd_buf;
         fmdev->tx_head->len = size;
         fmdev->tx_head->next = NULL;
 #ifdef FM_DUMP_DATA
 	dump_buf((unsigned char *)fmdev->tx_head->buf, (unsigned char)size, __func__);
 #endif
-        if ( sprdwcn_bus_push_list(FM_TX_CHANNEL, fmdev->tx_head, fmdev->tx_tail, num)) {
+        if ( sprdwcn_bus_push_list(FM_SDIO_TX_CHANNEL, fmdev->tx_head, fmdev->tx_tail, num)) {
 			dev_unisoc_fm_err(fm_miscdev,"fmdrv write cmd to sdiom fail, free buf\n");
             kfree(fmdev->tx_head->buf);
             fmdev->tx_head->buf = NULL;
-            sprdwcn_bus_list_free(FM_TX_CHANNEL, fmdev->tx_head, fmdev->tx_tail, num);
+            sprdwcn_bus_list_free(FM_SDIO_TX_CHANNEL, fmdev->tx_head, fmdev->tx_tail, num);
         }
     } else {
 		dev_unisoc_fm_err(fm_miscdev,"%s:%d sprdwcn_bus_list_alloc fail\n", __func__, __LINE__);
     }
+    return 0;
+}
+
+static int fm_pcie_send_cmd(unsigned char subcmd, void *payload, int payload_len) {
+    int num = 1;
+    unsigned char *cmd_buf;
+    struct fm_cmd_hdr *cmd_hdr;
+    int size;
+
+    struct mbuf_t *tx_head = NULL;
+    struct mbuf_t *tx_tail = NULL;
+
+    size = sizeof(struct fm_cmd_hdr) + ((payload == NULL) ? 0 : payload_len);
+    cmd_buf = kmalloc(size + FM_SDIO_HEAD_LEN, GFP_KERNEL);
+	//cmd_buf = (unsigned char *)dma_alloc_coherent(dm, size + FM_SDIO_HEAD_LEN, (dma_addr_t *)(&(tx_head->phy)), GFP_DMA);
+    memset(cmd_buf, 0, size + FM_SDIO_HEAD_LEN);
+    if (!cmd_buf) {
+        pr_err("(fmdrv):%s():No memory to create new command buf\n", __func__);
+        return -ENOMEM;
+    }
+
+    /* Fill command information */
+    cmd_hdr = (struct fm_cmd_hdr *)(cmd_buf + FM_SDIO_HEAD_LEN);
+    cmd_hdr->header = 0x01;
+    /* cmd_hdr->cmd = 0xFC8C; */
+    cmd_hdr->opcode = hci_opcode_pack(HCI_GRP_VENDOR_SPECIFIC, FM_SPRD_OP_CODE);
+    cmd_hdr->len = ((payload == NULL) ? 0 : payload_len) + 1;
+    cmd_hdr->fm_subcmd = subcmd;
+
+    if (payload != NULL)
+        memcpy(cmd_buf + FM_SDIO_HEAD_LEN + sizeof(struct fm_cmd_hdr), payload, payload_len);
+
+    if (!sprdwcn_bus_list_alloc(FM_PCIE_TX_CHANNEL, &tx_head, &tx_tail, &num)) {
+		int ret = 0;
+        struct device *dm = &g_fm_pdev->dev;
+		pr_err("%s() sprdwcn_bus_list_alloc() success dm %p tx_head %p tx_tail %p num %d\n", __func__, dm, tx_head, tx_tail, num);
+
+#if 1
+        if ((ret = dma_set_mask(dm, DMA_BIT_MASK(64)))) {
+            printk(KERN_ERR "dma_set_mask err ret %d\n", ret);
+            if ((ret = dma_set_coherent_mask(dm, DMA_BIT_MASK(64)))) {
+                printk(KERN_ERR "dma_set_coherent_mask err ret %d\n", ret);
+                return -ENOMEM;
+            }
+        }
+
+#elif 0
+        {
+            dm_t dm = {0};
+            ret = dmalloc(&dm, count);
+            pr_err("%s:line:%d dmalloc ret %d\n",__func__,__LINE__);
+            return -ENOMEM;
+        }
+#endif
+
+		tx_head->buf = (unsigned char *)dma_alloc_coherent(dm, size, (dma_addr_t *)(&(tx_head->phy)), GFP_DMA);
+		if(!tx_head->buf){
+			pr_err("%s:line:%d dma_alloc_coherent err dev %p size %d phy %p\n", __func__, __LINE__, &fmdev->pdev->dev, size, &(tx_head->phy));
+            return -ENOMEM;
+        }
+		//fmdev->tx_head->buf = cmd_buf;
+		memcpy(tx_head->buf, cmd_buf + FM_SDIO_HEAD_LEN, size);
+        tx_head->len = size;
+        tx_head->next = NULL;
+#ifdef FM_DUMP_DATA
+	dump_buf((unsigned char *)tx_head->buf, (unsigned char)(size + FM_SDIO_HEAD_LEN), __func__);
+#endif
+        if (sprdwcn_bus_push_list(FM_PCIE_TX_CHANNEL, tx_head, tx_tail, num)) {
+            pr_err("fmdrv write cmd to sdiom fail, free buf\n");
+            dma_free_coherent(dm, size, (void *)tx_head->buf, tx_head->phy);
+
+            tx_head->buf = NULL;
+            sprdwcn_bus_list_free(FM_PCIE_TX_CHANNEL, tx_head, tx_tail, num);
+        }
+    } else {
+        pr_err("%s:%d mchn_bus_list_alloc fail\n", __func__, __LINE__);
+    }
+    kfree(cmd_buf);
     return 0;
 }
 
@@ -194,7 +290,15 @@ static int fm_write_cmd(unsigned char subcmd, void *payload,
         return -EFAULT;
     }*/
     mutex_lock(&fmdev->mutex);
-    ret = fm_send_cmd(subcmd, payload, payload_len);
+	if (wcn_hw_type == HW_TYPE_SDIO) {
+		ret = fm_sdio_send_cmd(subcmd, payload, payload_len);
+	} else if (wcn_hw_type == HW_TYPE_PCIE) {
+		ret = fm_pcie_send_cmd(subcmd, payload, payload_len);
+	} else {
+		pr_err("%s invalid hw type\n", __func__);
+		return -ENOMEM;
+	}
+
     if (ret < 0) {
         /*marlin_set_sleep(MARLIN_FM, 1);*/
         wake_unlock(&fm_wakelock);
@@ -277,16 +381,14 @@ static void receive_tasklet(unsigned long arg)
             return;
         }
         parse_sdio_header(head, tail, num, sdio_hdr);
-        if (sdio_hdr->subtype != FM_RX_CHANNEL - 12) {
-			dev_unisoc_fm_err(fm_miscdev,"%s sub type is wrong [%d]\n", __func__, sdio_hdr->subtype);
-            spin_unlock_bh(&fmdev->rw_lock);
-            sprdwcn_bus_list_free(channel, head, tail, num);
-            kfree(sdio_hdr);
-            sdio_hdr = NULL;
-            kfree(rx);
-            rx = NULL;
-            return;
-        }
+		if (wcn_hw_type == HW_TYPE_SDIO) {
+			if (sdio_hdr->subtype != FM_SDIO_RX_CHANNEL - 12) {
+				pr_info("%s sub type is wrong [%d]\n", __func__, sdio_hdr->subtype);
+				kfree(sdio_hdr);
+				sdio_hdr = NULL;
+				return;
+			}
+		}
         receive_buf = head->buf + FM_SDIO_HEAD_LEN;
         if ((*(receive_buf + 1)) == 0x0e) {
             memcpy(fmdev->com_respbuf, receive_buf + 2, (*(receive_buf+2)) + 1);
@@ -371,75 +473,7 @@ int parse_sdio_header(struct mbuf_t *head,struct mbuf_t *tail, int num, struct f
     return 0;
 }
 
-//chinaycheng
-#if 0
-void parse_at_fm_cmd(unsigned int *freq_found)
-{
-	int comma_cou = 0;
-	int i = 0;
-	int cmdstart = 0;
-	int len = 0;
-	char *cur_ptr;
-	char num_str[32] = {0};
-	int result = 0;
-
-	cur_ptr = fmdev->read_buf;
-	read_flag = 0;
-	for (i = 0; i < 32 && cur_ptr[i] != '\0'; i++) {
-		if (cur_ptr[i] == ',')
-			comma_cou++;
-		if (comma_cou == 3) {
-			comma_cou = 0;
-			cmdstart = i;
-		}
-	}
-	for (i = 0, cmdstart++; cmdstart < 32 && cur_ptr[cmdstart] != '\0'
-		&& cur_ptr[cmdstart] != ','; i++, cmdstart++) {
-		if (cur_ptr[cmdstart] >= '0' && cur_ptr[cmdstart] <= '9')
-			num_str[i] = cur_ptr[cmdstart];
-		else if (cur_ptr[cmdstart] == ' ')
-			break;
-	}
-	len = strlen(num_str);
-	cur_ptr = num_str;
-	result = cur_ptr[0] - '0';
-	for (i = 1; i < len; i++)
-		result = result * 10 + cur_ptr[i] - '0';
-	*freq_found = result;
-	dev_unisoc_fm_info(fm_miscdev,"fm seek event have come freq=%d\n", result);
-}
-#endif
-
-//chinaycheng
-#if 0
-void fm_sdio_read(void) {
-    memset(fmdev->read_buf, 0, FM_READ_SIZE);
-    /* fmdev->rcv_len = sdio_dev_get_chn_datalen(FM_CHANNEL_READ); */
-    if (fmdev->rcv_len <= 0) {
-		dev_unisoc_fm_err(fm_miscdev,"FM_CHANNEL_READ len err\n");
-        return;
-    }
-    if (fmdev->rcv_len > FM_READ_SIZE)
-		dev_unisoc_fm_err(fm_miscdev,"The read data len:%d, beyond max read:%d",
-							fmdev->rcv_len, FM_READ_SIZE);
-    /* sdio_dev_read(FM_CHANNEL_READ, fmdev->read_buf, &fmdev->rcv_len); */
-	dev_unisoc_fm_info(fm_miscdev,"* fmdev->read_buf: %s *\n", (char *)fmdev->read_buf);
-}
-
-int fm_sdio_write(unsigned char *buffer, unsigned int size) {
-    /* sdiom_pt_write(buffer, size, FM_TYPE, FM_SUBTYPE0); */
-    /* sdio_dev_write(FM_CHANNEL_WRITE, buffer, size); */
-    printk_ratelimited("%s size: %d\n", __func__, size);
-    return size;
-}
-
-int fm_sdio_init(void)
-{
-return 0;
-}
-#endif
-
-static int fm_rx_cback(int chn, struct mbuf_t *head,struct mbuf_t *tail, int num)
+static int fm_sdio_rx_cback(int chn, struct mbuf_t *head,struct mbuf_t *tail, int num)
 {
     wake_lock_timeout(&fm_wakelock, HZ*1);
 	dev_unisoc_fm_info(fm_miscdev,"%s: channel:%d head:%p tail:%p num:%d\n",__func__, chn, head, tail, num);
@@ -466,9 +500,9 @@ static int fm_rx_cback(int chn, struct mbuf_t *head,struct mbuf_t *tail, int num
     }
     return 0;
 }
-EXPORT_SYMBOL_GPL(fm_rx_cback);
+EXPORT_SYMBOL_GPL(fm_sdio_rx_cback);
 
-int fm_tx_cback(int channel, struct mbuf_t *head,struct mbuf_t *tail, int num)
+int fm_sdio_tx_cback(int channel, struct mbuf_t *head,struct mbuf_t *tail, int num)
 {
     int i;
     struct mbuf_t *pos = NULL;
@@ -484,7 +518,137 @@ int fm_tx_cback(int channel, struct mbuf_t *head,struct mbuf_t *tail, int num)
     sprdwcn_bus_list_free(channel, head, tail, num);
     return 0;
 }
-EXPORT_SYMBOL_GPL(fm_tx_cback);
+EXPORT_SYMBOL_GPL(fm_sdio_tx_cback);
+
+static int fm_pcie_rx_cback(int chn, struct mbuf_t *head,struct mbuf_t *tail, int num)
+{
+    //wake_lock_timeout(&fm_wakelock, HZ*1);
+    pr_info("%s: channel:%d head:%p tail:%p num:%d\n",__func__, chn, head, tail, num);
+
+    if (fmdev != NULL) {
+        struct fm_rx_data *rx = kmalloc(sizeof(struct fm_rx_data), GFP_KERNEL);
+        if (!rx) {
+            pr_err("(fmdrv): %s(): No memory to create fm rx buf\n", __func__);
+            sprdwcn_bus_list_free(chn, head, tail, num);
+            return -ENOMEM;
+        }
+        rx->head = head;
+        rx->tail = tail;
+        rx->channel = chn;
+        rx->num = num;
+        spin_lock_bh(&fmdev->rw_lock);
+        list_add_tail(&rx->entry, &fmdev->rx_head);
+        spin_unlock_bh(&fmdev->rw_lock);
+
+        pr_debug("(fmdrv) %s(): tasklet_schedule start\n", __func__);
+        tasklet_schedule(&fmdev->rx_task);
+        sprdwcn_bus_push_list(chn, head, tail, num);
+    }
+    return 0;
+}
+EXPORT_SYMBOL_GPL(fm_pcie_rx_cback);
+
+int fm_pcie_tx_cback(int channel,struct mbuf_t *head, struct mbuf_t *tail, int num)
+{
+    int i;
+    struct mbuf_t *pos = NULL;
+    pr_info("%s channel: %d, head: %p, tail: %p num: %d\n", __func__, channel, head, tail, num);
+
+    pos = head;
+    for (i = 0; i < num; i++, pos = pos->next) {
+        //kfree(pos->buf);
+		struct device *dm = &g_fm_pdev->dev;
+		pr_info("%s dm %p buf %p phy %ld\n", __func__, dm, pos->buf, head->phy);
+		dma_free_coherent(dm, pos->len, (void *)pos->buf, head->phy);
+        pos->buf = NULL;
+    }
+    sprdwcn_bus_list_free(channel, head, tail, num);
+    return 0;
+}
+EXPORT_SYMBOL_GPL(fm_pcie_tx_cback);
+
+static int rx_push(int chn, struct mbuf_t **head, struct mbuf_t **tail, int *num) {
+    pr_err("%s no buf, rx_push called \n", __func__);
+    return 0;
+}
+
+int fm_dmalloc(struct device *priv, struct dma_buf *dm, int size)
+{
+	struct device *dev = priv;
+
+	if (!dev) {
+		pr_err("%s(NULL)\n", __func__);
+		return -1;
+	}
+
+	if (dma_set_mask(dev, DMA_BIT_MASK(64))) {
+		pr_info("dma_set_mask err\n");
+		if (dma_set_coherent_mask(dev, DMA_BIT_MASK(64))) {
+			pr_err("dma_set_coherent_mask err\n");
+			return -1;
+		}
+	}
+
+	dm->vir =(unsigned long)dma_alloc_coherent(dev, size,
+					      (dma_addr_t *)(&(dm->phy)),
+					      GFP_DMA);
+	if (dm->vir == 0) {
+		pr_err("dma_alloc_coherent err\n");
+		return -1;
+	}
+	dm->size = size;
+	memset((unsigned char *)(dm->vir), 0x56, size);
+	pr_info("dma_alloc_coherent(%d) 0x%lx 0x%lx\n",
+		  size, dm->vir, dm->phy);
+
+	return 0;
+}
+
+int fm_dma_buf_alloc(int chn, int size, int num)
+{
+	int ret, i;
+	struct dma_buf temp = {0};
+	struct mbuf_t *mbuf, *head, *tail;
+	dm_rx_t = &g_fm_pdev ->dev;
+
+	if (!dm_rx_t) {
+		pr_err("%s:PCIE device link error\n", __func__);
+		return -1;
+	}
+	ret = sprdwcn_bus_list_alloc(chn, &head, &tail, &num);
+	if (ret != 0)
+		return -1;
+	for (i = 0, mbuf = head; i < num; i++) {
+		ret = fm_dmalloc(dm_rx_t, &temp, size);
+		if (ret != 0)
+			return -1;
+		mbuf->buf = (unsigned char *)(temp.vir);
+        dm_rx_ptr[i] = mbuf->buf;
+		mbuf->phy = (unsigned long)(temp.phy);
+        dm_rx_phy[i] = mbuf->phy;
+		mbuf->len = temp.size;
+		memset(mbuf->buf, 0x0, mbuf->len);
+		mbuf = mbuf->next;
+	}
+
+	ret = sprdwcn_bus_push_list(chn, head, tail, num);
+
+	return ret;
+}
+
+int fm_dma_buf_free(int num) {
+    unsigned char loop_count = 0;
+    for (; loop_count < num; loop_count++) {
+        if(!dm_rx_t) {
+            pr_err("%s: dm_rx_t or is dm_rx_ptr NULL \n", __func__);
+        } else {
+            dma_free_coherent(dm_rx_t, FM_PCIE_RX_DMA_SIZE , (void *)dm_rx_ptr[loop_count], dm_rx_phy[loop_count]);
+            pr_err("%s: free  dm_rx_ptr[%d] success \n", __func__, loop_count);
+            dm_rx_ptr[loop_count] = NULL;
+        }
+    }
+    return 0;
+}
 
 //chinaycheng
 #if 0
@@ -1212,20 +1376,35 @@ void fm_rds_init(void) {
     fmdev->rds_han.new_data_flag = 0;
 }
 
-struct mchn_ops_t fm_tx_ops = {
-    .channel = FM_TX_CHANNEL,
-    .hif_type = HW_TYPE_SDIO,
+struct mchn_ops_t fm_sdio_tx_ops = {
+    .channel = FM_SDIO_TX_CHANNEL,
     .inout = FM_TX_INOUT,
     .pool_size = FM_TX_POOL_SIZE,
-    .pop_link = fm_tx_cback,
+    .pop_link = fm_sdio_tx_cback,
 };
 
-struct mchn_ops_t fm_rx_ops = {
-    .channel = FM_RX_CHANNEL,
-    .hif_type = HW_TYPE_SDIO,
+struct mchn_ops_t fm_sdio_rx_ops = {
+    .channel = FM_SDIO_RX_CHANNEL,
     .inout = FM_RX_INOUT,
     .pool_size = FM_RX_POOL_SIZE,
-    .pop_link = fm_rx_cback,
+    .pop_link = fm_sdio_rx_cback,
+};
+
+struct mchn_ops_t fm_pcie_tx_ops = {
+    .channel = FM_PCIE_TX_CHANNEL,
+    .inout = FM_TX_INOUT,
+    .pool_size = FM_TX_POOL_SIZE,
+    .cb_in_irq = 0,
+    .max_pending = 1,
+    .pop_link = fm_pcie_tx_cback,
+};
+
+struct mchn_ops_t fm_pcie_rx_ops = {
+    .channel = FM_PCIE_RX_CHANNEL,
+    .inout = FM_RX_INOUT,
+    .pool_size = FM_RX_POOL_SIZE,
+    .pop_link = fm_pcie_rx_cback,
+    .push_link = rx_push,
 };
 
 int __init init_fm_driver(void) {
@@ -1256,9 +1435,13 @@ int __init init_fm_driver(void) {
     /* Register FM Tx and Rx callback */
     //sdiom_register_pt_rx_process(FM_TYPE, FM_SUBTYPE0, fm_rx_cback);
     //sdiom_register_pt_tx_release(FM_TYPE, FM_SUBTYPE0, fm_tx_cback);
-	dev_unisoc_fm_info(fm_miscdev,"fm init channel...\n");
-    sprdwcn_bus_chn_init(&fm_tx_ops);
-    sprdwcn_bus_chn_init(&fm_rx_ops);
+	wcn_hw_type = sprdwcn_bus_get_hwintf_type();
+	pr_info("fm get hw type:%d\n", wcn_hw_type);
+	if (wcn_hw_type == HW_TYPE_SDIO) {
+		sprdwcn_bus_chn_init(&fm_sdio_tx_ops);
+		sprdwcn_bus_chn_init(&fm_sdio_rx_ops);
+		pr_err("fm init channel...\n");
+	}
      /* retval = sdiodev_readchn_init(FM_CHANNEL_READ, fm_read, 0);*/
     ret = fm_device_init_driver();
     tasklet_init(&fmdev->rx_task, receive_tasklet, (unsigned long)fmdev);
@@ -1276,8 +1459,10 @@ int __init init_fm_driver(void) {
 
 void __exit exit_fm_driver(void) {
     fm_device_exit_driver();
-    sprdwcn_bus_chn_deinit(&fm_tx_ops);
-    sprdwcn_bus_chn_deinit(&fm_rx_ops);
+	if (wcn_hw_type == HW_TYPE_SDIO) {
+		sprdwcn_bus_chn_deinit(&fm_sdio_tx_ops);
+		sprdwcn_bus_chn_deinit(&fm_sdio_rx_ops);
+	}
     //tasklet_kill(&fmdev->tx_task);
     tasklet_kill(&fmdev->rx_task);
     //kfree(fmdev->read_buf);

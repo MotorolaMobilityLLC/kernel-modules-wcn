@@ -31,13 +31,19 @@
 #define FM_HEADER_ERR       "FM_ERR: "
 #define FM_HEADER           "FM_DRV: "
 
-#define FM_TX_CHANNEL    6
-#define FM_RX_CHANNEL     20
+#define FM_SDIO_TX_CHANNEL    6
+#define FM_SDIO_RX_CHANNEL     20
 #define FM_TX_INOUT    1
 #define FM_RX_INOUT     0
 #define FM_TX_POOL_SIZE   5
 #define FM_RX_POOL_SIZE   1
 #define FM_SDIO_HEAD_LEN   4
+
+#define FM_PCIE_TX_CHANNEL    6
+#define FM_PCIE_RX_CHANNEL    8
+#define FM_PCIE_HEAD_LEN      0
+#define FM_PCIE_RX_MAX_NUM      4
+#define FM_PCIE_RX_DMA_SIZE     2048
 
 /* 1: enable RDS, 0:disable RDS */
 #define FM_RDS_ENABLE 0x01
@@ -524,6 +530,7 @@ struct fmdrv_ops {
     struct completion	completed;
     unsigned int		rcv_len;
     void			*read_buf;
+	struct platform_device *pdev;
     struct mbuf_t                  *tx_head;
     struct mbuf_t                  *tx_tail;
     //void                    *com_response;

@@ -99,6 +99,8 @@ int fm_get_audio_threshold(void *arg);
 ssize_t fm_read_rds_data(struct file *filp, char __user *buf, size_t count, loff_t *pos);
 int fm_sdio_write(unsigned char *, unsigned int);
 struct fm_rds_data *get_rds_data(void);
+int fm_dma_buf_free(int num);
+int fm_dma_buf_alloc(int chn, int size, int num);
 
 /*WARNING: __packed is preferred over __attribute__((packed))*/
 struct fm_cmd_hdr {

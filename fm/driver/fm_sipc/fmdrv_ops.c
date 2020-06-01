@@ -52,8 +52,9 @@ struct wake_lock fm_wakelock;
 struct device *fm_miscdev = NULL;
 
 #include <linux/delay.h>
-
+#include <misc/wcn_bus.h>
 #include <misc/wcn_integrate_platform.h>
+#include <linux/notifier.h>
 
 long fm_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
 {
@@ -224,12 +225,25 @@ long fm_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
 
 int fm_open(struct inode *inode, struct file *filep)
 {
+	int ret = 0;
 	struct fm_tune_parm powerup_parm;
-	powerup_parm.err = 0;
+	powerup_parm.err = (unsigned char)0;
 	powerup_parm.freq = 875;
-	fm_powerup(&powerup_parm);
+
+	ret = fm_powerup(&powerup_parm);
+	if (fmdev->fm_invalid == 1) {
+		if (ret != 0) {
+			ret = 2;
+			dev_unisoc_fm_info(fm_miscdev,"fm wcnd reset stay open invalid status\n");
+			return ret;
+		} else {
+			fmdev->fm_invalid = 0;
+			dev_unisoc_fm_info(fm_miscdev,"fm wcnd reset stay open valid status\n");
+		}
+	}
+
 	dev_unisoc_fm_info(fm_miscdev,"start open SPRD fm module...\n");
-	return 0;
+	return ret;
 }
 int fm_release(struct inode *inode, struct file *filep)
 {

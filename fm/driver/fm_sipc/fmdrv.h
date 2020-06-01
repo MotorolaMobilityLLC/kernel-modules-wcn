@@ -522,6 +522,7 @@ struct fmdrv_ops {
 	bool	fm_state;
 	/* headset_state: plugin: 0, plugout: 1 */
 	bool	headset_state;
+	int8_t  fm_invalid;
 };
 
 /* ********** ***********FM IOCTL define start ****************/

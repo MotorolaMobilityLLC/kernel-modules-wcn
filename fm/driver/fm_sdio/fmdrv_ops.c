@@ -50,6 +50,11 @@
 #include "unisoc_fm_log.h"
 
 struct wake_lock fm_wakelock;
+extern struct platform_device *g_fm_pdev;
+extern uint8_t wcn_hw_type;
+extern struct mchn_ops_t fm_pcie_tx_ops;
+extern struct mchn_ops_t fm_pcie_rx_ops;
+
 struct device *fm_miscdev = NULL;
 
 long fm_ioctl(struct file *filep, unsigned int cmd, unsigned long arg) {
@@ -324,12 +329,22 @@ int fm_open(struct inode *inode, struct file *filep) {
 	powerup_parm.freq = 875;
 	fm_powerup(&powerup_parm);
 	dev_unisoc_fm_info(fm_miscdev,"start open SPRD fm module...\n");
+	if (wcn_hw_type == HW_TYPE_PCIE) {
+		sprdwcn_bus_chn_init(&fm_pcie_tx_ops);
+		sprdwcn_bus_chn_init(&fm_pcie_rx_ops);
+		fm_dma_buf_alloc(FM_PCIE_RX_CHANNEL, FM_PCIE_RX_DMA_SIZE, FM_PCIE_RX_MAX_NUM);
+	}
 	return 0;
 }
 
 int fm_release(struct inode *inode, struct file *filep) {
 	dev_unisoc_fm_info(fm_miscdev,"fm_misc_release, power status:%d\n",fmdev->power_status);
 	fm_powerdown();
+	if (wcn_hw_type == HW_TYPE_PCIE) {
+		fm_dma_buf_free(FM_PCIE_RX_MAX_NUM);
+		sprdwcn_bus_chn_deinit(&fm_pcie_tx_ops);
+		sprdwcn_bus_chn_deinit(&fm_pcie_rx_ops);
+	}
 	return 0;
 }
 
@@ -385,6 +400,9 @@ static int fm_probe(struct platform_device *pdev) {
 		dev_unisoc_fm_info(fm_miscdev,"misc_register failed!");
         return ret;
     }
+	if (wcn_hw_type == HW_TYPE_PCIE) {
+		g_fm_pdev = pdev;
+	}
 	dev_unisoc_fm_info(fm_miscdev,"fm_init success.\n");
     return 0;
 }

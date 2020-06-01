@@ -43,6 +43,11 @@
 #include "alignment/sitm.h"
 #include "unisoc_bt_log.h"
 
+#include <linux/notifier.h>
+#include <misc/wcn_bus.h>
+#include <linux/dma-direction.h>
+#include <linux/dma-mapping.h>
+
 static struct semaphore sem_id;
 
 struct rx_data {
@@ -59,6 +64,7 @@ struct mtty_device {
     struct tty_struct   *tty;
     struct tty_driver   *driver;
 
+    struct platform_device *pdev;
     /* mtty state */
     atomic_t state;
     /*spinlock_t    rw_lock;*/
@@ -69,6 +75,26 @@ struct mtty_device {
     struct workqueue_struct *bt_rx_workqueue;
 };
 
+typedef struct {
+    unsigned long vir;
+    unsigned long phy;
+    int size;
+} dm_t;
+
+extern int set_power_ret;
+static struct device *dm_rx_t = NULL;
+unsigned long dm_rx_phy[BT_PCIE_RX_MAX_NUM];
+unsigned char *(dm_rx_ptr[BT_PCIE_RX_MAX_NUM]);
+
+struct dma_buf {
+	unsigned long vir;
+	unsigned long phy;
+	int size;
+};
+
+struct mchn_ops_t bt_pcie_rx_ops;
+struct mchn_ops_t bt_pcie_tx_ops;
+
 static struct mtty_device *mtty_dev;
 static unsigned int que_task = 1;
 static int que_sche = 1;
@@ -78,6 +104,8 @@ extern void sdiohal_dump_aon_reg(void);
 struct device *ttyBT_dev = NULL;
 
 static bool is_dumped = false;
+
+static int wcn_hw_type = 0;
 
 static ssize_t chipid_show(struct device *dev,
        struct device_attribute *attr, char *buf)
@@ -187,6 +215,83 @@ static void hex_dump_block(unsigned char *bin, size_t binsz)
 		hex_dump(bin + i * HEX_DUMP_BLOCK_SIZE, tail);
 }*/
 
+int mtty_dmalloc(struct device *priv, struct dma_buf *dm, int size)
+{
+	struct device *dev = priv;
+
+	if (!dev) {
+		dev_unisoc_bt_err(ttyBT_dev,"%s(NULL)\n", __func__);
+		return -1;
+	}
+
+	if (dma_set_mask(dev, DMA_BIT_MASK(64))) {
+		dev_unisoc_bt_info(ttyBT_dev,"dma_set_mask err\n");
+		if (dma_set_coherent_mask(dev, DMA_BIT_MASK(64))) {
+			dev_unisoc_bt_err(ttyBT_dev,"dma_set_coherent_mask err\n");
+			return -1;
+		}
+	}
+
+	dm->vir =(unsigned long)dma_alloc_coherent(dev, size,
+					      (dma_addr_t *)(&(dm->phy)),GFP_DMA);
+	if (dm->vir == 0) {
+		dev_unisoc_bt_err(ttyBT_dev,"dma_alloc_coherent err\n");
+		return -1;
+	}
+	dm->size = size;
+	memset((unsigned char *)(dm->vir), 0x56, size);
+	dev_unisoc_bt_info(ttyBT_dev,"dma_alloc_coherent(%d) 0x%lx 0x%lx\n",
+		  size, dm->vir, dm->phy);
+
+	return 0;
+}
+
+int mtty_dma_buf_alloc(int chn, int size, int num)
+{
+	int ret, i;
+	struct dma_buf temp = {0};
+	struct mbuf_t *mbuf, *head, *tail;
+	dm_rx_t = &mtty_dev->pdev->dev;
+
+	if (!dm_rx_t) {
+		dev_unisoc_bt_err(ttyBT_dev,"%s:PCIE device link error\n", __func__);
+		return -1;
+	}
+	ret = sprdwcn_bus_list_alloc(chn, &head, &tail, &num);
+	if (ret != 0)
+		return -1;
+	for (i = 0, mbuf = head; i < num; i++) {
+		ret = mtty_dmalloc(dm_rx_t, &temp, size);
+		if (ret != 0)
+			return -1;
+		mbuf->buf = (unsigned char *)(temp.vir);
+        dm_rx_ptr[i] = mbuf->buf;
+		mbuf->phy = (unsigned long)(temp.phy);
+        dm_rx_phy[i] = mbuf->phy;
+		mbuf->len = temp.size;
+		memset(mbuf->buf, 0x0, mbuf->len);
+		mbuf = mbuf->next;
+	}
+
+	ret = sprdwcn_bus_push_list(chn, head, tail, num);
+
+	return ret;
+}
+
+int mtty_dma_buf_free(int num) {
+    unsigned char loop_count = 0;
+    for (; loop_count < num; loop_count++) {
+        if(!dm_rx_t) {
+			dev_unisoc_bt_err(ttyBT_dev,"%s: dm_rx_t or is dm_rx_ptr NULL \n", __func__);	
+        } else {
+            dma_free_coherent(dm_rx_t, BT_PCIE_RX_DMA_SIZE , (void *)dm_rx_ptr[loop_count], dm_rx_phy[loop_count]);
+			dev_unisoc_bt_err(ttyBT_dev,"%s: free  dm_rx_ptr[%d] success \n", __func__, loop_count);
+            dm_rx_ptr[loop_count] = NULL;
+        }
+    }
+    return 0;
+}
+
 /* static void mtty_rx_task(unsigned long data) */
 static void mtty_rx_work_queue(struct work_struct *work)
 
@@ -258,7 +363,7 @@ static void mtty_rx_work_queue(struct work_struct *work)
     }
 }
 
-static int mtty_rx_cb(int chn, struct mbuf_t *head, struct mbuf_t *tail, int num)
+static int mtty_sdio_rx_cb(int chn, struct mbuf_t *head, struct mbuf_t *tail, int num)
 {
     int ret = 0, block_size;
     struct rx_data *rx;
@@ -355,7 +460,81 @@ static int mtty_rx_cb(int chn, struct mbuf_t *head, struct mbuf_t *tail, int num
     return -1;
 }
 
-static int mtty_tx_cb(int chn, struct mbuf_t *head, struct mbuf_t *tail, int num)
+static int mtty_pcie_rx_cb(int chn, struct mbuf_t *head, struct mbuf_t *tail, int num)
+{
+    int ret = 0, len_send;
+    struct rx_data *rx;
+    unsigned char *sdio_buf = NULL;
+    sdio_buf = (unsigned char *)head->buf;
+    bt_wakeup_host();
+
+    len_send = head->len;
+
+	dev_unisoc_bt_dbg(ttyBT_dev,"%s() channel: %d, num: %d\n", __func__, chn, num);
+	dev_unisoc_bt_dbg(ttyBT_dev,"%s() ---mtty receive channel= %d, len_send = %d\n", __func__, chn, len_send);
+
+    if (atomic_read(&mtty_dev->state) == MTTY_STATE_CLOSE) {
+		dev_unisoc_bt_err(ttyBT_dev,"%s() mtty bt is closed abnormally\n", __func__);
+        sprdwcn_bus_push_list(chn, head, tail, num);
+        return -1;
+    }
+
+    if (mtty_dev != NULL) {
+        if (!work_pending(&mtty_dev->bt_rx_work)) {
+			dev_unisoc_bt_dbg(ttyBT_dev,"%s() tty_insert_flip_string", __func__);
+            ret = tty_insert_flip_string(mtty_dev->port,
+                            (unsigned char *)head->buf+BT_PCIE_HEAD_LEN,
+                            len_send);   // -BT_PCIE_HEAD_LEN
+			dev_unisoc_bt_dbg(ttyBT_dev,"%s() ret=%d, len=%d\n", __func__, ret, len_send);
+            if (ret)
+                tty_flip_buffer_push(mtty_dev->port);
+            if (ret == (len_send)) {
+				dev_unisoc_bt_dbg(ttyBT_dev,"%s() send success", __func__);
+                sprdwcn_bus_push_list(chn, head, tail, num);
+                return 0;
+            }
+        }
+
+        rx = kmalloc(sizeof(struct rx_data), GFP_KERNEL);
+        if (rx == NULL) {
+			dev_unisoc_bt_err(ttyBT_dev,"%s() rx == NULL\n", __func__);
+            sprdwcn_bus_push_list(chn, head, tail, num);
+            return -ENOMEM;
+        }
+
+        rx->head = head;
+        rx->tail = tail;
+        rx->channel = chn;
+        rx->num = num;
+        rx->head->len = (len_send) - ret;
+        rx->head->buf = kmalloc(rx->head->len, GFP_KERNEL);
+        if (rx->head->buf == NULL) {
+			dev_unisoc_bt_err(ttyBT_dev,"mtty low memory!\n");
+            kfree(rx);
+            sprdwcn_bus_push_list(chn, head, tail, num);
+            return -ENOMEM;
+        }
+
+        memcpy(rx->head->buf, head->buf, rx->head->len);
+        sprdwcn_bus_push_list(chn, head, tail, num);
+        mutex_lock(&mtty_dev->rw_mutex);
+		dev_unisoc_bt_dbg(ttyBT_dev,"mtty over load push %d -> %d, channel: %d len: %d\n",
+                len_send, ret, rx->channel, rx->head->len);
+        list_add_tail(&rx->entry, &mtty_dev->rx_head);
+        mutex_unlock(&mtty_dev->rw_mutex);
+        if (!work_pending(&mtty_dev->bt_rx_work)) {
+			dev_unisoc_bt_dbg(ttyBT_dev,"work_pending\n");
+            queue_work(mtty_dev->bt_rx_workqueue,
+                        &mtty_dev->bt_rx_work);
+        }
+        return 0;
+    }
+	dev_unisoc_bt_err(ttyBT_dev,"mtty_rx_cb mtty_dev is NULL!!!\n");
+
+    return -1;
+}
+
+static int mtty_sdio_tx_cb(int chn, struct mbuf_t *head, struct mbuf_t *tail, int num)
 {
     int i;
     struct mbuf_t *pos = NULL;
@@ -365,6 +544,29 @@ static int mtty_tx_cb(int chn, struct mbuf_t *head, struct mbuf_t *tail, int num
     pos = head;
     for (i = 0; i < num; i++, pos = pos->next) {
         kfree(pos->buf);
+        pos->buf = NULL;
+    }
+    if ((sprdwcn_bus_list_free(chn, head, tail, num)) == 0)
+    {
+		dev_unisoc_bt_dbg(ttyBT_dev,"%s sprdwcn_bus_list_free() success\n", __func__);
+        up(&sem_id);
+    }
+    else
+		dev_unisoc_bt_err(ttyBT_dev,"%s sprdwcn_bus_list_free() fail\n", __func__);
+
+    return 0;
+}
+
+static int mtty_pcie_tx_cb(int chn, struct mbuf_t *head, struct mbuf_t *tail, int num)
+{
+    int i;
+    struct mbuf_t *pos = NULL;
+	dev_unisoc_bt_dbg(ttyBT_dev,"%s channel: %d, head: %p, tail: %p num: %d mtty_dev %p pdev %p\n", 
+			__func__, chn, head, tail, num, mtty_dev, mtty_dev->pdev);
+    pos = head;
+    for (i = 0; i < num; i++, pos = pos->next) {
+        struct device *dm = &mtty_dev->pdev->dev;
+        dma_free_coherent(dm, pos->len, (void *)pos->buf, head->phy);
         pos->buf = NULL;
     }
     if ((sprdwcn_bus_list_free(chn, head, tail, num)) == 0)
@@ -410,6 +612,11 @@ static int mtty_open(struct tty_struct *tty, struct file *filp)
     que_task = 0;
     que_sche = 0;
     sitm_ini();
+	if (wcn_hw_type == HW_TYPE_PCIE) {
+		sprdwcn_bus_chn_init(&bt_pcie_rx_ops);
+		sprdwcn_bus_chn_init(&bt_pcie_tx_ops);
+		mtty_dma_buf_alloc(BT_PCIE_RX_CHANNEL, BT_PCIE_RX_DMA_SIZE, BT_PCIE_RX_MAX_NUM);
+	}
     dev_unisoc_bt_info(ttyBT_dev,
                        "mtty_open device success!\n");
 
@@ -432,7 +639,13 @@ static void mtty_close(struct tty_struct *tty, struct file *filp)
         return;
     }
 
-    atomic_set(&mtty->state, MTTY_STATE_CLOSE);
+	if (wcn_hw_type == HW_TYPE_PCIE) {
+		mtty_dma_buf_free(BT_PCIE_RX_MAX_NUM);
+		atomic_set(&mtty->state, MTTY_STATE_CLOSE);
+		sprdwcn_bus_chn_deinit(&bt_pcie_rx_ops);
+		sprdwcn_bus_chn_deinit(&bt_pcie_tx_ops);
+	}
+
     sitm_cleanup();
 
     if (data_dump != NULL) {
@@ -443,7 +656,7 @@ static void mtty_close(struct tty_struct *tty, struct file *filp)
                        "mtty_close device success !\n");
 }
 
-static int mtty_write(struct tty_struct *tty,
+static int mtty_sdio_write(struct tty_struct *tty,
             const unsigned char *buf, int count)
 {
     int num = 1, ret;
@@ -474,7 +687,7 @@ static int mtty_write(struct tty_struct *tty,
     memset(block, 0, count + BT_SDIO_HEAD_LEN);
     memcpy(block + BT_SDIO_HEAD_LEN, buf, count);
     down(&sem_id);
-    ret = sprdwcn_bus_list_alloc(BT_TX_CHANNEL, &tx_head, &tx_tail, &num);
+    ret = sprdwcn_bus_list_alloc(BT_SDIO_TX_CHANNEL, &tx_head, &tx_tail, &num);
 	if (ret) {
 		dev_unisoc_bt_err(ttyBT_dev,
 							"%s sprdwcn_bus_list_alloc failed: %d\n",
@@ -488,14 +701,14 @@ static int mtty_write(struct tty_struct *tty,
 	tx_head->len = count;
 	tx_head->next = NULL;
 
-	ret = sprdwcn_bus_push_list(BT_TX_CHANNEL, tx_head, tx_tail, num);
+	ret = sprdwcn_bus_push_list(BT_SDIO_TX_CHANNEL, tx_head, tx_tail, num);
 	if (ret) {
 		dev_unisoc_bt_err(ttyBT_dev,
 							"%s sprdwcn_bus_push_list failed: %d\n",
 							__func__, ret);
 		kfree(tx_head->buf);
 		tx_head->buf = NULL;
-		sprdwcn_bus_list_free(BT_TX_CHANNEL, tx_head, tx_tail, num);
+		sprdwcn_bus_list_free(BT_SDIO_TX_CHANNEL, tx_head, tx_tail, num);
 		return -EBUSY;
 	}
 
@@ -505,6 +718,77 @@ static int mtty_write(struct tty_struct *tty,
 	return count;
 }
 
+static int mtty_pcie_write(struct tty_struct *tty,
+            const unsigned char *buf, int count)
+{
+	int num = 1;
+	struct mbuf_t *tx_head = NULL;
+	struct mbuf_t *tx_tail = NULL;
+
+	down(&sem_id);
+	if (!sprdwcn_bus_list_alloc(BT_PCIE_TX_CHANNEL, &tx_head, &tx_tail, &num)) {
+		int ret = 0;
+		struct device *dm = &mtty_dev->pdev->dev;
+		dev_unisoc_bt_dbg(ttyBT_dev,"%s() sprdwcn_bus_list_alloc() success tx_head %p tx_tail %p num %d mtty_dev->tty->dev %p\n", 
+				__func__, tx_head, tx_tail, num, mtty_dev->tty->dev);
+		if ((ret = dma_set_mask(dm, DMA_BIT_MASK(64)))) {
+			dev_unisoc_bt_err(ttyBT_dev,"dma_set_mask err ret %d\n", ret);
+			if ((ret = dma_set_coherent_mask(dm, DMA_BIT_MASK(64)))) {
+				dev_unisoc_bt_err(ttyBT_dev,"dma_set_coherent_mask err ret %d\n", ret);
+				return -ENOMEM;
+			}
+		}
+		tx_head->buf = (unsigned char *)dma_alloc_coherent(dm, count, (dma_addr_t *)(&(tx_head->phy)), GFP_DMA);
+
+		if(!tx_head->buf)
+		{
+			dev_unisoc_bt_err(ttyBT_dev,"%s:line:%d dma_alloc_coherent err dev %p count %d phy %p\n",
+					__func__, __LINE__, mtty_dev->tty->dev, count, &(tx_head->phy));
+			return -ENOMEM;
+		}
+		memcpy(tx_head->buf, buf, count);
+		tx_head->len = count;
+		tx_head->next = NULL;
+		/*packer type 0, subtype 0*/
+		dev_unisoc_bt_dbg(ttyBT_dev,"%s sprdwcn_bus_push_list num: %d ++\n", __func__, num);
+		ret = sprdwcn_bus_push_list(BT_PCIE_TX_CHANNEL, tx_head, tx_tail, num);
+		dev_unisoc_bt_dbg(ttyBT_dev,"%s sprdwcn_bus_push_list ret: %d --\n", __func__, ret);
+		if (ret)
+		{
+			dma_free_coherent(dm, count, (void *)tx_head->buf, tx_head->phy);
+			tx_head->buf = NULL;
+			sprdwcn_bus_list_free(BT_PCIE_TX_CHANNEL, tx_head, tx_tail, num);
+			return -EBUSY;
+		}
+		else
+		{
+			dev_unisoc_bt_dbg(ttyBT_dev,"%s() sprdwcn_bus_push_list() success\n", __func__);
+			return count;
+		}
+	} else {
+		dev_unisoc_bt_err(ttyBT_dev,"%s:%d sprdwcn_bus_list_alloc fail\n", __func__, __LINE__);
+		up(&sem_id);
+		return -ENOMEM;
+	}
+}
+
+static int mtty_write(struct tty_struct *tty,
+            const unsigned char *buf, int count)
+{
+	int mcount;
+	dev_unisoc_bt_dbg(ttyBT_dev,"%s +++\n", __func__);
+
+	if (wcn_hw_type == HW_TYPE_SDIO) {
+		mcount = mtty_sdio_write(tty,buf,count);
+		return mcount;
+	} else if (wcn_hw_type == HW_TYPE_PCIE) {
+		mcount = mtty_pcie_write(tty,buf,count);
+		return mcount;
+	} else {
+		dev_unisoc_bt_err(ttyBT_dev,"%s invalid hw type\n", __func__);
+		return -ENOMEM;
+	}
+}
 
 static  int sdio_data_transmit(uint8_t *data, size_t count)
 {
@@ -638,20 +922,67 @@ static inline void mtty_destroy_pdata(struct mtty_init_data **init)
 #endif
 }
 
-struct mchn_ops_t bt_rx_ops = {
-    .channel = BT_RX_CHANNEL,
-    .hif_type = HW_TYPE_SDIO,
+struct mchn_ops_t bt_sdio_rx_ops = {
+    .channel = BT_SDIO_RX_CHANNEL,
     .inout = BT_RX_INOUT,
     .pool_size = BT_RX_POOL_SIZE,
-    .pop_link = mtty_rx_cb,
+    .pop_link = mtty_sdio_rx_cb,
 };
 
-struct mchn_ops_t bt_tx_ops = {
-    .channel = BT_TX_CHANNEL,
-    .hif_type = HW_TYPE_SDIO,
+struct mchn_ops_t bt_sdio_tx_ops = {
+    .channel = BT_SDIO_TX_CHANNEL,
     .inout = BT_TX_INOUT,
     .pool_size = BT_TX_POOL_SIZE,
-    .pop_link = mtty_tx_cb,
+    .pop_link = mtty_sdio_tx_cb,
+};
+
+struct mchn_ops_t bt_pcie_rx_ops = {
+    .channel = BT_PCIE_RX_CHANNEL,
+    .inout = BT_RX_INOUT,
+    .pool_size = BT_RX_POOL_SIZE,
+    .pop_link = mtty_pcie_rx_cb,
+};
+
+struct mchn_ops_t bt_pcie_tx_ops = {
+    .channel = BT_PCIE_TX_CHANNEL,
+    .inout = BT_TX_INOUT,
+    .pool_size = BT_TX_POOL_SIZE,
+    .pop_link = mtty_pcie_tx_cb,
+};
+
+static int bluetooth_reset(struct notifier_block *this, unsigned long ev, void *ptr)
+{
+#define RESET_BUFSIZE 5
+
+    int ret = 0;
+    int block_size = RESET_BUFSIZE;
+	unsigned char reset_buf[RESET_BUFSIZE]= {0x04, 0x57, 0x02, 0xa5, 0x00};
+
+	dev_unisoc_bt_info(ttyBT_dev,"%s: reset callback coming\n", __func__);
+	if (mtty_dev != NULL) {
+		if (!work_pending(&mtty_dev->bt_rx_work)) {
+
+			dev_unisoc_bt_info(ttyBT_dev,"%s tty_insert_flip_string", __func__);
+
+			while(ret < block_size){
+				dev_unisoc_bt_info(ttyBT_dev,"%s before tty_insert_flip_string ret: %d, len: %d\n",
+						__func__, ret, RESET_BUFSIZE);
+				ret = tty_insert_flip_string(mtty_dev->port,
+									(unsigned char *)reset_buf,
+									RESET_BUFSIZE);   // -BT_SDIO_HEAD_LEN
+				dev_unisoc_bt_info(ttyBT_dev,"%s ret: %d, len: %d\n", __func__, ret, RESET_BUFSIZE);
+				if (ret)
+					tty_flip_buffer_push(mtty_dev->port);
+				block_size = block_size - ret;
+				ret = 0;
+			}
+		}
+	}
+	return NOTIFY_DONE;
+}
+
+static struct notifier_block bluetooth_reset_block = {
+	.notifier_call = bluetooth_reset,
 };
 
 static int  mtty_probe(struct platform_device *pdev)
@@ -728,8 +1059,18 @@ static int  mtty_probe(struct platform_device *pdev)
     rfkill_bluetooth_init(pdev);
     bluesleep_init();
 
-    sprdwcn_bus_chn_init(&bt_rx_ops);
-    sprdwcn_bus_chn_init(&bt_tx_ops);
+    atomic_notifier_chain_register(&wcn_reset_notifier_list,&bluetooth_reset_block);
+
+	wcn_hw_type = sprdwcn_bus_get_hwintf_type();
+    dev_unisoc_bt_info(ttyBT_dev,"mtty_probe get hw type:%d\n", wcn_hw_type);
+	if (wcn_hw_type == HW_TYPE_INVALIED) {
+		dev_unisoc_bt_err(ttyBT_dev,"%s wcn invalid hw type", __func__);
+		return -ENOMEM;
+	} else if (wcn_hw_type == HW_TYPE_SDIO) {
+        sprdwcn_bus_chn_init(&bt_sdio_rx_ops);
+        sprdwcn_bus_chn_init(&bt_sdio_tx_ops);
+	}
+
     sema_init(&sem_id, BT_TX_POOL_SIZE - 1);
 
     return 0;
@@ -740,8 +1081,10 @@ static int  mtty_remove(struct platform_device *pdev)
     struct mtty_device *mtty = platform_get_drvdata(pdev);
 
     mtty_tty_driver_exit(mtty);
-    sprdwcn_bus_chn_deinit(&bt_rx_ops);
-    sprdwcn_bus_chn_deinit(&bt_tx_ops);
+	if (wcn_hw_type == HW_TYPE_SDIO) {
+		sprdwcn_bus_chn_deinit(&bt_sdio_rx_ops);
+		sprdwcn_bus_chn_deinit(&bt_sdio_tx_ops);
+	}
     kfree(mtty->port);
     mtty_destroy_pdata(&mtty->pdata);
     flush_workqueue(mtty->bt_rx_workqueue);
