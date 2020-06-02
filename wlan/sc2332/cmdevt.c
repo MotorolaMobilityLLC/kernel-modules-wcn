@@ -96,6 +96,7 @@ static const char *cmd2str(u8 cmd)
 	C2S(WIFI_CMD_MAX_STA)
 	C2S(WIFI_CMD_RANDOM_MAC)
 	C2S(WIFI_CMD_PACKET_OFFLOAD)
+	C2S(WIFI_CMD_SET_SAE_PARAM)
 	default : return "WIFI_CMD_UNKNOWN";
 	}
 #undef C2S
@@ -1525,6 +1526,150 @@ int sprdwl_set_packet_offload(struct sprdwl_priv *priv, u8 vif_mode,
 	}
 
 	return sprdwl_cmd_send_recv(priv, msg, CMD_WAIT_TIMEOUT, NULL, NULL);
+}
+
+int sprdwl_softap_set_sae_para(struct sprdwl_vif *vif,
+			       struct sprdwl_softap_sae_setting *setting)
+{
+	char *pos, *data;
+	int len, id_len, header_len, index, data_len, ret, *d;
+	struct sprdwl_sae_param *param;
+	struct sprdwl_sae_entry *tmp;
+	struct sprdwl_msg_buf *msg;
+	struct sprdwl_tlv_data *tlv;
+
+	data = kzalloc(1024, GFP_KERNEL);
+	if (!data)
+		return -ENOMEM;
+
+	pos = data;
+	data_len = 0;
+	header_len = sizeof(struct sprdwl_tlv_data);
+
+	for (index = 0; index < SPRDWl_SAE_MAX_NUM; index++) {
+		if (setting->entry[index].used == 0)
+			break;
+
+		/* add sae entry tlv first */
+		tlv = (struct sprdwl_tlv_data *)pos;
+		tlv->type = SPRDWL_VENDOR_SAE_ENTRY;
+		tlv->len = 0;
+		pos += header_len;
+		data_len += header_len;
+
+		/* PASSWORD ELEMENT */
+		if (tmp->passwd_len > 0) {
+			tlv = (struct sprdwl_tlv_data *)pos;
+			tlv->type = SPRDWL_VENDOR_SAE_PASSWORD;
+			tlv->len = tmp->passwd_len;
+
+			memcpy(tlv->data, tmp->password, tmp->passwd_len);
+			pos += (header_len + tmp->passwd_len);
+			data_len +=  (header_len + tmp->passwd_len);
+		}
+
+		/* IDENTIFIER ELEMENT */
+		tmp = &setting->entry[index];
+		if (tmp->id_len > 0) {
+			tlv = (struct sprdwl_tlv_data *)pos;
+			tlv->type = SPRDWL_VENDOR_SAE_IDENTIFIER;
+			tlv->len = tmp->id_len;
+			strlcpy(tlv->data, tmp->identifier, tmp->id_len);
+			pos += (header_len + id_len);
+			data_len += (header_len + id_len);
+		}
+		/* PEER_ADDRESS ELEMENT */
+		if (!is_zero_ether_addr(tmp->peer_addr)) {
+			tlv = (struct sprdwl_tlv_data *)pos;
+			tlv->type = SPRDWL_VENDOR_SAE_PEER_ADDR;
+			tlv->len = ETH_ALEN;
+
+			strlcpy(tlv->data, tmp->peer_addr, ETH_ALEN);
+			pos += (header_len + ETH_ALEN);
+			data_len += (header_len + ETH_ALEN);
+		}
+		/* VLAN_ID ELEMENT */
+		if (tmp->vlan_id != -1) {
+			tlv = (struct sprdwl_tlv_data *)pos;
+			tlv->type = SPRDWL_VENDOR_SAE_VLAN_ID;
+			tlv->len = sizeof(tmp->vlan_id);
+			d = (u32 *)tlv->data;
+			*d = tmp->vlan_id;
+			pos += (header_len + sizeof(tmp->vlan_id));
+			data_len += (header_len + sizeof(tmp->vlan_id));
+		}
+	}
+
+	if (setting->passphrase_len) {
+		/*add entry*/
+		tlv = (struct sprdwl_tlv_data *)pos;
+		tlv->type = SPRDWL_VENDOR_SAE_ENTRY;
+		tlv->len = 0;
+		pos += header_len;
+		data_len += header_len;
+
+		/* PASSWORD ELEMENT */
+		tlv = (struct sprdwl_tlv_data *)pos;
+		tlv->type = SPRDWL_VENDOR_SAE_PWD;
+		tlv->len = setting->passphrase_len;
+		strlcpy(tlv->data, setting->passphrase, setting->passphrase_len);
+		pos += header_len + setting->passphrase_len;
+		data_len +=  header_len + setting->passphrase_len;
+	}
+
+	/*GROUP*/
+	if (setting->group_count) {
+		tlv = (struct sprdwl_tlv_data *)pos;
+		tlv->type = SPRDWL_VENDOR_SAE_GROUP_ID;
+		tlv->len = setting->group_count;
+		pos = tlv->data;
+		for (index = 0; index < setting->group_count; index++) {
+			*pos = (unsigned char) (setting->groups[index]);
+			pos++;
+		}
+		data_len += (header_len + setting->group_count);
+	}
+
+	/*ACT*/
+	if (setting->act != -1) {
+		tlv = (struct sprdwl_tlv_data *)pos;
+		tlv->type = SPRDWL_VENDOR_SAE_ACT;
+		tlv->len = sizeof(u32);
+		d = (u32 *)tlv->data;
+		*d = (setting->act);
+		pos += header_len + sizeof(u32);
+		data_len += header_len + sizeof(u32);
+	}
+
+	/* End */
+	tlv = (struct sprdwl_tlv_data *)pos;
+	tlv->type = SPRDWL_VENDOR_SAE_END;
+	tlv->len = 0;
+	data_len += header_len;
+
+	len = sizeof(*param) + data_len;
+	netdev_info(vif->ndev, "total len is : %d\n", data_len);
+
+	msg = sprdwl_cmd_getbuf(vif->priv, len, vif->mode,
+				SPRDWL_HEAD_RSP, WIFI_CMD_SET_SAE_PARAM);
+
+	if (!msg) {
+		kfree(data);
+		return -ENOMEM;
+	}
+
+	param = (struct sprdwl_sae_param *)msg->data;
+	param->request_type = SPRDWL_SAE_PASSWORD_ENTRY;
+
+	pos = (char *)param->data;
+	memcpy(pos, data, data_len);
+	ret =  sprdwl_cmd_send_recv(vif->priv, msg, CMD_WAIT_TIMEOUT,
+				    NULL, NULL);
+	if (ret)
+		netdev_info(vif->ndev, "set sae para failed, ret=%d\n", ret);
+
+	kfree(data);
+	return ret;
 }
 
 int sprdwl_xmit_data2mgmt(struct sk_buff *skb, struct net_device *ndev)

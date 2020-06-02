@@ -137,6 +137,7 @@ enum SPRDWL_CMD_LIST {
 	WIFI_CMD_MAX_STA = 61,
 	WIFI_CMD_RANDOM_MAC = 63,
 	WIFI_CMD_PACKET_OFFLOAD = 64,
+	WIFI_CMD_SET_SAE_PARAM = 65,
 	WIFI_CMD_MAX
 };
 
@@ -696,6 +697,42 @@ struct sprdwl_acs_channel {
 	u8 busy;
 } __packed;
 
+#define SPRDWL_SAE_PASSPHRASE	1
+#define SPRDWL_SAE_PASSWORD_ENTRY	2
+
+struct sprdwl_sae_param {
+	u16 request_type;
+	u8 data[0];
+};
+
+struct sprdwl_tlv_data {
+	u16 type;
+	u16 len;
+	u8 data[0];
+} __packed;
+
+struct sprdwl_sae_entry {
+	bool used;
+	u8 peer_addr[ETH_ALEN];
+	u8 id_len;
+	char identifier[32];
+	u8 passwd_len;
+	char password[32];
+	u32 vlan_id;
+};
+
+#define	SPRDWl_SAE_MAX_NUM	5
+#define	SPRDWL_SAE_NOT_SET	-1
+
+struct sprdwl_softap_sae_setting {
+	struct sprdwl_sae_entry entry[SPRDWl_SAE_MAX_NUM];
+	int passphrase_len;
+	char passphrase[64];
+	u32 act;
+	int group_count;
+	int groups[32];
+} __packed;
+
 void sprdwl_cmd_init(void);
 void sprdwl_cmd_wake_upall(void);
 void sprdwl_cmd_deinit(void);
@@ -825,4 +862,6 @@ int sprdwl_cmd_send_recv(struct sprdwl_priv *priv,
 			 unsigned int timeout, u8 *rbuf, u16 *rlen);
 void sprdwl_event_frame(struct sprdwl_vif *vif, u8 *data, u16 len, int flag);
 int sprdwl_set_random_mac(struct sprdwl_priv *priv, u8 vif_mode, const u8 *mac);
+int sprdwl_set_sae_password_entry(struct sprdwl_vif *vif,
+				  struct sprdwl_softap_sae_setting *entry);
 #endif

@@ -1803,6 +1803,83 @@ static int sprdwl_set_offload_packet(struct wiphy *wiphy,
 	return 0;
 }
 
+static int sprdwl_parse_sae_entry(struct sprdwl_sae_entry *entry,
+				  const void *data, int len)
+{
+	int rem_len, type, data_len;
+	struct nlattr *pos;
+
+	nla_for_each_attr(pos, (void *)data, len, rem_len) {
+		type = nla_type(pos);
+		switch (type) {
+		case SPRDWL_VENDOR_SAE_PASSWORD:
+			data_len = nla_len(pos);
+			entry->passwd_len = data_len;
+			nla_strlcpy(entry->password, pos, data_len + 1);
+			break;
+		case SPRDWL_VENDOR_SAE_IDENTIFIER:
+			data_len = nla_len(pos);
+			entry->id_len = data_len;
+			nla_strlcpy(entry->identifier, pos, data_len);
+			break;
+		case SPRDWL_VENDOR_SAE_PEER_ADDR:
+			nla_memcpy(entry->peer_addr, pos, ETH_ALEN);
+			break;
+		case SPRDWL_VENDOR_SAE_VLAN_ID:
+			entry->vlan_id = nla_get_u32(pos);
+			break;
+		default:
+			break;
+		}
+	}
+	return 0;
+}
+
+static int sprdwl_vendor_set_sae_password(struct wiphy *wiphy,
+					  struct wireless_dev *wdev,
+					  const void *data, int len)
+{
+	int group_index = 0, sea_entry_index = 0, passphrase_len, rem_len, type;
+	struct nlattr *pos;
+	struct sprdwl_softap_sae_setting sae_para;
+	struct sprdwl_vif *vif = netdev_priv(wdev->netdev);
+
+	memset(&sae_para, 0x00, sizeof(sae_para));
+
+	nla_for_each_attr(pos, (void *)data, len, rem_len) {
+		type = nla_type(pos);
+		netdev_info(vif->ndev, "type is : %d\n", type);
+		switch (type) {
+		case SPRDWL_VENDOR_SAE_ENTRY:
+			sae_para.entry[sea_entry_index].vlan_id = SPRDWL_SAE_NOT_SET;
+			sae_para.entry[sea_entry_index].used = 1;
+			sprdwl_parse_sae_entry(&sae_para.entry[sea_entry_index],
+					       nla_data(pos), nla_len(pos));
+			sea_entry_index++;
+			break;
+		case SPRDWL_VENDOR_SAE_GROUP_ID:
+			if (sae_para.group_count >= 31)
+				return 0;
+			sae_para.groups[group_index] = nla_get_u32(pos);
+			group_index++;
+			break;
+
+		case SPRDWL_VENDOR_SAE_ACT:
+			sae_para.act = nla_get_u32(pos);
+			break;
+
+		case SPRDWL_VENDOR_SAE_PWD:
+			passphrase_len = nla_len(pos);
+			nla_strlcpy(sae_para.passphrase, pos, passphrase_len);
+			break;
+		default:
+			break;
+		}
+	}
+	sprdwl_softap_set_sae_para(vif, &sae_para);
+	return 0;
+}
+
 int sprdwl_ftm_get_capabilities(struct wiphy *wiphy,
 				struct wireless_dev *wdev,
 				const void *data, int len)
@@ -2002,6 +2079,15 @@ const struct wiphy_vendor_command sprdwl_vendor_cmd[] = {
 		.flags = WIPHY_VENDOR_CMD_NEED_WDEV |
 			WIPHY_VENDOR_CMD_NEED_RUNNING,
 		.doit = sprdwl_set_offload_packet,
+	},
+	{
+		{
+			.vendor_id = OUI_SPREAD,
+			.subcmd = SPRD_NL80211_VENDOR_SUBCMD_SET_SAE_PASSWORD,
+		},
+		.flags = WIPHY_VENDOR_CMD_NEED_WDEV |
+			WIPHY_VENDOR_CMD_NEED_RUNNING,
+		.doit = sprdwl_vendor_set_sae_password,
 	},
 };
 

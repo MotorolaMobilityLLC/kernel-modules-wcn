@@ -970,6 +970,18 @@ struct sprdwl_gscan_cached_results {
 	struct sprdwl_gscan_result results[MAX_AP_CACHE_PER_SCAN];
 };
 
+#define SPRD_NL80211_VENDOR_SUBCMD_SET_SAE_PASSWORD 0x2B
+
+#define SPRDWL_VENDOR_SAE_ENTRY       0x0
+#define SPRDWL_VENDOR_SAE_PASSWORD    0x1
+#define SPRDWL_VENDOR_SAE_IDENTIFIER  0x2
+#define SPRDWL_VENDOR_SAE_PEER_ADDR   0x3
+#define SPRDWL_VENDOR_SAE_VLAN_ID     0x4
+#define SPRDWL_VENDOR_SAE_GROUP_ID    0x5
+#define SPRDWL_VENDOR_SAE_ACT         0x6
+#define SPRDWL_VENDOR_SAE_PWD         0x7
+#define SPRDWL_VENDOR_SAE_END         0xFF
+
 void sprdwl_report_gscan_result(struct sprdwl_vif *vif,
 				u32 report_event, u8 bucketid,
 				u16 chan, s16 rssi, const u8 *buf, u16 len);
@@ -980,4 +992,7 @@ int sprdwl_report_acs_lte_event(struct sprdwl_vif *vif);
 int sprdwl_set_packet_offload(struct sprdwl_priv *priv, u8 vif_mode,
 			      u32 req, u8 enable, u32 interval,
 			      u32 len, u8 *data);
+int sprdwl_softap_set_sae_para(struct sprdwl_vif *vif,
+			       struct sprdwl_softap_sae_setting *setting);
+
 #endif

@@ -2572,6 +2572,13 @@ int sprdwl_cfg80211_set_power_mgmt(struct wiphy *wiphy, struct net_device *ndev,
 				 SPRDWL_SET_PS_STATE, enabled);
 }
 
+static int sprdwl_cfg80211_set_default_mgmt_key(struct wiphy *wiphy,
+						     struct net_device *netdev,
+						     u8 key_index)
+{
+	return 0;
+}
+
 static int sprdwl_cfg80211_dump_survey(struct wiphy *wiphy,
 				       struct net_device *ndev,
 				       int idx,
@@ -2652,6 +2659,7 @@ static struct cfg80211_ops sprdwl_cfg80211_ops = {
 	.tdls_channel_switch = sprdwl_cfg80211_tdls_chan_switch,
 	.tdls_cancel_channel_switch = sprdwl_cfg80211_tdls_cancel_chan_switch,
 	.dump_survey = sprdwl_cfg80211_dump_survey,
+	.set_default_mgmt_key = sprdwl_cfg80211_set_default_mgmt_key,
 };
 
 static void sprdwl_reg_notify(struct wiphy *wiphy,
