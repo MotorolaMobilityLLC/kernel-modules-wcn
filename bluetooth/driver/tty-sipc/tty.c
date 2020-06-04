@@ -556,7 +556,8 @@ static int stty_bluetooth_reset(struct notifier_block *this, unsigned long ev, v
 	unsigned char reset_buf[RESET_BUFSIZE]= {0x04, 0x57, 0x02, 0xa5, 0x00};
 	int i = 0, retry_count = 10;
 
-	pr_info("%s: reset callback coming\n", __func__);
+	dev_unisoc_bt_info(ttyBT_dev,
+					"%s: reset callback coming\n", __func__);
 	if (stty_dev != NULL) {
 		mutex_lock(&(stty_dev->stat_lock));
 		if ((stty_dev->state == STTY_STATE_OPEN) && (RESET_BUFSIZE > 0)) {
@@ -566,8 +567,9 @@ static int stty_bluetooth_reset(struct notifier_block *this, unsigned long ev, v
 						TTY_NORMAL);
 				while((ret != 1) && retry_count--) {
 					msleep(2);
-					pr_info("stty_dev insert data fail ret =%d, retry_count = %d\n",
-							ret, 10 - retry_count);
+					dev_unisoc_bt_info(ttyBT_dev,
+								"stty_dev insert data fail ret =%d, retry_count = %d\n",
+								ret, 10 - retry_count);
 					ret = tty_insert_flip_char(stty_dev->port,
 								reset_buf[i],
 								TTY_NORMAL);
