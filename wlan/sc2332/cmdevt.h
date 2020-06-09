@@ -138,7 +138,12 @@ enum SPRDWL_CMD_LIST {
 	WIFI_CMD_RANDOM_MAC = 63,
 	WIFI_CMD_PACKET_OFFLOAD = 64,
 	WIFI_CMD_SET_SAE_PARAM = 65,
+	WIFI_CMD_EXTENED_LLSTAT = 66,
 	WIFI_CMD_MAX
+};
+
+enum SPRD_EXTERN_LLSTAT_SUBTYPE {
+	SPRDWL_SUBTYPE_CHANNEL_INFO = 1,
 };
 
 enum SPRDWL_SUBCMD {
@@ -240,6 +245,8 @@ struct sprdwl_cmd_fw_info {
 #define SPRDWL_EXTEND_FEATURE_OWE          BIT(1)
 #define SPRDWL_EXTEND_FEATURE_DPP          BIT(2)
 #define SPRDWL_EXTEND_8021X_SUITE_B_192    BIT(3)
+#define SPRDWL_EXTEND_FEATURE_OCE    BIT(4)
+#define SPRDWL_EXTEND_FEATURE_LLSTATE   BIT(5)
 	__le32 extend_feature;
 } __packed;
 
@@ -563,6 +570,14 @@ struct sprdwl_cmd_packet_offload {
 	u8 data[0];
 } __packed;
 
+/* packet offload struct */
+struct sprdwl_cmd_extened_llstate {
+	u8 type;
+	u8 subtype;
+	u16 len;
+	u8 data[0];
+} __packed;
+
 enum SPRDWL_EVENT_LIST {
 	WIFI_EVENT_MIN = 0x80,
 	/* Station/P2P */
@@ -864,4 +879,6 @@ void sprdwl_event_frame(struct sprdwl_vif *vif, u8 *data, u16 len, int flag);
 int sprdwl_set_random_mac(struct sprdwl_priv *priv, u8 vif_mode, const u8 *mac);
 int sprdwl_set_sae_password_entry(struct sprdwl_vif *vif,
 				  struct sprdwl_softap_sae_setting *entry);
+int sprdwl_externed_llstate(struct sprdwl_priv *priv, u8 vif_mode, u8 type,u8 subtype,
+			  void *buf, u8 len, u8 *r_buf, u16 *r_len);
 #endif

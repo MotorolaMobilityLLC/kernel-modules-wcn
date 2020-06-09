@@ -812,6 +812,7 @@ struct wifi_channel_stat {
 };
 
 /* radio statistics */
+#define SPRDWL_MAX_CHANNEL_NUM	1
 struct wifi_radio_stat {
 	u32 radio;
 	u32 on_time;
@@ -826,8 +827,18 @@ struct wifi_radio_stat {
 	u32 on_time_pno_scan;
 	u32 on_time_hs20;
 	u32 num_channels;
-	struct wifi_channel_stat channels[];
+	struct wifi_channel_stat channels[SPRDWL_MAX_CHANNEL_NUM];
 };
+
+struct sprdwl_llstat_channel_info
+{	
+	u32 channel_width;
+	u32 center_freq;
+	u32 center_freq0;
+	u32 center_freq1;
+	u32 on_time;
+	u32 cca_busy_time;
+} __packed;
 
 struct sprdwl_wmm_ac_stat {
 	u8 ac_num;

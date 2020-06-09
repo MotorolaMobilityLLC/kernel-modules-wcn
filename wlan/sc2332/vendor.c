@@ -440,10 +440,34 @@ static int sprdwl_compose_radio_st(struct sk_buff *reply,
 				radio_st->num_channels))
 		goto out_put_fail;
 	if (radio_st->num_channels > 0){
-		if (nla_put(reply, SPRDWL_ATTR_LL_STATS_CH_INFO,
-			    radio_st->num_channels*sizeof(struct wifi_channel_stat),
-			    radio_st->channels))
+		struct nlattr *chan_list, *chan_info;
+		chan_list = nla_nest_start(reply, SPRDWL_ATTR_LL_STATS_CH_INFO);
+		chan_info = nla_nest_start(reply, 0);
+		if (nla_put_u32(reply, SPRDWL_ATTR_LL_STATS_CHANNEL_INFO_WIDTH,
+			radio_st->channels[0].channel.width))
 			goto out_put_fail;
+
+		if (nla_put_u32(reply, SPRDWL_ATTR_LL_STATS_CHANNEL_INFO_CENTER_FREQ,
+			radio_st->channels[0].channel.center_freq))
+			goto out_put_fail;
+
+		if (nla_put_u32(reply, SPRDWL_ATTR_LL_STATS_CHANNEL_INFO_CENTER_FREQ0,
+			radio_st->channels[0].channel.center_freq0))
+			goto out_put_fail;
+
+		if (nla_put_u32(reply, SPRDWL_ATTR_LL_STATS_CHANNEL_INFO_CENTER_FREQ1,
+			radio_st->channels[0].channel.center_freq1))
+			goto out_put_fail;
+
+		if (nla_put_u32(reply, SPRDWL_ATTR_LL_STATS_CHANNEL_ON_TIME,
+			radio_st->channels[0].on_time))
+			goto out_put_fail;
+
+		if (nla_put_u32(reply, SPRDWL_ATTR_LL_STATS_CHANNEL_CCA_BUSY_TIME,
+			radio_st->channels[0].cca_busy_time))
+			goto out_put_fail;
+		nla_nest_end(reply, chan_info);
+		nla_nest_end(reply, chan_list);
 	}
 	return 0;
 out_put_fail:
@@ -640,7 +664,38 @@ static int sprdwl_vendor_get_llstat_handler(struct wiphy *wiphy,
 	wiphy_err(wiphy, "beacon_rx=%d, rssi_mgmt=%d, on_time=%d, tx_time=%d, rx_time=%d, on_time_scan=%d,\n",
 			iface_st->beacon_rx,iface_st->rssi_mgmt,radio_st->on_time,
 			radio_st->tx_time,radio_st->rx_time,radio_st->on_time_scan);
-	reply_radio_length = sizeof(struct wifi_radio_stat) + 1000;
+	/*androidR need get channel info to pass vts test*/
+	if (priv->extend_feature & SPRDWL_EXTEND_FEATURE_LLSTATE) {
+		u16 recv_len = sizeof(struct sprdwl_llstat_channel_info) + 4;
+		char recv_buf[50] = {0x00};
+		u32 channel_num = 0;
+		struct sprdwl_llstat_channel_info *info;
+		char *pos;
+		
+		ret = sprdwl_externed_llstate(priv, vif->mode, SPRDWL_SUBCMD_GET, SPRDWL_SUBTYPE_CHANNEL_INFO, NULL, 0,  recv_buf, &recv_len);
+		if (ret) {
+			wiphy_err(wiphy, "set externed llstate failed\n");
+			goto put_iface_fail;
+		}
+		pos = recv_buf;
+		channel_num = *(u32*)pos;
+		pos += sizeof(u32);
+		wiphy_info(wiphy, "channel num %d\n", channel_num);
+		radio_st->num_channels = channel_num;
+		
+		if (channel_num) {
+				info = (struct sprdwl_llstat_channel_info*)(pos);
+				wiphy_info(wiphy, "cca busy time : %d, on time : %d\n", info->cca_busy_time, info->on_time);
+				wiphy_info(wiphy, "center width : %d, center_freq : %d, center_freq0 : %d, center_freq1  :%d\n", info->channel_width, info->center_freq, info->center_freq0, info->center_freq1);
+				radio_st->channels[0].cca_busy_time = info->cca_busy_time;
+				radio_st->channels[0].on_time= info->on_time;
+				radio_st->channels[0].channel.center_freq = info->center_freq;
+				radio_st->channels[0].channel.center_freq0 = info->center_freq0;
+				radio_st->channels[0].channel.center_freq1 = info->center_freq1;
+				radio_st->channels[0].channel.width = info->channel_width;
+		}
+	}
+	reply_radio_length = sizeof(struct wifi_radio_stat) + 1100;
 	reply_iface_length = sizeof(struct wifi_iface_stat) + 1000;
 
 	reply_radio = cfg80211_vendor_cmd_alloc_reply_skb(wiphy,
