@@ -2897,6 +2897,14 @@ void sprdwl_setup_wiphy(struct wiphy *wiphy, struct sprdwl_priv *priv)
 		pr_info("\tLink layer stats supported\n");
 
 	wiphy->features |= NL80211_FEATURE_SAE;
+
+	if (priv->extend_feature & SPRDWL_EXTEND_FEATURE_OCE) {
+		pr_info("\tOCE supported\n");
+		wiphy_ext_feature_set(wiphy, NL80211_EXT_FEATURE_ACCEPT_BCAST_PROBE_RESP);
+		wiphy_ext_feature_set(wiphy, NL80211_EXT_FEATURE_FILS_MAX_CHANNEL_TIME);
+		wiphy_ext_feature_set(wiphy, NL80211_EXT_FEATURE_OCE_PROBE_REQ_DEFERRAL_SUPPRESSION);
+		wiphy_ext_feature_set(wiphy, NL80211_EXT_FEATURE_OCE_PROBE_REQ_HIGH_TX_RATE);
+	}
 }
 
 static void sprdwl_check_intf_ops(struct sprdwl_if_ops *ops)
