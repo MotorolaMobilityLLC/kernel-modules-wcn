@@ -583,6 +583,31 @@ static inline u8 sprdwl_parse_cipher(u32 cipher)
 	return ret;
 }
 
+static inline __le32 sprdwl_convert_wpa_version(u32 version)
+{
+	u32 ret;
+
+	switch (version) {
+	case NL80211_WPA_VERSION_1:
+		ret = SPRDWL_WPA_VERSION_1;
+		break;
+	case NL80211_WPA_VERSION_2:
+		ret = SPRDWL_WPA_VERSION_2;
+		break;
+	case NL80211_WAPI_VERSION_1:
+		ret = SPRDWL_WAPI_VERSION_1;
+		break;
+	case NL80211_WPA_VERSION_3:
+		ret = SPRDWL_WPA_VERSION_3;
+		break;
+	default:
+		ret = SPRDWL_WPA_VERSION_NONE;
+		break;
+	}
+
+	return cpu_to_le32(ret);
+}
+
 static int sprdwl_add_cipher_key(struct sprdwl_vif *vif, bool pairwise,
 				 u8 key_index, u32 cipher, const u8 *key_seq,
 				 const u8 *mac_addr)
@@ -1450,8 +1475,10 @@ static int sprdwl_cfg80211_connect(struct wiphy *wiphy, struct net_device *ndev,
 		if (ret)
 			goto err;
 	}
-	netdev_info(ndev, "wpa versions %#x\n", sme->crypto.wpa_versions);
-	con.wpa_versions = sme->crypto.wpa_versions;
+
+	con.wpa_versions = sprdwl_convert_wpa_version(sme->crypto.wpa_versions);
+	netdev_info(ndev, "sme->wpa versions %#x, con.wpa_version:%#x\n",
+		    sme->crypto.wpa_versions, con.wpa_versions);
 	netdev_info(ndev, "management frame protection %#x\n", sme->mfp);
 	con.mfp_enable = sme->mfp;
 
