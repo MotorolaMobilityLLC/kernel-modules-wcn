@@ -253,6 +253,7 @@ struct sprdwl_cmd_fw_info {
 #define SPRDWL_EXTEND_8021X_SUITE_B_192    BIT(3)
 #define SPRDWL_EXTEND_FEATURE_OCE    BIT(4)
 #define SPRDWL_EXTEND_FEATURE_LLSTATE   BIT(5)
+#define SPRDWL_EXTEND_SOATAP_WPA3		BIT(6)
 	__le32 extend_feature;
 } __packed;
 

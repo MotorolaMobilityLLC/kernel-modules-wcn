@@ -1556,7 +1556,7 @@ int sprdwl_softap_set_sae_para(struct sprdwl_vif *vif,
 			       struct sprdwl_softap_sae_setting *setting)
 {
 	char *pos, *data;
-	int len, id_len, header_len, index, data_len, ret, *d;
+	int len, header_len, index, data_len, ret, *d;
 	struct sprdwl_sae_param *param;
 	struct sprdwl_sae_entry *tmp;
 	struct sprdwl_msg_buf *msg;
@@ -1574,6 +1574,7 @@ int sprdwl_softap_set_sae_para(struct sprdwl_vif *vif,
 		if (setting->entry[index].used == 0)
 			break;
 
+		tmp = &setting->entry[index];
 		/* add sae entry tlv first */
 		tlv = (struct sprdwl_tlv_data *)pos;
 		tlv->type = SPRDWL_VENDOR_SAE_ENTRY;
@@ -1588,6 +1589,7 @@ int sprdwl_softap_set_sae_para(struct sprdwl_vif *vif,
 			tlv->len = tmp->passwd_len;
 
 			memcpy(tlv->data, tmp->password, tmp->passwd_len);
+			netdev_info(vif->ndev, "%s password: %s, len:%d\n",__func__, tmp->password, tmp->passwd_len);
 			pos += (header_len + tmp->passwd_len);
 			data_len +=  (header_len + tmp->passwd_len);
 		}
@@ -1598,9 +1600,10 @@ int sprdwl_softap_set_sae_para(struct sprdwl_vif *vif,
 			tlv = (struct sprdwl_tlv_data *)pos;
 			tlv->type = SPRDWL_VENDOR_SAE_IDENTIFIER;
 			tlv->len = tmp->id_len;
-			strlcpy(tlv->data, tmp->identifier, tmp->id_len);
-			pos += (header_len + id_len);
-			data_len += (header_len + id_len);
+			memcpy(tlv->data, tmp->identifier, tmp->id_len);
+			netdev_info(vif->ndev, "%s id: %s, len:%d\n",__func__, tmp->identifier, tmp->id_len);
+			pos += (header_len + tmp->id_len);
+			data_len += (header_len + tmp->id_len);
 		}
 		/* PEER_ADDRESS ELEMENT */
 		if (!is_zero_ether_addr(tmp->peer_addr)) {
@@ -1608,7 +1611,7 @@ int sprdwl_softap_set_sae_para(struct sprdwl_vif *vif,
 			tlv->type = SPRDWL_VENDOR_SAE_PEER_ADDR;
 			tlv->len = ETH_ALEN;
 
-			strlcpy(tlv->data, tmp->peer_addr, ETH_ALEN);
+			memcpy(tlv->data, tmp->peer_addr, ETH_ALEN);
 			pos += (header_len + ETH_ALEN);
 			data_len += (header_len + ETH_ALEN);
 		}
@@ -1636,9 +1639,10 @@ int sprdwl_softap_set_sae_para(struct sprdwl_vif *vif,
 		tlv = (struct sprdwl_tlv_data *)pos;
 		tlv->type = SPRDWL_VENDOR_SAE_PWD;
 		tlv->len = setting->passphrase_len;
-		strlcpy(tlv->data, setting->passphrase, setting->passphrase_len);
-		pos += header_len + setting->passphrase_len;
-		data_len +=  header_len + setting->passphrase_len;
+		memcpy(tlv->data, setting->passphrase, setting->passphrase_len);
+		netdev_info(vif->ndev, "%s passphrase: %s, len:%d\n",__func__, setting->passphrase_len, setting->passphrase_len);
+		pos += (header_len + setting->passphrase_len);
+		data_len +=  (header_len + setting->passphrase_len);
 	}
 
 	/*GROUP*/
@@ -1676,7 +1680,6 @@ int sprdwl_softap_set_sae_para(struct sprdwl_vif *vif,
 
 	msg = sprdwl_cmd_getbuf(vif->priv, len, vif->mode,
 				SPRDWL_HEAD_RSP, WIFI_CMD_SET_SAE_PARAM);
-
 	if (!msg) {
 		kfree(data);
 		return -ENOMEM;
@@ -1684,9 +1687,8 @@ int sprdwl_softap_set_sae_para(struct sprdwl_vif *vif,
 
 	param = (struct sprdwl_sae_param *)msg->data;
 	param->request_type = SPRDWL_SAE_PASSWORD_ENTRY;
+	memcpy(param->data, data, data_len);
 
-	pos = (char *)param->data;
-	memcpy(pos, data, data_len);
 	ret =  sprdwl_cmd_send_recv(vif->priv, msg, CMD_WAIT_TIMEOUT,
 				    NULL, NULL);
 	if (ret)

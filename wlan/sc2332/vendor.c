@@ -1858,7 +1858,7 @@ static int sprdwl_set_offload_packet(struct wiphy *wiphy,
 	return 0;
 }
 
-static int sprdwl_parse_sae_entry(struct sprdwl_sae_entry *entry,
+static int sprdwl_parse_sae_entry(struct net_device *ndev, struct sprdwl_sae_entry *entry,
 				  const void *data, int len)
 {
 	int rem_len, type, data_len;
@@ -1871,6 +1871,7 @@ static int sprdwl_parse_sae_entry(struct sprdwl_sae_entry *entry,
 			data_len = nla_len(pos);
 			entry->passwd_len = data_len;
 			nla_strlcpy(entry->password, pos, data_len + 1);
+			netdev_info(ndev, "entry->passwd: %s, entry->len:%d\n", entry->password, entry->passwd_len);
 			break;
 		case SPRDWL_VENDOR_SAE_IDENTIFIER:
 			data_len = nla_len(pos);
@@ -1898,6 +1899,13 @@ static int sprdwl_vendor_set_sae_password(struct wiphy *wiphy,
 	struct nlattr *pos;
 	struct sprdwl_softap_sae_setting sae_para;
 	struct sprdwl_vif *vif = netdev_priv(wdev->netdev);
+	struct sprdwl_priv *priv;
+
+	priv = wiphy_priv(wiphy);
+	if (!(priv->extend_feature & SPRDWL_EXTEND_SOATAP_WPA3)) {
+		netdev_info(vif->ndev, "firmware not support softap wpa3\n");
+		return -ENOTSUPP; 
+	}
 
 	memset(&sae_para, 0x00, sizeof(sae_para));
 
@@ -1908,7 +1916,7 @@ static int sprdwl_vendor_set_sae_password(struct wiphy *wiphy,
 		case SPRDWL_VENDOR_SAE_ENTRY:
 			sae_para.entry[sea_entry_index].vlan_id = SPRDWL_SAE_NOT_SET;
 			sae_para.entry[sea_entry_index].used = 1;
-			sprdwl_parse_sae_entry(&sae_para.entry[sea_entry_index],
+			sprdwl_parse_sae_entry(vif->ndev, &sae_para.entry[sea_entry_index],
 					       nla_data(pos), nla_len(pos));
 			sea_entry_index++;
 			break;
@@ -1925,7 +1933,8 @@ static int sprdwl_vendor_set_sae_password(struct wiphy *wiphy,
 
 		case SPRDWL_VENDOR_SAE_PWD:
 			passphrase_len = nla_len(pos);
-			nla_strlcpy(sae_para.passphrase, pos, passphrase_len);
+			nla_strlcpy(sae_para.passphrase, pos, passphrase_len + 1);
+			netdev_info(vif->ndev, "pwd is :%s, len :%d\n", sae_para.passphrase,passphrase_len);
 			break;
 		default:
 			break;
