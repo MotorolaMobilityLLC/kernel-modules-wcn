@@ -740,10 +740,10 @@ void sprdwl_ftm_event_end(struct sprdwl_priv *priv)
 			goto out;
 		}
 		if(nla_put(reply, SPRD_VENDOR_RTT_ATTRIBUTE_RESULT_MAC,
-			   6, priv->rtt_results.peer_rtt_result[i]->mac_addr) ||
-			   nla_put_u32(reply, SPRD_VENDOR_RTT_ATTRIBUTE_RESULT_CNT_CNT, i + 1) ||
-		nla_put(reply, SPRD_VENDOR_RTT_ATTRIBUTE_RESULT,
-			2 * sizeof(struct wifi_hal_rtt_result), priv->rtt_results.peer_rtt_result[i])) {
+		   6, priv->rtt_results.peer_rtt_result[i]->mac_addr) ||
+		   nla_put_u32(reply, SPRD_VENDOR_RTT_ATTRIBUTE_RESULT_CNT_CNT, i + 1) ||
+		   nla_put(reply, SPRD_VENDOR_RTT_ATTRIBUTE_RESULT,
+		   2 * sizeof(struct wifi_hal_rtt_result), priv->rtt_results.peer_rtt_result[i])) {
 			wl_info("%s, %d\n", __func__, __LINE__);
 			goto out;
 		}

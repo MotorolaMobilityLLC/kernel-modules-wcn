@@ -424,9 +424,6 @@ int sprdwl_filter_send_tcp_ack(struct sprdwl_priv *priv,
 	struct sprdwl_tcp_ack_info *ack_info;
 	struct sprdwl_tcp_ack_manage *ack_m = &priv->ack_m;
 
-	if (!atomic_read(&ack_m->enable))
-		return 0;
-
 	if (plen > MAX_TCP_ACK)
 		return 0;
 
@@ -445,7 +442,7 @@ int sprdwl_filter_send_tcp_ack(struct sprdwl_priv *priv,
 			write_sequnlock_bh(&ack_info->seqlock);
 		}
 
-		if (drop > 0) {
+		if (drop > 0 && atomic_read(&ack_m->enable)) {
 			win = ack_info->win_scale * ack_msg.win;
 			if (win < (ack_m->ack_winsize * SIZE_KB))
 				drop = 2;
@@ -517,7 +514,8 @@ void enable_tcp_ack_delay(char *buf, unsigned char offset)
 
 	ack_m = &g_sprdwl_priv->ack_m;
 
-	if (enable == 0) {
+	if (enable == 0 && atomic_read(&ack_m->enable)) {
+		wl_err("%s, %d, disable DROPTCPAK\n", __func__, __LINE__);
 		atomic_set(&ack_m->enable, 0);
 		for (i = 0; i < SPRDWL_TCP_ACK_NUM; i++) {
 			drop_msg = NULL;
@@ -532,8 +530,9 @@ void enable_tcp_ack_delay(char *buf, unsigned char offset)
 				sprdwl_intf_tcp_drop_msg(g_sprdwl_priv,
 							 drop_msg);
 		}
-	} else {
+	} else if (enable == 1 && !atomic_read(&ack_m->enable)){
 		atomic_set(&ack_m->enable, 1);
+		wl_err("%s, %d, enable DROPTCPAK\n", __func__, __LINE__);
 	}
 }
 

@@ -14,7 +14,6 @@
 #define SPRDWL_SDIO_MASK_LIST_CMD	0x1
 #define SPRDWL_SDIO_MASK_LIST_SPECIAL	0x2
 #define SPRDWL_SDIO_MASK_LIST_DATA	0x4
-#define TX_TIMEOUT_DROP_RATE	50
 
 /*The number of bytes in an ethernet (MAC) address.*/
 #define	ETHER_ADDR_LEN 6
@@ -66,6 +65,8 @@ struct sprdwl_tx_msg {
 	atomic_t flow0;
 	atomic_t flow1;
 	atomic_t flow2;
+	unsigned long tx_num;
+	unsigned long txc_num;
 
 	struct work_struct tx_work;
 	struct workqueue_struct *tx_queue;
@@ -89,7 +90,15 @@ struct sprdwl_tx_msg {
 	struct sprdwl_xmit_msg_list xmit_msg_list;
 	struct tx_t *tx_list[SPRDWL_MODE_MAX];
 	int net_stoped;
+	struct completion tx_completed;
+	struct task_struct *tx_thread;
+	/*to count total tx number in 5.2.27 case*/
+	unsigned long wmm_tx_count[SPRDWL_AC_MAX];
+	unsigned long wmm_tx_droped[SPRDWL_AC_MAX];
+	enum wmm_step_pase wmm_status;
 };
+
+extern unsigned int wfa_cap;
 
 struct sprdwl_msg_buf *sprdwl_get_msg_buf(void *pdev,
 					enum sprdwl_head_type type,
@@ -110,7 +119,6 @@ void sprdwl_wake_net_ifneed(struct sprdwl_intf *dev,
 			    struct sprdwl_msg_list *list,
 			    enum sprdwl_mode mode);
 u8 sprdwl_fc_set_clor_bit(struct sprdwl_tx_msg *tx_msg, int num);
-void sprdwl_wakeup_tx(struct sprdwl_tx_msg *tx_msg);
 void handle_tx_status_after_close(struct sprdwl_vif *vif);
 void sprdwl_flush_tx_qoslist(struct sprdwl_tx_msg *tx_msg, int mode, int ac_index, int lut_index);
 void sprdwl_flush_mode_txlist(struct sprdwl_tx_msg *tx_msg, enum sprdwl_mode mode);
@@ -118,6 +126,8 @@ void sprdwl_flush_tosendlist(struct sprdwl_tx_msg *tx_msg);
 void sprdwl_fc_add_share_credit(struct sprdwl_vif *vif);
 
 bool is_vowifi_pkt(struct sk_buff *skb, bool *b_cmd_path);
+unsigned int do_csum(const unsigned char *buff, int len);
+void tx_up(struct sprdwl_tx_msg *tx_msg);
 void sprdwl_dequeue_tofreelist_buf(struct sprdwl_msg_buf *msg_buf);
 #endif
 

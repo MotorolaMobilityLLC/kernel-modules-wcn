@@ -932,10 +932,11 @@ static void ba_reorder_timeout(unsigned long data)
 		spin_unlock_bh(&ba_entry->skb_list_lock);
 
 #ifndef SC2355_RX_NAPI
-		if (!work_pending(&rx_if->rx_work)) {
-			wl_info("%s: queue rx workqueue\n", __func__);
-			queue_work(rx_if->rx_queue, &rx_if->rx_work);
-		}
+#ifdef SPLIT_STACK
+		rx_net_up(rx_if);
+#else
+		rx_up(rx_if);
+#endif
 #else
 		napi_schedule(&rx_if->napi_rx);
 #endif

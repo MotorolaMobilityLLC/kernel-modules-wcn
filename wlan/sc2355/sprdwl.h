@@ -343,6 +343,12 @@ extern struct device *sprdwl_dev;
 		} \
 	} while (0)
 
+#define wl_err_ratelimited(fmt, args...) \
+	do { \
+		if (sprdwl_debug_level >= L_ERR) \
+		printk_ratelimited("sc2355 sprd-wlan:" fmt, ##args); \
+	} while (0)
+
 #ifdef ACS_SUPPORT
 struct sprdwl_bssid {
 	unsigned char bssid[ETH_ALEN];

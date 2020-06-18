@@ -201,6 +201,10 @@ struct sprdwl_intf {
 	u8 tsq_shift;
 	unsigned int tcpack_delay_th_in_mb;
 	unsigned int tcpack_time_in_ms;
+	unsigned long pushfail_count;
+#ifdef WMMAC_WFA_CERTIFICATION
+	unsigned char wmm_special_flag;
+#endif
 };
 
 /* HashTable */

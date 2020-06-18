@@ -44,11 +44,11 @@
 /*use port 10 because fifo_len = 8*/
 #define SDIO_TX_DATA_PORT	10
 
-#define PCIE_RX_CMD_PORT	22
-#define PCIE_RX_DATA_PORT	23
+#define PCIE_RX_CMD_PORT	7
+#define PCIE_RX_DATA_PORT	9
 #define PCIE_RX_ADDR_DATA_PORT	11
-#define PCIE_TX_CMD_PORT	2
-#define PCIE_TX_DATA_PORT	3
+#define PCIE_TX_CMD_PORT	4
+#define PCIE_TX_DATA_PORT	5
 #define PCIE_TX_ADDR_DATA_PORT  10
 
 #define USB_RX_CMD_PORT	20
@@ -266,7 +266,6 @@ static inline bool sprdwl_is_group(unsigned char *addr)
 int sprdwl_intf_init(struct sprdwl_priv *priv, struct sprdwl_intf *intf);
 void sprdwl_intf_deinit(struct sprdwl_intf *dev);
 int if_tx_cmd(struct sprdwl_intf *intf, unsigned char *data, int len);
-int if_tx_addr_trans(struct sprdwl_intf *intf, unsigned char *data, int len);
 int sprdwl_intf_tx_list(struct sprdwl_intf *dev,
 			struct list_head *tx_list,
 			struct list_head *tx_list_head,
@@ -320,7 +319,7 @@ int sprdwl_push_link(struct sprdwl_intf *intf, int chn,
 			    int (*pop)(int, struct mbuf_t *, struct mbuf_t *, int));
 enum sprdwl_hw_type get_hwintf_type(void);
 void if_tx_addr_trans_free(struct sprdwl_intf *intf);
-int if_tx_addr_trans_pcie(struct sprdwl_intf *intf,
+int if_tx_addr_trans(struct sprdwl_intf *intf,
                             unsigned char *data, int len, bool send_now);
 void sprdwl_count_rx_tp(struct sprdwl_intf *intf, int len);
 void sprdwl_add_to_free_list(struct sprdwl_priv *priv,

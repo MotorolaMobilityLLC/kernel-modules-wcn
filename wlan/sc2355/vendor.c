@@ -4118,7 +4118,7 @@ static const struct nl80211_vendor_cmd_info sprdwl_vendor_events[] = {
 		.vendor_id = OUI_SPREAD,
 		.subcmd = SPRDWL_VENDOR_EVENT_NAN,
 	},
-	[SPRDWL_VENDOR_EVENT_EPNO_FOUND] = {
+	[SPRDWL_VENDOR_EVENT_EPNO_FOUND_INDEX] = {
 		.vendor_id = OUI_SPREAD,
 		.subcmd = SPRDWL_VENDOR_EVENT_EPNO_FOUND,
 	},

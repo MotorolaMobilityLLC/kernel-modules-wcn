@@ -43,7 +43,7 @@ struct sprdwl_rx_if {
 	struct sprdwl_intf *intf;
 
 	struct sprdwl_msg_list rx_list;
-
+	struct task_struct *rx_thread;
 	struct work_struct rx_work;
 	struct workqueue_struct *rx_queue;
 
@@ -61,14 +61,18 @@ struct sprdwl_rx_if {
 	int addr_trans_num;
 
 #ifdef SPLIT_STACK
+	struct task_struct *rx_net_thread;
 	struct work_struct rx_net_work;
 	struct workqueue_struct *rx_net_workq;
 #endif
 
 	struct completion rx_completed;
+	struct completion rx_net_completed;
 	unsigned long rx_total_len;
 	ktime_t rxtimebegin;
 	ktime_t rxtimeend;
+
+	unsigned long rx_vi_count;
 };
 
 struct sprdwl_addr_trans_value {

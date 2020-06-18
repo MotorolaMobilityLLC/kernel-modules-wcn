@@ -282,6 +282,7 @@ void sprdwl_cmd_deinit(void)
 	unsigned long timeout;
 	struct sprdwl_cmd *cmd = &g_sprdwl_cmd;
 
+	wl_warn("%s, %d\n", __func__, __LINE__);
 	atomic_add(SPRDWL_CMD_EXIT_VAL, &cmd->refcnt);
 	complete(&cmd->completed);
 
@@ -293,6 +294,7 @@ void sprdwl_cmd_deinit(void)
 		}
 		usleep_range(2000, 2500);
 	}
+	wl_warn("%s, %d\n", __func__, __LINE__);
 	sprdwl_cmd_clean(cmd);
 	mutex_destroy(&cmd->cmd_lock);
 	wakeup_source_trash(&cmd->wake_lock);
@@ -742,6 +744,10 @@ void sprdwl_download_ini(struct sprdwl_priv *priv)
 					   sizeof(struct wifi_conf_sec1_t));
 	wifi_param = (struct wifi_config_param_t *)(&wifi_data->wifi_param);
 
+	wl_info("total config len:%ld,sec1 len:%ld, sec2 len:%ld, sec4 len:%ld\n",
+		(long unsigned int)sizeof(*wifi_data), (long unsigned int)sizeof(*sec1),
+		(long unsigned int)sizeof(*sec2), (long unsigned int)sizeof(*wifi_param));
+
 	wl_info("download the first section of config file\n");
 	ret = sprdwl_down_ini_cmd(priv, (uint8_t *)sec1, sizeof(*sec1), SEC1);
 	if (ret) {
@@ -1050,6 +1056,7 @@ int sprdwl_power_save(struct sprdwl_priv *priv, u8 vif_ctx_id,
 	p = (struct sprdwl_cmd_power_save *)msg->data;
 	p->sub_type = sub_type;
 	p->value = status;
+	wl_warn("%s: WIFI_CMD_POWER_SAVE sub_type: %d, status: %d\n", __func__, p->sub_type, p->value);
 	return sprdwl_cmd_send_recv(priv, msg, CMD_WAIT_TIMEOUT, NULL, NULL);
 }
 
@@ -2367,10 +2374,8 @@ int sprdwl_send_data2cmd(struct sprdwl_priv *priv, u8 vif_ctx_id,
 
 int sprdwl_xmit_data2cmd(struct sk_buff *skb, struct net_device *ndev)
 {
-#define FLAG_SIZE  5
 	struct sprdwl_vif *vif = netdev_priv(ndev);
 	struct sprdwl_msg_buf *msg;
-	u8 *temp_flag = "01234";
 	struct tx_msdu_dscr *dscr;
 	struct sprdwl_cmd *cmd = &g_sprdwl_cmd;
 
@@ -2398,8 +2403,13 @@ int sprdwl_xmit_data2cmd(struct sk_buff *skb, struct net_device *ndev)
 	/*alloc five byte for fw 16 byte need
 	 *dscr:11+flag:5 =16
 	 */
-	skb_push(skb, FLAG_SIZE);
-	memcpy(skb->data, temp_flag, FLAG_SIZE);
+	if (vif->priv->hw_type != SPRDWL_HW_SC2355_PCIE) {
+#define FLAG_SIZE  5
+		u8 *temp_flag = "01234";
+
+		skb_push(skb, FLAG_SIZE);
+		memcpy(skb->data, temp_flag, FLAG_SIZE);
+	}
 	/*malloc msg buffer*/
 	msg = sprdwl_cmd_getbuf_atomic(vif->priv, skb->len, vif->ctx_id,
 				       SPRDWL_HEAD_RSP, WIFI_CMD_TX_DATA);
@@ -2426,9 +2436,7 @@ int sprdwl_xmit_data2cmd(struct sk_buff *skb, struct net_device *ndev)
 
 int sprdwl_xmit_data2cmd_wq(struct sk_buff *skb, struct net_device *ndev)
 {
-#define FLAG_SIZE  5
 	struct sprdwl_vif *vif = netdev_priv(ndev);
-	u8 *temp_flag = "01234";
 	struct tx_msdu_dscr *dscr;
 	struct sprdwl_work *misc_work = NULL;
 
@@ -2440,8 +2448,13 @@ int sprdwl_xmit_data2cmd_wq(struct sk_buff *skb, struct net_device *ndev)
 	/*alloc five byte for fw 16 byte need
 	 *dscr:11+flag:5 =16
 	 */
-	skb_push(skb, FLAG_SIZE);
-	memcpy(skb->data, temp_flag, FLAG_SIZE),
+	if (vif->priv->hw_type != SPRDWL_HW_SC2355_PCIE) {
+#define FLAG_SIZE  5
+		u8 *temp_flag = "01234";
+
+		skb_push(skb, FLAG_SIZE);
+		memcpy(skb->data, temp_flag, FLAG_SIZE);
+	}
 	/*send group in BK to avoid FW hang*/
 	dscr = (struct tx_msdu_dscr *)skb->data;
 	if ((vif->mode == SPRDWL_MODE_AP ||
@@ -3218,8 +3231,10 @@ void sprdwl_wfd_mib_cnt(struct sprdwl_vif *vif, u8 *data, u16 len)
 		(struct event_wfd_mib_cnt *)data;
 	u32 tx_cnt, busy_cnt, wfd_rate;
 
-	wl_info("%s, %d, drop=%d,%d,%d,%d, frame=%d, clear=%d, mib=%d\n",
+	wl_info("%s, %d, tp=%d, sum_tp=%d, drop=%d,%d,%d,%d, frame=%d, clear=%d, mib=%d\n",
 		__func__, __LINE__,
+		wfd->wfd_throughput, wfd->sum_tx_throughput,
+		wfd->tx_mpdu_lost_cnt[0], wfd->tx_mpdu_lost_cnt[1], wfd->tx_mpdu_lost_cnt[2], wfd->tx_mpdu_lost_cnt[3],
 		wfd->tx_frame_cnt, wfd->rx_clear_cnt, wfd->mib_cycle_cnt);
 	if(!wfd->mib_cycle_cnt)	{
 		return;
@@ -3592,6 +3607,10 @@ unsigned short sprdwl_rx_event_process(struct sprdwl_priv *priv, u8 *msg)
 		break;
 	case WIFI_EVENT_ACS_DONE:
 		sprdwl_event_acs_done(vif, data, len);
+		if (vif->acs_scan_index == 6)
+			vif->acs_scan_index = 1;
+		else
+			vif->acs_scan_index++;
 		break;
 	case WIFI_EVENT_ACS_LTE_CONFLICT_EVENT:
 		sprdwl_event_acs_lte_event(vif);

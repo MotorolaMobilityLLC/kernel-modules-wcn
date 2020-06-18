@@ -267,7 +267,6 @@ static int sprdwl_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 	 * by use tx mgmt cmd
 	 */
 	/* send 802.1x or WAPI frame from cmd channel */
-
 	if (skb->protocol == cpu_to_be16(ETH_P_PAE) ||
 		skb->protocol == cpu_to_be16(WAPI_TYPE)) {
 		wl_err("send %s frame by WIFI_CMD_TX_DATA\n",
@@ -305,7 +304,7 @@ static int sprdwl_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 		ndev->stats.tx_fifo_errors++;
 		dev_kfree_skb(skb);
 		sprdwl_stop_net(vif);
-		return NETDEV_TX_BUSY;
+		return NETDEV_TX_OK;
 	}
 
 	if (-1 == sprdwl_realloc_skb_headroom(skb, ndev, msg))
@@ -640,8 +639,7 @@ static int sprdwl_set_power_save(struct net_device *ndev, struct ifreq *ifr)
 			goto out;
 		netdev_info(ndev, "%s: set suspend mode,value : %d\n",
 			    __func__, value);
-		if (priv->hw_type == SPRDWL_HW_SC2355_PCIE)
-			priv->is_screen_off = value;
+		priv->is_screen_off = value;
 		ret = sprdwl_power_save(priv, vif->ctx_id,
 					SPRDWL_SCREEN_ON_OFF, value);
 	} else if (!strncasecmp(command, CMD_SET_FCC_CHANNEL,
@@ -900,7 +898,6 @@ static int sprdwl_set_mac(struct net_device *dev, void *addr)
 
 	if (!dev) {
 		netdev_err(dev, "Invalid net device\n");
-		return -EINVAL;
 	}
 
 	netdev_info(dev, "start set random mac: %pM\n", sa->sa_data);
@@ -1151,7 +1148,7 @@ static void sprdwl_set_mac_addr(struct sprdwl_vif *vif, u8 *pending_addr,
 		ether_addr_copy(addr, priv->mac_addr);
 	} else if (pending_addr && is_valid_ether_addr(pending_addr)) {
 		ether_addr_copy(addr, pending_addr);
-	} else if (priv && is_valid_ether_addr(priv->default_mac)) {
+	} else if (is_valid_ether_addr(priv->default_mac)) {
 		ether_addr_copy(addr, priv->default_mac);
 	} else if (sprdwl_get_mac_from_file(vif, addr)) {
 		random_ether_addr(addr);
@@ -1165,10 +1162,6 @@ static void sprdwl_set_mac_addr(struct sprdwl_vif *vif, u8 *pending_addr,
 		write_mac_addr(addr);
 	}
 
-	if (!priv) {
-		netdev_err(vif->ndev, "%s get pirv failed\n", __func__);
-		return;
-	}
 	switch (type) {
 	case NL80211_IFTYPE_STATION:
 	case NL80211_IFTYPE_AP:
@@ -1203,7 +1196,7 @@ void clean_scan_list(struct sprdwl_vif *vif)
 		kfree(node);
 		count++;
 	}
-	pr_err("delete scan node num:%d\n", count);
+	wl_err("delete scan node num:%d\n", count);
 }
 
 #ifdef ACS_SUPPORT
@@ -1587,6 +1580,44 @@ static void sprdwl_init_debugfs(struct sprdwl_priv *priv)
 	sprdwl_intf_debugfs(priv, priv->debugfs);
 }
 
+static int sprdwl_host_reset(struct notifier_block *nb,
+			      unsigned long data, void *ptr)
+{
+	struct sprdwl_vif *vif;
+	struct sprdwl_intf *intf;
+
+	char *envp[3] = {
+		[0] = "SOURCE=unisocwl",
+		[1] = "EVENT=FW_ERROR",
+		[2] = NULL,
+	};
+
+	kobject_uevent_env(&sprdwl_dev->kobj, KOBJ_CHANGE, envp);
+
+	wl_err("Notify firmware reset event\n");
+
+	if (g_sprdwl_priv == NULL) {
+		wl_warn("%s g_sprdwl_priv is NULL\n", __func__);
+		return NOTIFY_OK;
+	}
+
+	vif = list_first_entry(&g_sprdwl_priv->vif_list,
+			       struct sprdwl_vif, vif_node);
+	if (vif == NULL) {
+		wl_warn("%s vif list is NULL\n", __func__);
+		return NOTIFY_OK;
+	}
+
+	intf = (struct sprdwl_intf *)(vif->priv->hw_priv);
+	intf->cp_asserted = 1;
+
+	return NOTIFY_OK;
+}
+
+static struct notifier_block wifi_host_reset = {
+	.notifier_call = sprdwl_host_reset,
+};
+
 int sprdwl_core_init(struct device *dev, struct sprdwl_priv *priv)
 {
 	struct wiphy *wiphy = priv->wiphy;
@@ -1622,6 +1653,7 @@ int sprdwl_core_init(struct device *dev, struct sprdwl_priv *priv)
 		goto out;
 	}
 
+	atomic_notifier_chain_register(&wcn_reset_notifier_list, &wifi_host_reset);
 #ifdef SC2355_RX_NAPI
 	sprdwl_rx_napi_init(wdev->netdev,
 			    ((struct sprdwl_intf *)priv->hw_priv));
@@ -1658,6 +1690,8 @@ out:
 int sprdwl_core_deinit(struct sprdwl_priv *priv)
 {
 	marlin_reset_unregister_notify();
+	atomic_notifier_chain_unregister(&wcn_reset_notifier_list,
+					 &wifi_host_reset);
 	unregister_inetaddr_notifier(&sprdwl_inetaddr_cb);
 	if (priv->fw_capa & SPRDWL_CAPA_NS_OFFLOAD)
 		unregister_inet6addr_notifier(&sprdwl_inet6addr_cb);

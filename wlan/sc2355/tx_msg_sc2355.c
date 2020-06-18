@@ -34,6 +34,7 @@
 #include "debug.h"
 #include "work.h"
 #include <linux/kthread.h>
+#include "txrx_buf_mm.h"
 
 #define MAX_FW_TX_DSCR (1024)
 unsigned int g_max_fw_tx_dscr = 0;
@@ -115,21 +116,25 @@ struct sprdwl_msg_buf *sprdwl_get_msg_buf(void *pdev,
 static void sprdwl_dequeue_cmd_buf(struct sprdwl_msg_buf *msg_buf,
 				    struct sprdwl_msg_list *list)
 {
-	spin_lock_bh(&list->busylock);
-	list_del(&msg_buf->list);
-	spin_unlock_bh(&list->busylock);
+	unsigned long flags = 0;
 
-	spin_lock_bh(&list->complock);
+	spin_lock_irqsave(&list->busylock, flags);
+	list_del(&msg_buf->list);
+	spin_unlock_irqrestore(&list->busylock, flags);
+
+	spin_lock_irqsave(&list->complock, flags);
 	list_add_tail(&msg_buf->list, &list->cmd_to_free);
-	spin_unlock_bh(&list->complock);
+	spin_unlock_irqrestore(&list->complock, flags);
 }
 
 void sprdwl_free_cmd_buf(struct sprdwl_msg_buf *msg_buf,
 			   struct sprdwl_msg_list *list)
 {
-	spin_lock_bh(&list->complock);
+	unsigned long flags = 0;
+
+	spin_lock_irqsave(&list->complock, flags);
 	list_del(&msg_buf->list);
-	spin_unlock_bh(&list->complock);
+	spin_unlock_irqrestore(&list->complock, flags);
 	sprdwl_free_msg_buf(msg_buf, list);
 }
 
@@ -171,14 +176,9 @@ sprdwl_dequeue_qos_buf(struct sprdwl_msg_buf *msg_buf, int ac_index)
 
 void sprdwl_dequeue_tofreelist_buf(struct sprdwl_msg_buf *msg_buf)
 {
-	spinlock_t *lock;/*to lock qos list*/
-
-	lock = &msg_buf->xmit_msg_list->free_lock;
-	spin_lock_bh(lock);
 	dev_kfree_skb(msg_buf->skb);
 	list_del(&msg_buf->list);
 	sprdwl_free_msg_buf(msg_buf, msg_buf->msglist);
-	spin_unlock_bh(lock);
 }
 
 void sprdwl_flush_tx_qoslist(struct sprdwl_tx_msg *tx_msg, int mode, int ac_index, int lut_index)
@@ -266,7 +266,7 @@ void sprdwl_flush_tosendlist(struct sprdwl_tx_msg *tx_msg)
 static void sprdwl_flush_data_txlist(struct sprdwl_tx_msg *tx_msg)
 {
 	enum sprdwl_mode mode;
-	struct list_head *data_list;
+	struct list_head *to_free_list;
 	int cnt = 0;
 	struct sprdwl_priv *priv = tx_msg->intf->priv;
 
@@ -277,17 +277,24 @@ static void sprdwl_flush_data_txlist(struct sprdwl_tx_msg *tx_msg)
 	}
 
 	sprdwl_flush_tosendlist(tx_msg);
-	data_list = &tx_msg->xmit_msg_list.to_free_list;
+	to_free_list = &tx_msg->xmit_msg_list.to_free_list;
 	/*wait until data list sent completely and freed by HIF*/
-	wl_err("%s check if data freed complete start\n", __func__);
-	while (!list_empty(data_list) && (cnt < 1000)) {
+	wl_err("%s check if data freed complete start, freenum=%d\n",
+		__func__,
+		atomic_read(&tx_msg->xmit_msg_list.free_num));
+	while (!list_empty(to_free_list) && (cnt < 1000)) {
 		if (priv->hw_type == SPRDWL_HW_SC2355_PCIE &&
 			sprdwcn_bus_get_status() == WCN_BUS_DOWN) {
 			struct sprdwl_msg_buf *pos_buf, *temp_buf;
+			unsigned long lockflag_txfree = 0;
 
+			spin_lock_irqsave(&tx_msg->xmit_msg_list.free_lock,
+					  lockflag_txfree);
 			list_for_each_entry_safe(pos_buf, temp_buf,
-						 data_list, list)
+						 to_free_list, list)
 				sprdwl_dequeue_tofreelist_buf(pos_buf);
+			spin_unlock_irqrestore(&tx_msg->xmit_msg_list.free_lock,
+					       lockflag_txfree);
 			goto out;
 		}
 		usleep_range(2500, 3000);
@@ -299,9 +306,11 @@ out:
 
 void sprdwl_dequeue_data_buf(struct sprdwl_msg_buf *msg_buf)
 {
-	spin_lock_bh(&msg_buf->xmit_msg_list->free_lock);
+	unsigned long flags = 0;
+
+	spin_lock_irqsave(&msg_buf->xmit_msg_list->free_lock, flags);
 	list_del(&msg_buf->list);
-	spin_unlock_bh(&msg_buf->xmit_msg_list->free_lock);
+	spin_unlock_irqrestore(&msg_buf->xmit_msg_list->free_lock, flags);
 	sprdwl_free_msg_buf(msg_buf, msg_buf->msglist);
 }
 
@@ -310,6 +319,7 @@ void sprdwl_dequeue_data_list(struct mbuf_t *head, int num)
 	int i;
 	struct sprdwl_msg_buf *msg_pos;
 	struct mbuf_t *mbuf_pos = NULL;
+	unsigned long flags = 0;
 
 	mbuf_pos = head;
 	for (i = 0; i < num; i++) {
@@ -324,13 +334,13 @@ void sprdwl_dequeue_data_list(struct mbuf_t *head, int num)
 		}
 		dev_kfree_skb(msg_pos->skb);
 		/*delete node from to_free_list*/
-		spin_lock_bh(&msg_pos->xmit_msg_list->free_lock);
+		spin_lock_irqsave(&msg_pos->xmit_msg_list->free_lock, flags);
 		list_del(&msg_pos->list);
-		spin_unlock_bh(&msg_pos->xmit_msg_list->free_lock);
+		spin_unlock_irqrestore(&msg_pos->xmit_msg_list->free_lock, flags);
 		/*add it to free_list*/
-		spin_lock_bh(&msg_pos->msglist->freelock);
+		spin_lock_irqsave(&msg_pos->msglist->freelock, flags);
 		list_add_tail(&msg_pos->list, &msg_pos->msglist->freelist);
-		spin_unlock_bh(&msg_pos->msglist->freelock);
+		spin_unlock_irqrestore(&msg_pos->msglist->freelock, flags);
 		mbuf_pos = mbuf_pos->next;
 	}
 }
@@ -400,7 +410,7 @@ void sprdwl_init_xmit_list(struct sprdwl_tx_msg *tx_msg)
 	spin_lock_init(&tx_msg->xmit_msg_list.free_lock);
 }
 
-static int
+static void
 add_xmit_list_tail(struct sprdwl_tx_msg *tx_msg,
 		   struct peer_list *p_list,
 		   int add_num)
@@ -409,9 +419,13 @@ add_xmit_list_tail(struct sprdwl_tx_msg *tx_msg,
 	struct list_head temp_list;
 	int num = 0;
 
-	if (add_num == 0 || list_empty(&p_list->head_list))
-		return -ENOMEM;
+	if (add_num == 0)
+		return;
 	spin_lock_bh(&p_list->p_lock);
+	if (list_empty(&p_list->head_list)) {
+		spin_unlock_bh(&p_list->p_lock);
+		return;
+	}
 	list_for_each_safe(pos_list, n_list, &p_list->head_list) {
 		num++;
 		if (num == add_num)
@@ -432,8 +446,6 @@ add_xmit_list_tail(struct sprdwl_tx_msg *tx_msg,
 	wl_debug("%s,%d,q_num%d,tosend_num%d\n", __func__, __LINE__,
 		 get_list_num(&p_list->head_list),
 		 get_list_num(&tx_msg->xmit_msg_list.to_send_list));
-
-	return 0;
 }
 
 unsigned int queue_is_empty(struct sprdwl_tx_msg *tx_msg, enum sprdwl_mode mode)
@@ -520,6 +532,7 @@ static int sprdwl_tx_cmd(struct sprdwl_intf *intf, struct sprdwl_msg_list *list)
 		}
 		sprdwl_dequeue_cmd_buf(msgbuf, list);
 		tx_msg->cmd_send++;
+		wl_info("tx_cmd cmd_send num: %d\n", tx_msg->cmd_send);
 
 		/*TBD, temp solution: send CMD one by one*/
 		ret = if_tx_cmd(intf, (unsigned char *)msgbuf->tran_data,
@@ -815,7 +828,8 @@ void sprdwl_handle_tx_return(struct sprdwl_tx_msg *tx_msg,
 		printk_ratelimited(
 		"%s sprdwl_intf_tx_list err:%d\n",
 				   __func__, ret);
-		memset(tx_msg->color_num, 0x00, MAX_COLOR_BIT);
+		if (priv->hw_type == SPRDWL_HW_SC2355_SDIO || priv->hw_type == SPRDWL_HW_SC2355_USB)
+			memset(tx_msg->color_num, 0x00, MAX_COLOR_BIT);
 		usleep_range(20, 30);
 		return;
 	}
@@ -824,7 +838,9 @@ void sprdwl_handle_tx_return(struct sprdwl_tx_msg *tx_msg,
 	atomic_sub(send_num, &list->ref);
 	sprdwl_wake_net_ifneed(tx_msg->intf, list, tx_msg->mode);
 
-	if (priv->credit_capa == TX_NO_CREDIT)
+	if ((priv->credit_capa == TX_NO_CREDIT &&
+	    (priv->hw_type == SPRDWL_HW_SC2355_SDIO || priv->hw_type == SPRDWL_HW_SC2355_USB))
+	    || priv->hw_type == SPRDWL_HW_SC2355_PCIE)
 		return;
 
 	for (i = 0; i < MAX_COLOR_BIT; i++) {
@@ -849,43 +865,32 @@ int handle_tx_timeout(struct sprdwl_tx_msg *tx_msg,
 	int cnt, i, del_list_num;
 	struct list_head *tx_list;
 	struct sprdwl_msg_buf *pos_buf, *temp_buf, *tailbuf;
-	struct sprdwl_priv *priv = tx_msg->intf->priv;
 
-	if (SPRDWL_AC_MAX != ac_index) {
-		tx_list = &p_list->head_list;
-		lock = &p_list->p_lock;
-		spin_lock_bh(lock);
-		if (list_empty(tx_list)) {
-			spin_unlock_bh(lock);
-			return 0;
-		}
-		tailbuf = list_first_entry(tx_list, struct sprdwl_msg_buf, list);
+	if (SPRDWL_AC_MAX == ac_index)
+		return 0;
+
+	tx_list = &p_list->head_list;
+	lock = &p_list->p_lock;
+	spin_lock_bh(lock);
+	if (list_empty(tx_list)) {
 		spin_unlock_bh(lock);
-	} else {
-		tx_list = &tx_msg->xmit_msg_list.to_send_list;
-		if (list_empty(tx_list))
-			return 0;
-		tailbuf = list_first_entry(tx_list, struct sprdwl_msg_buf, list);
+		return 0;
 	}
-
+	tailbuf = list_first_entry(tx_list, struct sprdwl_msg_buf, list);
 	if (time_after(jiffies, tailbuf->timeout)) {
 		mode = tailbuf->mode;
-		sprdwl_net_flowcontrl(priv, mode, false);
 		i = 0;
-		lock = &p_list->p_lock;
-		spin_lock_bh(lock);
-		del_list_num = TX_TIMEOUT_DROP_RATE *
-			atomic_read(&p_list->l_num) / 100;
+		del_list_num = atomic_read(&p_list->l_num) * atomic_read(&p_list->l_num) /
+					   msg_list->maxnum;
 		if (del_list_num >= atomic_read(&p_list->l_num))
 			del_list_num = atomic_read(&p_list->l_num);
-		wl_info("tx timeout drop num:%d, l_num:%d",
-			del_list_num, atomic_read(&p_list->l_num));
-		spin_unlock_bh(lock);
+		wl_info("tx timeout drop num:%d, l_num:%d, maxnum:%d",
+			del_list_num, atomic_read(&p_list->l_num), msg_list->maxnum);
 		list_for_each_entry_safe(pos_buf,
-		temp_buf, tx_list, list) {
+					 temp_buf, tx_list, list) {
 			if (i >= del_list_num)
 				break;
-			wl_err("%s:%d buf->timeout\n",
+			wl_debug("%s:%d buf->timeout\n",
 			       __func__, __LINE__);
 			if (pos_buf->mode <= SPRDWL_MODE_AP) {
 				pinfo = "STA/AP mode";
@@ -894,21 +899,26 @@ int handle_tx_timeout(struct sprdwl_tx_msg *tx_msg,
 				pinfo = "P2P mode";
 				cnt = tx_msg->drop_data2_cnt++;
 			}
-			wl_err("tx drop %s, dropcnt:%u\n",
-			       pinfo, cnt);
-			sprdwl_dequeue_qos_buf(pos_buf, ac_index);
+			wl_warn("tx drop %s, dropcnt:%u\n",
+				pinfo, cnt);
+			if (pos_buf->skb)
+				dev_kfree_skb(pos_buf->skb);
+			if (pos_buf->node)
+				sprdwl_free_tx_buf(pos_buf->node);
+			list_del(&pos_buf->list);
+			sprdwl_free_msg_buf(pos_buf, pos_buf->msglist);
 			atomic_dec(&tx_msg->tx_list[mode]->mode_list_num);
 #if defined(MORE_DEBUG)
 			tx_msg->intf->stats.tx_dropped++;
 #endif
 			i++;
 		}
-		lock = &p_list->p_lock;
-		spin_lock_bh(lock);
 		atomic_sub(del_list_num, &p_list->l_num);
 		spin_unlock_bh(lock);
 		return -ENOMEM;
 	}
+	spin_unlock_bh(lock);
+
 	return 0;
 }
 
@@ -933,8 +943,17 @@ static int sprdwl_handle_to_send_list(struct sprdwl_intf *intf,
 			wl_err("%s, %d,error! credit:%d,tosendnum:%d\n",
 			       __func__, __LINE__,
 			       credit, tosendnum);
-		if (credit <= 0)
+		if (credit <= 0) {
+#if 0
+			wl_debug("%s, %d\n", __func__, __LINE__);
+			if (intf->priv->hw_type == SPRDWL_HW_SC2355_PCIE) {
+				sprdwl_flush_tosendlist(tx_msg);
+				sprdwl_net_flowcontrl(intf->priv, SPRDWL_MODE_NONE, false);
+				tx_msg->net_stoped = 1;
+			}
+#endif
 			return -ENOMEM;
+		}
 		tx_msg->xmit_msg_list.mode = mode;
 
 		ret = sprdwl_intf_tx_list(intf,
@@ -968,7 +987,6 @@ static int sprdwl_tx_eachmode_data(struct sprdwl_intf *intf,
 	struct list_head tx_list_head;
 	struct qos_list *q_list;
 	struct peer_list *p_list;
-	struct sprdwl_msg_list *list = &tx_msg->tx_list_qos_pool;
 	struct tx_t *tx_list = tx_msg->tx_list[mode];
 	int send_num = 0, total = 0, min_num = 0, round_num = 0;
 	int q_list_num[SPRDWL_AC_MAX] = {0, 0, 0, 0};
@@ -982,15 +1000,6 @@ static int sprdwl_tx_eachmode_data(struct sprdwl_intf *intf,
 		for (j = 0; j < MAX_LUT_NUM; j++) {
 			p_list = &tx_list->q_list[i].p_list[j];
 			if (atomic_read(&p_list->l_num) > 0) {
-				if (0 != handle_tx_timeout(tx_msg,
-						       list,
-						       p_list,
-						       i))
-					wl_err("TID=%s%s%s%s, timeout!\n",
-					       (i == SPRDWL_AC_VO) ? "VO" : "",
-					       (i == SPRDWL_AC_VI) ? "VI" : "",
-					       (i == SPRDWL_AC_BE) ? "BE" : "",
-					       (i == SPRDWL_AC_BK) ? "BK" : "");
 				p_list_num[i][j] = atomic_read(&p_list->l_num);
 				/*wl_info("TID=%d,PEER=%d,l_num=%d\n",i,j,p_list_num[i][j]);*/
 				q_list_num[i] += p_list_num[i][j];
@@ -1027,10 +1036,9 @@ static int sprdwl_tx_eachmode_data(struct sprdwl_intf *intf,
 				continue;
 			for (j = 0; j < MAX_LUT_NUM; j++) {
 				p_list = &q_list->p_list[j];
-				if (p_list_num[i][j] <= 0 || list_empty(&p_list->head_list))
+				if (p_list_num[i][j] ==  0)
 					continue;
-				if (add_xmit_list_tail(tx_msg, p_list, p_list_num[i][j]))
-					continue;
+				add_xmit_list_tail(tx_msg, p_list, p_list_num[i][j]);
 				atomic_sub(p_list_num[i][j], &p_list->l_num);
 				atomic_sub(p_list_num[i][j], &tx_list->mode_list_num);
 				wl_debug("%s, %d, mode=%d, TID=%d, lut=%d, %d add to xmit_list, then l_num=%d, mode_list_num=%d\n",
@@ -1258,8 +1266,8 @@ void prepare_addba(struct sprdwl_intf *intf, unsigned char lut_index,
 			wl_info("%s, %d, tx_addba, tid=%d\n",
 				__func__, __LINE__, tid);
 			getnstimeofday(&peer_entry->time[tid]);
-			if (!test_and_set_bit(tid, &peer_entry->ba_tx_done_map))
-				sprdwl_tx_addba(intf, peer_entry, tid);
+			test_and_set_bit(tid, &peer_entry->ba_tx_done_map);
+			sprdwl_tx_addba(intf, peer_entry, tid);
 		}
 	}
 }
@@ -1456,9 +1464,6 @@ RETRY:
 				return;
 
 			vif = mode_to_vif(priv, sprdwl_mode);
-
-			if (!vif)
-				return;
 			intf->fw_power_down = 0;
 			sprdwl_work_host_wakeup_fw(vif);
 			sprdwl_put_vif(vif);
@@ -1484,22 +1489,13 @@ RETRY:
 
 	for (mode = SPRDWL_MODE_NONE; mode < SPRDWL_MODE_MAX; mode++) {
 		int num = atomic_read(&tx_msg->tx_list[mode]->mode_list_num);
-		struct sprdwl_vif *vif;
 
 		if (num <= 0)
 			continue;
-		vif = mode_to_vif(priv, mode);
-		if (!vif)
-			continue;
-		if (num > 0 && ((priv->fw_stat[mode] != SPRDWL_INTF_OPEN) ||
-			((mode == SPRDWL_MODE_STATION ||
-			mode == SPRDWL_MODE_P2P_CLIENT) &&
-			vif->sm_state != SPRDWL_CONNECTED))) {
+		if (num > 0 && priv->fw_stat[mode] != SPRDWL_INTF_OPEN) {
 			sprdwl_flush_mode_txlist(tx_msg, mode);
-			sprdwl_put_vif(vif);
 			continue;
 		}
-		sprdwl_put_vif(vif);
 
 		send_num = sprdwl_fc_test_send_num(tx_msg, mode, num);
 		if (send_num > 0)
@@ -1652,7 +1648,7 @@ static inline unsigned short from32to16(unsigned int x)
 	return x;
 }
 
-static unsigned int do_csum(const unsigned char *buff, int len)
+unsigned int do_csum(const unsigned char *buff, int len)
 {
 	int odd;
 	unsigned int result = 0;
@@ -1942,6 +1938,7 @@ int sprdwl_tx_filter_packet(struct sk_buff *skb, struct net_device *ndev)
 	struct sprdwl_vif *vif;
 	struct sprdwl_intf *intf;
 	struct ethhdr *ethhdr = (struct ethhdr *)skb->data;
+	unsigned char lut_index;
 
 	vif = netdev_priv(ndev);
 	intf = (struct sprdwl_intf *)vif->priv->hw_priv;
@@ -1962,6 +1959,17 @@ int sprdwl_tx_filter_packet(struct sk_buff *skb, struct net_device *ndev)
 		wl_info("incoming TDLS packet\n");
 	if (ethhdr->h_proto == htons(ETH_P_PREAUTH))
 		wl_info("incoming PREAUTH packet\n");
+
+	intf->skb_da = skb->data;
+	if (ethhdr->h_proto == htons(ETH_P_IPV6)) {
+		lut_index = sprdwl_find_lut_index(intf, vif);
+		if ((vif->mode == SPRDWL_MODE_AP || vif->mode == SPRDWL_MODE_P2P_GO) &&
+			(lut_index != 4) && intf->peer_entry[lut_index].ip_acquired == 0) {
+			wl_info("ipv6 ethhdr->h_proto=%x\n", ethhdr->h_proto);
+			dev_kfree_skb(skb);
+			return 0;
+		}
+	}
 
 	if ((ethhdr->h_proto == htons(ETH_P_IPV6)) &&
 		!sprdwl_tx_mc_pkt(skb, ndev))

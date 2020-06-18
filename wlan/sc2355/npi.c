@@ -21,6 +21,7 @@
 #include <net/genetlink.h>
 #include <linux/types.h>
 #include <linux/version.h>
+#include <linux/version.h>
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0)
 #include <misc/marlin_platform.h>
 #else

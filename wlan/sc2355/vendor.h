@@ -111,11 +111,10 @@ enum sprdwl_vendor_subcommand_id {
 	SPRDWL_VENDOR_SUBCOMMAND_MAX
 };
 
-#define SPRDWL_VENDOR_EVENT_NAN_INDEX 32
-#define SPRDWL_ACS_LTE_EVENT_INDEX 35
 #define SPRDWL_REINIT_ACS	0x35
 
 enum sprdwl_vendor_event_index {
+	SPRDWL_VENDOR_SUBCMD_MONITOR_RSSI_INDEX = 0,
 	SPRDWL_VENDOR_SUBCMD_GSCAN_START_INDEX = 6,
 	SPRDWL_VENDOR_SUBCMD_GSCAN_STOP_INDEX,
 	SPRDWL_VENDOR_SUBCMD_GSCAN_GET_CAPABILITIES_INDEX,
@@ -130,6 +129,8 @@ enum sprdwl_vendor_event_index {
 	SPRDWL_VENDOR_SUBCMD_GSCAN_SIGNIFICANT_CHANGE_INDEX,
 	SPRDWL_VENDOR_SUBCMD_GSCAN_SET_SIGNIFICANT_CHANGE_INDEX,
 	SPRDWL_VENDOR_SUBCMD_GSCAN_RESET_SIGNIFICANT_CHANGE_INDEX,
+	SPRDWL_ACS_LTE_EVENT_INDEX,
+	SPRDWL_VENDOR_EVENT_NAN_INDEX,
 	SPRDWL_VENDOR_EVENT_EPNO_FOUND_INDEX,
 	SPRD_RTT_EVENT_COMPLETE_INDEX,
 
@@ -137,11 +138,11 @@ enum sprdwl_vendor_event_index {
 };
 
 enum sprdwl_vendor_event {
-	SPRDWL_VENDOR_SUBCMD_MONITOR_RSSI_INDEX = 0,
 	/* NAN */
 	SPRDWL_VENDOR_EVENT_NAN = 0x1400,
 };
 
+#define SPRD_NL80211_VENDOR_SUBCMD_GET_AKM_SUITE 0xB0
 /* attribute id */
 
 enum sprdwl_vendor_attr_gscan_id {
@@ -781,7 +782,7 @@ struct wifi_rate {
 	u32 ratemcsidx:8;
 	u32 reserved:16;
 	u32 bitrate;
-};
+}__packed;
 
 struct wifi_rate_stat {
 	struct wifi_rate rate;
@@ -872,7 +873,7 @@ struct wifi_channel_info {
 	u32 center_freq;
 	u32 center_freq0;
 	u32 center_freq1;
-};
+}__packed;
 
 /* channel statistics */
 struct wifi_channel_stat {
@@ -1404,7 +1405,7 @@ enum sprdwl_gscan_wifi_event {
 	GSCAN_EVENT_HOTLIST_RESULTS_FOUND,
 	GSCAN_EVENT_SCAN_RESULTS_AVAILABLE,
 	GSCAN_EVENT_FULL_SCAN_RESULTS,
-	RTT_EVENT_COMPLETE,
+	RTT_EVENT_COMPLETE = 300,
 	GSCAN_EVENT_COMPLETE_SCAN,
 	GSCAN_EVENT_HOTLIST_RESULTS_LOST,
 	GSCAN_EVENT_EPNO_EVENT,
@@ -1441,8 +1442,6 @@ enum sprdwl_gscan_event {
 	WIFI_SCAN_BUFFER_FULL,
 	WIFI_SCAN_COMPLETE,
 };
-
-#define SPRD_NL80211_VENDOR_SUBCMD_GET_AKM_SUITE 0xB0
 
 struct sprdwl_gscan_bucket_spec {
 	u8 bucket;

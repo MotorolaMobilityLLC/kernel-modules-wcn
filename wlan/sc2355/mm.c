@@ -96,8 +96,6 @@ void *mm_phys_to_virt(struct device *dev, unsigned long pcie_addr, size_t size,
 	pa = pcie_addr & (~(SPRDWL_MH_ADDRESS_BIT) & SPRDWL_PHYS_MASK);
 	buffer = phys_to_virt(pa);
 
-	dma_sync_single_for_device(dev, pa, size, direction);
-
 	if (is_mh)
 		check_mh_buffer(dev, buffer, pa, size, direction);
 
@@ -149,7 +147,7 @@ static inline void mm_alloc_addr_buf(struct sprdwl_mm *mm_entry)
 	struct sprdwl_addr_hdr *hdr = NULL;
 	void *p = NULL;
 
-	p = kmalloc((mm_entry->hif_offset + SPRDWL_ADDR_BUF_LEN), GFP_KERNEL);
+	p = kzalloc((mm_entry->hif_offset + SPRDWL_ADDR_BUF_LEN), GFP_KERNEL);
 	if (likely(p)) {
 		hdr = (struct sprdwl_addr_hdr *)(p + mm_entry->hif_offset);
 		value = (struct sprdwl_addr_trans_value *)hdr->paydata;
@@ -221,8 +219,9 @@ static inline int mm_do_addr_buf(struct sprdwl_mm *mm_entry)
 
 		/* FIXME: temporary solution, would TX supply API for us? */
 		/* TODO: How to do with tx fail? */
-		if ((if_tx_addr_trans(rx_if->intf, mm_entry->hdr,
-				      addr_trans_len) >= 0)) {
+		ret = if_tx_addr_trans(rx_if->intf, mm_entry->hdr,
+					addr_trans_len, false);
+		if (!ret) {
 			mm_alloc_addr_buf(mm_entry);
 			if (unlikely(!mm_entry->addr_trans)) {
 				wl_err("%s: alloc addr buf fail!\n", __func__);
@@ -272,13 +271,13 @@ static int mm_single_buffer_alloc(struct sprdwl_mm *mm_entry)
 		 * nr_frags, tx_flags, gso_size, gso_segs, gso_type
 		 * It could be re-used and MUST clean after using
 		 */
-		memcpy((void *)skb_end_pointer(skb), &skb, sizeof(skb));
+		SAVE_ADDR(skb->data, skb, sizeof(skb));
 		/* transfer virt to phys */
 		pcie_addr = mm_virt_to_phys(&rx_if->intf->pdev->dev,
 					    skb->data, SPRDWL_MAX_DATA_RXLEN,
 					    DMA_FROM_DEVICE);
 
-		if (unlikely(!pcie_addr)) {
+		if (likely(pcie_addr)) {
 			ret = mm_w_addr_buf(mm_entry, pcie_addr);
 			if (ret) {
 				wl_err("%s: write addr buf fail: %d\n",
@@ -309,7 +308,9 @@ int mm_buffer_alloc(struct sprdwl_mm *mm_entry, int need_num)
 		}
 	}
 
-	return ret;
+	num = need_num - num;
+
+	return num;
 }
 
 static struct sk_buff *mm_single_buffer_unlink(struct sprdwl_mm *mm_entry,
@@ -323,51 +324,10 @@ static struct sk_buff *mm_single_buffer_unlink(struct sprdwl_mm *mm_entry,
 	buffer = mm_phys_to_virt(&rx_if->intf->pdev->dev, pcie_addr,
 				 SPRDWL_MAX_DATA_RXLEN, DMA_FROM_DEVICE, true);
 
-	memcpy(&skb, (buffer + SKB_SHARED_INFO_OFFSET), sizeof(skb));
+	RESTORE_ADDR(skb, buffer, sizeof(skb));
 	skb_unlink(skb, &mm_entry->buffer_list);
-	memset((void *)skb_end_pointer(skb), 0x0, sizeof(skb));
-
+	CLEAR_ADDR(skb->data, sizeof(skb));
 	return skb;
-}
-
-static int mm_buffer_relink(struct sprdwl_mm *mm_entry,
-			    struct sprdwl_addr_trans_value *value,
-			    int total_len)
-{
-	int num = 0;
-	unsigned long pcie_addr = 0;
-	struct sk_buff *skb = NULL;
-	int len = 0, ret = 0;
-
-	for (num = 0; num < value->num; num++) {
-		len += SPRDWL_PHYS_LEN;
-		if (unlikely(len > total_len)) {
-			wl_err("%s: total_len:%d < len:%d\n",
-			       __func__, total_len, len);
-			wl_err("%s: total %d pkts, relink %d pkts\n",
-			       __func__, value->num, num);
-			len = -EINVAL;
-			break;
-		}
-
-		memcpy(&pcie_addr, value->address[num], SPRDWL_PHYS_LEN);
-		pcie_addr &= SPRDWL_PHYS_MASK;
-
-		ret = mm_w_addr_buf(mm_entry, pcie_addr);
-		if (ret) {
-			wl_err("%s: write addr buf fail: %d\n", __func__, ret);
-			skb = mm_single_buffer_unlink(mm_entry, pcie_addr);
-			if (likely(skb))
-				dev_kfree_skb(skb);
-			else
-				wl_err("%s: unlink skb fail!\n", __func__);
-		}
-
-		skb = NULL;
-		pcie_addr = 0;
-	}
-
-	return len;
 }
 
 static int mm_buffer_unlink(struct sprdwl_mm *mm_entry,
@@ -422,8 +382,6 @@ static int mm_buffer_unlink(struct sprdwl_mm *mm_entry,
 				sprdwl_rx_process(rx_if, skb);
 			else /* checksum error, free skb */
 				dev_kfree_skb(skb);
-
-			mm_single_buffer_alloc(mm_entry);
 		} else {
 			wl_err("%s: unlink skb fail!\n", __func__);
 		}
@@ -570,7 +528,7 @@ static int mm_single_event_process(struct sprdwl_mm *mm_entry,
 		ret = mm_buffer_unlink(mm_entry, value, len);
 		break;
 	case SPRDWL_FREE_BUFFER:
-		ret = mm_buffer_relink(mm_entry, value, len);
+		wl_err("%s: null for free buff\n", __func__);
 		break;
 	case SPRDWL_REQUEST_BUFFER:
 		/* NOTE: Not need to do anything here */
@@ -582,9 +540,6 @@ static int mm_single_event_process(struct sprdwl_mm *mm_entry,
 		wl_err("%s: err type: %d\n", __func__, value->type);
 		ret = -EINVAL;
 	}
-
-	if (value->type < SPRDWL_FLUSH_BUFFER)
-		sprdwl_rx_flush_buffer(mm_entry);
 
 	return (ret < 0) ? ret : (ret + sizeof(*value));
 }
@@ -620,8 +575,6 @@ void mm_mh_data_event_process(struct sprdwl_mm *mm_entry, void *data,
 			break;
 		}
 	}
-
-	sprdwl_free_data(data, buffer_type);
 }
 
 /* NORMAL DATA */
@@ -643,10 +596,7 @@ int sprdwl_mm_init(struct sprdwl_mm *mm_entry, void *intf)
 	if (((struct sprdwl_intf *)intf)->priv->hw_type ==
 	    SPRDWL_HW_SC2355_PCIE) {
 		skb_queue_head_init(&mm_entry->buffer_list);
-
-		ret = mm_buffer_alloc(mm_entry, SPRDWL_MAX_MH_BUF);
-		if (ret)
-			wl_err("%s: alloc rx if fail\n", __func__);
+		atomic_set(&mm_entry->alloc_num, 0);
 	}
 
 	return ret;

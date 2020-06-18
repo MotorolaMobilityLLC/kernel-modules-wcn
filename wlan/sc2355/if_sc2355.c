@@ -186,13 +186,6 @@ inline int if_tx_cmd(struct sprdwl_intf *intf, unsigned char *data, int len)
 }
 
 inline int if_tx_addr_trans(struct sprdwl_intf *intf,
-			    unsigned char *data, int len)
-{
-	/* FIXME: Which port is used to send ADDR TRNAS*/
-	return if_tx_one(intf, data, len, intf->tx_data_port);
-}
-
-inline int if_tx_addr_trans_pcie(struct sprdwl_intf *intf,
 			    unsigned char *data, int len, bool send_now)
 {
 	struct sprdwl_rx_if *rx_if = (struct sprdwl_rx_if *)intf->sprdwl_rx;
@@ -459,7 +452,7 @@ int sprdwl_intf_tx_list(struct sprdwl_intf *dev,
 	struct sprdwl_msg_buf *msg_pos;
 	struct pcie_addr_buffer *addr_buffer = NULL;
 	struct sprdwl_tx_msg *tx_msg;
-	struct mbuf_t *head = NULL, *tail = NULL, *mbuf_pos;
+	struct mbuf_t *mbuf_pos, *head = NULL, *tail = NULL;
 	unsigned long pcie_addr = 0;
 	/*struct sprdwl_data_hdr *hdr; *//*temp for test*/
 	struct list_head *pos, *tx_list_tail, *n_list;
@@ -471,7 +464,6 @@ int sprdwl_intf_tx_list(struct sprdwl_intf *dev,
 #endif
 	int tx_count_saved = tx_count;
 	int list_num;
-
 
 	wl_debug("%s:%d tx_count is %d\n", __func__, __LINE__, tx_count);
 	list_num = get_list_num(tx_list);
@@ -550,8 +542,7 @@ int sprdwl_intf_tx_list(struct sprdwl_intf *dev,
 									mbuf_pos->len, DMA_TO_DEVICE);
 						if (sprdwl_debug_level >= L_DBG)
 							sprdwl_hex_dump("tx to addr trans",
-									(unsigned char *)(mbuf_pos->buf),
-									mbuf_pos->len);
+									(unsigned char *)(mbuf_pos->buf), mbuf_pos->len);
 						mbuf_pos = mbuf_pos->next;
 						addr_buffer =
 						sprdwl_set_pcie_addr_to_mbuf(
@@ -569,8 +560,7 @@ int sprdwl_intf_tx_list(struct sprdwl_intf *dev,
 								mbuf_pos->len, DMA_TO_DEVICE);
 					if (sprdwl_debug_level >= L_DBG)
 						sprdwl_hex_dump("tx to addr trans",
-								(unsigned char *)(mbuf_pos->buf),
-								mbuf_pos->len);
+								(unsigned char *)(mbuf_pos->buf), mbuf_pos->len);
 					mbuf_pos = mbuf_pos->next;
 					addr_buffer =
 						sprdwl_set_pcie_addr_to_mbuf(
@@ -844,15 +834,16 @@ int sprdwl_intf_fill_msdu_dscr(struct sprdwl_vif *vif,
 		wl_err("%s, %d, sta disconn, no data tx!", __func__, __LINE__);
 		return -EPERM;
 	}
-	skb_push(skb, sizeof(struct tx_msdu_dscr) + offset + dscr_rsvd);
+	skb_push(skb, DSCR_LEN + offset);
+
 	dscr = (struct tx_msdu_dscr *)(skb->data);
-	memset(dscr, 0x00, sizeof(struct tx_msdu_dscr));
+	memset(dscr, 0x00, DSCR_LEN);
 	dscr->common.type = (type == SPRDWL_TYPE_CMD ?
 		SPRDWL_TYPE_CMD : SPRDWL_TYPE_DATA);
 	dscr->common.direction_ind = 0;
 	dscr->common.need_rsp = 0;/*TODO*/
 	dscr->common.interface = vif->ctx_id;
-	dscr->pkt_len = cpu_to_le16(skb->len - DSCR_LEN - dscr_rsvd);
+	dscr->pkt_len = cpu_to_le16(skb->len - DSCR_LEN);
 	dscr->offset = DSCR_LEN;
 /*TODO*/
 	dscr->tx_ctrl.sw_rate = (is_special_data == 1 ? 1 : 0);
@@ -1093,7 +1084,9 @@ int sprdwl_mh_addr_hook(int chn, struct mbuf_t *head, struct mbuf_t *tail, int n
 			rxc_addrs = (struct sprdwl_addr_trans *)(hdr+1);
 			cur_seq = rxc_addrs->timestamp;
 			printk(KERN_ERR "rxc:%d\n", cur_seq);
-		} else {
+		}
+		else
+		{
 			txc_addrs = (struct txc_addr_buff *)(mbuf->buf);
 			cur_seq = txc_addrs->offset;
 			printk(KERN_ERR "txc:%d\n", cur_seq);
@@ -1101,16 +1094,17 @@ int sprdwl_mh_addr_hook(int chn, struct mbuf_t *head, struct mbuf_t *tail, int n
 		if(sprdwl_mh_addr_seq == -1)
 		{
 			sprdwl_mh_addr_seq = cur_seq;
-		} else {
-                  	if(cur_seq ==  sprdwl_mh_addr_seq)
+		}
+		else
+		{
+			if(cur_seq ==  sprdwl_mh_addr_seq)
 			{
-				printk(KERN_ERR "%s cur_seq: %d == sprdwl_mh_addr_seq: %d\n",
-				       __func__, cur_seq, sprdwl_mh_addr_seq);
+				printk(KERN_ERR "%s cur_seq: %d == sprdwl_mh_addr_seq: %d\n", __func__, cur_seq, sprdwl_mh_addr_seq);
 				while(1);
 			}
-				sprdwl_mh_addr_seq = cur_seq;
+			sprdwl_mh_addr_seq = cur_seq;
 		}
-			mbuf = mbuf->next;
+		mbuf = mbuf->next;
 	}
 	return 0;
 }
@@ -1286,43 +1280,59 @@ static int sprdwl_sc2355_rx_handle(int chn, struct mbuf_t *head,
 	struct sprdwl_intf *intf = get_intf();
 	struct sprdwl_rx_if *rx_if = (struct sprdwl_rx_if *)intf->sprdwl_rx;
 	struct sprdwl_msg_buf *msg = NULL;
+	int buf_num = 0, ret = 0;
+	struct mbuf_t *pos = head;
 
-	wl_err("%s: channel:%d head:%p tail:%p num:%d\n",
-		__func__, chn, head, tail, num);
+	if (chn == PCIE_RX_ADDR_DATA_PORT &&
+		intf->priv->hw_type == SPRDWL_HW_SC2355_PCIE &&
+		intf->pushfail_count > 5)
+		wl_warn("%s: channel:%d head:%p tail:%p num:%d\n",
+			__func__, chn, head, tail, num);
+	else
+		wl_debug("%s: channel:%d head:%p tail:%p num:%d\n",
+			 __func__, chn, head, tail, num);
 
-	if (intf->priv->hw_type == SPRDWL_HW_SC2355_PCIE) {
-		int buf_num = 0,len = 0,ret = 0;
-		struct mbuf_t *pos = NULL;
-		pos = head;
+	for (buf_num = num; buf_num > 0; buf_num--, pos = pos->next) {
+		if (unlikely(!pos)) {
+			wl_err("%s: NULL mbuf\n", __func__);
+			break;
+		}
 
-		for (buf_num = num; buf_num > 0; buf_num--, pos = pos->next) {
-			if (unlikely(!pos)) {
-				wl_err("%s: NULL mbuf\n", __func__);
-				break;
-			}
-
+		if (intf->priv->hw_type == SPRDWL_HW_SC2355_PCIE) {
 			mm_phys_to_virt(&intf->pdev->dev, pos->phy, pos->len,
 					DMA_FROM_DEVICE, false);
 			pos->phy = 0;
-
-
-			msg = sprdwl_alloc_msg_buf(&rx_if->rx_list);
-			if (!msg) {
-				wl_err("%s: no msgbuf\n", __func__);
-				sprdwl_free_data(pos->buf, SPRDWL_DEFRAG_MEM);
-				pos->buf = NULL;
-				continue;
-			}
-
-			sprdwl_fill_msg(msg, NULL, pos->buf, pos->len);
-
-			msg->fifo_id = chn;
-			msg->buffer_type = SPRDWL_DEFRAG_MEM;
-			msg->data = msg->tran_data + intf->hif_offset;
-			pos->buf = NULL;
-
-			sprdwl_queue_msg_buf(msg, &rx_if->rx_list);
 		}
+
+		/*Need FIX this in Marlin3*/
+		if (intf->priv->hw_type == SPRDWL_HW_SC2355_SDIO ||
+		    intf->priv->hw_type == SPRDWL_HW_SC2355_USB)
+			sprdwl_sdio_process_credit(intf, pos->buf + intf->hif_offset);
+
+		msg = sprdwl_alloc_msg_buf(&rx_if->rx_list);
+		if (!msg) {
+			wl_err("%s: no msgbuf\n", __func__);
+			sprdwl_free_data(pos->buf, SPRDWL_DEFRAG_MEM);
+			pos->buf = NULL;
+			continue;
+		}
+
+		sprdwl_fill_msg(msg, NULL, pos->buf, pos->len);
+
+		/* SDIO would send public header to us because
+		 * data is save in a buffer.
+		 */
+		msg->fifo_id = chn;
+		msg->buffer_type = SPRDWL_DEFRAG_MEM;
+		msg->data = msg->tran_data + intf->hif_offset;
+		pos->buf = NULL;
+
+		sprdwl_queue_msg_buf(msg, &rx_if->rx_list);
+	}
+
+	/* We should refill mbuf in pcie mode */
+	if (intf->priv->hw_type == SPRDWL_HW_SC2355_PCIE) {
+		int len = 0;
 
 		if (intf->rx_cmd_port == chn)
 			len = SPRDWL_MAX_CMD_RXLEN;
@@ -1337,39 +1347,12 @@ static int sprdwl_sc2355_rx_handle(int chn, struct mbuf_t *head,
 			tail = NULL;
 			num = 0;
 		}
-		if (!ret)
+	}
+
+	if (!ret)
 		sprdwcn_bus_push_list(chn, head, tail, num);
-	}
 
-	/*To process credit earlier*/
-	if (intf->priv->hw_type == SPRDWL_HW_SC2355_SDIO ||
-		intf->priv->hw_type == SPRDWL_HW_SC2355_USB) {
-		unsigned int i = 0;
-		struct mbuf_t *mbuf = NULL;
-
-		mbuf = head;
-		for (i = num; i > 0; i--) {
-			sprdwl_sdio_process_credit(intf,
-				(void *)(mbuf->buf + intf->hif_offset));
-			mbuf = mbuf->next;
-		}
-
-		/* FIXME: Should we use replace msg? */
-		msg = sprdwl_alloc_msg_buf(&rx_if->rx_list);
-		if (!msg) {
-			wl_err("%s: no msgbuf\n", __func__);
-			sprdwcn_bus_push_list(chn, head, tail, num);
-			return 0;
-		}
-
-		sprdwl_fill_msg(msg, NULL, (void *)head, num);
-		msg->fifo_id = chn;
-		msg->buffer_type = SPRDWL_DEFRAG_MEM;
-		msg->data = (void *)tail;
-
-		sprdwl_queue_msg_buf(msg, &rx_if->rx_list);
-	}
-	queue_work(rx_if->rx_queue, &rx_if->rx_work);
+	rx_up(rx_if);
 
 	return 0;
 }

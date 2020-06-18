@@ -75,6 +75,19 @@ struct qos_map_set {
 	struct qos_map_range qos_ranges[8];
 };
 
+enum wmm_step_pase {
+	STEP4_PHASE1,
+	STEP4_PHASE2,
+	STEP5_PHASE1,
+	STEP5_PHASE2,
+	STEP6_PHASE1,
+	STEP6_PHASE2,
+	STEP7_PHASE1,
+	STEP7_PHASE2,
+	STEP8_PHASE1,
+	STEP8_PHASE2,
+};
+
 #ifdef WMMAC_WFA_CERTIFICATION
 #define NUM_AC 4
 #define NUM_TID 16
@@ -239,5 +252,8 @@ void update_wmmac_vo_timeout(unsigned long data);
 void update_wmmac_vi_timeout(unsigned long data);
 unsigned int change_priority_if(struct sprdwl_priv *priv, unsigned char *tid, unsigned char *tos, u16 len);
 const u8 *get_wmm_ie(u8 *res, u16 ie_len, u8 ie, uint oui, uint oui_type);
+int check_wmm_tx_flows(struct sprdwl_intf *intf,
+			struct sprdwl_msg_buf *msg,
+			unsigned int qos_index);
 #endif
 #endif
