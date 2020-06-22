@@ -338,10 +338,10 @@ static void receive_tasklet(unsigned long arg)
 				dev_unisoc_fm_err(fm_miscdev,"fmdrv error:unknown event !!!\n");
 			}
 
-				last_packet_len = *((rx->addr)+2) + 3;
-				dev_unisoc_fm_info(fm_miscdev,"this packet len is %d\n ", last_packet_len);
-				next_packet_len = next_packet_len - last_packet_len;
-				dev_unisoc_fm_info(fm_miscdev,"next packet len is %d\n ", next_packet_len);
+			last_packet_len = *((rx->addr)+2) + 3;
+			dev_unisoc_fm_info(fm_miscdev,"this packet len is %d\n ", last_packet_len);
+			next_packet_len = next_packet_len - last_packet_len;
+			dev_unisoc_fm_info(fm_miscdev,"next packet len is %d\n ", next_packet_len);
 			if(next_packet_len>0){
 				rx->addr = rx->addr + last_packet_len;
 			}
@@ -1187,7 +1187,7 @@ int fm_getrssi(void *arg)
 	unsigned char res_len;
 	int rssi;
 	unsigned char resp_buf[1];
-	int ret = -1;
+	int ret;
 
 	ret = fm_write_cmd(FM_GET_RSSI_CMD, &payload, sizeof(payload),
 		&resp_buf[0], &res_len);
@@ -1405,6 +1405,8 @@ int __init init_fm_driver(void)
 	/* malloc mem for rds struct */
 	fm_rds_info = kzalloc(sizeof(struct fm_rds_data), GFP_KERNEL);
 	if (fm_rds_info == NULL) {
+		kfree(fmdev->read_buf);
+		fmdev->read_buf = NULL;
 		kfree(fmdev);
 		fmdev = NULL;
 		dev_unisoc_fm_err(fm_miscdev,"fm can't allocate FM RDS buffer\n");
