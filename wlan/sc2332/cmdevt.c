@@ -1821,6 +1821,10 @@ unsigned short sprdwl_rx_rsp_process(struct sprdwl_priv *priv, u8 *msg)
 			wl_err("%s mode %d recv rsp[%s] status[%s]\n",
 			       __func__, (int)mode, cmd2str(hdr->cmd_id),
 			       err2str(hdr->status));
+			if (cmd->cmd_id == WIFI_CMD_TX_MGMT) {
+				wl_err("tx mgmt status : %d\n", hdr->status);
+				priv->tx_mgmt_status = hdr->status;
+			}
 		}
 		cmd->data = data;
 		wake_up(&cmd->waitq);
