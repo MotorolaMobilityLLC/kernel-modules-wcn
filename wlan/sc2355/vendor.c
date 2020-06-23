@@ -450,9 +450,9 @@ static int sprdwl_vendor_get_llstat_handler(struct wiphy *wiphy,
 	struct wifi_iface_stat *iface_st;
 	struct sprdwl_llstat_radio *dif_radio;
 	u16 r_len = sizeof(*llst);
-	u8 r_buf[r_len], ret, i;
+	u8 r_buf[r_len], i;
 	u32 reply_radio_length, reply_iface_length;
-
+	int ret;
 	struct sprdwl_priv *priv = wiphy_priv(wiphy);
 	struct sprdwl_vif *vif = container_of(wdev, struct sprdwl_vif, wdev);
 
