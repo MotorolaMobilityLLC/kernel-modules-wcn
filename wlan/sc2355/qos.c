@@ -806,7 +806,8 @@ const u8 *get_wmm_ie(u8 *res, u16 ie_len, u8 ie, uint oui, uint oui_type)
 }
 
 #define STREAM23_NUMBER 18570
-unsigned int drop_time = 4;
+unsigned int drop_time = 2;
+unsigned int drop_time3 = 4;
 int check_wmm_tx_flows(struct sprdwl_intf *intf,
 			struct sprdwl_msg_buf *msg,
 			unsigned int qos_index)
@@ -823,7 +824,7 @@ int check_wmm_tx_flows(struct sprdwl_intf *intf,
 			tx_msg->wmm_status = STEP4_PHASE1;
 		}
 		if (qos_index == SPRDWL_AC_BE &&
-			(tx_msg->wmm_tx_count[SPRDWL_AC_BE] % drop_time) == 0)
+			(tx_msg->wmm_tx_count[SPRDWL_AC_BE] % drop_time3) != 0)
 			return -1;
 	}
 
@@ -836,7 +837,7 @@ int check_wmm_tx_flows(struct sprdwl_intf *intf,
 			tx_msg->wmm_status = STEP5_PHASE1;
 		}
 		if (qos_index == SPRDWL_AC_BE &&
-			(tx_msg->wmm_tx_count[SPRDWL_AC_BE] % drop_time) == 0)
+			(tx_msg->wmm_tx_count[SPRDWL_AC_BE] % drop_time3) != 0)
 			return -1;
 		if (qos_index == SPRDWL_AC_VI &&
 			(tx_msg->wmm_tx_count[SPRDWL_AC_VI] % drop_time) == 0)
@@ -852,7 +853,7 @@ int check_wmm_tx_flows(struct sprdwl_intf *intf,
 			tx_msg->wmm_status = STEP6_PHASE1;
 		}
 		if (qos_index == SPRDWL_AC_BE &&
-			(tx_msg->wmm_tx_count[SPRDWL_AC_BE] % drop_time) == 0)
+			(tx_msg->wmm_tx_count[SPRDWL_AC_BE] % drop_time3) != 0)
 			return -1;
 		if (qos_index == SPRDWL_AC_VI &&
 			(tx_msg->wmm_tx_count[SPRDWL_AC_VI] % drop_time) == 0)
@@ -870,12 +871,11 @@ int check_wmm_tx_flows(struct sprdwl_intf *intf,
 			(tx_msg->wmm_tx_count[SPRDWL_AC_BE] % drop_time) == 0)
 			return -1;
 		if (qos_index == SPRDWL_AC_BK &&
-			(tx_msg->wmm_tx_count[SPRDWL_AC_BK] % drop_time) == 0)
+			(tx_msg->wmm_tx_count[SPRDWL_AC_BK] % drop_time3) != 0)
 			return -1;
 	}
 
-	if(tx_msg->wmm_tx_count[SPRDWL_AC_BK] > STREAM23_NUMBER &&
-		tx_msg->wmm_tx_count[SPRDWL_AC_BK] < (STREAM23_NUMBER * 2) &&
+	if(tx_msg->wmm_tx_count[SPRDWL_AC_BK] > 10410 &&
 		tx_msg->wmm_tx_count[SPRDWL_AC_VO] == 0) {
 		/*S7P2*/
 		if (tx_msg->wmm_status != STEP7_PHASE2) {
@@ -883,7 +883,7 @@ int check_wmm_tx_flows(struct sprdwl_intf *intf,
 			tx_msg->wmm_status = STEP7_PHASE2;
 		}
 		if (qos_index == SPRDWL_AC_BK &&
-			(tx_msg->wmm_tx_count[SPRDWL_AC_BK] % drop_time) == 0)
+			(tx_msg->wmm_tx_count[SPRDWL_AC_BK] % drop_time3) != 0)
 			return -1;
 	}
 
@@ -895,7 +895,7 @@ int check_wmm_tx_flows(struct sprdwl_intf *intf,
 			tx_msg->wmm_status = STEP8_PHASE1;
 		}
 		if (qos_index == SPRDWL_AC_VO &&
-			(tx_msg->wmm_tx_count[SPRDWL_AC_VO] % drop_time) == 0)
+			(tx_msg->wmm_tx_count[SPRDWL_AC_VO] % drop_time3) != 0)
 			return -1;
 		if (qos_index == SPRDWL_AC_VI)
 			return -1;

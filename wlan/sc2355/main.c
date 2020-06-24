@@ -163,6 +163,11 @@ static int sprdwl_start_xmit_prepare(struct sprdwl_vif *vif, struct net_device *
 {
 	struct sprdwl_intf *intf = (struct sprdwl_intf *)vif->priv->hw_priv;
 
+	if (intf->suspend_mode != SPRDWL_PS_RESUMED) {
+		wl_err("not resumed, drop skb\n");
+		dev_kfree_skb(skb);
+		return NETDEV_TX_OK;
+	}
 	/* drop nonlinearize skb */
 	if (skb_linearize(skb)) {
 		wl_err("nonlinearize skb\n");
@@ -239,6 +244,7 @@ static int sprdwl_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 	struct sprdwl_vif *vif = netdev_priv(ndev);
 	struct sprdwl_msg_buf *msg = NULL;
 	struct sprdwl_eap_hdr *eap_temp;
+	struct sprdwl_intf *intf = (struct sprdwl_intf *)vif->priv->hw_priv;
 
 	ret = sprdwl_start_xmit_prepare(vif, ndev, skb);
 	if (-1 == ret)
@@ -290,7 +296,7 @@ static int sprdwl_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 	if ((vif->mode == SPRDWL_MODE_STATION && vif->sm_state != SPRDWL_CONNECTED) ||
 		(vif->mode != SPRDWL_MODE_STATION && vif->priv->fw_stat[vif->mode] != SPRDWL_INTF_OPEN)) {
 		printk_ratelimited("%s, %d, error! should not send this data\n",
-			__func__, __LINE__);
+		       __func__, __LINE__);
 		dev_kfree_skb(skb);
 		return NETDEV_TX_OK;
 	}
@@ -300,7 +306,7 @@ static int sprdwl_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 				      vif->mode,
 				      vif->ctx_id);
 	if (!msg) {
-		wl_err("%s, %d, get msg bug failed\n", __func__, __LINE__);
+		wl_err("%s, %d, get msg buf failed\n", __func__, __LINE__);
 		ndev->stats.tx_fifo_errors++;
 		dev_kfree_skb(skb);
 		sprdwl_stop_net(vif);
@@ -310,6 +316,14 @@ static int sprdwl_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 	if (-1 == sprdwl_realloc_skb_headroom(skb, ndev, msg))
 		goto out;
 
+	/* We need a bit of data queued to build aggregates properly, so
+	 * instruct the TCP stack to allow more than a single ms of data
+	 * to be queued in the stack. The value is a bit-shift of 1
+	 * second, so 8 is ~4ms of queued data. Only affects local TCP
+	 * sockets.
+	 */
+	sk_pacing_shift_update(skb->sk, intf->tsq_shift);
+
 #if !defined(SC2355_FTR)
 	/* sprdwl_send_data: offset use 2 for cp bytes align */
 	ret = sprdwl_send_data(vif, msg, skb, 2);
@@ -317,7 +331,7 @@ static int sprdwl_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 	ret = sprdwl_send_data(vif, msg, skb, 0);
 #endif /* SC2355_FTR */
 	if (ret) {
-		netdev_err(ndev, "%s drop msg due to TX Err\n", __func__);
+		/*netdev_err(ndev, "%s drop msg due to TX Err\n", __func__);*/
 		/* FIXME as debug sdiom later, here just drop the msg
 		 * wapi temp drop
 		 */

@@ -5,9 +5,9 @@
 
 /* FTM/indoor location subcommands */
 enum sprd_ftm_vendor_subcmds {
-	SPRD_NL80211_VENDOR_SUBCMD_LOC_GET_CAPA = 128,
-	SPRD_NL80211_VENDOR_SUBCMD_FTM_START_SESSION = 129,
-	SPRD_NL80211_VENDOR_SUBCMD_FTM_ABORT_SESSION = 130,
+	SPRD_NL80211_VENDOR_SUBCMD_FTM_START_SESSION = 0x1100,
+	SPRD_NL80211_VENDOR_SUBCMD_FTM_ABORT_SESSION = 0x1101,
+	SPRD_NL80211_VENDOR_SUBCMD_LOC_GET_CAPA = 0x1102,
 	SPRD_NL80211_VENDOR_SUBCMD_FTM_MEAS_RESULT = 131,
 	SPRD_NL80211_VENDOR_SUBCMD_FTM_SESSION_DONE = 132,
 	SPRD_NL80211_VENDOR_SUBCMD_FTM_CFG_RESPONDER = 133,
@@ -396,12 +396,6 @@ enum sprdwl_vendor_attr_aoa_type {
 	SPRDWL_VENDOR_ATTR_AOA_TYPE_MAX,
 };
 
-/* vendor event indices, used from both cfg80211.c and ftm.c */
-enum sprdwl_vendor_events_ftm_index {
-	SPRD_VENDOR_EVENT_FTM_MEAS_RESULT_INDEX = 64,
-	SPRD_VENDOR_EVENT_FTM_SESSION_DONE_INDEX,
-};
-
 /* vendor rtt cap */
 enum sprdwl_vendor_ftm_cap_index {
 	SPRD_VENDOR_RTT_ONE_SIDED_SUPPORTED,
@@ -436,27 +430,27 @@ enum sprdwl_vendor_rtt_attribute {
 };
 
 enum sprdwl_vendor_rtt_result_attribute{
-	SPRD_VENDOR_RTT_ATTRIBUTE_RESULT_CNT = 0,
-	SPRD_VENDOR_RTT_ATTRIBUTE_RESULT_INFO,
-	SPRD_VENDOR_RTT_ATTRIBUTE_RESULT_MAC,
-	SPRD_VENDOR_RTT_ATTRIBUTE_RESULT_TYPE,
-	SPRD_VENDOR_RTT_ATTRIBUTE_RESULT_PEER,
-	SPRD_VENDOR_RTT_ATTRIBUTE_RESULT_CHAN,
-	SPRD_VENDOR_RTT_ATTRIBUTE_RESULT_PERIOD,
-	SPRD_VENDOR_RTT_ATTRIBUTE_RESULT_NUM_BURST,
-	SPRD_VENDOR_RTT_ATTRIBUTE_RESULT_NUM_FTM_BURST,
-	SPRD_VENDOR_RTT_ATTRIBUTE_RESULT_NUM_RETRY_FTM,
-	SPRD_VENDOR_RTT_ATTRIBUTE_RESULT_NUM_RETRY_FTMR,
-	SPRD_VENDOR_RTT_ATTRIBUTE_RESULT_LCI,
-	SPRD_VENDOR_RTT_ATTRIBUTE_RESULT_LCR,
-	SPRD_VENDOR_RTT_ATTRIBUTE_RESULT_BURST_DURATION,
-	SPRD_VENDOR_RTT_ATTRIBUTE_RESULT_PREAMBLE,
-	SPRD_VENDOR_RTT_ATTRIBUTE_RESULT_BW,
-	SPRD_VENDOR_RTT_ATTRIBUTE_RESULT_RESPONDER_INFO,
-	SPRD_VENDOR_RTT_ATTRIBUTE_RESULTS_COMPLETE = 30,
-	SPRD_VENDOR_RTT_ATTRIBUTE_RESULTS_PER_TARGET,
-	SPRD_VENDOR_RTT_ATTRIBUTE_RESULT_CNT_CNT,
-	SPRD_VENDOR_RTT_ATTRIBUTE_RESULT
+    SPRD_VENDOR_RTT_ATTRIBUTE_RESULT_CNT = 0,
+    SPRD_VENDOR_RTT_ATTRIBUTE_RESULT_INFO,
+    SPRD_VENDOR_RTT_ATTRIBUTE_RESULT_MAC,
+    SPRD_VENDOR_RTT_ATTRIBUTE_RESULT_TYPE,
+    SPRD_VENDOR_RTT_ATTRIBUTE_RESULT_PEER,
+    SPRD_VENDOR_RTT_ATTRIBUTE_RESULT_CHAN,
+    SPRD_VENDOR_RTT_ATTRIBUTE_RESULT_PERIOD,
+    SPRD_VENDOR_RTT_ATTRIBUTE_RESULT_NUM_BURST,
+    SPRD_VENDOR_RTT_ATTRIBUTE_RESULT_NUM_FTM_BURST,
+    SPRD_VENDOR_RTT_ATTRIBUTE_RESULT_NUM_RETRY_FTM,
+    SPRD_VENDOR_RTT_ATTRIBUTE_RESULT_NUM_RETRY_FTMR,
+    SPRD_VENDOR_RTT_ATTRIBUTE_RESULT_LCI,
+    SPRD_VENDOR_RTT_ATTRIBUTE_RESULT_LCR,
+    SPRD_VENDOR_RTT_ATTRIBUTE_RESULT_BURST_DURATION,
+    SPRD_VENDOR_RTT_ATTRIBUTE_RESULT_PREAMBLE,
+    SPRD_VENDOR_RTT_ATTRIBUTE_RESULT_BW,
+    SPRD_VENDOR_RTT_ATTRIBUTE_RESULT_RESPONDER_INFO,
+    SPRD_VENDOR_RTT_ATTRIBUTE_RESULTS_COMPLETE = 30,
+    SPRD_VENDOR_RTT_ATTRIBUTE_RESULTS_PER_TARGET,
+    SPRD_VENDOR_RTT_ATTRIBUTE_RESULT_CNT_CNT,
+    SPRD_VENDOR_RTT_ATTRIBUTE_RESULT
 } ;
 
 /* measurement parameters. Specified for each peer as part
@@ -468,29 +462,42 @@ struct sprdwl_ftm_meas_params {
 	u8 num_of_bursts_exp;
 	u8 burst_duration;
 	u16 burst_period;
-};
+}__packed;
 
 /* measurement request for a single peer */
 struct sprdwl_ftm_meas_peer_info {
 	u8 mac_addr[ETH_ALEN];
-	u32 freq;
-	u32 flags; /* enum sprdwl_vendor_attr_ftm_peer_meas_flags */
-	struct sprdwl_ftm_meas_params params;
-	u8 secure_token_id;
-};
+	u8 wifi_rtt_type;
+	u32 rtt_peer_type;
+	struct wifi_channel_info channel;
+	u32 burst_period;					//range 0-31
+	u32 num_burst;					//range 0-15
+	u32 num_frames_per_burst;		//range 0-31
+	u32 num_retries_per_rtt_frame;	//0-3
+	u32 num_retries_per_ftmr;
+	u8 LCI_request;
+	u8 LCR_request;
+	u32 burst_duration;
+	u8 preamble;		//wifi_rtt_preamble
+	u8 bw;					//wifi_rtt_bw
+}__packed;
+
+struct sprdwl_ftm_meas_cancel_peer_info {
+	u8 n_peers;
+	u8 mac_addr[0][ETH_ALEN];
+}__packed;
 
 /* session request, passed to wil_ftm_cfg80211_start_session */
 struct sprdwl_ftm_session_request {
-	u64 session_cookie;
-	u32 n_peers;
+	u8 n_peers;
 	/* keep last, variable size according to n_peers */
 	struct sprdwl_ftm_meas_peer_info peers[0];
-};
+}__packed;
 
 /* single measurement for a peer */
 struct sprdwl_ftm_peer_meas {
-	u64 t1, t2, t3, t4;
-};
+	s64 t1, t2, t3, t4;
+}__packed;
 
 /* measurement results for a single peer */
 struct sprdwl_ftm_peer_meas_res {
@@ -606,71 +613,71 @@ struct wifi_information_element{
 
 /* RTT results */
 struct wifi_hal_rtt_result{
-	u8 mac_addr[ETH_ALEN];		// device mac address
-	unsigned burst_num;		// burst number in a multi-burst request
-	unsigned measurement_number;	// Total RTT measurement frames attempted
-	unsigned success_number;	// Total successful RTT measurement frames
-	u8  number_per_burst_peer;	// Maximum number of "FTM frames per burst" supported by
-					// the responder STA. Applies to 2-sided RTT only.
-					// If reponder overrides with larger value:
-					// - for single-burst request initiator will truncate the
-					// larger value and send a TMR_STOP after receiving as
-					// many frames as originally requested.
-					// - for multi-burst request, initiator will return
-					// failure right away.
-	enum wifi_rtt_status status;	// ranging status
-	u8 retry_after_duration;	// When status == RTT_STATUS_FAIL_BUSY_TRY_LATER,
-					// this will be the time provided by the responder as to
-					// when the request can be tried again. Applies to 2-sided
-					// RTT only. In sec, 1-31sec.
-	enum wifi_rtt_type type;	// RTT type
-	int rssi;			// average rssi in 0.5 dB steps e.g. 143 implies -71.5 dB
-	int rssi_spread;		// rssi spread in 0.5 dB steps e.g. 5 implies 2.5 dB spread (optional)
-	struct wifi_rate tx_rate;	// 1-sided RTT: TX rate of RTT frame.
-					// 2-sided RTT: TX rate of initiator's Ack in response to FTM frame.
-	struct wifi_rate rx_rate;	// 1-sided RTT: TX rate of Ack from other side.
-					// 2-sided RTT: TX rate of FTM frame coming from responder.
-	u64 rtt;			// round trip time in picoseconds
-	u64 rtt_sd;			// rtt standard deviation in picoseconds
-	u64 rtt_spread;			// difference between max and min rtt times recorded in picoseconds
-	int distance_mm;		// distance in mm (optional)
-	int distance_sd_mm;		// standard deviation in mm (optional)
-	int distance_spread_mm;		// difference between max and min distance recorded in mm (optional)
-	u64 ts;				// time of the measurement (in microseconds since boot)
-	int burst_duration;		// in ms, actual time taken by the FW to finish one burst
-					// measurement. Applies to 1-sided and 2-sided RTT.
-	int negotiated_burst_num;	// Number of bursts allowed by the responder. Applies
-					// to 2-sided RTT only.
+	u8 mac_addr[ETH_ALEN];                // device mac address
+	unsigned burst_num;           // burst number in a multi-burst request
+	unsigned measurement_number;  // Total RTT measurement frames attempted
+	unsigned success_number;      // Total successful RTT measurement frames
+	u8  number_per_burst_peer;  // Maximum number of "FTM frames per burst" supported by
+								// the responder STA. Applies to 2-sided RTT only.
+								// If reponder overrides with larger value:
+								// - for single-burst request initiator will truncate the
+								// larger value and send a TMR_STOP after receiving as
+								// many frames as originally requested.
+								// - for multi-burst request, initiator will return
+								// failure right away.
+	enum wifi_rtt_status status;       // ranging status
+	u8 retry_after_duration;    // When status == RTT_STATUS_FAIL_BUSY_TRY_LATER,
+								// this will be the time provided by the responder as to
+								// when the request can be tried again. Applies to 2-sided
+								// RTT only. In sec, 1-31sec.
+	enum wifi_rtt_type type;           // RTT type
+	int rssi;               // average rssi in 0.5 dB steps e.g. 143 implies -71.5 dB
+	int rssi_spread;        // rssi spread in 0.5 dB steps e.g. 5 implies 2.5 dB spread (optional)
+	struct wifi_rate tx_rate;            // 1-sided RTT: TX rate of RTT frame.
+								// 2-sided RTT: TX rate of initiator's Ack in response to FTM frame.
+	struct wifi_rate rx_rate;            // 1-sided RTT: TX rate of Ack from other side.
+								// 2-sided RTT: TX rate of FTM frame coming from responder.
+	u64 rtt;            // round trip time in picoseconds
+	u64 rtt_sd;         // rtt standard deviation in picoseconds
+	u64 rtt_spread;     // difference between max and min rtt times recorded in picoseconds
+	int distance_mm;              // distance in mm (optional)
+	int distance_sd_mm;           // standard deviation in mm (optional)
+	int distance_spread_mm;       // difference between max and min distance recorded in mm (optional)
+	u64 ts;            // time of the measurement (in microseconds since boot)
+	int burst_duration;           // in ms, actual time taken by the FW to finish one burst
+								// measurement. Applies to 1-sided and 2-sided RTT.
+	int negotiated_burst_num;     // Number of bursts allowed by the responder. Applies
+								// to 2-sided RTT only.
 	struct wifi_information_element *LCI; // for 11mc only
 	struct wifi_information_element *LCR; // for 11mc only
 };
 
 struct sprdwl_dot11_rm_ie {
-	u8 id;
-	u8 len;
-	u8 token;
-	u8 mode;
-	u8 type;
+    u8 id;
+    u8 len;
+    u8 token;
+    u8 mode;
+    u8 type;
 };
 
 #define LCI_MAX_LEN 200
 #define LCR_MAX_LEN 200
 #define RTT_MAX_RESULT_SUPPORT 100
 struct wifi_rtt_result{
-	u8 mac_addr[ETH_ALEN];			// device mac address
-	enum wifi_rtt_status status;		// ranging status
+	u8 mac_addr[ETH_ALEN];                // device mac address
+	enum wifi_rtt_status status;       // ranging status
 	struct sprdwl_ftm_meas_params params;
 	u8 measurement_number;
 	u8 success_number;
 	u8 retry_after_duration;
-	enum wifi_rtt_type type;		// RTT type
-	int rssi;				// average rssi in 0.5 dB steps e.g. 143 implies -71.5 dB
-	int rssi_spread;			// rssi spread in 0.5 dB steps e.g. 5 implies 2.5 dB spread (optional)
-	struct wifi_rate tx_rate;		// 1-sided RTT: TX rate of RTT frame.
-						// 2-sided RTT: TX rate of initiator's Ack in response to FTM frame.
-	struct wifi_rate rx_rate;		// 1-sided RTT: TX rate of Ack from other side.
-						// 2-sided RTT: TX rate of FTM frame coming from responder.
-	u32 ts;					// time of the measurement (in microseconds since boot)
+	enum wifi_rtt_type type;           // RTT type
+	int rssi;               // average rssi in 0.5 dB steps e.g. 143 implies -71.5 dB
+	int rssi_spread;        // rssi spread in 0.5 dB steps e.g. 5 implies 2.5 dB spread (optional)
+	struct wifi_rate tx_rate;            // 1-sided RTT: TX rate of RTT frame.
+								// 2-sided RTT: TX rate of initiator's Ack in response to FTM frame.
+	struct wifi_rate rx_rate;            // 1-sided RTT: TX rate of Ack from other side.
+								// 2-sided RTT: TX rate of FTM frame coming from responder.
+	u32 ts;            // time of the measurement (in microseconds since boot)
 	u8 lci_length;
 	u8 lci_content[LCI_MAX_LEN];
 	u8 lcr_length;

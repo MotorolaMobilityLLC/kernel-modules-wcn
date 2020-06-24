@@ -336,37 +336,22 @@ static int sprdwl_rx_work_queue(void *data)
 								      msg->len);
 				}
 #else
-				if (msg->len > SPRDWL_MAX_DATA_RXLEN)
-					wl_err("err rx data too long:%d > %d\n",
-					       msg->len, SPRDWL_MAX_DATA_RXLEN);
 				sprdwl_rx_data_process(priv, msg->data);
 #endif /* FPGA_LOOPBACK_TEST */
 				break;
 			case SPRDWL_TYPE_CMD:
-				if (msg->len > SPRDWL_MAX_CMD_RXLEN)
-					wl_err("err rx cmd too long:%d > %d\n",
-					       msg->len, SPRDWL_MAX_CMD_RXLEN);
 				sprdwl_rx_rsp_process(priv, msg->data);
 				break;
 			case SPRDWL_TYPE_EVENT:
-				if (msg->len > SPRDWL_MAX_CMD_RXLEN)
-					wl_err("err rx event too long:%d > %d\n",
-					       msg->len, SPRDWL_MAX_CMD_RXLEN);
 				sprdwl_rx_event_process(priv, msg->data);
 				break;
 			case SPRDWL_TYPE_DATA_SPECIAL:
-				if (msg->len > SPRDWL_MAX_DATA_RXLEN)
-					wl_err("err data trans too long:%d > %d\n",
-					       msg->len, SPRDWL_MAX_CMD_RXLEN);
 				sprdwl_rx_mh_data_process(rx_if, msg->tran_data,
 							  msg->len, msg->buffer_type);
 				msg->tran_data = NULL;
 				msg->data = NULL;
 				break;
 			case SPRDWL_TYPE_DATA_PCIE_ADDR:
-				if (msg->len > SPRDWL_MAX_CMD_RXLEN)
-					wl_err("err rx mh data too long:%d > %d\n",
-					       msg->len, SPRDWL_MAX_DATA_RXLEN);
 				sprdwl_rx_mh_addr_process(rx_if, msg->tran_data,
 							  msg->len, msg->buffer_type);
 				msg->tran_data = NULL;
@@ -401,7 +386,7 @@ int sprdwl_pkt_log_save(struct sprdwl_intf *intf, void *data)
 	/*for pkt log space key and enter key*/
 	char temp_space, temp_enter;
 	/*for pkt log txt line number and write pkt log into file*/
-	char temphdr[6], tempdata[2];
+	char temphdr[6], tempdata[3];
 
 	intf->pfile = filp_open(
 					"storage/sdcard0/Download/sprdwl_pkt_log.txt",
@@ -426,10 +411,10 @@ int sprdwl_pkt_log_save(struct sprdwl_intf *intf, void *data)
 		}
 		vfs_write(intf->pfile, temphdr, 6, &intf->lp);
 		vfs_write(intf->pfile, &temp_space, 1, &intf->lp);
-		memset(tempdata, 0x00, 2);
+		memset(tempdata, 0x00, 3);
 		for (i = 0; i < data_len; i++) {
-				snprintf(tempdata, sizeof(tempdata), "%02x",
-					 *(unsigned char *)data);
+				sprintf(tempdata, "%02x",
+						*(unsigned char *)data);
 				vfs_write(intf->pfile, tempdata,
 						  2, &intf->lp);
 				memset(tempdata, 0x00, 2);

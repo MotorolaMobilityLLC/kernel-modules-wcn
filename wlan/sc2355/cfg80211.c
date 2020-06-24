@@ -37,6 +37,7 @@
 #include "rnd_mac_addr.h"
 #endif
 #include "rx_msg_sc2355.h"
+#include "pam_wifi_driver.h"
 
 #ifdef DFS_MASTER
 #include "11h.h"
@@ -874,6 +875,7 @@ static int sprdwl_cfg80211_start_ap(struct wiphy *wiphy,
 	u16 mgmt_len, index = 0, hidden_index;
 	u8 *data = NULL;
 	int ret;
+	u8 *ie;
 
 #ifdef ACS_SUPPORT
 	struct api_version_t *api = (&vif->priv->sync_api)->api_array;
@@ -946,11 +948,19 @@ static int sprdwl_cfg80211_start_ap(struct wiphy *wiphy,
 
 	memcpy(data + index, beacon->head + hidden_index - 1,
 	       beacon->head_len + 1 - hidden_index);
+	wl_info("set hidden_ssid:%d\n", settings->hidden_ssid);
 
-	if (beacon->tail)
+	if (beacon->tail) {
 		memcpy(data + beacon->head_len + 1 +
 			(settings->hidden_ssid != 0 ? settings->ssid_len : 0),
 		       beacon->tail, beacon->tail_len);
+		ie = (u8 *)cfg80211_find_ie(WLAN_EID_RSN, beacon->tail,
+					    beacon->tail_len);
+		if (ie == NULL)
+			wl_info("IE WLAN_EID_RSN not found in beacon.\n");
+		else if (sprdwl_debug_level >= L_INFO)
+			sprdwl_hex_dump("RSNE", ie, (ie[1]+2));
+	}
 
 	ret = sprdwl_start_ap(vif->priv, vif->ctx_id, (unsigned char *)mgmt,
 			      mgmt_len);
@@ -1819,6 +1829,7 @@ static int sprdwl_cfg80211_connect(struct wiphy *wiphy, struct net_device *ndev,
 	    (sme->crypto.cipher_group == WLAN_CIPHER_SUITE_WEP104);
 	int random_mac_flag;
 	int ret = -EPERM;
+	struct sprdwl_intf *intf = (struct sprdwl_intf *)(vif->priv->hw_priv);
 
 	/*workround for bug 795430*/
 	if (vif->priv->fw_stat[vif->mode] == SPRDWL_INTF_CLOSE) {
@@ -2030,6 +2041,12 @@ static int sprdwl_cfg80211_connect(struct wiphy *wiphy, struct net_device *ndev,
 		ret = sprdwl_connect(vif->priv, vif->ctx_id, &con);
 		if (ret)
 			goto err;
+#ifdef WMMAC_WFA_CERTIFICATION
+		if (strstr(con.ssid, "FGR896lk?")) {
+			wl_info("%s, connect 5.2.27 AP", __func__);
+			intf->wmm_special_flag = 1;
+		}
+#endif
 		strncpy(vif->ssid, sme->ssid, sme->ssid_len);
 		vif->ssid_len = sme->ssid_len;
 		netdev_info(ndev, "%s %s\n", __func__, vif->ssid);
@@ -2224,7 +2241,7 @@ void sprdwl_report_scan_result(struct sprdwl_vif *vif, u16 chan, s16 rssi,
 	signal_level_enhance(vif, mgmt, &signal);
 	/*if signal has been update & enhanced*/
 	if ((rssi * 100) != signal)
-		pr_err("old signal level:%d,new signal level:%d\n",
+		wl_info("old signal level:%d,new signal level:%d\n",
 		       (rssi*100), signal);
 
 
@@ -2382,10 +2399,18 @@ void sprdwl_report_connection(struct sprdwl_vif *vif,
 
 	if (vif->sm_state == SPRDWL_CONNECTING &&
 	    conn_info->status == SPRDWL_CONNECT_SUCCESS)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 7, 0)
+		cfg80211_connect_bss(vif->ndev, conn_info->bssid,
+				     bss, conn_info->req_ie, conn_info->req_ie_len,
+				     conn_info->resp_ie, conn_info->resp_ie_len,
+				     WLAN_STATUS_SUCCESS, GFP_KERNEL,
+				     NL80211_TIMEOUT_UNSPECIFIED);
+#else
 		cfg80211_connect_result(vif->ndev,
 					conn_info->bssid, conn_info->req_ie, conn_info->req_ie_len,
 					conn_info->resp_ie, conn_info->resp_ie_len,
 					WLAN_STATUS_SUCCESS, GFP_KERNEL);
+#endif
 	else if (vif->sm_state == SPRDWL_CONNECTED &&
 		 conn_info->status == SPRDWL_ROAM_SUCCESS){
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0)
@@ -2490,7 +2515,8 @@ void sprdwl_report_disconnection(struct sprdwl_vif *vif, u16 reason_code)
 	}
 
 	vif->sm_state = SPRDWL_DISCONNECTED;
-	if (vif->priv->hw_type == SPRDWL_HW_SC2355_SDIO)
+	if (vif->priv->hw_type == SPRDWL_HW_SC2355_SDIO ||
+		vif->priv->hw_type == SPRDWL_HW_SC2355_USB)
 		sprdwl_fc_add_share_credit(vif);
 
 	/* Clear bssid & ssid */
@@ -3211,11 +3237,11 @@ out:
 				}
 			}
 			netdev_err(vif->ndev,"%s, survey_cnt %d\n", __func__, survey_cnt);
-		        survey_cnt++;
-		        kfree(info);
+			survey_cnt++;
+			kfree(info);
 		} else {
-		        netdev_err(vif->ndev,"%s, survey_cnt %d\n", __func__, survey_cnt);
-		        ret = -ENOENT;
+			netdev_err(vif->ndev,"%s, survey_cnt %d\n", __func__, survey_cnt);
+			ret = -ENOENT;
 		}
 
 		return ret;

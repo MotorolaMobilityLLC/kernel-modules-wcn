@@ -155,7 +155,6 @@ struct wifi_conf_sec2_t {
 	struct misc_t misc;
 	struct debug_reg_t debug_reg;
 	struct coex_config_t coex_config;
-	/*struct rf_config_t rf_config;*/
 };
 
 struct roaming_param_t {

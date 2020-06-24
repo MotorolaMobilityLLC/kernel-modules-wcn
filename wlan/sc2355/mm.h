@@ -10,7 +10,6 @@
 #define SPRDWL_MH_ADDRESS_BIT ((uint64_t)1 << 39)
 
 #define SPRDWL_MAX_MH_BUF 500
-#define SPRDWL_ADD_MH_BUF_THRESHOLD 300
 #define SPRDWL_MAX_ADD_MH_BUF_ONCE 100
 #define SPRDWL_ADDR_BUF_LEN (sizeof(struct sprdwl_addr_hdr) +\
 			     sizeof(struct sprdwl_addr_trans_value) +\

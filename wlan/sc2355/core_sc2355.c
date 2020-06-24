@@ -37,6 +37,7 @@
 #include <linux/io.h>
 #include <linux/regmap.h>
 #include <linux/mfd/syscon.h>
+#include "pam_wifi_driver.h"
 #include <linux/interrupt.h>
 #include "work.h"
 #include <linux/irq.h>
@@ -691,7 +692,7 @@ static struct sprdwl_if_ops sprdwl_core_ops = {
 
 enum sprdwl_hw_type sprd_core_get_hwintf_mode(void)
 {
-	return SPRDWL_HW_SC2355_SDIO;/*TBD*/
+	return SPRDWL_HW_SC2355_PCIE;/*TBD*/
 }
 
 void config_wifi_ddr_priority(struct platform_device *pdev)
@@ -750,7 +751,7 @@ static int sprdwl_probe(struct platform_device *pdev)
 	for (i = 0; i < MAX_LUT_NUM; i++)
 		intf->peer_entry[i].ctx_id = 0xff;
 
-	priv = sprdwl_core_create(sprd_core_get_hwintf_mode(),
+	priv = sprdwl_core_create(get_hwintf_type(),
 				  &sprdwl_core_ops);
 	if (!priv) {
 		wl_err("%s core create fail\n", __func__);

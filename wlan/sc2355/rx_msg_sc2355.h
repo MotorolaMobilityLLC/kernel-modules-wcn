@@ -43,9 +43,8 @@ struct sprdwl_rx_if {
 	struct sprdwl_intf *intf;
 
 	struct sprdwl_msg_list rx_list;
+
 	struct task_struct *rx_thread;
-	struct work_struct rx_work;
-	struct workqueue_struct *rx_queue;
 
 #ifdef SC2355_RX_NAPI
 	struct sprdwl_msg_list rx_data_list;
@@ -56,18 +55,17 @@ struct sprdwl_rx_if {
 	struct sprdwl_rx_ba_entry ba_entry;
 	struct sprdwl_rx_defrag_entry defrag_entry;
 	u8 rsp_event_cnt;
+
 	void *addr_trans_head;
 	void *addr_trans_tail;
 	int addr_trans_num;
 
 #ifdef SPLIT_STACK
 	struct task_struct *rx_net_thread;
-	struct work_struct rx_net_work;
-	struct workqueue_struct *rx_net_workq;
 #endif
-
 	struct completion rx_completed;
 	struct completion rx_net_completed;
+
 	unsigned long rx_total_len;
 	ktime_t rxtimebegin;
 	ktime_t rxtimeend;

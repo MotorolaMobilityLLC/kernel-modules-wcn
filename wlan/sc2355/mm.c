@@ -62,6 +62,7 @@ void check_mh_buffer(struct device *dev, void *buffer, dma_addr_t pa,
 void clear_mh_buffer(void *buffer)
 {
 	struct rx_msdu_desc *desc = buffer + sizeof(struct rx_mh_desc);
+
 	desc->data_write_done = 0;
 }
 
@@ -217,8 +218,6 @@ static inline int mm_do_addr_buf(struct sprdwl_mm *mm_entry)
 				sizeof(struct sprdwl_addr_trans_value) +
 				(value->num*SPRDWL_PHYS_LEN);
 
-		/* FIXME: temporary solution, would TX supply API for us? */
-		/* TODO: How to do with tx fail? */
 		ret = if_tx_addr_trans(rx_if->intf, mm_entry->hdr,
 					addr_trans_len, false);
 		if (!ret) {
@@ -266,11 +265,6 @@ static int mm_single_buffer_alloc(struct sprdwl_mm *mm_entry)
 
 	skb = dev_alloc_skb(SPRDWL_MAX_DATA_RXLEN);
 	if (skb) {
-		/* hook skb address after skb end
-		 * first 64 bits of skb_shared_info are
-		 * nr_frags, tx_flags, gso_size, gso_segs, gso_type
-		 * It could be re-used and MUST clean after using
-		 */
 		SAVE_ADDR(skb->data, skb, sizeof(skb));
 		/* transfer virt to phys */
 		pcie_addr = mm_virt_to_phys(&rx_if->intf->pdev->dev,
@@ -284,7 +278,6 @@ static int mm_single_buffer_alloc(struct sprdwl_mm *mm_entry)
 				       __func__, ret);
 				dev_kfree_skb(skb);
 			} else {
-				/* queue skb */
 				skb_queue_tail(&mm_entry->buffer_list, skb);
 			}
 		}
@@ -327,6 +320,7 @@ static struct sk_buff *mm_single_buffer_unlink(struct sprdwl_mm *mm_entry,
 	RESTORE_ADDR(skb, buffer, sizeof(skb));
 	skb_unlink(skb, &mm_entry->buffer_list);
 	CLEAR_ADDR(skb->data, sizeof(skb));
+
 	return skb;
 }
 
@@ -478,7 +472,7 @@ static void mm_normal_data_process(struct sprdwl_mm *mm_entry,
 			skb = mm_build_skb(data, skb_len, buffer_type);
 		} else {
 			/* Should not happen */
-			wl_err("%s: data len is %d, skb need %d\n",
+			wl_debug("%s: data len is %d, skb need %d\n",
 			       __func__, len, skb_len);
 			skb = mm_data2skb_process(mm_entry, data,
 						  SKB_WITH_OVERHEAD(skb_len));
