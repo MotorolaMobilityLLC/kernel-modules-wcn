@@ -339,6 +339,17 @@ error:
 	return ret;
 }
 
+static int fm_reset(struct notifier_block *this, unsigned long ev, void *ptr)
+{
+       pr_info("%s: fm reset callback coming\n", __func__);
+       fmdev->fm_invalid = 1;
+       return NOTIFY_DONE;
+}
+
+static struct notifier_block fm_reset_block = {
+       .notifier_call = fm_reset,
+};
+
 static int fm_probe(struct platform_device *pdev)
 {
 	int ret = -EINVAL;
@@ -444,6 +455,7 @@ int  fm_device_init_driver(void)
 		dev_unisoc_fm_info(fm_miscdev,"fm: probe failed: %d\n", ret);
 	}
 	dev_unisoc_fm_info(fm_miscdev,"fm: probe success: %d\n", ret);
+	atomic_notifier_chain_register(&wcn_reset_notifier_list,&fm_reset_block);
 	wake_lock_init(&fm_wakelock, WAKE_LOCK_SUSPEND, "FM_wakelock");
 	dev_unisoc_fm_info(fm_miscdev,"------- fm_device_init_driver!\n");
 	return ret;
