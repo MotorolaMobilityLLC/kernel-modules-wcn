@@ -550,15 +550,17 @@ static inline void stty_destroy_pdata(struct stty_init_data **init,
 
 static int stty_bluetooth_reset(struct notifier_block *this, unsigned long ev, void *ptr)
 {
-#define RESET_BUFSIZE 5
+#define RESET_BUFSIZE 6
 
 	int ret = 0;
-	unsigned char reset_buf[RESET_BUFSIZE]= {0x04, 0x57, 0x02, 0xa5, 0x00};
+	unsigned char reset_buf[RESET_BUFSIZE]= {0x04, 0xff, 0x57, 0x02, 0xa5, 0x00};
 	int i = 0, retry_count = 10;
 
 	dev_unisoc_bt_info(ttyBT_dev,
-					"%s: reset callback coming\n", __func__);
+					"%s:reset callback coming\n", __func__);
 	if (stty_dev != NULL) {
+                dev_unisoc_bt_info(ttyBT_dev,
+                                        "%s tty_insert_flip_string\n", __func__);
 		mutex_lock(&(stty_dev->stat_lock));
 		if ((stty_dev->state == STTY_STATE_OPEN) && (RESET_BUFSIZE > 0)) {
 			for (i = 0; i < RESET_BUFSIZE; i++) {
