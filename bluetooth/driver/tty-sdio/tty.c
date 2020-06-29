@@ -952,11 +952,11 @@ struct mchn_ops_t bt_pcie_tx_ops = {
 
 static int bluetooth_reset(struct notifier_block *this, unsigned long ev, void *ptr)
 {
-#define RESET_BUFSIZE 6
+#define RESET_BUFSIZE 5
 
     int ret = 0;
     int block_size = RESET_BUFSIZE;
-	unsigned char reset_buf[RESET_BUFSIZE]= {0x04, 0xff, 0x57, 0x02, 0xa5, 0x00};
+	unsigned char reset_buf[RESET_BUFSIZE]= {0x04, 0xff, 0x02, 0x57, 0xa5};
 
 	dev_unisoc_bt_info(ttyBT_dev,"%s: reset callback coming\n", __func__);
 	if (mtty_dev != NULL) {
