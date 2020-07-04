@@ -1667,6 +1667,42 @@ struct wifi_passpoint_network {
 	unsigned char plmn[3];
 };
 
+#define SPRD_NL80211_VENDOR_SUBCMD_GET_AKM_SUITE 0xB0
+#define SPRD_NL80211_VENDOR_SUBCMD_SET_SAE_PASSWORD 0x2B
+#define SPRDWl_SAE_ENTRY_NUM	5
+#define SPRDWL_SAE_NOT_SET	-1
+
+enum sprdwl_softap_sae_type {
+	SPRDWL_VENDOR_SAE_ENTRY = 0,
+	SPRDWL_VENDOR_SAE_PASSWORD = 1,
+	SPRDWL_VENDOR_SAE_IDENTIFIER = 2,
+	SPRDWL_VENDOR_SAE_PEER_ADDR = 3,
+	SPRDWL_VENDOR_SAE_VLAN_ID = 4,
+	SPRDWL_VENDOR_SAE_GROUP_ID = 5,
+	SPRDWL_VENDOR_SAE_ACT = 6,
+	SPRDWL_VENDOR_SAE_PWD = 7,
+	SPRDWL_VENDOR_SAE_END = 0xFF,
+};
+
+struct sprdwl_sae_entry {
+	bool used;
+	u8 peer_addr[ETH_ALEN];
+	u8 id_len;
+	char identifier[32];
+	u8 passwd_len;
+	char password[32];
+	u32 vlan_id;
+} __packed;
+
+struct sprdwl_softap_sae_setting {
+	struct sprdwl_sae_entry entry[SPRDWl_SAE_ENTRY_NUM];
+	int passphrase_len;
+	char passphrase[64];
+	u32 act;
+	int group_count;
+	int groups[32];
+} __packed;
+
 enum offloaded_packets_sending_control {
 	OFFLOADED_PACKETS_SENDING_CONTROL_INVALID = 0,
 	OFFLOADED_PACKETS_SENDING_START,
@@ -1708,5 +1744,7 @@ int sprdwl_report_acs_lte_event(struct sprdwl_vif *vif);
 int sprdwl_set_packet_offload(struct sprdwl_priv *priv, u8 vif_ctx_id,
 			      u32 req, u8 enable, u32 interval,
 			      u32 len, u8 *data);
+int sprdwl_softap_set_sae_para(struct sprdwl_priv *priv, u8 ctx_id, char *data,
+			       int data_len);
 
 #endif

@@ -3140,6 +3140,12 @@ int sprdwl_cfg80211_set_power_mgmt(struct wiphy *wiphy, struct net_device *ndev,
 				 SPRDWL_SET_PS_STATE, enabled);
 }
 
+static int sprdwl_cfg80211_set_default_mgmt_key(struct wiphy *wiphy,
+						struct net_device *netdev,
+						u8 key_index)
+{
+	return 0;
+}
 #ifdef ACS_SUPPORT
 static int
 sprdwl_cfg80211_dump_survey(struct wiphy *wiphy, struct net_device *ndev,
@@ -3303,6 +3309,7 @@ static struct cfg80211_ops sprdwl_cfg80211_ops = {
 	.start_radar_detection = sprdwl_cfg80211_start_radar_detection,
 	.channel_switch = sprdwl_cfg80211_channel_switch,
 #endif
+	.set_default_mgmt_key = sprdwl_cfg80211_set_default_mgmt_key,
 };
 
 void sprdwl_save_ch_info(struct sprdwl_priv *priv, u32 band, u32 flags, int center_freq)
