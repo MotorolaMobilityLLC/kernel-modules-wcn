@@ -183,6 +183,7 @@ enum SPRDWL_CMD_LIST {
 	* conditional compile flag is not recommended
 	*/
 	WIFI_CMD_PACKET_OFFLOAD = 84,
+	WIFI_CMD_SET_SAE_PARAM = 85,
 	WIFI_CMD_MAX
 };
 
@@ -339,6 +340,9 @@ struct sprdwl_cmd_fw_info {
 #define SPRDWL_EXTEND_FEATURE_OWE          BIT(1)
 #define SPRDWL_EXTEND_FEATURE_DPP          BIT(2)
 #define SPRDWL_EXTEND_8021X_SUITE_B_192    BIT(3)
+#define SPRDWL_EXTEND_FEATURE_OCE	   BIT(4)
+#define SPRDWL_EXTEND_FEATURE_LLSTATE	   BIT(5)
+#define SPRDWL_EXTEND_SOATAP_WPA3	   BIT(6)
 	__le32 extend_feature;
 };
 
@@ -971,6 +975,14 @@ struct sprdwl_cmd_packet_offload {
 	u8 enable;
 	u32 period;
 	u16 len;
+	u8 data[0];
+} __packed;
+
+#define		SPRDWL_SAE_PASSPHRASE		1
+#define		SPRDWL_SAE_PASSWORD_ENTRY	2
+
+struct sprdwl_sae_param {
+	u16 request_type;
 	u8 data[0];
 } __packed;
 
