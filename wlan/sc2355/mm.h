@@ -5,7 +5,12 @@
 #include <linux/dma-direction.h>
 #include <linux/dma-mapping.h>
 
+#ifdef CONFIG_64BIT
 #define SPRDWL_PHYS_LEN 5
+#else
+#define SPRDWL_PHYS_LEN 4
+#endif
+
 #define SPRDWL_PHYS_MASK (((uint64_t)1 << 40) - 1)
 #define SPRDWL_MH_ADDRESS_BIT ((uint64_t)1 << 39)
 
