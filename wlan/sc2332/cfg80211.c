@@ -783,12 +783,21 @@ static int sprdwl_cfg80211_start_ap(struct wiphy *wiphy,
 	u8 *data = NULL;
 	int ret;
 	int extra_len;
-	netdev_info(ndev, "%s\n", __func__);
+	u16 freq;
+	struct ieee80211_channel *ch = NULL;
+	struct cfg80211_chan_def chandef;
 
 	if (!settings->ssid) {
 		netdev_err(ndev, "%s invalid SSID!\n", __func__);
 		return -EINVAL;
 	}
+	if (settings->chandef.chan) {
+		freq = settings->chandef.chan->center_freq;
+		netdev_info(ndev, "%s freq : %d\n", __func__, freq);
+	} else {
+		netdev_err(ndev, "%s can not get channel info\n", __func__);
+	}
+
 	strncpy(vif->ssid, settings->ssid, settings->ssid_len);
 	vif->ssid_len = settings->ssid_len;
 	sprdwl_set_beacon_ies(vif, beacon);
@@ -846,6 +855,15 @@ static int sprdwl_cfg80211_start_ap(struct wiphy *wiphy,
 		netdev_err(ndev, "%s failed to start AP!\n", __func__);
 
 	netif_carrier_on(ndev);
+
+	/*need report channel info to uplayer to pass cts test*/
+	ch = ieee80211_get_channel(wiphy, freq);
+	if(ch) {
+		cfg80211_chandef_create(&chandef, ch, NL80211_CHAN_HT20);
+		cfg80211_ch_switch_notify(vif->ndev, &chandef);
+	} else {
+		netdev_err(vif->ndev, "%s, ch is null!\n", __func__);
+	}
 	return ret;
 }
 
