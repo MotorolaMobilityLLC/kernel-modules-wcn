@@ -1883,6 +1883,11 @@ static int sprdwl_vendor_set_significant_change(struct wiphy *wiphy,
 		case GSCAN_ATTR_SIGNIFICANT_CHANGE_PARAMS_NUM_AP:
 			significant_change_params->num_bssid
 				= nla_get_s32(pos);
+			/*the max num in cp is 8 */
+			if(significant_change_params->num_bssid > 8) {
+				kfree(significant_change_params);
+				return -EINVAL;
+			}
 		break;
 
 		case GSCAN_ATTR_AP_THR_PARAM:
