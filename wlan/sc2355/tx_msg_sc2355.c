@@ -533,7 +533,6 @@ static int sprdwl_tx_cmd(struct sprdwl_intf *intf, struct sprdwl_msg_list *list)
 		if (ret) {
 			wl_err("%s err:%d\n", __func__, ret);
 			/* fixme if need retry */
-			kfree(msgbuf->tran_data);
 			msgbuf->tran_data = NULL;
 			sprdwl_free_cmd_buf(msgbuf, list);
 		}
