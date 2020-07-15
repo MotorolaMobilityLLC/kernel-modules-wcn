@@ -3270,22 +3270,6 @@ int sprdwl_fw_power_down_ack(struct sprdwl_priv *priv, u8 ctx_id)
 	p = (struct sprdwl_cmd_power_save *)msg->data;
 	p->sub_type = SPRDWL_FW_PWR_DOWN_ACK;
 
-	if (atomic_read(&tx_msg->xmit_msg_list.free_num) == 0 &&
-		!list_empty(&tx_msg->xmit_msg_list.to_free_list)) {
-		struct sprdwl_msg_buf *pos, *temp;
-		struct list_head *to_free_list = &tx_msg->xmit_msg_list.to_free_list;
-		unsigned long lockflag_txfree = 0;
-
-
-		wl_err("%s, %d, free to_free_list\n", __func__, __LINE__);
-		spin_lock_irqsave(&tx_msg->xmit_msg_list.free_lock,
-				  lockflag_txfree);
-		list_for_each_entry_safe(pos, temp, to_free_list, list)
-			sprdwl_dequeue_tofreelist_buf(pos);
-		spin_unlock_irqrestore(&tx_msg->xmit_msg_list.free_lock,
-				       lockflag_txfree);
-	}
-
 	if (atomic_read(&tx_msg->tx_list_qos_pool.ref) > 0 ||
 	    !list_empty(&tx_msg->xmit_msg_list.to_send_list) ||
 	    !list_empty(&tx_msg->xmit_msg_list.to_free_list)) {
