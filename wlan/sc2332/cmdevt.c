@@ -477,6 +477,11 @@ int sprdwl_close_fw(struct sprdwl_priv *priv, u8 vif_mode, u8 mode)
 	struct sprdwl_msg_buf *msg;
 	struct sprdwl_cmd_close *p;
 
+	/* workaround for this case: the time is too short between del_station
+	    and close command, driver need delay 100ms. more info please
+	    refer Bug:1362522 */
+	if (vif_mode == SPRDWL_MODE_AP || vif_mode == SPRDWL_MODE_P2P_GO)
+		msleep(100);
 	msg = sprdwl_cmd_getbuf(priv, sizeof(*p), vif_mode,
 				SPRDWL_HEAD_RSP, WIFI_CMD_CLOSE);
 	if (!msg)
