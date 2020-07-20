@@ -603,12 +603,11 @@ int sprdwl_intf_tx_list(struct sprdwl_intf *dev,
 	struct sprdwl_msg_buf *msg_pos;
 	struct pcie_addr_buffer *addr_buffer = NULL;
 	struct sprdwl_tx_msg *tx_msg;
-	struct mbuf_t *head = NULL, *tail = NULL, *mbuf_pos, *mbuf_tmp;
+	struct mbuf_t *head = NULL, *tail = NULL, *mbuf_pos;
 	/*struct sprdwl_data_hdr *hdr; *//*temp for test*/
 	struct list_head *pos, *tx_list_tail, *tx_head = NULL, *n_list;
 	unsigned long *msg_ptr;
 	unsigned char *data_ptr;
-	unsigned char *tx_debug_ptr;
 	struct tx_msdu_dscr *dscr = NULL;
 #if defined(MORE_DEBUG)
 	unsigned long tx_bytes = 0;
@@ -811,15 +810,6 @@ int sprdwl_intf_tx_list(struct sprdwl_intf *dev,
 		return ret;
 	}
 
-	if (dev->tx_data_port == SDIO_TX_DATA_PORT) {
-		int index = 0;
-		mbuf_tmp = head;
-		for (index = 0; index < tx_count; index++) {
-			tx_debug_ptr = mbuf_tmp->buf;
-			wl_info("mbuf addr : %p; buf : %p ; tx data: %p ", mbuf_tmp,tx_debug_ptr,  GET_MSG_BUF(mbuf_tmp));
-			mbuf_tmp = mbuf_tmp->next;
-		}
-	}
 	/*BT is on: call sdiohal_txthread to send data.*/
 	if (coex_bt_on)
 		ret = sprdwcn_bus_push_list(dev->tx_data_port,
@@ -1613,23 +1603,11 @@ int sprdwl_add_topop_list(int chn, struct mbuf_t *head,
 	struct sprdwl_intf *intf = get_intf();
 	struct sprdwl_work *misc_work;
 	struct sprdwl_pop_work pop_work;
-	struct mbuf_t *mbuf_pos;
-	int index = 0;
-	unsigned char *buf;
 
 	pop_work.chn = chn;
 	pop_work.head = (void *)head;
 	pop_work.tail = (void *)tail;
 	pop_work.num = num;
-
-	mbuf_pos = head;
-	if (chn == SDIO_TX_DATA_PORT) {
-		for (index = 0; index < num; index++) {
-			buf = mbuf_pos->buf;
-			wl_info("mbuf addr : %p; buf : %p ; pop data : %p; ",mbuf_pos, buf, GET_MSG_BUF(mbuf_pos));
-			mbuf_pos = mbuf_pos->next;
-		}
-	}
 
 	misc_work = sprdwl_alloc_work(sizeof(struct sprdwl_pop_work));
 	if (!misc_work) {
