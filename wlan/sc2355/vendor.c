@@ -2112,7 +2112,8 @@ static int sprdwl_vendor_get_support_feature(struct wiphy *wiphy,
 		feature |= WIFI_FEATURE_TX_TRANSMIT_POWER;
 	}
 	/*bit 24:Enable/Disable firmware roaming*/
-	if (priv->fw_capa & SPRDWL_CAPA_11R_ROAM_OFFLOAD) {
+	if ((priv->fw_capa & SPRDWL_CAPA_11R_ROAM_OFFLOAD) &&
+	    (priv->fw_capa & SPRDWL_CAPA_GSCAN)) {
 		wl_info("ROAMING offload supported\n");
 		feature |= WIFI_FEATURE_CONTROL_ROAMING;
 	}
