@@ -166,7 +166,7 @@ static int sprdwl_start_xmit_prepare(struct sprdwl_vif *vif, struct net_device *
 	if (intf->suspend_mode != SPRDWL_PS_RESUMED) {
 		wl_err("not resumed, drop skb\n");
 		dev_kfree_skb(skb);
-		return NETDEV_TX_OK;
+		return -1;
 	}
 	/* drop nonlinearize skb */
 	if (skb_linearize(skb)) {
