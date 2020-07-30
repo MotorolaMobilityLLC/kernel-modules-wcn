@@ -1154,7 +1154,7 @@ unsigned char rds_get_group_type(unsigned char *buffer)
 
 void dump_rx_data(unsigned char *buffer, unsigned int len)
 {
-	char i;
+	unsigned int i;
 
 	dev_unisoc_fm_info(fm_miscdev,"\n fm rx data(%d): ", len);
 	for (i = 0; i < len; i++)
