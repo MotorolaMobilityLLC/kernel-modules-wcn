@@ -2311,6 +2311,7 @@ void sprdwl_report_connection(struct sprdwl_vif *vif,
 	u32 freq;
 	u64 tsf;
 	u8 *ie;
+	const u8* ssid_ie;
 	size_t ielen;
 
 	if (vif->sm_state != SPRDWL_CONNECTING &&
@@ -2374,6 +2375,25 @@ void sprdwl_report_connection(struct sprdwl_vif *vif,
 		ie = mgmt->u.probe_resp.variable;
 		ielen = conn_info->bea_ie_len - offsetof(struct ieee80211_mgmt,
 						 u.probe_resp.variable);
+
+		ssid_ie = cfg80211_find_ie(WLAN_EID_SSID, ie, ielen);
+		if (ssid_ie) {
+			/* for hidden ssid,please ref bug 1370976,
+			    cp should report prob resp, but sometimes cp
+			    report beacon with ssid value :0x00, need driver cover*/
+			if (ssid_ie[1] != 0) {
+				int index = 0;
+				int hidden_ssid = 0;
+				for (index; index < ssid_ie[1]; index++) {
+					hidden_ssid |=  ssid_ie[2 + index];
+				}
+
+				if (!hidden_ssid) {
+					wl_err("no need update bss for hidden ssid\n");
+					goto REPORT_CONNCT_RESULT;
+				}
+			}
+		}
 		/* framework use system bootup time */
 		get_monotonic_boottime(&ts);
 		tsf = (u64)ts.tv_sec * 1000000 + div_u64(ts.tv_nsec, 1000);
@@ -2396,7 +2416,7 @@ void sprdwl_report_connection(struct sprdwl_vif *vif,
 	} else {
 		netdev_warn(vif->ndev, "%s No Beason IE!\n", __func__);
 	}
-
+REPORT_CONNCT_RESULT:
 	if (vif->sm_state == SPRDWL_CONNECTING &&
 	    conn_info->status == SPRDWL_CONNECT_SUCCESS)
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 7, 0)
