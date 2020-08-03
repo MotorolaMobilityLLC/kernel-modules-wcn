@@ -631,7 +631,7 @@ int sprdwl_rx_init(struct sprdwl_intf *intf)
 	rx_if->rx_thread =
 		kthread_create(sprdwl_rx_work_queue,
 			       (void *)rx_if, "RX_THREAD");
-	if (!rx_if->rx_thread) {
+	if (IS_ERR_OR_NULL(rx_if->rx_thread)) {
 		wl_err("%s SPRDWL_RX_THREAD create failed\n", __func__);
 		ret = -ENOMEM;
 		goto err_rx_work;
@@ -641,7 +641,7 @@ int sprdwl_rx_init(struct sprdwl_intf *intf)
 	rx_if->rx_net_thread =
 		kthread_create(sprdwl_rx_net_work_queue,
 			       (void *)rx_if, "RX_NET_QUEUE");
-	if (!rx_if->rx_net_thread) {
+	if (IS_ERR_OR_NULL(rx_if->rx_net_thread)) {
 		wl_err("%s SPRDWL_RX_NET_QUEUE create failed\n", __func__);
 		ret = -ENOMEM;
 		goto err_rx_work;
