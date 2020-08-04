@@ -747,7 +747,6 @@ out_put_fail:
 		kfree(radio_st);
 	if (iface_st)
 		kfree(iface_st);
-	WARN_ON(1);
 	return -EMSGSIZE;
 }
 
