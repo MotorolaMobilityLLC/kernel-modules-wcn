@@ -52,7 +52,7 @@ struct sprdwl_buf_mm {
 
 #define SPRDWL_ALIGN(len, align) ((((len)+(align)-1)/(align)) * (align))
 #define SPRDWL_SIPC_ALIGN		4
-#define SPRDWL_BUF_SET_LOC(node, loc)		(node)->location=(loc)
+#define SPRDWL_BUF_SET_LOC(node, loc)		(((node)->(location))=(loc))
 
 
 

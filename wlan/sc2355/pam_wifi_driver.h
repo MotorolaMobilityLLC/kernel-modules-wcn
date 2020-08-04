@@ -400,8 +400,8 @@ struct pam_wifi_receiver_device {
 //*********************Original msdu location in the memory***********
 #define MAX_MSDU_NUMBER 16
 //length of msdu header,increased by 64bit. Min:2,Max:6
-#define CUR_MSDU_LENGTH 3
-#define MAX_ONE_MSDU_LENGTH CUR_MSDU_LENGTH*8
+#define CUR_MSDU_LENGTH (3)
+#define MAX_ONE_MSDU_LENGTH ((CUR_MSDU_LENGTH)*(8))
 
 
 //typedef u32 (*ipa_callback_func_t)(enum sipa_term_type evt, void *param, void* cookie);
@@ -420,7 +420,7 @@ struct sprdwl_pam_wifi_miss_node_tag {
 	u32 cnt;
 };
 
-#define PAM_WIFI_HW_LOCK_TO           20*1000
+#define PAM_WIFI_HW_LOCK_TO           ((20)*(1000))
 void pam_wifi_update_router_table(struct sprdwl_sta_lut_ind *sta_lut, struct sprdwl_priv *priv, int flag);
 void ipa_to_pam_wifi_init(struct sprdwl_priv *priv, struct platform_device *pdev);
 void sprdwl_pam_wifi_miss_node_send(void *data);
