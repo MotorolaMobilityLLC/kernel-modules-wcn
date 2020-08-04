@@ -668,8 +668,6 @@ static int sprdwl_ioctl(struct net_device *ndev, struct ifreq *req, int cmd)
 		netdev_err(ndev, "Unsupported IOCTL %d\n", cmd);
 		return -ENOTSUPP;
 	}
-
-	return 0;
 }
 
 static bool mc_address_changed(struct net_device *ndev)
@@ -1020,6 +1018,7 @@ static void sprdwl_set_mac_addr(struct sprdwl_vif *vif, u8 *pending_addr,
 	case NL80211_IFTYPE_P2P_CLIENT:
 	case NL80211_IFTYPE_P2P_GO:
 		addr[4] ^= 0x80;
+		break;
 	case NL80211_IFTYPE_P2P_DEVICE:
 		addr[0] ^= 0x02;
 		break;

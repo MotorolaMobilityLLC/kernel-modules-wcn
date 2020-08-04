@@ -23,7 +23,7 @@ int sprdwl_handle_cmd(struct net_device *ndev, struct ifreq *ifr)
 	struct sprdwl_priv *priv = vif->priv;
 	struct android_wifi_priv_cmd priv_cmd;
 	char *command = NULL;
-	unsigned short subtype = -1;
+	unsigned short subtype;
 	int ret = 0, value;
 	char max_sta_num;
 

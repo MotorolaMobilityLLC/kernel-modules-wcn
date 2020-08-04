@@ -204,7 +204,7 @@ static int sprdwl_tcp_ack_match(struct sprdwl_tcp_ack_manage *ack_m,
 {
 	int i;
 	struct sprdwl_tcp_ack_info *ack_info;
-	struct sprdwl_tcp_ack_msg *ack;
+	struct sprdwl_tcp_ack_msg *ack = NULL;
 
 	for (i = 0; i < SPRDWL_TCP_ACK_NUM; i++) {
 		ack_info = &ack_m->ack_info[i];
@@ -293,7 +293,7 @@ int sprdwl_tcp_ack_handle(struct sprdwl_msg_buf *new_msgbuf,
 			  int type)
 {
 	int quick_ack = 0;
-	struct sprdwl_tcp_ack_msg *ack;
+	struct sprdwl_tcp_ack_msg *ack = NULL;
 
 	ack = &ack_info->ack_msg;
 	if (type == 2) {
@@ -375,7 +375,7 @@ int sprdwl_fileter_send_tcp_ack(struct sprdwl_msg_buf *msgbuf,
 	int ret = 0;
 	int index, drop;
 	struct sprdwl_tcp_ack_msg ack_msg;
-	struct sprdwl_tcp_ack_msg *ack;
+	struct sprdwl_tcp_ack_msg *ack = NULL;
 	struct sprdwl_tcp_ack_info *ack_info;
 	struct sprdwl_tcp_ack_manage *ack_m;
 

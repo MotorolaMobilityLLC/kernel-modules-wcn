@@ -2419,6 +2419,9 @@ static int sprdwl_cfg80211_tdls_mgmt(struct wiphy *wiphy,
 		memcpy((u8 *)p + 1, buf, len);
 		memcpy((u8 *)p + 1 + len, &end, sizeof(end));
 		break;
+	default:
+		wiphy_err(wiphy, "invalid action_code\n");
+		break;
 	}
 
 	return sprdwl_tdls_mgmt(vif, tdls_skb);

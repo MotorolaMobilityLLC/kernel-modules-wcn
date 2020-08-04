@@ -1853,8 +1853,6 @@ static int sprdwl_set_offload_packet(struct wiphy *wiphy,
 		wiphy_err(wiphy, "control value is invalid\n");
 		return -EINVAL;
 	}
-
-	return 0;
 }
 
 static int sprdwl_parse_sae_entry(struct net_device *ndev, struct sprdwl_sae_entry *entry,
