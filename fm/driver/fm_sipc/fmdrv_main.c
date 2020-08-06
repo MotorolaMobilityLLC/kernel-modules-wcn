@@ -75,7 +75,7 @@
 #define HCI_EV_CMD_COMPLETE		0x0e
 #define HCI_VS_EVENT			0xFF
 
-#define FM_DUMP_DATA
+//#define FM_DUMP_DATA
 
 #define SEEKFORMAT "rssi_th =%d,snr_th =%d,freq_offset_th =%d," \
 		"pilot_power_th= %d,noise_power_th=%d"
@@ -191,6 +191,7 @@ static int fm_send_cmd(unsigned char subcmd, void *payload,
 	struct fm_cmd_hdr *cmd_hdr;
 	int size;
 	int cnt = 0;
+	unsigned char *tx_data = NULL;
 
 	size = sizeof(struct fm_cmd_hdr) +
 		((payload == NULL) ? 0 : payload_len);
@@ -214,6 +215,21 @@ static int fm_send_cmd(unsigned char subcmd, void *payload,
 #ifdef FM_DUMP_DATA
 	dump_tx_cmd((unsigned char *)fmdev->tx_buf_p, (unsigned char)size);
 #endif
+	tx_data = (unsigned char *)fmdev->tx_buf_p;
+	if (size == 6) {
+		dev_unisoc_fm_err(fm_miscdev," tx data : %02X %02X %02X %02X %02X %02X \n",
+			__func__,tx_data[0],tx_data[1],tx_data[2],
+			tx_data[3],tx_data[4],tx_data[5]);
+	} else if(size == 7) {
+		dev_unisoc_fm_err(fm_miscdev," tx data : %02X %02X %02X %02X %02X %02X %02X \n",
+			__func__,tx_data[0],tx_data[1],tx_data[2],
+			tx_data[3],tx_data[4],tx_data[5],tx_data[6]);
+	} else if(size == 8) {
+		dev_unisoc_fm_err(fm_miscdev," tx data : %02X %02X %02X %02X %02X %02X %02X %02X \n",
+			__func__,tx_data[0],tx_data[1],tx_data[2],
+			tx_data[3],tx_data[4],tx_data[5],tx_data[6],tx_data[7]);
+	}
+
 	cnt = sbuf_write(fmdev->pdata->dst, fmdev->pdata->tx_channel, fmdev->pdata->tx_bufid,
 			 fmdev->tx_buf_p, fmdev->tx_len, -1);
 	dev_unisoc_fm_info(fm_miscdev,"fmdrv write cmd return cnt:%d",cnt);
@@ -483,6 +499,10 @@ void fm_handler (int event, void *data)
 #ifdef FM_DUMP_DATA
 			dump_rx_data(buf, cnt);
 #endif
+		if (cnt >= 7) {
+			dev_unisoc_fm_err(fm_miscdev," rx data : %02X %02X %02X %02X %02X %02X %02X %02X \n",
+				 __func__,buf[0],buf[1],buf[2],buf[cnt-4],buf[cnt-3],buf[cnt-2],buf[cnt-1],buf[cnt]);
+		}
 
 		if (fmdev != NULL) {
 			struct fm_rx_data *rx = kzalloc(sizeof(struct fm_rx_data), GFP_KERNEL);
