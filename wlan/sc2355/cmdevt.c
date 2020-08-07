@@ -142,6 +142,7 @@ static const char *cmd2str(u8 cmd)
 	C2S(WIFI_CMD_VOWIFI_DATA_PROTECT)
 	C2S(WIFI_CMD_SET_TLV)
 	C2S(WIFI_CMD_SET_SAE_PARAM)
+	C2S(WIFI_CMD_EXTENED_LLSTAT)
 	default : return "WIFI_CMD_UNKNOWN";
 	}
 #undef C2S
@@ -3692,4 +3693,27 @@ int sprdwl_softap_set_sae_para(struct sprdwl_priv *priv, u8 ctx_id, char *data,
 
 	return sprdwl_cmd_send_recv(priv, msg, CMD_WAIT_TIMEOUT,
 				    NULL, NULL);
+}
+
+int sprdwl_externed_llstate(struct sprdwl_priv *priv, u8 ctx_id, u8 type,u8 subtype,
+			    void *buf, u8 len, u8 *r_buf, u16 *r_len)
+{
+	struct sprdwl_msg_buf *msg;
+	struct sprdwl_cmd_extened_llstate *p;
+
+	msg = sprdwl_cmd_getbuf(priv, sizeof(*p), ctx_id,
+				SPRDWL_HEAD_RSP, WIFI_CMD_EXTENED_LLSTAT);
+	if (!msg)
+		return -ENOMEM;
+	p = (struct sprdwl_cmd_extened_llstate *)msg->data;
+	p->type = type;
+	p->subtype = subtype;
+	p->len = len;
+	memcpy(p->data, buf, len);
+
+	if (type == SPRDWL_SUBCMD_SET)
+		return sprdwl_cmd_send_recv(priv, msg, CMD_WAIT_TIMEOUT, 0, 0);
+	else
+		return sprdwl_cmd_send_recv(priv, msg, CMD_WAIT_TIMEOUT, r_buf,
+					    r_len);
 }
