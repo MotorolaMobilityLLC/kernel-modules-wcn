@@ -313,8 +313,10 @@ static int sprdwl_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 		return NETDEV_TX_OK;
 	}
 
-	if (-1 == sprdwl_realloc_skb_headroom(skb, ndev, msg))
+	if (-1 == sprdwl_realloc_skb_headroom(skb, ndev, msg)) {
+		dev_kfree_skb(skb);
 		goto out;
+	}
 
 	/* We need a bit of data queued to build aggregates properly, so
 	 * instruct the TCP stack to allow more than a single ms of data
@@ -1349,6 +1351,8 @@ void acs_scan_result(struct sprdwl_vif *vif, u16 chan,
 				netdev_err(vif->ndev, "%s no memory for bssid!\n",
 					   __func__);
 			}
+
+			kfree(bssid);
 		}
 	}
 }

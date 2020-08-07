@@ -726,7 +726,7 @@ static int sprdwl_probe(struct platform_device *pdev)
 {
 	struct sprdwl_intf *intf;
 	struct sprdwl_priv *priv;
-	int ret;
+	int ret = 0;
 	u8 i;
 
 	sprdwl_dev = &pdev->dev;

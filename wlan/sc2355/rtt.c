@@ -1065,7 +1065,7 @@ int sprdwl_ftm_start_session(struct wiphy *wiphy,
 			     struct wireless_dev *wdev,
 			     const void *data, int data_len)
 {
-	struct sprdwl_ftm_session_request *request;
+	struct sprdwl_ftm_session_request *request = NULL;
 	int rem, rem1, type, index = 0, err = 0, ret = 0;
 	const struct nlattr *iter, *iter1;
 	struct nlattr *cfg[SPRD_VENDOR_RTT_ATTRIBUTE_MAX + 1];
@@ -1257,7 +1257,7 @@ int sprdwl_ftm_abort_session(struct wiphy *wiphy,
 	struct sprdwl_cmd_rtt *cmd;
 	struct sprdwl_priv *priv = wiphy_priv(wiphy);
 	struct sprdwl_vif *vif = netdev_priv(wdev->netdev);
-	struct sprdwl_ftm_meas_cancel_peer_info *request;
+	struct sprdwl_ftm_meas_cancel_peer_info *request = NULL;
 	const struct nlattr *iter;
 	int ret, rem, type, index = 0, cmd_data_len;
 
@@ -1294,8 +1294,11 @@ int sprdwl_ftm_abort_session(struct wiphy *wiphy,
 	cmd_data_len = 1 + index * ETH_ALEN;
 	msg = sprdwl_cmd_getbuf(priv, sizeof(struct sprdwl_cmd_rtt) + cmd_data_len,
 				vif->ctx_id, SPRDWL_HEAD_RSP, WIFI_CMD_RTT);
-	if (!msg)
+	if (!msg) {
+		kfree(request);
+		request = NULL;
 		return -ENOMEM;
+	}
 	cmd = (struct sprdwl_cmd_rtt *)msg->data;
 	cmd->sub_cmd = RTT_RANGE_CANCEL;
 	cmd->len = cmd_data_len;

@@ -1586,6 +1586,7 @@ static int sprdwl_cfg80211_scan(struct wiphy *wiphy,
 			info->channel = NULL;
 			list_add_tail(&info->survey_list,
 				      &vif->survey_info_list);
+			kfree(info);
 		}
 #endif /* ACS_SUPPORT */
 	}

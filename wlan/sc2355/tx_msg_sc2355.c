@@ -1875,7 +1875,7 @@ int sprdwl_tx_filter_ip_pkt(struct sk_buff *skb, struct net_device *ndev)
 {
 	bool is_data2cmd;
 	bool is_ipv4_dhcp, is_ipv6_dhcp;
-	bool is_vowifi2cmd;
+	bool is_vowifi2cmd = false;
 	unsigned char *dhcpdata = NULL;
 	struct udphdr *udphdr;
 	struct iphdr *iphdr;
