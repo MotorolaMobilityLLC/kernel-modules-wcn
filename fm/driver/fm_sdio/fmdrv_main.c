@@ -608,7 +608,9 @@ int fm_dma_buf_alloc(int chn, int size, int num)
 {
 	int ret, i;
 	struct dma_buf temp = {0};
-	struct mbuf_t *mbuf, *head, *tail;
+	struct mbuf_t *mbuf = NULL;
+	struct mbuf_t *head = NULL;
+	struct mbuf_t *tail = NULL;
 	dm_rx_t = &g_fm_pdev ->dev;
 
 	if (!dm_rx_t) {
