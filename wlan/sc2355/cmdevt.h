@@ -190,6 +190,7 @@ enum SPRDWL_CMD_LIST {
 	*/
 	WIFI_CMD_PACKET_OFFLOAD = 84,
 	WIFI_CMD_SET_SAE_PARAM = 85,
+	WIFI_CMD_EXTENED_LLSTAT = 86,
 	WIFI_CMD_MAX
 };
 
@@ -992,6 +993,18 @@ struct sprdwl_sae_param {
 	u8 data[0];
 } __packed;
 
+/* externed link layer status struct */
+enum SPRD_EXTERN_LLSTAT_SUBTYPE {
+	SPRDWL_SUBTYPE_CHANNEL_INFO = 1,
+};
+
+struct sprdwl_cmd_extened_llstate {
+	u8 type;
+	u8 subtype;
+	u16 len;
+	u8 data[0];
+} __packed;
+
 int sprdwl_cmd_rsp(struct sprdwl_priv *priv, u8 *msg);
 /*driver & fw API sync function start*/
 int sprdwl_sync_version(struct sprdwl_priv *priv);
@@ -1149,6 +1162,8 @@ int sprdwl_send_tdls_cmd(struct sprdwl_vif *vif, u8 vif_ctx_id, const u8 *peer,
 int sprdwl_fw_power_down_ack(struct sprdwl_priv *priv, u8 ctx_id);
 int sprdwl_cmd_host_wakeup_fw(struct sprdwl_priv *priv, u8 ctx_id);
 void sprdwl_work_host_wakeup_fw(struct sprdwl_vif *vif);
+int sprdwl_externed_llstate(struct sprdwl_priv *priv, u8 ctx_id, u8 type,u8 subtype,
+			    void *buf, u8 len, u8 *r_buf, u16 *r_len);
 struct sprdwl_msg_buf *__sprdwl_cmd_getbuf(struct sprdwl_priv *priv,
 					   u16 len, u8 ctx_id,
 					   enum sprdwl_head_rsp rsp,

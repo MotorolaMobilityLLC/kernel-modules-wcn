@@ -765,6 +765,17 @@ enum wifi_traffic_ac {
 	WIFI_AC_MAX = 4,
 };
 
+#define SPRDWL_MAX_CHANNEL_NUM	1
+struct sprdwl_llstat_channel_info
+{
+	u32 channel_width;
+	u32 center_freq;
+	u32 center_freq0;
+	u32 center_freq1;
+	u32 on_time;
+	u32 cca_busy_time;
+} __packed;
+
 /* configuration params */
 struct wifi_link_layer_params {
 	u32 mpdu_size_threshold;
