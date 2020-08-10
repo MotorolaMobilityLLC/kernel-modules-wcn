@@ -812,7 +812,7 @@ static int sprdwl_vendor_clr_llstat_handler(struct wiphy *wiphy,
 	return ret;
 out_put_fail:
 	kfree_skb(reply);
-	WARN_ON(1);
+	wl_err("%s out put fail\n", __func__);
 	return -EMSGSIZE;
 }
 
@@ -886,7 +886,7 @@ out:
 out_put_fail:
 	kfree_skb(reply);
 	kfree(rbuf);
-	WARN_ON(1);
+	wl_err("%s out put fail\n", __func__);
 	return -EMSGSIZE;
 }
 
@@ -977,7 +977,7 @@ out:
 out_put_fail:
 	kfree_skb(reply);
 	kfree(rbuf);
-	WARN_ON(1);
+	wl_err("%s out put fail\n", __func__);
 	return -EMSGSIZE;
 }
 
@@ -1193,7 +1193,7 @@ static int sprdwl_vendor_get_cached_gscan_results(struct wiphy *wiphy,
 
 out_put_fail:
 	kfree_skb(reply);
-	WARN_ON(1);
+	wl_err("%s out put fail\n", __func__);
 	return -EMSGSIZE;
 }
 
