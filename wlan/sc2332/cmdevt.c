@@ -334,6 +334,9 @@ int sprdwl_cmd_send_recv(struct sprdwl_priv *priv,
 			wiphy_info(priv->wiphy, "get scanning_sem timeout");
 			priv->scanning_flag = 0;
 			up(&priv->scanning_sem);
+			/*need free buf*/
+			priv->if_ops->free_msg_buf(priv->hw_intf, msg);
+			dev_kfree_skb(msg->skb);
 			return sem_ret;
 		}
 		wiphy_info(priv->wiphy, "get scanning_sem success");
