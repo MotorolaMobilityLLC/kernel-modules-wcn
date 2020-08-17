@@ -218,15 +218,15 @@ static int fm_send_cmd(unsigned char subcmd, void *payload,
 	tx_data = (unsigned char *)fmdev->tx_buf_p;
 	if (size == 6) {
 		dev_unisoc_fm_err(fm_miscdev," tx data : %02X %02X %02X %02X %02X %02X \n",
-			__func__,tx_data[0],tx_data[1],tx_data[2],
+			tx_data[0],tx_data[1],tx_data[2],
 			tx_data[3],tx_data[4],tx_data[5]);
 	} else if(size == 7) {
 		dev_unisoc_fm_err(fm_miscdev," tx data : %02X %02X %02X %02X %02X %02X %02X \n",
-			__func__,tx_data[0],tx_data[1],tx_data[2],
+			tx_data[0],tx_data[1],tx_data[2],
 			tx_data[3],tx_data[4],tx_data[5],tx_data[6]);
 	} else if(size == 8) {
 		dev_unisoc_fm_err(fm_miscdev," tx data : %02X %02X %02X %02X %02X %02X %02X %02X \n",
-			__func__,tx_data[0],tx_data[1],tx_data[2],
+			tx_data[0],tx_data[1],tx_data[2],
 			tx_data[3],tx_data[4],tx_data[5],tx_data[6],tx_data[7]);
 	}
 
@@ -501,7 +501,7 @@ void fm_handler (int event, void *data)
 #endif
 		if (cnt >= 7) {
 			dev_unisoc_fm_err(fm_miscdev," rx data : %02X %02X %02X %02X %02X %02X %02X %02X \n",
-				 __func__,buf[0],buf[1],buf[2],buf[cnt-4],buf[cnt-3],buf[cnt-2],buf[cnt-1],buf[cnt]);
+				 buf[0],buf[1],buf[2],buf[cnt-4],buf[cnt-3],buf[cnt-2],buf[cnt-1],buf[cnt]);
 		}
 
 		if (fmdev != NULL) {
