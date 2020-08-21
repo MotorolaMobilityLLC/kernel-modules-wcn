@@ -2447,18 +2447,10 @@ void sprdwl_report_connection(struct sprdwl_vif *vif,
 REPORT_CONNCT_RESULT:
 	if (vif->sm_state == SPRDWL_CONNECTING &&
 	    conn_info->status == SPRDWL_CONNECT_SUCCESS)
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 7, 0)
-		cfg80211_connect_bss(vif->ndev, conn_info->bssid,
-				     bss, conn_info->req_ie, conn_info->req_ie_len,
-				     conn_info->resp_ie, conn_info->resp_ie_len,
-				     WLAN_STATUS_SUCCESS, GFP_KERNEL,
-				     NL80211_TIMEOUT_UNSPECIFIED);
-#else
 		cfg80211_connect_result(vif->ndev,
 					conn_info->bssid, conn_info->req_ie, conn_info->req_ie_len,
 					conn_info->resp_ie, conn_info->resp_ie_len,
 					WLAN_STATUS_SUCCESS, GFP_KERNEL);
-#endif
 	else if (vif->sm_state == SPRDWL_CONNECTED &&
 		 conn_info->status == SPRDWL_ROAM_SUCCESS){
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0)
