@@ -1352,7 +1352,6 @@ int sprdwl_tx_msg_func(void *pdev, struct sprdwl_msg_buf *msg)
 		wl_debug("%s qos_index: %d tid: %d, tos:%d\n", __func__, qos_index, tid, tos);
 		if (SPRDWL_AC_MAX == qos_index) {
 			INIT_LIST_HEAD(&msg->list);
-			sprdwl_free_msg_buf(msg, msg->msglist);
 			return -EPERM;
 		}
 		tx_msg->wmm_tx_count[qos_index]++;
@@ -1361,7 +1360,6 @@ int sprdwl_tx_msg_func(void *pdev, struct sprdwl_msg_buf *msg)
 		    check_wmm_tx_flows(intf, msg, qos_index)) {
 			tx_msg->wmm_tx_droped[qos_index]++;
 			INIT_LIST_HEAD(&msg->list);
-			sprdwl_free_msg_buf(msg, msg->msglist);
 			return -EPERM;
 		}
 #endif
