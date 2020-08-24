@@ -599,6 +599,7 @@ void sprdwl_rx_napi_init(struct net_device *ndev, struct sprdwl_intf *intf)
 }
 #endif
 
+#define RX_THREAD_NAME	"RX_THREAD"
 int sprdwl_rx_init(struct sprdwl_intf *intf)
 {
 	int ret = 0;
@@ -630,7 +631,7 @@ int sprdwl_rx_init(struct sprdwl_intf *intf)
 	/* init rx_work */
 	rx_if->rx_thread =
 		kthread_create(sprdwl_rx_work_queue,
-			       (void *)rx_if, "RX_THREAD");
+			       (void *)rx_if, RX_THREAD_NAME);
 	if (IS_ERR_OR_NULL(rx_if->rx_thread)) {
 		wl_err("%s SPRDWL_RX_THREAD create failed\n", __func__);
 		ret = -ENOMEM;
@@ -696,8 +697,13 @@ int sprdwl_rx_deinit(struct sprdwl_intf *intf)
 	wl_warn("%s, %d\n", __func__, __LINE__);
 	if (rx_if->rx_thread) {
 		rx_up(rx_if);
-		kthread_stop(rx_if->rx_thread);
-		rx_if->rx_thread = NULL;
+		if (!strncmp(rx_if->rx_thread->comm, RX_THREAD_NAME,
+			    strlen(RX_THREAD_NAME))) {
+			kthread_stop(rx_if->rx_thread);
+			rx_if->rx_thread = NULL;
+		} else {
+			wl_err("rx thread name is : %s\n", rx_if->rx_thread->comm);
+		}
 	}
 	if (rx_if->rx_net_thread) {
 		rx_net_up(rx_if);
