@@ -1670,7 +1670,7 @@ void sprdwl_tx_deinit(struct sprdwl_intf *intf)
 
 	if (tx_msg->tx_thread) {
 		tx_up(tx_msg);
-		if (((tx_msg->tx_thread->state & TASK_RUNNING) != 0))
+		if (tx_msg->tx_thread->state == TASK_RUNNING)
 			kthread_stop(tx_msg->tx_thread);
 		tx_msg->tx_thread = NULL;
 	}
