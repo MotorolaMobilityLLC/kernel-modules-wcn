@@ -1586,7 +1586,6 @@ static int sprdwl_cfg80211_scan(struct wiphy *wiphy,
 			info->channel = NULL;
 			list_add_tail(&info->survey_list,
 				      &vif->survey_info_list);
-			kfree(info);
 		}
 #endif /* ACS_SUPPORT */
 	}
@@ -2678,7 +2677,7 @@ void sprdwl_cfg80211_dump_frame_prot_info(int send, int freq,
 	}
 	p[idx] = '\0';
 
-	wl_debug("%s %s %pM %pM\n", __func__,  p, &buf[4], &buf[10]);
+	wl_info("%s %s %pM %pM\n", __func__,  p, &buf[4], &buf[10]);
 }
 
 /* P2P related stuff */
