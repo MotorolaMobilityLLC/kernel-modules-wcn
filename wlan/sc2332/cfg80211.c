@@ -2810,11 +2810,9 @@ static void sprdwl_reg_notify(struct wiphy *wiphy,
 
 	if (sprdwl_set_regdom(priv, (u8 *)rd, rd_size))
 		wiphy_err(wiphy, "%s failed to set regdomain!\n", __func__);
-	if(rd != NULL)
-	{
-		kfree(rd);
-		rd = NULL;
-	}
+
+	kfree(rd);
+	rd = NULL;
 }
 
 void sprdwl_setup_wiphy(struct wiphy *wiphy, struct sprdwl_priv *priv)
