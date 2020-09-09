@@ -726,7 +726,7 @@ static int sprdwl_probe(struct platform_device *pdev)
 {
 	struct sprdwl_intf *intf;
 	struct sprdwl_priv *priv;
-	int ret = 0;
+	int ret;
 	u8 i;
 
 	sprdwl_dev = &pdev->dev;
@@ -787,6 +787,7 @@ static int sprdwl_probe(struct platform_device *pdev)
 		intf->tx_cmd_port = PCIE_TX_CMD_PORT;
 		intf->tx_data_port = PCIE_TX_ADDR_DATA_PORT;
 		if (sprdwl_txrx_buf_init()) {
+			ret = -ENOMEM;
 			wl_err("%s txrx buf init failed.\n", __func__);
 			goto err_if_init;
 		}
