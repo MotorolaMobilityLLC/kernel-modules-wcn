@@ -10,9 +10,9 @@ enum debug_ts_index {
 
 static inline char *ts_index2str(u8 index)
 {
-#define I2S(x) case x: return #x;
+#define I2S(x) case x: return #x
 	switch (index) {
-		I2S(RX_SDIO_PORT)
+		I2S(RX_SDIO_PORT);
 		default : return "UNKNOW_DEBUG_TS_INDEX";
 	}
 #undef I2S
@@ -25,9 +25,9 @@ enum debug_cnt_index {
 
 static inline char *cnt_index2str(u8 index)
 {
-#define I2S(x) case x: return #x;
+#define I2S(x) case x: return #x
 	switch (index) {
-		I2S(REORDER_TIMEOUT_CNT)
+		I2S(REORDER_TIMEOUT_CNT);
 		default : return "UNKNOW_DEBUG_CNT_INDEX";
 	}
 #undef I2S
@@ -43,12 +43,12 @@ enum debug_record_index {
 
 static inline char *record_index2str(u8 index)
 {
-#define I2S(x) case x: return #x;
+#define I2S(x) case x: return #x
 	switch (index) {
-		I2S(TX_CREDIT_RECORD)
-		I2S(TX_CREDIT_TIME_DIFF)
-		I2S(TX_CREDIT_PER_ADD)
-		I2S(TX_CREDIT_ADD)
+		I2S(TX_CREDIT_RECORD);
+		I2S(TX_CREDIT_TIME_DIFF);
+		I2S(TX_CREDIT_PER_ADD);
+		I2S(TX_CREDIT_ADD);
 		default : return "UNKNOW_DEBUG_RECORD_INDEX";
 	}
 #undef I2S
