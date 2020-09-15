@@ -245,8 +245,14 @@ static void mtty_rx_work_queue(struct work_struct *work)
                 }
             }
             pr_err("mtty over load cut channel: %d\n", rx->channel);
-            kfree(rx->head->buf);
-            kfree(rx);
+            if (rx->head->buf != NULL) {
+                kfree(rx->head->buf);
+                rx->head->buf = NULL;
+            }
+            if (rx != NULL) {
+                kfree(rx);
+                rx = NULL;
+            }
 
         } while (1);
     } else {
@@ -291,10 +297,12 @@ static int mtty_rx_cb(int chn, mbuf_t *head, mbuf_t *tail, int num)
             }
         }
 
+        mutex_lock(&mtty_dev->rw_mutex);
         rx = kmalloc(sizeof(struct rx_data), GFP_KERNEL);
         if (rx == NULL) {
             pr_err("%s() rx == NULL\n", __func__);
             sprdwcn_bus_push_list(chn, head, tail, num);
+            mutex_unlock(&mtty_dev->rw_mutex);
             return -ENOMEM;
         }
 
@@ -308,12 +316,13 @@ static int mtty_rx_cb(int chn, mbuf_t *head, mbuf_t *tail, int num)
             pr_err("mtty low memory!\n");
             kfree(rx);
             sprdwcn_bus_push_list(chn, head, tail, num);
+            mutex_unlock(&mtty_dev->rw_mutex);
             return -ENOMEM;
         }
 
         memcpy(rx->head->buf, head->buf, rx->head->len);
         sprdwcn_bus_push_list(chn, head, tail, num);
-        mutex_lock(&mtty_dev->rw_mutex);
+        //mutex_lock(&mtty_dev->rw_mutex);
         BT_VER("mtty over load push %d -> %d, channel: %d len: %d\n",
                 len_send, ret, rx->channel, rx->head->len);
         list_add_tail(&rx->entry, &mtty_dev->rx_head);
