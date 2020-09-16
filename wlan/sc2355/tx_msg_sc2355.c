@@ -1962,7 +1962,7 @@ int sprdwl_tx_filter_ip_pkt(struct sk_buff *skb, struct net_device *ndev)
 		if (is_ipv4_dhcp || is_ipv6_dhcp)
 			wl_info("dhcp,check:%x,skb->ip_summed:%d\n",
 				udphdr->check, skb->ip_summed);
-		if(is_vowifi2cmd)
+		if(is_vowifi2cmd && (ethhdr->h_proto == htons(ETH_P_IP)))
 			wl_info("vowifi, proto=0x%x, tos=0x%x, dest=0x%x\n",
 				ethhdr->h_proto, iphdr->tos, udphdr->dest);
 
