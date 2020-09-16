@@ -487,11 +487,11 @@ static int sprdwl_vendor_get_llstat_handler(struct wiphy *wiphy,
 	dif_radio = kzalloc(sizeof(*dif_radio), GFP_KERNEL);
 
 	if (!radio_st || !iface_st || !dif_radio)
-		goto out_put_fail;
+		goto clean;
 	ret = sprdwl_llstat(priv, vif->ctx_id, SPRDWL_SUBCMD_GET, NULL, 0,
 			    r_buf, &r_len);
 	if (ret)
-		goto out_put_fail;
+		goto clean;
 
 	llst = (struct sprdwl_llstat_data *)r_buf;
 
@@ -537,7 +537,7 @@ static int sprdwl_vendor_get_llstat_handler(struct wiphy *wiphy,
 		ret = sprdwl_externed_llstate(priv, vif->ctx_id, SPRDWL_SUBCMD_GET, SPRDWL_SUBTYPE_CHANNEL_INFO, NULL, 0,  recv_buf, &recv_len);
 		if (ret) {
 			wl_err("set externed llstate failed\n");
-			goto out_put_fail;
+			goto clean;
 		}
 
 		pos = recv_buf;
@@ -558,7 +558,7 @@ static int sprdwl_vendor_get_llstat_handler(struct wiphy *wiphy,
 			radio_st->channels[0].channel.width = info->channel_width;
 		}
 	}
-	
+
 	/*alloc radio reply buffer*/
 	reply_radio_length = sizeof(struct wifi_radio_stat) + 1000;
 	reply_iface_length = sizeof(struct wifi_iface_stat) + 1000;
@@ -567,16 +567,16 @@ static int sprdwl_vendor_get_llstat_handler(struct wiphy *wiphy,
 	reply_radio = cfg80211_vendor_cmd_alloc_reply_skb(wiphy,
 							  reply_radio_length);
 	if (!reply_radio)
-		goto out_put_fail;
+		goto clean;
 
 	if (nla_put_u32(reply_radio, NL80211_ATTR_VENDOR_ID, OUI_SPREAD))
-		goto out_put_fail;
+		goto radio_out_put_fail;
 	if (nla_put_u32(reply_radio, NL80211_ATTR_VENDOR_SUBCMD,
 			SPRDWL_VENDOR_GET_LLSTAT))
-		goto out_put_fail;
+		goto radio_out_put_fail;
 	if (nla_put_u32(reply_radio, SPRDWL_LL_STATS_TYPE,
 			SPRDWL_NL80211_VENDOR_SUBCMD_LL_STATS_TYPE_RADIO))
-		goto out_put_fail;
+		goto radio_out_put_fail;
 
 	ret = sprdwl_compose_radio_st(reply_radio, radio_st);
 
@@ -587,27 +587,36 @@ static int sprdwl_vendor_get_llstat_handler(struct wiphy *wiphy,
 	reply_iface = cfg80211_vendor_cmd_alloc_reply_skb(wiphy,
 							  reply_iface_length);
 	if (!reply_iface)
-		goto out_put_fail;
+		goto clean;
 
 	if (nla_put_u32(reply_iface, NL80211_ATTR_VENDOR_ID, OUI_SPREAD))
-		goto out_put_fail;
+		goto iface_out_put_fail;
 	if (nla_put_u32(reply_iface, NL80211_ATTR_VENDOR_SUBCMD,
 			SPRDWL_VENDOR_GET_LLSTAT))
-		goto out_put_fail;
+		goto iface_out_put_fail;
 	if (nla_put_u32(reply_iface, SPRDWL_LL_STATS_TYPE,
 			SPRDWL_NL80211_VENDOR_SUBCMD_LL_STATS_TYPE_IFACE))
-		goto out_put_fail;
+		goto iface_out_put_fail;
 	ret = sprdwl_compose_iface_st(reply_iface, iface_st);
 	ret = cfg80211_vendor_cmd_reply(reply_iface);
 
+clean:
 	kfree(radio_st);
 	kfree(iface_st);
 	kfree(dif_radio);
 	return ret;
-out_put_fail:
+radio_out_put_fail:
 	kfree(radio_st);
 	kfree(iface_st);
 	kfree(dif_radio);
+	kfree_skb(reply_radio);
+	WARN_ON(1);
+	return -EMSGSIZE;
+iface_out_put_fail:
+	kfree(radio_st);
+	kfree(iface_st);
+	kfree(dif_radio);
+	kfree_skb(reply_iface);
 	WARN_ON(1);
 	return -EMSGSIZE;
 }
