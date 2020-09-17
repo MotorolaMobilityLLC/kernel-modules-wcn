@@ -1826,6 +1826,7 @@ int sprdwl_tx_filter_ip_pkt(struct sk_buff *skb, struct net_device *ndev)
 	bool is_data2cmd;
 	bool is_ipv4_dhcp, is_ipv6_dhcp;
 	bool is_vowifi2cmd;
+	bool is_ipv4_dns = false, is_ipv6_dns = false;
 	unsigned char *dhcpdata = NULL;
 	struct udphdr *udphdr;
 	struct iphdr *iphdr;
@@ -1867,6 +1868,15 @@ int sprdwl_tx_filter_ip_pkt(struct sk_buff *skb, struct net_device *ndev)
 	((udphdr->source == htons(DHCP_SERVER_PORT_IPV6)) ||
 	(udphdr->source == htons(DHCP_CLIENT_PORT_IPV6))));
 
+	is_ipv4_dns =
+	((ethhdr->h_proto == htons(ETH_P_IP)) &&
+	((udphdr->source == htons(DNS_SERVER_PORT)) ||
+	(udphdr->dest == htons(DNS_SERVER_PORT))));
+	is_ipv6_dns =
+	((ethhdr->h_proto == htons(ETH_P_IPV6)) &&
+	((udphdr->source == htons(DNS_SERVER_PORT)) ||
+	(udphdr->dest == htons(DNS_SERVER_PORT))));
+
 	if (is_vowifi_pkt(skb, &is_vowifi2cmd)) {
 		if (is_vowifi2cmd == false) {
 			struct sprdwl_peer_entry *peer_entry = NULL;
@@ -1884,7 +1894,8 @@ int sprdwl_tx_filter_ip_pkt(struct sk_buff *skb, struct net_device *ndev)
 		is_vowifi2cmd = false;
 	}
 
-	is_data2cmd = (is_ipv4_dhcp || is_ipv6_dhcp || is_vowifi2cmd);
+	is_data2cmd = (is_ipv4_dhcp || is_ipv6_dhcp || is_vowifi2cmd ||
+			is_ipv4_dns || is_ipv6_dns);
 
 	if (is_ipv4_dhcp) {
 		intf->skb_da = skb->data;
@@ -1917,6 +1928,10 @@ int sprdwl_tx_filter_ip_pkt(struct sk_buff *skb, struct net_device *ndev)
 		if(is_vowifi2cmd && (ethhdr->h_proto == htons(ETH_P_IP)))
 			wl_info("vowifi, proto=0x%x, tos=0x%x, dest=0x%x\n",
 				ethhdr->h_proto, iphdr->tos, udphdr->dest);
+
+		if (is_ipv4_dns || is_ipv6_dns)
+			wl_info("dns,check:%x,skb->ip_summed:%d\n",
+				udphdr->check, skb->ip_summed);
 
 		if (skb->ip_summed == CHECKSUM_PARTIAL) {
 			checksum =

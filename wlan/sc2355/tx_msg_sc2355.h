@@ -31,6 +31,8 @@
 #define DHCP_CLIENT_PORT_IPV6 0x0222
 #define ETH_P_PREAUTH       0x88C7
 
+#define DNS_SERVER_PORT        0x0035
+
 #define VOWIFI_SIP_DSCP		0x1a
 #define VOWIFI_IKE_DSCP		0x30
 #define VOWIFI_VIDEO_DSCP	0x28
