@@ -1588,6 +1588,41 @@ static void sprdwl_init_debugfs(struct sprdwl_priv *priv)
 	sprdwl_intf_debugfs(priv, priv->debugfs);
 }
 
+static int sprdwl_host_reset(struct notifier_block *nb,
+			      unsigned long data, void *ptr)
+{
+	struct sprdwl_vif *vif;
+	struct sprdwl_intf *intf;
+
+	char *envp[3] = {
+		[0] = "SOURCE=unisocwl",
+		[1] = "EVENT=FW_ERROR",
+		[2] = NULL,
+	};
+
+	kobject_uevent_env(&sprdwl_dev->kobj, KOBJ_CHANGE, envp);
+
+	wl_err("Notify firmware reset event\n");
+
+	if (g_sprdwl_priv == NULL) {
+		wl_warn("%s g_sprdwl_priv is NULL\n", __func__);
+		return NOTIFY_DONE;
+	}
+
+	vif = list_first_entry(&g_sprdwl_priv->vif_list,
+			       struct sprdwl_vif, vif_node);
+
+	intf = (struct sprdwl_intf *)(vif->priv->hw_priv);
+	intf->cp_asserted = 1;
+
+	return NOTIFY_OK;
+}
+
+static struct notifier_block wifi_host_reset = {
+	.notifier_call = sprdwl_host_reset,
+};
+
+
 int sprdwl_core_init(struct device *dev, struct sprdwl_priv *priv)
 {
 	struct wiphy *wiphy = priv->wiphy;
@@ -1623,6 +1658,7 @@ int sprdwl_core_init(struct device *dev, struct sprdwl_priv *priv)
 		goto out;
 	}
 
+	atomic_notifier_chain_register(&wcn_reset_notifier_list, &wifi_host_reset);
 #ifdef SC2355_RX_NAPI
 	sprdwl_rx_napi_init(wdev->netdev,
 			    ((struct sprdwl_intf *)priv->hw_priv));
@@ -1659,6 +1695,8 @@ out:
 int sprdwl_core_deinit(struct sprdwl_priv *priv)
 {
 	marlin_reset_unregister_notify();
+	atomic_notifier_chain_unregister(&wcn_reset_notifier_list,
+					 &wifi_host_reset);
 	unregister_inetaddr_notifier(&sprdwl_inetaddr_cb);
 	if (priv->fw_capa & SPRDWL_CAPA_NS_OFFLOAD)
 		unregister_inet6addr_notifier(&sprdwl_inet6addr_cb);
