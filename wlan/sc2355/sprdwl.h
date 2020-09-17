@@ -289,9 +289,6 @@ struct sprdwl_priv {
 #endif
 	int is_suspending;
 	int is_screen_off;
-
-	/*tx mgmt status*/
-	u8 tx_mgmt_status;
 };
 
 struct sprdwl_eap_hdr {
@@ -344,12 +341,6 @@ extern struct device *sprdwl_dev;
 		if (sprdwl_debug_level >= L_INFO) { \
 			pr_info("sc2355 sprd-wlan:" fmt, ##args); \
 		} \
-	} while (0)
-
-#define wl_err_ratelimited(fmt, args...) \
-	do { \
-		if (sprdwl_debug_level >= L_ERR) \
-		printk_ratelimited("sc2355 sprd-wlan:" fmt, ##args); \
 	} while (0)
 
 #ifdef ACS_SUPPORT

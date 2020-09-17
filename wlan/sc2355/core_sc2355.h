@@ -47,12 +47,10 @@
 #define SPRDWL_MAX_DATA_TXLEN	1672
 #define SPRDWL_MAX_DATA_RXLEN	1676
 
+#define MAX_LUT_NUM 32
 #define SAVE_ADDR(data, buf, len) memcpy((data - len), &buf, len)
 #define RESTORE_ADDR(buf, data, len) memcpy(&buf, (data - len), len)
 #define CLEAR_ADDR(data, len) memset((data - len), 0x0, len)
-
-#define MAX_LUT_NUM 32
-
 #define HIGHER_DDR_PRIORITY	0xAA
 
 struct tx_address {
@@ -203,10 +201,6 @@ struct sprdwl_intf {
 	u8 tsq_shift;
 	unsigned int tcpack_delay_th_in_mb;
 	unsigned int tcpack_time_in_ms;
-	unsigned long pushfail_count;
-#ifdef WMMAC_WFA_CERTIFICATION
-	unsigned char wmm_special_flag;
-#endif
 };
 
 /* HashTable */

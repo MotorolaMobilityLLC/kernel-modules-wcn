@@ -163,11 +163,6 @@ static int sprdwl_start_xmit_prepare(struct sprdwl_vif *vif, struct net_device *
 {
 	struct sprdwl_intf *intf = (struct sprdwl_intf *)vif->priv->hw_priv;
 
-	if (intf->suspend_mode != SPRDWL_PS_RESUMED) {
-		wl_err("not resumed, drop skb\n");
-		dev_kfree_skb(skb);
-		return -1;
-	}
 	/* drop nonlinearize skb */
 	if (skb_linearize(skb)) {
 		wl_err("nonlinearize skb\n");
@@ -244,7 +239,6 @@ static int sprdwl_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 	struct sprdwl_vif *vif = netdev_priv(ndev);
 	struct sprdwl_msg_buf *msg = NULL;
 	struct sprdwl_eap_hdr *eap_temp;
-	struct sprdwl_intf *intf = (struct sprdwl_intf *)vif->priv->hw_priv;
 
 	ret = sprdwl_start_xmit_prepare(vif, ndev, skb);
 	if (-1 == ret)
@@ -273,6 +267,7 @@ static int sprdwl_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 	 * by use tx mgmt cmd
 	 */
 	/* send 802.1x or WAPI frame from cmd channel */
+
 	if (skb->protocol == cpu_to_be16(ETH_P_PAE) ||
 		skb->protocol == cpu_to_be16(WAPI_TYPE)) {
 		wl_err("send %s frame by WIFI_CMD_TX_DATA\n",
@@ -296,7 +291,7 @@ static int sprdwl_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 	if ((vif->mode == SPRDWL_MODE_STATION && vif->sm_state != SPRDWL_CONNECTED) ||
 		(vif->mode != SPRDWL_MODE_STATION && vif->priv->fw_stat[vif->mode] != SPRDWL_INTF_OPEN)) {
 		printk_ratelimited("%s, %d, error! should not send this data\n",
-		       __func__, __LINE__);
+			__func__, __LINE__);
 		dev_kfree_skb(skb);
 		return NETDEV_TX_OK;
 	}
@@ -306,24 +301,15 @@ static int sprdwl_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 				      vif->mode,
 				      vif->ctx_id);
 	if (!msg) {
-		wl_err("%s, %d, get msg buf failed\n", __func__, __LINE__);
+		wl_err("%s, %d, get msg bug failed\n", __func__, __LINE__);
 		ndev->stats.tx_fifo_errors++;
 		dev_kfree_skb(skb);
 		sprdwl_stop_net(vif);
-		return NETDEV_TX_OK;
+		return NETDEV_TX_BUSY;
 	}
 
-	if (-1 == sprdwl_realloc_skb_headroom(skb, ndev, msg)) {
+	if (-1 == sprdwl_realloc_skb_headroom(skb, ndev, msg))
 		goto out;
-	}
-
-	/* We need a bit of data queued to build aggregates properly, so
-	 * instruct the TCP stack to allow more than a single ms of data
-	 * to be queued in the stack. The value is a bit-shift of 1
-	 * second, so 8 is ~4ms of queued data. Only affects local TCP
-	 * sockets.
-	 */
-	sk_pacing_shift_update(skb->sk, intf->tsq_shift);
 
 #if !defined(SC2355_FTR)
 	/* sprdwl_send_data: offset use 2 for cp bytes align */
@@ -332,7 +318,7 @@ static int sprdwl_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 	ret = sprdwl_send_data(vif, msg, skb, 0);
 #endif /* SC2355_FTR */
 	if (ret) {
-		/*netdev_err(ndev, "%s drop msg due to TX Err\n", __func__);*/
+		netdev_err(ndev, "%s drop msg due to TX Err\n", __func__);
 		/* FIXME as debug sdiom later, here just drop the msg
 		 * wapi temp drop
 		 */
@@ -654,7 +640,8 @@ static int sprdwl_set_power_save(struct net_device *ndev, struct ifreq *ifr)
 			goto out;
 		netdev_info(ndev, "%s: set suspend mode,value : %d\n",
 			    __func__, value);
-		priv->is_screen_off = value;
+		if (priv->hw_type == SPRDWL_HW_SC2355_PCIE)
+			priv->is_screen_off = value;
 		ret = sprdwl_power_save(priv, vif->ctx_id,
 					SPRDWL_SCREEN_ON_OFF, value);
 	} else if (!strncasecmp(command, CMD_SET_FCC_CHANNEL,
@@ -913,6 +900,7 @@ static int sprdwl_set_mac(struct net_device *dev, void *addr)
 
 	if (!dev) {
 		netdev_err(dev, "Invalid net device\n");
+		return -EINVAL;
 	}
 
 	netdev_info(dev, "start set random mac: %pM\n", sa->sa_data);
@@ -1163,7 +1151,7 @@ static void sprdwl_set_mac_addr(struct sprdwl_vif *vif, u8 *pending_addr,
 		ether_addr_copy(addr, priv->mac_addr);
 	} else if (pending_addr && is_valid_ether_addr(pending_addr)) {
 		ether_addr_copy(addr, pending_addr);
-	} else if (is_valid_ether_addr(priv->default_mac)) {
+	} else if (priv && is_valid_ether_addr(priv->default_mac)) {
 		ether_addr_copy(addr, priv->default_mac);
 	} else if (sprdwl_get_mac_from_file(vif, addr)) {
 		random_ether_addr(addr);
@@ -1177,6 +1165,10 @@ static void sprdwl_set_mac_addr(struct sprdwl_vif *vif, u8 *pending_addr,
 		write_mac_addr(addr);
 	}
 
+	if (!priv) {
+		netdev_err(vif->ndev, "%s get pirv failed\n", __func__);
+		return;
+	}
 	switch (type) {
 	case NL80211_IFTYPE_STATION:
 	case NL80211_IFTYPE_AP:
@@ -1211,7 +1203,7 @@ void clean_scan_list(struct sprdwl_vif *vif)
 		kfree(node);
 		count++;
 	}
-	wl_err("delete scan node num:%d\n", count);
+	pr_err("delete scan node num:%d\n", count);
 }
 
 #ifdef ACS_SUPPORT
@@ -1499,7 +1491,6 @@ static struct sprdwl_vif *sprdwl_register_netdev(struct sprdwl_priv *priv,
 	SET_NETDEV_DEV(ndev, wiphy_dev(priv->wiphy));
 
 	sprdwl_set_mac_addr(vif, addr, ndev->dev_addr);
-	memcpy(vif->mac, ndev->dev_addr, ETH_ALEN);
 
 	/* register new Ethernet interface */
 	ret = register_netdevice(ndev);
@@ -1596,44 +1587,6 @@ static void sprdwl_init_debugfs(struct sprdwl_priv *priv)
 	sprdwl_intf_debugfs(priv, priv->debugfs);
 }
 
-static int sprdwl_host_reset(struct notifier_block *nb,
-			      unsigned long data, void *ptr)
-{
-	struct sprdwl_vif *vif;
-	struct sprdwl_intf *intf;
-
-	char *envp[3] = {
-		[0] = "SOURCE=unisocwl",
-		[1] = "EVENT=FW_ERROR",
-		[2] = NULL,
-	};
-
-	kobject_uevent_env(&sprdwl_dev->kobj, KOBJ_CHANGE, envp);
-
-	wl_err("Notify firmware reset event\n");
-
-	if (g_sprdwl_priv == NULL) {
-		wl_warn("%s g_sprdwl_priv is NULL\n", __func__);
-		return NOTIFY_OK;
-	}
-
-	vif = list_first_entry(&g_sprdwl_priv->vif_list,
-			       struct sprdwl_vif, vif_node);
-	if (vif == NULL) {
-		wl_warn("%s vif list is NULL\n", __func__);
-		return NOTIFY_OK;
-	}
-
-	intf = (struct sprdwl_intf *)(vif->priv->hw_priv);
-	intf->cp_asserted = 1;
-
-	return NOTIFY_OK;
-}
-
-static struct notifier_block wifi_host_reset = {
-	.notifier_call = sprdwl_host_reset,
-};
-
 int sprdwl_core_init(struct device *dev, struct sprdwl_priv *priv)
 {
 	struct wiphy *wiphy = priv->wiphy;
@@ -1669,7 +1622,6 @@ int sprdwl_core_init(struct device *dev, struct sprdwl_priv *priv)
 		goto out;
 	}
 
-	atomic_notifier_chain_register(&wcn_reset_notifier_list, &wifi_host_reset);
 #ifdef SC2355_RX_NAPI
 	sprdwl_rx_napi_init(wdev->netdev,
 			    ((struct sprdwl_intf *)priv->hw_priv));
@@ -1706,8 +1658,6 @@ out:
 int sprdwl_core_deinit(struct sprdwl_priv *priv)
 {
 	marlin_reset_unregister_notify();
-	atomic_notifier_chain_unregister(&wcn_reset_notifier_list,
-					 &wifi_host_reset);
 	unregister_inetaddr_notifier(&sprdwl_inetaddr_cb);
 	if (priv->fw_capa & SPRDWL_CAPA_NS_OFFLOAD)
 		unregister_inet6addr_notifier(&sprdwl_inet6addr_cb);

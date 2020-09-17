@@ -37,11 +37,9 @@
 #include <linux/io.h>
 #include <linux/regmap.h>
 #include <linux/mfd/syscon.h>
-#include "pam_wifi_driver.h"
 #include <linux/interrupt.h>
 #include "work.h"
 #include <linux/irq.h>
-#include "txrx_buf_mm.h"
 
 #ifdef CONFIG_SPRD_WCN_DEBUG
 int sprdwl_debug_level = L_INFO;
@@ -136,26 +134,6 @@ void adjust_qos_ratio(char *buf, unsigned char offset)
 
 	wl_err("vo ratio:%u, vi ratio:%u, be ratio:%u, wmmac_ratio:%u\n",
 	       vo_ratio, vi_ratio, be_ratio, wmmac_ratio);
-}
-
-extern unsigned int drop_time;
-void adjust_wmm_vo_drop_time(char *buf, unsigned char offset)
-{
-	unsigned int value = 0;
-	unsigned int i = 0;
-	unsigned int len = strlen(buf) - strlen("drop_time=");
-
-	for(i = 0; i < len; (value *= 10), i++) {
-		if((buf[offset + i] >= '0') &&
-		   (buf[offset + i] <= '9')) {
-			value += (buf[offset + i] - '0');
-		} else {
-			value /= 10;
-			break;
-		}
-	}
-	drop_time = value;
-	wl_err("%s, change wmm_vo_drop_time to %d\n", __func__, value);
 }
 
 unsigned int new_threshold = 0;
@@ -268,12 +246,11 @@ struct debuginfo_s {
 } debuginfo[] = {
 	{adjust_debug_level, "debug_level="},
 	{adjust_qos_ratio, "qos_ratio:"},
-	{adjust_wmm_vo_drop_time, "drop_time="},
 	{adjust_ts_cnt_debug, "debug_info="},
 	{enable_tcp_ack_delay, "tcpack_delay_en="},
 	{adjust_tcp_ack_delay, "tcpack_delay_cnt="},
-	{adjust_tdls_threshold, "tdls_threshold="},
 	{adjust_tcp_ack_delay_win, "tcpack_delay_win="},
+	{adjust_tdls_threshold, "tdls_threshold="},
 	{adjust_tsq_shift, "tsq_shift="},
 	{adjust_tcpack_th_in_mb, "tcpack_delay_th_in_mb="},
 	{adjust_tcpack_time_in_ms, "tcpack_time_in_ms="},
@@ -604,7 +581,7 @@ void sprdwl_debugfs(void *spdev, struct dentry *dir)
 
 static struct dentry *sprdwl_debug_root;
 
-void sprdwl_debugfs_init(struct sprdwl_intf *intf)
+void sprdwl_debugfs_init(void)
 {
 	/* create debugfs */
 	sprdwl_debug_root = debugfs_create_dir("sprdwl_debug", NULL);
@@ -615,11 +592,11 @@ void sprdwl_debugfs_init(struct sprdwl_intf *intf)
 	}
 
 	if (!debugfs_create_file("log_level", 0444,
-		sprdwl_debug_root, intf, &sprdwl_intf_debug_fops))
+		sprdwl_debug_root, NULL, &sprdwl_intf_debug_fops))
 		wl_err("%s, create file fail!\n", __func__);
 
 	if (!debugfs_create_file("txrx_dbg", S_IRUGO,
-		sprdwl_debug_root, intf, &txrx_debug_fops))
+		sprdwl_debug_root, NULL, &txrx_debug_fops))
 		wl_err("%s, %d, create_file fail!\n", __func__, __LINE__);
 	else
 		debug_ctrl_init();
@@ -636,11 +613,7 @@ static int sprdwl_ini_download_status(void)
 	/*disable download ini function, just return 1*/
 	/*	return 1; */
 	/*fw is ready for receive ini file*/
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0)
-	return 0;
-#else
 	return !cali_ini_need_download(MARLIN_WIFI);
-#endif
 }
 
 static void sprdwl_force_exit(void *spdev)
@@ -692,7 +665,7 @@ static struct sprdwl_if_ops sprdwl_core_ops = {
 
 enum sprdwl_hw_type sprd_core_get_hwintf_mode(void)
 {
-	return SPRDWL_HW_SC2355_PCIE;/*TBD*/
+	return SPRDWL_HW_SC2355_SDIO;/*TBD*/
 }
 
 void config_wifi_ddr_priority(struct platform_device *pdev)
@@ -733,7 +706,6 @@ static int sprdwl_probe(struct platform_device *pdev)
 #ifdef ENABLE_PAM_WIFI
 	sprdwl_pamwifi_probe(pdev);
 #endif
-	wl_err("%s enter, printk=%d\n", __func__, console_loglevel);
 	if (start_marlin(MARLIN_WIFI)) {
 		wl_err("%s power on chipset failed\n", __func__);
 		return -ENODEV;
@@ -748,10 +720,12 @@ static int sprdwl_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, intf);
 	intf->pdev = pdev;
+	sprdwl_dev = &pdev->dev;
+
 	for (i = 0; i < MAX_LUT_NUM; i++)
 		intf->peer_entry[i].ctx_id = 0xff;
 
-	priv = sprdwl_core_create(get_hwintf_type(),
+	priv = sprdwl_core_create(sprd_core_get_hwintf_mode(),
 				  &sprdwl_core_ops);
 	if (!priv) {
 		wl_err("%s core create fail\n", __func__);
@@ -781,27 +755,16 @@ static int sprdwl_probe(struct platform_device *pdev)
 		intf->tx_cmd_port = SDIO_TX_CMD_PORT;
 		intf->tx_data_port = SDIO_TX_DATA_PORT;
 	} else if (priv->hw_type == SPRDWL_HW_SC2355_PCIE) {
-		intf->hif_offset = 0;
 		intf->rx_cmd_port = PCIE_RX_CMD_PORT;
-		intf->rx_data_port = PCIE_RX_ADDR_DATA_PORT;
+		intf->rx_data_port = PCIE_RX_DATA_PORT;
 		intf->tx_cmd_port = PCIE_TX_CMD_PORT;
-		intf->tx_data_port = PCIE_TX_ADDR_DATA_PORT;
-		if (sprdwl_txrx_buf_init()) {
-			ret = -ENOMEM;
-			wl_err("%s txrx buf init failed.\n", __func__);
-			goto err_if_init;
-		}
+		intf->tx_data_port = PCIE_TX_DATA_PORT;
 	} else if (priv->hw_type == SPRDWL_HW_SC2355_USB) {
 		intf->hif_offset = 0;
 		intf->rx_cmd_port = USB_RX_CMD_PORT;
 		intf->rx_data_port = USB_RX_DATA_PORT;
 		intf->tx_cmd_port = USB_TX_CMD_PORT;
 		intf->tx_data_port = USB_TX_DATA_PORT;
-	}
-
-	if(priv->hw_type == SPRDWL_HW_SC2355_PCIE) {
-		config_wifi_ddr_priority(pdev);
-		dma_coerce_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(39));
 	}
 
 	ret = sprdwl_intf_init(priv, intf);
@@ -837,7 +800,10 @@ static int sprdwl_probe(struct platform_device *pdev)
 	sprdwl_intf_tx_data_fpga_test(intf, NULL, 0);
 #endif
 
-	sprdwl_debugfs_init(intf);
+	sprdwl_debugfs_init();
+
+	if(priv->hw_type == SPRDWL_HW_SC2355_PCIE)
+		config_wifi_ddr_priority(pdev);
 
 	return ret;
 
@@ -846,9 +812,6 @@ err_tx_init:
 err_rx_init:
 	sprdwl_intf_deinit(intf);
 err_if_init:
-	if (priv->hw_type == SPRDWL_HW_SC2355_PCIE) {
-		sprdwl_txrx_buf_deinit();
-	}
 	sprdwl_core_free((struct sprdwl_priv *)intf->priv);
 err_core_create:
 	kfree(intf);
@@ -869,13 +832,10 @@ static int sprdwl_remove(struct platform_device *pdev)
 	sprdwl_intf_deinit(intf);
 	sprdwl_tx_deinit(intf);
 	sprdwl_rx_deinit(intf);
-	if (priv->hw_type == SPRDWL_HW_SC2355_PCIE) {
-		sprdwl_txrx_buf_deinit();
-	}
 	stop_marlin(MARLIN_WIFI);
 	sprdwl_core_free(priv);
 	kfree(intf);
-	wl_warn("%s, %d\n", __func__, __LINE__);
+	wl_info("%s\n", __func__);
 
 	return 0;
 }

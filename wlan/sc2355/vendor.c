@@ -243,32 +243,11 @@ static int sprdwl_compose_radio_st(struct sk_buff *reply,
 			radio_st->num_channels))
 		goto out_put_fail;
 	if (radio_st->num_channels > 0) {
-		struct nlattr *chan_list, *chan_info;
-		chan_list = nla_nest_start(reply, SPRDWL_LL_STATS_CH_INFO);
-		chan_info = nla_nest_start(reply, 0);
-		if (nla_put_u32(reply, SPRDWL_LL_STATS_CHANNEL_INFO_WIDTH,
-			radio_st->channels[0].channel.width))
+		if (nla_put(reply, SPRDWL_LL_STATS_CH_INFO,
+			    radio_st->num_channels *
+				sizeof(struct wifi_channel_stat),
+			    radio_st->channels))
 			goto out_put_fail;
-		if (nla_put_u32(reply, SPRDWL_LL_STATS_CHANNEL_INFO_CENTER_FREQ,
-			radio_st->channels[0].channel.center_freq))
-			goto out_put_fail;
-		if (nla_put_u32(reply, SPRDWL_LL_STATS_CHANNEL_INFO_CENTER_FREQ0,
-			radio_st->channels[0].channel.center_freq0))
-			goto out_put_fail;
-
-		if (nla_put_u32(reply, SPRDWL_LL_STATS_CHANNEL_INFO_CENTER_FREQ1,
-			radio_st->channels[0].channel.center_freq1))
-			goto out_put_fail;
-
-		if (nla_put_u32(reply, SPRDWL_LL_STATS_CHANNEL_ON_TIME,
-			radio_st->channels[0].on_time))
-			goto out_put_fail;
-
-		if (nla_put_u32(reply, SPRDWL_LL_STATS_CHANNEL_CCA_BUSY_TIME,
-			radio_st->channels[0].cca_busy_time))
-			goto out_put_fail;
-		nla_nest_end(reply, chan_info);
-		nla_nest_end(reply, chan_list);
 	}
 	return 0;
 out_put_fail:
@@ -471,9 +450,9 @@ static int sprdwl_vendor_get_llstat_handler(struct wiphy *wiphy,
 	struct wifi_iface_stat *iface_st;
 	struct sprdwl_llstat_radio *dif_radio;
 	u16 r_len = sizeof(*llst);
-	u8 r_buf[r_len], i;
+	u8 r_buf[r_len], ret, i;
 	u32 reply_radio_length, reply_iface_length;
-	int ret;
+
 	struct sprdwl_priv *priv = wiphy_priv(wiphy);
 	struct sprdwl_vif *vif = container_of(wdev, struct sprdwl_vif, wdev);
 
@@ -487,11 +466,11 @@ static int sprdwl_vendor_get_llstat_handler(struct wiphy *wiphy,
 	dif_radio = kzalloc(sizeof(*dif_radio), GFP_KERNEL);
 
 	if (!radio_st || !iface_st || !dif_radio)
-		goto clean;
+		goto out_put_fail;
 	ret = sprdwl_llstat(priv, vif->ctx_id, SPRDWL_SUBCMD_GET, NULL, 0,
 			    r_buf, &r_len);
 	if (ret)
-		goto clean;
+		goto out_put_fail;
 
 	llst = (struct sprdwl_llstat_data *)r_buf;
 
@@ -526,38 +505,6 @@ static int sprdwl_vendor_get_llstat_handler(struct wiphy *wiphy,
 		radio_st->rx_time, radio_st->on_time_scan);
 	radio_st->num_tx_levels = 1;
 	radio_st->tx_time_per_levels = (u32 *)&llst->radio_tx_time;
-	/*androidR need get channel info to pass vts test*/
-	if (priv->extend_feature & SPRDWL_EXTEND_FEATURE_LLSTATE) {
-		u16 recv_len = sizeof(struct sprdwl_llstat_channel_info) + 4;
-		char recv_buf[50] = {0x00};
-		u32 channel_num = 0;
-		struct sprdwl_llstat_channel_info *info;
-		char *pos;
-
-		ret = sprdwl_externed_llstate(priv, vif->ctx_id, SPRDWL_SUBCMD_GET, SPRDWL_SUBTYPE_CHANNEL_INFO, NULL, 0,  recv_buf, &recv_len);
-		if (ret) {
-			wl_err("set externed llstate failed\n");
-			goto clean;
-		}
-
-		pos = recv_buf;
-		channel_num = *(u32*)pos;
-		pos += sizeof(u32);
-		wiphy_info(wiphy, "channel num %d\n", channel_num);
-		radio_st->num_channels = channel_num;
-
-		if (channel_num) {
-			info = (struct sprdwl_llstat_channel_info*)(pos);
-			wl_info("cca busy time : %d, on time : %d\n", info->cca_busy_time, info->on_time);
-			wl_info("center width : %d, center_freq : %d, center_freq0 : %d, center_freq1  :%d\n", info->channel_width, info->center_freq, info->center_freq0, info->center_freq1);
-			radio_st->channels[0].cca_busy_time = info->cca_busy_time;
-			radio_st->channels[0].on_time= info->on_time;
-			radio_st->channels[0].channel.center_freq = info->center_freq;
-			radio_st->channels[0].channel.center_freq0 = info->center_freq0;
-			radio_st->channels[0].channel.center_freq1 = info->center_freq1;
-			radio_st->channels[0].channel.width = info->channel_width;
-		}
-	}
 
 	/*alloc radio reply buffer*/
 	reply_radio_length = sizeof(struct wifi_radio_stat) + 1000;
@@ -567,16 +514,16 @@ static int sprdwl_vendor_get_llstat_handler(struct wiphy *wiphy,
 	reply_radio = cfg80211_vendor_cmd_alloc_reply_skb(wiphy,
 							  reply_radio_length);
 	if (!reply_radio)
-		goto clean;
+		goto out_put_fail;
 
 	if (nla_put_u32(reply_radio, NL80211_ATTR_VENDOR_ID, OUI_SPREAD))
-		goto radio_out_put_fail;
+		goto out_put_fail;
 	if (nla_put_u32(reply_radio, NL80211_ATTR_VENDOR_SUBCMD,
 			SPRDWL_VENDOR_GET_LLSTAT))
-		goto radio_out_put_fail;
+		goto out_put_fail;
 	if (nla_put_u32(reply_radio, SPRDWL_LL_STATS_TYPE,
 			SPRDWL_NL80211_VENDOR_SUBCMD_LL_STATS_TYPE_RADIO))
-		goto radio_out_put_fail;
+		goto out_put_fail;
 
 	ret = sprdwl_compose_radio_st(reply_radio, radio_st);
 
@@ -587,36 +534,27 @@ static int sprdwl_vendor_get_llstat_handler(struct wiphy *wiphy,
 	reply_iface = cfg80211_vendor_cmd_alloc_reply_skb(wiphy,
 							  reply_iface_length);
 	if (!reply_iface)
-		goto clean;
+		goto out_put_fail;
 
 	if (nla_put_u32(reply_iface, NL80211_ATTR_VENDOR_ID, OUI_SPREAD))
-		goto iface_out_put_fail;
+		goto out_put_fail;
 	if (nla_put_u32(reply_iface, NL80211_ATTR_VENDOR_SUBCMD,
 			SPRDWL_VENDOR_GET_LLSTAT))
-		goto iface_out_put_fail;
+		goto out_put_fail;
 	if (nla_put_u32(reply_iface, SPRDWL_LL_STATS_TYPE,
 			SPRDWL_NL80211_VENDOR_SUBCMD_LL_STATS_TYPE_IFACE))
-		goto iface_out_put_fail;
+		goto out_put_fail;
 	ret = sprdwl_compose_iface_st(reply_iface, iface_st);
 	ret = cfg80211_vendor_cmd_reply(reply_iface);
 
-clean:
 	kfree(radio_st);
 	kfree(iface_st);
 	kfree(dif_radio);
 	return ret;
-radio_out_put_fail:
+out_put_fail:
 	kfree(radio_st);
 	kfree(iface_st);
 	kfree(dif_radio);
-	kfree_skb(reply_radio);
-	WARN_ON(1);
-	return -EMSGSIZE;
-iface_out_put_fail:
-	kfree(radio_st);
-	kfree(iface_st);
-	kfree(dif_radio);
-	kfree_skb(reply_iface);
 	WARN_ON(1);
 	return -EMSGSIZE;
 }
@@ -1945,11 +1883,6 @@ static int sprdwl_vendor_set_significant_change(struct wiphy *wiphy,
 		case GSCAN_ATTR_SIGNIFICANT_CHANGE_PARAMS_NUM_AP:
 			significant_change_params->num_bssid
 				= nla_get_s32(pos);
-			/*the max num in cp is 8 */
-			if(significant_change_params->num_bssid > 8) {
-				kfree(significant_change_params);
-				return -EINVAL;
-			}
 		break;
 
 		case GSCAN_ATTR_AP_THR_PARAM:
@@ -2174,8 +2107,7 @@ static int sprdwl_vendor_get_support_feature(struct wiphy *wiphy,
 		feature |= WIFI_FEATURE_TX_TRANSMIT_POWER;
 	}
 	/*bit 24:Enable/Disable firmware roaming*/
-	if ((priv->fw_capa & SPRDWL_CAPA_11R_ROAM_OFFLOAD) &&
-	    (priv->fw_capa & SPRDWL_CAPA_GSCAN)) {
+	if (priv->fw_capa & SPRDWL_CAPA_11R_ROAM_OFFLOAD) {
 		wl_info("ROAMING offload supported\n");
 		feature |= WIFI_FEATURE_CONTROL_ROAMING;
 	}
@@ -3727,229 +3659,6 @@ static int sprdwl_set_offload_packet(struct wiphy *wiphy,
 	return 0;
 }
 
-static int sprdwl_parse_sae_entry(struct sprdwl_sae_entry *entry,
-				  const void *data, int len)
-{
-	int rem_len, type, data_len;
-	struct nlattr *pos;
-
-	nla_for_each_attr(pos, (void *)data, len, rem_len) {
-		type = nla_type(pos);
-		switch (type) {
-		case SPRDWL_VENDOR_SAE_PASSWORD:
-			data_len = nla_len(pos);
-			entry->passwd_len = data_len;
-			nla_strlcpy(entry->password, pos, data_len + 1);
-			wl_info("entry->passwd: %s, entry->len:%d\n", entry->password, entry->passwd_len);
-			break;
-		case SPRDWL_VENDOR_SAE_IDENTIFIER:
-			data_len = nla_len(pos);
-			entry->id_len = data_len;
-			nla_strlcpy(entry->identifier, pos, data_len);
-			break;
-		case SPRDWL_VENDOR_SAE_PEER_ADDR:
-			nla_memcpy(entry->peer_addr, pos, ETH_ALEN);
-			break;
-		case SPRDWL_VENDOR_SAE_VLAN_ID:
-			entry->vlan_id = nla_get_u32(pos);
-			break;
-		default:
-			break;
-		}
-	}
-	return 0;
-}
-
-static int sprdwl_softap_convert_para(struct sprdwl_vif *vif,
-				      struct sprdwl_softap_sae_setting *setting,
-				      char *para)
-{
-	char *pos;
-	int  header_len, index, data_len, *d;
-	struct sprdwl_sae_entry *tmp;
-	struct sprdwl_tlv_data *tlv;
-
-	pos = para;
-	data_len = 0;
-	header_len = sizeof(struct sprdwl_tlv_data);
-
-	for (index = 0; index < SPRDWl_SAE_ENTRY_NUM; index++) {
-		if (setting->entry[index].used == 0)
-			break;
-
-		tmp = &setting->entry[index];
-		/* add sae entry tlv first */
-		tlv = (struct sprdwl_tlv_data *)pos;
-		tlv->type = SPRDWL_VENDOR_SAE_ENTRY;
-		tlv->len = 0;
-		pos += header_len;
-		data_len += header_len;
-
-		/* PASSWORD ELEMENT */
-		if (tmp->passwd_len > 0) {
-			tlv = (struct sprdwl_tlv_data *)pos;
-			tlv->type = SPRDWL_VENDOR_SAE_PASSWORD;
-			tlv->len = tmp->passwd_len;
-
-			memcpy(tlv->data, tmp->password, tmp->passwd_len);
-			wl_info("%s password: %s, len:%d\n", __func__,
-				tmp->password, tmp->passwd_len);
-			pos += (header_len + tmp->passwd_len);
-			data_len +=  (header_len + tmp->passwd_len);
-		}
-
-		/* IDENTIFIER ELEMENT */
-		tmp = &setting->entry[index];
-		if (tmp->id_len > 0) {
-			tlv = (struct sprdwl_tlv_data *)pos;
-			tlv->type = SPRDWL_VENDOR_SAE_IDENTIFIER;
-			tlv->len = tmp->id_len;
-			memcpy(tlv->data, tmp->identifier, tmp->id_len);
-			wl_info("%s id: %s, len:%d\n", __func__,
-				tmp->identifier, tmp->id_len);
-			pos += (header_len + tmp->id_len);
-			data_len += (header_len + tmp->id_len);
-		}
-		/* PEER_ADDRESS ELEMENT */
-		if (!is_zero_ether_addr(tmp->peer_addr)) {
-			tlv = (struct sprdwl_tlv_data *)pos;
-			tlv->type = SPRDWL_VENDOR_SAE_PEER_ADDR;
-			tlv->len = ETH_ALEN;
-
-			memcpy(tlv->data, tmp->peer_addr, ETH_ALEN);
-			pos += (header_len + ETH_ALEN);
-			data_len += (header_len + ETH_ALEN);
-		}
-		/* VLAN_ID ELEMENT */
-		if (tmp->vlan_id != -1) {
-			tlv = (struct sprdwl_tlv_data *)pos;
-			tlv->type = SPRDWL_VENDOR_SAE_VLAN_ID;
-			tlv->len = sizeof(tmp->vlan_id);
-			d = (u32 *)tlv->data;
-			*d = tmp->vlan_id;
-			pos += (header_len + sizeof(tmp->vlan_id));
-			data_len += (header_len + sizeof(tmp->vlan_id));
-		}
-	}
-
-	if (setting->passphrase_len) {
-		/*ADD ENTRY*/
-		tlv = (struct sprdwl_tlv_data *)pos;
-		tlv->type = SPRDWL_VENDOR_SAE_ENTRY;
-		tlv->len = 0;
-		pos += header_len;
-		data_len += header_len;
-
-		/* PASSWORD ELEMENT */
-		tlv = (struct sprdwl_tlv_data *)pos;
-		tlv->type = SPRDWL_VENDOR_SAE_PWD;
-		tlv->len = setting->passphrase_len;
-		memcpy(tlv->data, setting->passphrase, setting->passphrase_len);
-		wl_info("%s passphrase: %s, len:%d\n", __func__, setting->passphrase_len, setting->passphrase_len);
-		pos += (header_len + setting->passphrase_len);
-		data_len +=  (header_len + setting->passphrase_len);
-	}
-
-	/*GROUP*/
-	if (setting->group_count) {
-		tlv = (struct sprdwl_tlv_data *)pos;
-		tlv->type = SPRDWL_VENDOR_SAE_GROUP_ID;
-		tlv->len = setting->group_count;
-		pos = tlv->data;
-		for (index = 0; index < setting->group_count; index++) {
-			*pos = (unsigned char)(setting->groups[index]);
-			pos++;
-		}
-		data_len += (header_len + setting->group_count);
-	}
-
-	/*ACT*/
-	if (setting->act != -1) {
-		tlv = (struct sprdwl_tlv_data *)pos;
-		tlv->type = SPRDWL_VENDOR_SAE_ACT;
-		tlv->len = sizeof(u32);
-		d = (u32 *)tlv->data;
-		*d = (setting->act);
-		pos += header_len + sizeof(u32);
-		data_len += header_len + sizeof(u32);
-	}
-
-	/* End */
-	tlv = (struct sprdwl_tlv_data *)pos;
-	tlv->type = SPRDWL_VENDOR_SAE_END;
-	tlv->len = 0;
-	data_len += header_len;
-
-	return data_len;
-}
-
-static int sprdwl_vendor_set_sae_password(struct wiphy *wiphy,
-					  struct wireless_dev *wdev,
-					  const void *data, int len)
-{
-	int group_index = 0, sea_entry_index = 0, passphrase_len, rem_len, type;
-	struct nlattr *pos;
-	struct sprdwl_softap_sae_setting sae_para;
-	struct sprdwl_vif *vif = netdev_priv(wdev->netdev);
-	struct sprdwl_priv *priv = wiphy_priv(wiphy);
-	char *para;
-	int para_len, ret;
-
-	if (!(priv->extend_feature & SPRDWL_EXTEND_SOATAP_WPA3)) {
-		wl_err("firmware not support softap wpa3!\n");
-		return -ENOTSUPP;
-	}
-
-	memset(&sae_para, 0x00, sizeof(sae_para));
-
-	nla_for_each_attr(pos, (void *)data, len, rem_len) {
-		type = nla_type(pos);
-		wl_info("%s type : %d\n", __func__, type);
-
-		switch (type) {
-		case SPRDWL_VENDOR_SAE_ENTRY:
-			sae_para.entry[sea_entry_index].vlan_id = SPRDWL_SAE_NOT_SET;
-			sae_para.entry[sea_entry_index].used = 1;
-			sprdwl_parse_sae_entry(&sae_para.entry[sea_entry_index],
-					       nla_data(pos), nla_len(pos));
-			sea_entry_index++;
-			break;
-
-		case SPRDWL_VENDOR_SAE_GROUP_ID:
-			if (sae_para.group_count >= 31)
-				return 0;
-			sae_para.groups[group_index] = nla_get_u32(pos);
-			group_index++;
-			break;
-
-		case SPRDWL_VENDOR_SAE_ACT:
-			sae_para.act = nla_get_u32(pos);
-			break;
-
-		case SPRDWL_VENDOR_SAE_PWD:
-			passphrase_len = nla_len(pos);
-			nla_strlcpy(sae_para.passphrase, pos,
-				    passphrase_len + 1);
-			wl_info("pwd is :%s, len :%d\n", sae_para.passphrase,
-				passphrase_len);
-			break;
-		default:
-			break;
-		}
-	}
-
-	para = kzalloc(512, GFP_KERNEL);
-	if (!para)
-		return -ENOMEM;
-
-	/*all para need translate to tlv format*/
-	para_len = sprdwl_softap_convert_para(vif, &sae_para, para);
-	ret = sprdwl_softap_set_sae_para(vif->priv, vif->ctx_id, para, para_len);
-
-	kfree(para);
-	return ret;
-}
-
 const struct wiphy_vendor_command sprdwl_vendor_cmd[] = {
 	{/*9*/
 		{
@@ -4316,15 +4025,6 @@ const struct wiphy_vendor_command sprdwl_vendor_cmd[] = {
 			WIPHY_VENDOR_CMD_NEED_RUNNING,
 		.doit = sprdwl_vendor_get_akm_suite,
 	},
-	{/*WPA3 softap*/
-		{
-			.vendor_id = OUI_SPREAD,
-			.subcmd = SPRD_NL80211_VENDOR_SUBCMD_SET_SAE_PASSWORD,
-		},
-		.flags = WIPHY_VENDOR_CMD_NEED_WDEV |
-			WIPHY_VENDOR_CMD_NEED_RUNNING,
-		.doit = sprdwl_vendor_set_sae_password,
-	},
 };
 
 static const struct nl80211_vendor_cmd_info sprdwl_vendor_events[] = {
@@ -4418,7 +4118,7 @@ static const struct nl80211_vendor_cmd_info sprdwl_vendor_events[] = {
 		.vendor_id = OUI_SPREAD,
 		.subcmd = SPRDWL_VENDOR_EVENT_NAN,
 	},
-	[SPRDWL_VENDOR_EVENT_EPNO_FOUND_INDEX] = {
+	[SPRDWL_VENDOR_EVENT_EPNO_FOUND] = {
 		.vendor_id = OUI_SPREAD,
 		.subcmd = SPRDWL_VENDOR_EVENT_EPNO_FOUND,
 	},

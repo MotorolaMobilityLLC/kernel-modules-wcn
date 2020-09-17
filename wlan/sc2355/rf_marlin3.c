@@ -273,7 +273,7 @@ static int wifi_nvm_set_cmd(struct nvm_name_table *pTable,
 
 	p = (unsigned char *)(p_data) + pTable->mem_offset;
 
-	wl_info("[g_table]%s, offset:%u, num:%u, value:\
+	pr_info("[g_table]%s, offset:%u, num:%u, value:\
 			%d %d %d %d %d %d %d %d %d %d \n",
 			pTable->itm, pTable->mem_offset, cmd->num,
 			cmd->par[0], cmd->par[1], cmd->par[2],
@@ -292,7 +292,7 @@ static int wifi_nvm_set_cmd(struct nvm_name_table *pTable,
 			*((unsigned int *)p + i)
 			= (unsigned int)(cmd->par[i]);
 		else
-			wl_info("%s, type err\n", __func__);
+			pr_info("%s, type err\n", __func__);
 	}
 	return 0;
 }
@@ -417,11 +417,11 @@ static int wifi_nvm_parse(const char *path, void *p_data)
 #endif
 	int ret = 0;
 
-	wl_info("%s\n", __func__);
+	pr_info("%s()...\n", __func__);
 
 	file = filp_open(path, O_RDONLY, 0);
 	if (IS_ERR(file)) {
-		wl_err("open file %s error\n", path);
+		pr_err("open file %s error\n", path);
 		return -1;
 	}
 
@@ -431,7 +431,7 @@ static int wifi_nvm_parse(const char *path, void *p_data)
 	p_buf = buffer;
 	if (!buffer) {
 		fput(file);
-		wl_err("no memory\n");
+		pr_err("no memory\n");
 		return -1;
 	}
 
@@ -450,10 +450,10 @@ static int wifi_nvm_parse(const char *path, void *p_data)
 
 	fput(file);
 
-	wl_info("%s read %s data_len:0x%x\n", __func__, path, buffer_len);
+	pr_info("%s read %s data_len:0x%x\n", __func__, path, buffer_len);
 	ret = wifi_nvm_buf_operate(buffer, buffer_len, p_data);
 	vfree(buffer);
-	wl_info("%s(), parsing ini data result=%d\n", __func__, ret);
+	pr_info("%s(), parsing ini data result=%d\n", __func__, ret);
 	return ret;
 }
 
@@ -461,14 +461,14 @@ int get_wifi_config_param(struct wifi_conf_t *p)
 {
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0)
 	if (wcn_get_chip_type() == WCN_CHIP_ID_INVALID) {
-		wl_err("%s, marlin chip ID is invalid\n", __func__);
+		pr_err("%s, marlin chip ID is invalid\n", __func__);
 		return -1;
 	} else if (wcn_get_chip_type() == WCN_CHIP_ID_AA) {
-		wl_info("%s, chip id of marlin3 lite is %d, open %s\n",
+		pr_info("%s, chip id of marlin3 lite is %d, open %s\n",
 			__func__, wcn_get_chip_type(), SYSTEM_WIFI_AA_CONFIG_FILE);
 		return wifi_nvm_parse(SYSTEM_WIFI_AA_CONFIG_FILE, (void *)p);
 	}
-	wl_info("%s, chip id of marlin3 lite is %d, open %s\n",
+	pr_info("%s, chip id of marlin3 lite is %d, open %s\n",
 		__func__, wcn_get_chip_type(), SYSTEM_WIFI_CONFIG_FILE);
 	return wifi_nvm_parse(SYSTEM_WIFI_CONFIG_FILE, (void *)p);
 #else
@@ -481,10 +481,10 @@ int get_wifi_config_param(struct wifi_conf_t *p)
 
 	ret = sprdwcn_bus_reg_read(CHIPID_REG, &chip_id, 4);
 	if (ret < 0) {
-		wl_err("%s,marlin read chip ID fail\n", __func__);
+		pr_err("%s,marlin read chip ID fail\n", __func__);
 		return -1;
 	}
-	wl_info("marlin: chipid=%lx, %s\n", chip_id, __func__);
+	pr_info("marlin: chipid=%lx, %s\n", chip_id, __func__);
 	if (chip_id == MARLIN_AB_CHIPID)
 		return wifi_nvm_parse(SYSTEM_WIFI_AB_CONFIG_FILE, (void *)p);
 	else if (chip_id == MARLIN_AC_CHIPID)

@@ -202,6 +202,8 @@ void sprdwl_cancle_work(struct sprdwl_priv *priv, struct sprdwl_vif *vif)
 		}
 	}
 	spin_unlock_bh(&priv->work_lock);
+
+	flush_work(&priv->work);
 }
 
 int sprdwl_init_work(struct sprdwl_priv *priv)
@@ -224,15 +226,12 @@ void sprdwl_deinit_work(struct sprdwl_priv *priv)
 {
 	struct sprdwl_work *sprdwl_work, *pos;
 
-	wl_warn("%s, %d\n", __func__, __LINE__);
-	spin_lock_bh(&priv->work_lock);
+	cancel_work_sync(&priv->work);
+
 	list_for_each_entry_safe(sprdwl_work, pos, &priv->work_list, list) {
 		list_del(&sprdwl_work->list);
 		kfree(sprdwl_work);
 	}
-	spin_unlock_bh(&priv->work_lock);
-
-	cancel_work_sync(&priv->work);
 
 	flush_workqueue(priv->common_workq);
 	destroy_workqueue(priv->common_workq);

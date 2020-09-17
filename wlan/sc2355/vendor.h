@@ -111,10 +111,11 @@ enum sprdwl_vendor_subcommand_id {
 	SPRDWL_VENDOR_SUBCOMMAND_MAX
 };
 
+#define SPRDWL_VENDOR_EVENT_NAN_INDEX 32
+#define SPRDWL_ACS_LTE_EVENT_INDEX 35
 #define SPRDWL_REINIT_ACS	0x35
 
 enum sprdwl_vendor_event_index {
-	SPRDWL_VENDOR_SUBCMD_MONITOR_RSSI_INDEX = 0,
 	SPRDWL_VENDOR_SUBCMD_GSCAN_START_INDEX = 6,
 	SPRDWL_VENDOR_SUBCMD_GSCAN_STOP_INDEX,
 	SPRDWL_VENDOR_SUBCMD_GSCAN_GET_CAPABILITIES_INDEX,
@@ -129,22 +130,18 @@ enum sprdwl_vendor_event_index {
 	SPRDWL_VENDOR_SUBCMD_GSCAN_SIGNIFICANT_CHANGE_INDEX,
 	SPRDWL_VENDOR_SUBCMD_GSCAN_SET_SIGNIFICANT_CHANGE_INDEX,
 	SPRDWL_VENDOR_SUBCMD_GSCAN_RESET_SIGNIFICANT_CHANGE_INDEX,
-	SPRDWL_ACS_LTE_EVENT_INDEX,
-	SPRDWL_VENDOR_EVENT_NAN_INDEX,
 	SPRDWL_VENDOR_EVENT_EPNO_FOUND_INDEX,
-	SPRD_VENDOR_EVENT_FTM_MEAS_RESULT_INDEX,
-	SPRD_VENDOR_EVENT_FTM_SESSION_DONE_INDEX,
 	SPRD_RTT_EVENT_COMPLETE_INDEX,
 
 	SPRD_VENDOR_EVENT_INDEX_MAX,
 };
 
 enum sprdwl_vendor_event {
+	SPRDWL_VENDOR_SUBCMD_MONITOR_RSSI_INDEX = 0,
 	/* NAN */
 	SPRDWL_VENDOR_EVENT_NAN = 0x1400,
 };
 
-#define SPRD_NL80211_VENDOR_SUBCMD_GET_AKM_SUITE 0xB0
 /* attribute id */
 
 enum sprdwl_vendor_attr_gscan_id {
@@ -765,17 +762,6 @@ enum wifi_traffic_ac {
 	WIFI_AC_MAX = 4,
 };
 
-#define SPRDWL_MAX_CHANNEL_NUM	1
-struct sprdwl_llstat_channel_info
-{
-	u32 channel_width;
-	u32 center_freq;
-	u32 center_freq0;
-	u32 center_freq1;
-	u32 on_time;
-	u32 cca_busy_time;
-} __packed;
-
 /* configuration params */
 struct wifi_link_layer_params {
 	u32 mpdu_size_threshold;
@@ -795,7 +781,7 @@ struct wifi_rate {
 	u32 ratemcsidx:8;
 	u32 reserved:16;
 	u32 bitrate;
-}__packed;
+};
 
 struct wifi_rate_stat {
 	struct wifi_rate rate;
@@ -886,7 +872,7 @@ struct wifi_channel_info {
 	u32 center_freq;
 	u32 center_freq0;
 	u32 center_freq1;
-}__packed;
+};
 
 /* channel statistics */
 struct wifi_channel_stat {
@@ -1418,7 +1404,7 @@ enum sprdwl_gscan_wifi_event {
 	GSCAN_EVENT_HOTLIST_RESULTS_FOUND,
 	GSCAN_EVENT_SCAN_RESULTS_AVAILABLE,
 	GSCAN_EVENT_FULL_SCAN_RESULTS,
-	RTT_EVENT_COMPLETE = 300,
+	RTT_EVENT_COMPLETE,
 	GSCAN_EVENT_COMPLETE_SCAN,
 	GSCAN_EVENT_HOTLIST_RESULTS_LOST,
 	GSCAN_EVENT_EPNO_EVENT,
@@ -1455,6 +1441,8 @@ enum sprdwl_gscan_event {
 	WIFI_SCAN_BUFFER_FULL,
 	WIFI_SCAN_COMPLETE,
 };
+
+#define SPRD_NL80211_VENDOR_SUBCMD_GET_AKM_SUITE 0xB0
 
 struct sprdwl_gscan_bucket_spec {
 	u8 bucket;
@@ -1678,42 +1666,6 @@ struct wifi_passpoint_network {
 	unsigned char plmn[3];
 };
 
-#define SPRD_NL80211_VENDOR_SUBCMD_GET_AKM_SUITE 0xB0
-#define SPRD_NL80211_VENDOR_SUBCMD_SET_SAE_PASSWORD 0x2B
-#define SPRDWl_SAE_ENTRY_NUM	5
-#define SPRDWL_SAE_NOT_SET	-1
-
-enum sprdwl_softap_sae_type {
-	SPRDWL_VENDOR_SAE_ENTRY = 0,
-	SPRDWL_VENDOR_SAE_PASSWORD = 1,
-	SPRDWL_VENDOR_SAE_IDENTIFIER = 2,
-	SPRDWL_VENDOR_SAE_PEER_ADDR = 3,
-	SPRDWL_VENDOR_SAE_VLAN_ID = 4,
-	SPRDWL_VENDOR_SAE_GROUP_ID = 5,
-	SPRDWL_VENDOR_SAE_ACT = 6,
-	SPRDWL_VENDOR_SAE_PWD = 7,
-	SPRDWL_VENDOR_SAE_END = 0xFF,
-};
-
-struct sprdwl_sae_entry {
-	bool used;
-	u8 peer_addr[ETH_ALEN];
-	u8 id_len;
-	char identifier[32];
-	u8 passwd_len;
-	char password[32];
-	u32 vlan_id;
-} __packed;
-
-struct sprdwl_softap_sae_setting {
-	struct sprdwl_sae_entry entry[SPRDWl_SAE_ENTRY_NUM];
-	int passphrase_len;
-	char passphrase[64];
-	u32 act;
-	int group_count;
-	int groups[32];
-} __packed;
-
 enum offloaded_packets_sending_control {
 	OFFLOADED_PACKETS_SENDING_CONTROL_INVALID = 0,
 	OFFLOADED_PACKETS_SENDING_START,
@@ -1755,7 +1707,5 @@ int sprdwl_report_acs_lte_event(struct sprdwl_vif *vif);
 int sprdwl_set_packet_offload(struct sprdwl_priv *priv, u8 vif_ctx_id,
 			      u32 req, u8 enable, u32 interval,
 			      u32 len, u8 *data);
-int sprdwl_softap_set_sae_para(struct sprdwl_priv *priv, u8 ctx_id, char *data,
-			       int data_len);
 
 #endif

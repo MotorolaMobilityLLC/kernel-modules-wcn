@@ -161,7 +161,6 @@ struct sprdwl_xmit_msg_list {
 struct sprdwl_msg_buf {
 	struct list_head list;
 	struct sk_buff *skb;
-	struct sprdwl_buf_node *node;
 	/* data just tx cmd use,not include the head */
 	void *data;
 	void *tran_data;
@@ -182,7 +181,6 @@ struct sprdwl_msg_buf {
 	unsigned long tx_start_time;
 #endif
 	unsigned long last_time;
-	u8 ctxt_id;
 };
 
 static inline void sprdwl_fill_msg(struct sprdwl_msg_buf *msg,

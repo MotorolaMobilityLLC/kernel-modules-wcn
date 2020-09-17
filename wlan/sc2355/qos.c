@@ -18,7 +18,6 @@
 #include "qos.h"
 #include "msg.h"
 #include "sprdwl.h"
-#include "tx_msg_sc2355.h"
 
 unsigned int g_qos_enable = 0;
 #if 0
@@ -717,25 +716,6 @@ unsigned int change_priority_if(struct sprdwl_priv *priv, unsigned char *tid, un
 	int match_index = 0;
 	unsigned char priority = *tos;
 
-	priority >>= 2;
-
-	for (match_index = 0; match_index < QOS_MAP_MAX_DSCP_EXCEPTION; match_index++) {
-		if (priority == g_11u_qos_map.qos_exceptions[match_index].dscp) {
-			*tid = g_11u_qos_map.qos_exceptions[match_index].up;
-			break;
-		}
-	}
-
-	if (match_index >= QOS_MAP_MAX_DSCP_EXCEPTION) {
-		for (match_index = 0; match_index < 8; match_index++) {
-			if ((priority >= g_11u_qos_map.qos_ranges[match_index].low) &&
-			   (priority <= g_11u_qos_map.qos_ranges[match_index].high)) {
-				*tid = g_11u_qos_map.qos_ranges[match_index].up;
-				break;
-			}
-		}
-	}
-/* modify wmm IE priority lower than QoS Map Set IE because bug:1282734*/
 	if (1 == g_qos_enable) {
 		ac = map_priority_to_edca_ac(*tid);
 		while (ac != 0) {
@@ -762,6 +742,24 @@ unsigned int change_priority_if(struct sprdwl_priv *priv, unsigned char *tid, un
 		*tid = map_edca_ac_to_priority(ac);
 	}
 
+	priority >>= 2;
+
+	for (match_index = 0; match_index < QOS_MAP_MAX_DSCP_EXCEPTION; match_index++) {
+		if (priority == g_11u_qos_map.qos_exceptions[match_index].dscp) {
+			*tid = g_11u_qos_map.qos_exceptions[match_index].up;
+			break;
+		}
+	}
+
+	if (match_index >= QOS_MAP_MAX_DSCP_EXCEPTION) {
+		for (match_index = 0; match_index < 8; match_index++) {
+			if ((priority >= g_11u_qos_map.qos_ranges[match_index].low) &&
+			   (priority <= g_11u_qos_map.qos_ranges[match_index].high)) {
+				*tid = g_11u_qos_map.qos_ranges[match_index].up;
+				break;
+			}
+		}
+	}
 	switch (*tid) {
 	case prio_1:
 		qos_index = SPRDWL_AC_BK;
@@ -803,116 +801,6 @@ const u8 *get_wmm_ie(u8 *res, u16 ie_len, u8 ie, uint oui, uint oui_type)
 		pos += 2 + pos[1];
 	}
 	return NULL;
-}
-
-#define STREAM23_NUMBER 18570
-unsigned int drop_time = 2;
-unsigned int drop_time3 = 4;
-int check_wmm_tx_flows(struct sprdwl_intf *intf,
-			struct sprdwl_msg_buf *msg,
-			unsigned int qos_index)
-{
-	struct sprdwl_tx_msg *tx_msg = (struct sprdwl_tx_msg *)intf->sprdwl_tx;
-
-	if(tx_msg->wmm_tx_count[SPRDWL_AC_VO] == 0 &&
-		tx_msg->wmm_tx_count[SPRDWL_AC_VI] == 0 &&
-		tx_msg->wmm_tx_count[SPRDWL_AC_BE] > (STREAM23_NUMBER / 10) &&
-		tx_msg->wmm_tx_count[SPRDWL_AC_BE] < STREAM23_NUMBER) {
-		/*S4P1*/
-		if (tx_msg->wmm_status != STEP4_PHASE1) {
-			wl_err("start STEP4_PHASE1\n");
-			tx_msg->wmm_status = STEP4_PHASE1;
-		}
-		if (qos_index == SPRDWL_AC_BE &&
-			(tx_msg->wmm_tx_count[SPRDWL_AC_BE] % drop_time3) != 0)
-			return -1;
-	}
-
-	if(tx_msg->wmm_tx_count[SPRDWL_AC_VO] == 0 &&
-		tx_msg->wmm_tx_count[SPRDWL_AC_VI] > 0 &&
-		tx_msg->wmm_tx_count[SPRDWL_AC_VI] < STREAM23_NUMBER) {
-		/*S5P1*/
-		if (tx_msg->wmm_status != STEP5_PHASE1) {
-			wl_err("start STEP5_PHASE1\n");
-			tx_msg->wmm_status = STEP5_PHASE1;
-		}
-		if (qos_index == SPRDWL_AC_BE &&
-			(tx_msg->wmm_tx_count[SPRDWL_AC_BE] % drop_time3) != 0)
-			return -1;
-		if (qos_index == SPRDWL_AC_VI &&
-			(tx_msg->wmm_tx_count[SPRDWL_AC_VI] % drop_time) == 0)
-			return -1;
-	}
-
-	if((tx_msg->wmm_tx_count[SPRDWL_AC_VI] > (STREAM23_NUMBER * 2)) &&
-		(tx_msg->wmm_tx_count[SPRDWL_AC_VI] < (STREAM23_NUMBER * 3)) &&
-		tx_msg->wmm_tx_count[SPRDWL_AC_VO] == 0) {
-		/*S6P1*/
-		if (tx_msg->wmm_status != STEP6_PHASE1) {
-			wl_err("start STEP6_PHASE1\n");
-			tx_msg->wmm_status = STEP6_PHASE1;
-		}
-		if (qos_index == SPRDWL_AC_BE &&
-			(tx_msg->wmm_tx_count[SPRDWL_AC_BE] % drop_time3) != 0)
-			return -1;
-		if (qos_index == SPRDWL_AC_VI &&
-			(tx_msg->wmm_tx_count[SPRDWL_AC_VI] % drop_time) == 0)
-			return -1;
-	}
-
-	if(tx_msg->wmm_tx_count[SPRDWL_AC_BK] > 0 &&
-		tx_msg->wmm_tx_count[SPRDWL_AC_BK] < 10410) {
-		/*S7P1*/
-		if (tx_msg->wmm_status != STEP7_PHASE1) {
-			wl_err("start STEP7_PHASE1\n");
-			tx_msg->wmm_status = STEP7_PHASE1;
-		}
-		if (qos_index == SPRDWL_AC_BE &&
-			(tx_msg->wmm_tx_count[SPRDWL_AC_BE] % drop_time) == 0)
-			return -1;
-		if (qos_index == SPRDWL_AC_BK &&
-			(tx_msg->wmm_tx_count[SPRDWL_AC_BK] % drop_time3) != 0)
-			return -1;
-	}
-
-	if(tx_msg->wmm_tx_count[SPRDWL_AC_BK] > 10410 &&
-		tx_msg->wmm_tx_count[SPRDWL_AC_VO] == 0) {
-		/*S7P2*/
-		if (tx_msg->wmm_status != STEP7_PHASE2) {
-			wl_err("start STEP7_PHASE2\n");
-			tx_msg->wmm_status = STEP7_PHASE2;
-		}
-		if (qos_index == SPRDWL_AC_BK &&
-			(tx_msg->wmm_tx_count[SPRDWL_AC_BK] % drop_time3) != 0)
-			return -1;
-	}
-
-	if(tx_msg->wmm_tx_count[SPRDWL_AC_VO] > 0 &&
-		tx_msg->wmm_tx_count[SPRDWL_AC_VO] < STREAM23_NUMBER) {
-		/*S8P1*/
-		if (tx_msg->wmm_status != STEP8_PHASE1) {
-			wl_err("start STEP8_PHASE1\n");
-			tx_msg->wmm_status = STEP8_PHASE1;
-		}
-		if (qos_index == SPRDWL_AC_VO &&
-			(tx_msg->wmm_tx_count[SPRDWL_AC_VO] % drop_time3) != 0)
-			return -1;
-		if (qos_index == SPRDWL_AC_VI)
-			return -1;
-	}
-
-	if(tx_msg->wmm_tx_count[SPRDWL_AC_VO] > STREAM23_NUMBER &&
-		tx_msg->wmm_tx_count[SPRDWL_AC_VO] < (STREAM23_NUMBER * 2)) {
-		/*S8P2*/
-		if (tx_msg->wmm_status != STEP8_PHASE2) {
-			wl_err("start STEP8_PHASE2\n");
-			tx_msg->wmm_status = STEP8_PHASE2;
-		}
-		if (qos_index == SPRDWL_AC_VI)
-			return -1;
-	}
-
-	return 0;
 }
 #endif
 

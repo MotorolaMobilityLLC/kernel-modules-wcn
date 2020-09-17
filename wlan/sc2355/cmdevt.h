@@ -50,12 +50,6 @@
 #define SPRDWL_MAX_SDIO_SEND_COUT	1024
 #define SPRDWL_SCHED_SCAN_BUF_END	(1<<0)
 
-#define SPRDWL_WPA_VERSION_NONE		0
-#define SPRDWL_WPA_VERSION_1		(1<<0)
-#define SPRDWL_WPA_VERSION_2		(1<<1)
-#define SPRDWL_WAPI_VERSION_1		(1<<2)
-#define SPRDWL_WPA_VERSION_3		(1<<3)
-
 #define SPRDWL_SEND_FLAG_IFRC		(1<<0)
 #define SPRDWL_SEND_FLAG_SSID		(1<<1)
 #define SPRDWL_SEND_FLAG_MSSID		(1<<2)
@@ -189,11 +183,6 @@ enum SPRDWL_CMD_LIST {
 	* conditional compile flag is not recommended
 	*/
 	WIFI_CMD_PACKET_OFFLOAD = 84,
-	WIFI_CMD_SET_SAE_PARAM = 85,
-	WIFI_CMD_RESERVED_FOR_PAM_WIFI = 86,
-	WIFI_CMD_RESVERED_FOR_FAST_CONNECT = 87,
-	WIFI_CMD_RESVERED_FOR_FILTER = 88,
-	WIFI_CMD_EXTENED_LLSTAT = 89,
 	WIFI_CMD_MAX
 };
 
@@ -350,9 +339,6 @@ struct sprdwl_cmd_fw_info {
 #define SPRDWL_EXTEND_FEATURE_OWE          BIT(1)
 #define SPRDWL_EXTEND_FEATURE_DPP          BIT(2)
 #define SPRDWL_EXTEND_8021X_SUITE_B_192    BIT(3)
-#define SPRDWL_EXTEND_FEATURE_OCE	   BIT(4)
-#define SPRDWL_EXTEND_FEATURE_LLSTATE	   BIT(5)
-#define SPRDWL_EXTEND_SOATAP_WPA3	   BIT(6)
 	__le32 extend_feature;
 };
 
@@ -988,26 +974,6 @@ struct sprdwl_cmd_packet_offload {
 	u8 data[0];
 } __packed;
 
-#define		SPRDWL_SAE_PASSPHRASE		1
-#define		SPRDWL_SAE_PASSWORD_ENTRY	2
-
-struct sprdwl_sae_param {
-	u16 request_type;
-	u8 data[0];
-} __packed;
-
-/* externed link layer status struct */
-enum SPRD_EXTERN_LLSTAT_SUBTYPE {
-	SPRDWL_SUBTYPE_CHANNEL_INFO = 1,
-};
-
-struct sprdwl_cmd_extened_llstate {
-	u8 type;
-	u8 subtype;
-	u16 len;
-	u8 data[0];
-} __packed;
-
 int sprdwl_cmd_rsp(struct sprdwl_priv *priv, u8 *msg);
 /*driver & fw API sync function start*/
 int sprdwl_sync_version(struct sprdwl_priv *priv);
@@ -1165,8 +1131,6 @@ int sprdwl_send_tdls_cmd(struct sprdwl_vif *vif, u8 vif_ctx_id, const u8 *peer,
 int sprdwl_fw_power_down_ack(struct sprdwl_priv *priv, u8 ctx_id);
 int sprdwl_cmd_host_wakeup_fw(struct sprdwl_priv *priv, u8 ctx_id);
 void sprdwl_work_host_wakeup_fw(struct sprdwl_vif *vif);
-int sprdwl_externed_llstate(struct sprdwl_priv *priv, u8 ctx_id, u8 type,u8 subtype,
-			    void *buf, u8 len, u8 *r_buf, u16 *r_len);
 struct sprdwl_msg_buf *__sprdwl_cmd_getbuf(struct sprdwl_priv *priv,
 					   u16 len, u8 ctx_id,
 					   enum sprdwl_head_rsp rsp,

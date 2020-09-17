@@ -218,16 +218,23 @@ void sprdwl_rx_skb_process(struct sprdwl_priv *priv, struct sk_buff *skb)
 		if (((vif->mode == SPRDWL_MODE_AP) ||
 		     (vif->mode == SPRDWL_MODE_P2P_GO)) &&
 		    msdu_desc->bc_mc_w2w_flag) {
-			tx_skb = pskb_copy(skb, GFP_ATOMIC);
-			if (likely(tx_skb)) {
-				tx_skb->dev = ndev;
-				dev_queue_xmit(tx_skb);
+			struct ethhdr *eth = (struct ethhdr *)skb->data;
+
+			if (eth->h_proto != ETH_P_IP &&
+			    eth->h_proto != ETH_P_IPV6) {
+				tx_skb = pskb_copy(skb, GFP_ATOMIC);
+				if (likely(tx_skb)) {
+					tx_skb->dev = ndev;
+					dev_queue_xmit(tx_skb);
+				}
 			}
 		}
 
 		/* skb->data MUST point to ETH HDR */
 		sprdwl_filter_rx_tcp_ack(priv, skb->data, msdu_desc->msdu_len);
-		sprdwl_count_rx_tp(intf, msdu_desc->msdu_len);
+		if (intf->priv->hw_type == SPRDWL_HW_SC2355_PCIE) {
+			sprdwl_count_rx_tp(intf, msdu_desc->msdu_len);
+		}
 		sprdwl_netif_rx(skb, ndev);
 	}
 

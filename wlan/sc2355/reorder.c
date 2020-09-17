@@ -618,8 +618,6 @@ static void wlan_filter_event(struct sprdwl_rx_ba_entry *ba_entry,
 		msdu_desc.pn_l = 0;
 		msdu_desc.pn_h = 0;
 		msdu_desc.cipher_type = 0;
-		msdu_desc.tid = ba_event->tid;
-		msdu_desc.sta_lut_index = ba_event->sta_lut_index;
 		reorder_msdu_process(ba_entry, &msdu_desc, NULL, ba_node);
 	}
 }
@@ -934,11 +932,10 @@ static void ba_reorder_timeout(unsigned long data)
 		spin_unlock_bh(&ba_entry->skb_list_lock);
 
 #ifndef SC2355_RX_NAPI
-#ifdef SPLIT_STACK
-		rx_net_up(rx_if);
-#else
-		rx_up(rx_if);
-#endif
+		if (!work_pending(&rx_if->rx_work)) {
+			wl_info("%s: queue rx workqueue\n", __func__);
+			queue_work(rx_if->rx_queue, &rx_if->rx_work);
+		}
 #else
 		napi_schedule(&rx_if->napi_rx);
 #endif

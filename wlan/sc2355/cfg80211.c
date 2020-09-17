@@ -37,7 +37,6 @@
 #include "rnd_mac_addr.h"
 #endif
 #include "rx_msg_sc2355.h"
-#include "pam_wifi_driver.h"
 
 #ifdef DFS_MASTER
 #include "11h.h"
@@ -726,32 +725,6 @@ static inline u8 sprdwl_parse_cipher(u32 cipher)
 	return ret;
 }
 
-static inline __le32 sprdwl_convert_wpa_version(u32 version)
-{
-	u32 ret;
-
-	switch (version) {
-	case NL80211_WPA_VERSION_1:
-		ret = SPRDWL_WPA_VERSION_1;
-		break;
-	case NL80211_WPA_VERSION_2:
-		ret = SPRDWL_WPA_VERSION_2;
-		break;
-	case NL80211_WAPI_VERSION_1:
-		ret = SPRDWL_WAPI_VERSION_1;
-		break;
-	case NL80211_WPA_VERSION_3:
-		ret = SPRDWL_WPA_VERSION_3;
-		break;
-	default:
-		ret = SPRDWL_WPA_VERSION_NONE;
-		break;
-	}
-
-	return cpu_to_le32(ret);
-}
-
-
 static int sprdwl_add_cipher_key(struct sprdwl_vif *vif, bool pairwise,
 				 u8 key_index, u32 cipher, const u8 *key_seq,
 				 const u8 *mac_addr)
@@ -901,19 +874,21 @@ static int sprdwl_cfg80211_start_ap(struct wiphy *wiphy,
 	u16 mgmt_len, index = 0, hidden_index;
 	u8 *data = NULL;
 	int ret;
-	u8 *ie;
 
 #ifdef ACS_SUPPORT
 	struct api_version_t *api = (&vif->priv->sync_api)->api_array;
-	u8 fw_ver = 0, drv_ver = 0;
+	u8 fw_ver = 0;
 #endif
 
 	netdev_info(ndev, "%s\n", __func__);
 
 #ifdef ACS_SUPPORT
 	fw_ver = (api + WIFI_CMD_SCAN)->fw_version;
-	drv_ver = (api + WIFI_CMD_SCAN)->drv_version;
-	fw_ver = min(fw_ver, drv_ver);
+	if (vif->priv->hw_type == SPRDWL_HW_SC2355_PCIE) {
+		u8 drv_ver = 0;
+		drv_ver = (api + WIFI_CMD_SCAN)->drv_version;
+		fw_ver = min(fw_ver, drv_ver);
+	}
 	if ((vif->mode == SPRDWL_MODE_AP) &&
 	    !list_empty(&vif->survey_info_list) &&
 	    fw_ver == 1) {
@@ -974,19 +949,11 @@ static int sprdwl_cfg80211_start_ap(struct wiphy *wiphy,
 
 	memcpy(data + index, beacon->head + hidden_index - 1,
 	       beacon->head_len + 1 - hidden_index);
-	wl_info("set hidden_ssid:%d\n", settings->hidden_ssid);
 
-	if (beacon->tail) {
+	if (beacon->tail)
 		memcpy(data + beacon->head_len + 1 +
 			(settings->hidden_ssid != 0 ? settings->ssid_len : 0),
 		       beacon->tail, beacon->tail_len);
-		ie = (u8 *)cfg80211_find_ie(WLAN_EID_RSN, beacon->tail,
-					    beacon->tail_len);
-		if (ie == NULL)
-			wl_info("IE WLAN_EID_RSN not found in beacon.\n");
-		else if (sprdwl_debug_level >= L_INFO)
-			sprdwl_hex_dump("RSNE", ie, (ie[1]+2));
-	}
 
 	ret = sprdwl_start_ap(vif->priv, vif->ctx_id, (unsigned char *)mgmt,
 			      mgmt_len);
@@ -1309,7 +1276,7 @@ static void sprdwl_cancel_scan(struct sprdwl_vif *vif)
 #endif
 #ifdef ACS_SUPPORT
 	struct api_version_t *api = (&priv->sync_api)->api_array;
-	u8 fw_ver = 0, drv_ver = 0;
+	u8 fw_ver = 0;
 #endif
 
 	pr_info("%s enter==\n", __func__);
@@ -1323,8 +1290,11 @@ static void sprdwl_cancel_scan(struct sprdwl_vif *vif)
 		if (priv->scan_request) {
 #ifdef ACS_SUPPORT
 			fw_ver = (api + WIFI_CMD_SCAN)->fw_version;
-			drv_ver = (api + WIFI_CMD_SCAN)->drv_version;
-			fw_ver = min(fw_ver, drv_ver);
+			if (priv->hw_type == SPRDWL_HW_SC2355_PCIE) {
+				u8 drv_ver = 0;
+				drv_ver = (api + WIFI_CMD_SCAN)->drv_version;
+				fw_ver = min(fw_ver, drv_ver);
+			}
 			if (vif->mode == SPRDWL_MODE_AP && fw_ver == 1)
 				transfer_survey_info(vif);
 #endif
@@ -1378,7 +1348,7 @@ void sprdwl_scan_done(struct sprdwl_vif *vif, bool abort)
 #endif
 #ifdef ACS_SUPPORT
 	struct api_version_t *api = (&priv->sync_api)->api_array;
-	u8 fw_ver = 0, drv_ver = 0;
+	u8 fw_ver = 0;
 #endif
 
 	if (priv->scan_vif && priv->scan_vif == vif) {
@@ -1389,8 +1359,11 @@ void sprdwl_scan_done(struct sprdwl_vif *vif, bool abort)
 		if (priv->scan_request) {
 #ifdef ACS_SUPPORT
 			fw_ver = (api + WIFI_CMD_SCAN)->fw_version;
-			drv_ver = (api + WIFI_CMD_SCAN)->drv_version;
-			fw_ver = min(fw_ver, drv_ver);
+			if (priv->hw_type == SPRDWL_HW_SC2355_PCIE) {
+				u8 drv_ver = 0;
+				drv_ver = (api + WIFI_CMD_SCAN)->drv_version;
+				fw_ver = min(fw_ver, drv_ver);
+			}
 			if (vif->mode == SPRDWL_MODE_AP && fw_ver == 1)
 				transfer_survey_info(vif);
 #endif
@@ -1451,7 +1424,7 @@ void sprdwl_scan_timeout(unsigned long data)
 #endif
 #ifdef ACS_SUPPORT
 	struct api_version_t *api = (&priv->sync_api)->api_array;
-	u8 fw_ver = 0, drv_ver = 0;
+	u8 fw_ver = 0;
 #endif
 	netdev_info(priv->scan_vif->ndev, "%s\n", __func__);
 
@@ -1459,8 +1432,11 @@ void sprdwl_scan_timeout(unsigned long data)
 	if (priv->scan_request) {
 #ifdef ACS_SUPPORT
 		fw_ver = (api + WIFI_CMD_SCAN)->fw_version;
-		drv_ver = (api + WIFI_CMD_SCAN)->drv_version;
-		fw_ver = min(fw_ver, drv_ver);
+		if (priv->hw_type == SPRDWL_HW_SC2355_PCIE) {
+			u8 drv_ver = 0;
+			drv_ver = (api + WIFI_CMD_SCAN)->drv_version;
+			fw_ver = min(fw_ver, drv_ver);
+		}
 		if (fw_ver == 1)
 			clean_survey_info_list(priv->scan_vif);
 #endif /* ACS_SUPPORT */
@@ -1497,7 +1473,7 @@ static int sprdwl_cfg80211_scan(struct wiphy *wiphy,
 #endif
 #ifdef ACS_SUPPORT
 	struct api_version_t *api = (&priv->sync_api)->api_array;
-	u8 fw_ver = 0, drv_ver = 0;
+	u8 fw_ver = 0;
 #endif
 
 	netdev_info(vif->ndev, "%s n_channels %u\n", __func__,
@@ -1562,8 +1538,11 @@ static int sprdwl_cfg80211_scan(struct wiphy *wiphy,
 		}
 #ifdef ACS_SUPPORT
 		fw_ver = (api + WIFI_CMD_SCAN)->fw_version;
-		drv_ver = (api + WIFI_CMD_SCAN)->drv_version;
-		fw_ver = min(fw_ver, drv_ver);
+		if (priv->hw_type == SPRDWL_HW_SC2355_PCIE) {
+			u8 drv_ver = 0;
+			drv_ver = (api + WIFI_CMD_SCAN)->drv_version;
+			fw_ver = min(fw_ver, drv_ver);
+		}
 		if (vif->mode == SPRDWL_MODE_AP && fw_ver == 1) {
 			struct sprdwl_survey_info *info = NULL;
 
@@ -1855,7 +1834,6 @@ static int sprdwl_cfg80211_connect(struct wiphy *wiphy, struct net_device *ndev,
 	    (sme->crypto.cipher_group == WLAN_CIPHER_SUITE_WEP104);
 	int random_mac_flag;
 	int ret = -EPERM;
-	struct sprdwl_intf *intf = (struct sprdwl_intf *)(vif->priv->hw_priv);
 
 	/*workround for bug 795430*/
 	if (vif->priv->fw_stat[vif->mode] == SPRDWL_INTF_CLOSE) {
@@ -1915,9 +1893,8 @@ static int sprdwl_cfg80211_connect(struct wiphy *wiphy, struct net_device *ndev,
 		}
 	}
 
-	con.wpa_versions = sprdwl_convert_wpa_version(sme->crypto.wpa_versions);
-	netdev_info(ndev, "sme->wpa versions %#x, con.wpa_version:%#x\n",
-		sme->crypto.wpa_versions, con.wpa_versions);
+	netdev_info(ndev, "wpa versions %#x\n", sme->crypto.wpa_versions);
+	con.wpa_versions = sme->crypto.wpa_versions;
 	netdev_info(ndev, "management frame protection %#x\n", sme->mfp);
 	con.mfp_enable = sme->mfp;
 
@@ -2068,12 +2045,6 @@ static int sprdwl_cfg80211_connect(struct wiphy *wiphy, struct net_device *ndev,
 		ret = sprdwl_connect(vif->priv, vif->ctx_id, &con);
 		if (ret)
 			goto err;
-#ifdef WMMAC_WFA_CERTIFICATION
-		if (strstr(con.ssid, "FGR896lk?")) {
-			wl_info("%s, connect 5.2.27 AP", __func__);
-			intf->wmm_special_flag = 1;
-		}
-#endif
 		strncpy(vif->ssid, sme->ssid, sme->ssid_len);
 		vif->ssid_len = sme->ssid_len;
 		netdev_info(ndev, "%s %s\n", __func__, vif->ssid);
@@ -2237,7 +2208,7 @@ void sprdwl_report_scan_result(struct sprdwl_vif *vif, u16 chan, s16 rssi,
 	size_t ielen;
 #ifdef ACS_SUPPORT
 	struct api_version_t *api = (&priv->sync_api)->api_array;
-	u8 fw_ver = 0, drv_ver = 0;
+	u8 fw_ver = 0;
 #endif
 
 	if (!priv->scan_request && !priv->sched_scan_request) {
@@ -2268,14 +2239,17 @@ void sprdwl_report_scan_result(struct sprdwl_vif *vif, u16 chan, s16 rssi,
 	signal_level_enhance(vif, mgmt, &signal);
 	/*if signal has been update & enhanced*/
 	if ((rssi * 100) != signal)
-		wl_info("old signal level:%d,new signal level:%d\n",
+		pr_err("old signal level:%d,new signal level:%d\n",
 		       (rssi*100), signal);
 
 
 #ifdef ACS_SUPPORT
 	fw_ver = (api + WIFI_CMD_SCAN)->fw_version;
-	drv_ver = (api + WIFI_CMD_SCAN)->drv_version;
-	fw_ver = min(fw_ver, drv_ver);
+	if (priv->hw_type == SPRDWL_HW_SC2355_PCIE) {
+		u8 drv_ver = 0;
+		drv_ver = (api + WIFI_CMD_SCAN)->drv_version;
+		fw_ver = min(fw_ver, drv_ver);
+	}
 	if (vif->mode == SPRDWL_MODE_AP && fw_ver == 1)
 		acs_scan_result(vif, chan, mgmt);
 #endif
@@ -2338,7 +2312,6 @@ void sprdwl_report_connection(struct sprdwl_vif *vif,
 	u32 freq;
 	u64 tsf;
 	u8 *ie;
-	const u8* ssid_ie;
 	size_t ielen;
 
 	if (vif->sm_state != SPRDWL_CONNECTING &&
@@ -2402,25 +2375,6 @@ void sprdwl_report_connection(struct sprdwl_vif *vif,
 		ie = mgmt->u.probe_resp.variable;
 		ielen = conn_info->bea_ie_len - offsetof(struct ieee80211_mgmt,
 						 u.probe_resp.variable);
-
-		ssid_ie = cfg80211_find_ie(WLAN_EID_SSID, ie, ielen);
-		if (ssid_ie) {
-			/* for hidden ssid,please ref bug 1370976,
-			    cp should report prob resp, but sometimes cp
-			    report beacon with ssid value :0x00, need driver cover*/
-			if (ssid_ie[1] != 0) {
-				int index = 0;
-				int hidden_ssid = 0;
-				for (index; index < ssid_ie[1]; index++) {
-					hidden_ssid |=  ssid_ie[2 + index];
-				}
-
-				if (!hidden_ssid) {
-					wl_err("no need update bss for hidden ssid\n");
-					goto REPORT_CONNCT_RESULT;
-				}
-			}
-		}
 		/* framework use system bootup time */
 		get_monotonic_boottime(&ts);
 		tsf = (u64)ts.tv_sec * 1000000 + div_u64(ts.tv_nsec, 1000);
@@ -2443,7 +2397,7 @@ void sprdwl_report_connection(struct sprdwl_vif *vif,
 	} else {
 		netdev_warn(vif->ndev, "%s No Beason IE!\n", __func__);
 	}
-REPORT_CONNCT_RESULT:
+
 	if (vif->sm_state == SPRDWL_CONNECTING &&
 	    conn_info->status == SPRDWL_CONNECT_SUCCESS)
 		cfg80211_connect_result(vif->ndev,
@@ -2554,8 +2508,7 @@ void sprdwl_report_disconnection(struct sprdwl_vif *vif, u16 reason_code)
 	}
 
 	vif->sm_state = SPRDWL_DISCONNECTED;
-	if (vif->priv->hw_type == SPRDWL_HW_SC2355_SDIO ||
-		vif->priv->hw_type == SPRDWL_HW_SC2355_USB)
+	if (vif->priv->hw_type != SPRDWL_HW_SC2355_PCIE)
 		sprdwl_fc_add_share_credit(vif);
 
 	/* Clear bssid & ssid */
@@ -2677,7 +2630,7 @@ void sprdwl_cfg80211_dump_frame_prot_info(int send, int freq,
 	}
 	p[idx] = '\0';
 
-	wl_info("%s %s %pM %pM\n", __func__,  p, &buf[4], &buf[10]);
+	wl_debug("%s %pM %pM\n", p, &buf[4], &buf[10]);
 }
 
 /* P2P related stuff */
@@ -2741,12 +2694,10 @@ static int sprdwl_cfg80211_mgmt_tx(struct wiphy *wiphy,
 				     ieee80211_frequency_to_channel
 				     (chan->center_freq), dont_wait_for_ack,
 				     wait, cookie, buf, len);
-		if (ret || vif->priv->tx_mgmt_status)
-			if (!dont_wait_for_ack) {
+		if (ret)
+			if (!dont_wait_for_ack)
 				cfg80211_mgmt_tx_status(wdev, *cookie, buf, len,
 							0, GFP_KERNEL);
-				vif->priv->tx_mgmt_status = 0;
-			}
 	}
 
 	return ret;
@@ -2897,7 +2848,7 @@ static int sprdwl_cfg80211_tdls_mgmt(struct wiphy *wiphy,
 	struct sk_buff *tdls_skb;
 	struct sprdwl_cmd_tdls_mgmt *p;
 	u16 datalen, ielen;
-	u32 end = 0x4d3c2b1a;
+	u32 end = 0x1a2b3c4d;
 	int ret = 0;
 
 	netdev_info(ndev, "%s action_code=%d(%pM)\n", __func__,
@@ -3181,12 +3132,6 @@ int sprdwl_cfg80211_set_power_mgmt(struct wiphy *wiphy, struct net_device *ndev,
 				 SPRDWL_SET_PS_STATE, enabled);
 }
 
-static int sprdwl_cfg80211_set_default_mgmt_key(struct wiphy *wiphy,
-						struct net_device *netdev,
-						u8 key_index)
-{
-	return 0;
-}
 #ifdef ACS_SUPPORT
 static int
 sprdwl_cfg80211_dump_survey(struct wiphy *wiphy, struct net_device *ndev,
@@ -3194,11 +3139,13 @@ sprdwl_cfg80211_dump_survey(struct wiphy *wiphy, struct net_device *ndev,
 {
 	struct sprdwl_vif *vif = netdev_priv(ndev);
 	struct api_version_t *api = (&vif->priv->sync_api)->api_array;
-	u8 fw_ver = 0, drv_ver = 0;
-
+	u8 fw_ver = 0;
 	fw_ver = (api + WIFI_CMD_SCAN)->fw_version;
-	drv_ver = (api + WIFI_CMD_SCAN)->drv_version;
-	fw_ver = min(fw_ver, drv_ver);
+	if (vif->priv->hw_type == SPRDWL_HW_SC2355_PCIE) {
+		u8 drv_ver = 0;
+		drv_ver = (api + WIFI_CMD_SCAN)->drv_version;
+		fw_ver = min(fw_ver, drv_ver);
+	}
 	if (fw_ver == 1) {
 		struct sprdwl_vif *vif = netdev_priv(ndev);
 		struct sprdwl_survey_info *info = NULL;
@@ -3260,35 +3207,46 @@ out:
 		int ret = 0;
 		int survey_cnt = 0;
 
-		netdev_err(vif->ndev,"%s, idx %d, acs_scan_index: %u\n", __func__, idx, vif->acs_scan_index);
+		netdev_err(vif->ndev,"%s, idx %d\n", __func__, idx);
 		if (!list_empty(&vif->survey_info_list)) {
 		        info = list_first_entry(&vif->survey_info_list,
-						struct sprdwl_survey_info_new, survey_list);
+		                struct sprdwl_survey_info_new, survey_list);
 		        list_del(&info->survey_list);
 		        if(info->channel){
-				s_info->channel = info->channel;
-				s_info->noise = info->noise;
-				if (vif->acs_scan_index < 6) {
+		                s_info->channel = info->channel;
+		                s_info->noise = info->noise;
+				if (vif->priv->hw_type == SPRDWL_HW_SC2355_PCIE) {
+					if (vif->acs_scan_index < 6) {
+						s_info->time = info->time;
+						s_info->time_busy = info->cca_busy_time;
+						/*s_info->time_ext_busy = info->busy_ext_time;*/
+						s_info->filled = (SURVEY_INFO_NOISE_DBM |
+								  SURVEY_INFO_TIME |
+								  SURVEY_INFO_TIME_BUSY);
+						netdev_err(vif->ndev,"%s, noise:%d, time:%llu, time_busy:%llu, center_freq:%d\n", __func__,
+							   s_info->noise, s_info->time, s_info->time_busy, s_info->channel->center_freq);
+					} else {
+						s_info->filled = SURVEY_INFO_NOISE_DBM;
+						netdev_err(vif->ndev,"%s, noise:%d,center_freq:%d\n", __func__,
+							   s_info->noise,s_info->channel->center_freq);
+					}
+				} else {
 					s_info->time = info->time;
 					s_info->time_busy = info->cca_busy_time;
-					/*s_info->time_ext_busy = info->busy_ext_time;*/
+
 					s_info->filled = (SURVEY_INFO_NOISE_DBM |
 							  SURVEY_INFO_TIME |
-							  SURVEY_INFO_TIME_BUSY);
-					netdev_err(vif->ndev,"%s, noise:%d, time:%llu, time_busy:%llu, center_freq:%d\n", __func__,
-						   s_info->noise, s_info->time, s_info->time_busy, s_info->channel->center_freq);
-				} else {
-					s_info->filled = SURVEY_INFO_NOISE_DBM;
-					netdev_err(vif->ndev,"%s, noise:%d,center_freq:%d\n", __func__,
-						   s_info->noise,s_info->channel->center_freq);
+							  SURVEY_INFO_TIME_BUSY |
+							  SURVEY_INFO_TIME_EXT_BUSY);
 				}
 			}
-			netdev_err(vif->ndev,"%s, survey_cnt %d\n", __func__, survey_cnt);
-			survey_cnt++;
-			kfree(info);
+		        netdev_err(vif->ndev,"%s, time %llu\n", __func__, s_info->time);
+		        survey_cnt++;
+		        kfree(info);
+
 		} else {
-			netdev_err(vif->ndev,"%s, survey_cnt %d\n", __func__, survey_cnt);
-			ret = -ENOENT;
+		        netdev_err(vif->ndev,"%s, survey_cnt %d\n", __func__, survey_cnt);
+		        ret = -ENOENT;
 		}
 
 		return ret;
@@ -3350,7 +3308,6 @@ static struct cfg80211_ops sprdwl_cfg80211_ops = {
 	.start_radar_detection = sprdwl_cfg80211_start_radar_detection,
 	.channel_switch = sprdwl_cfg80211_channel_switch,
 #endif
-	.set_default_mgmt_key = sprdwl_cfg80211_set_default_mgmt_key,
 };
 
 void sprdwl_save_ch_info(struct sprdwl_priv *priv, u32 band, u32 flags, int center_freq)
@@ -3638,9 +3595,13 @@ void sprdwl_setup_wiphy(struct wiphy *wiphy, struct sprdwl_priv *priv)
 	 * Random MAC addr is enabled by default. And needs to be
 	 * disabled to pass WFA Certification.
 	 */
-	if (!(wfa_cap & SPRDWL_WFA_CAP_NON_RAN_MAC)) {
-		wl_info("\tRandom MAC address scan default supported\n");
+	if (priv->hw_type == SPRDWL_HW_SC2355_PCIE) {
 		wiphy->features |= NL80211_FEATURE_SCAN_RANDOM_MAC_ADDR;
+	} else {
+		if (!(wfa_cap & SPRDWL_WFA_CAP_NON_RAN_MAC)) {
+			wl_info("\tRandom MAC address scan default supported\n");
+			wiphy->features |= NL80211_FEATURE_SCAN_RANDOM_MAC_ADDR;
+		}
 	}
 
 #endif
@@ -3762,7 +3723,8 @@ void sprdwl_setup_wiphy(struct wiphy *wiphy, struct sprdwl_priv *priv)
 	wiphy_ext_feature_set(wiphy,
 		NL80211_EXT_FEATURE_SCHED_SCAN_RELATIVE_RSSI);
 #endif
-	wiphy->features |= NL80211_FEATURE_SAE;
+	if (priv->hw_type != SPRDWL_HW_SC2355_PCIE)
+		wiphy->features |= NL80211_FEATURE_SAE;
 }
 
 static void sprdwl_check_intf_ops(struct sprdwl_if_ops *ops)
@@ -3821,7 +3783,6 @@ struct sprdwl_priv *sprdwl_core_create(enum sprdwl_hw_type type,
 
 void sprdwl_core_free(struct sprdwl_priv *priv)
 {
-	wl_warn("%s, %d\n", __func__, __LINE__);
 	if (priv)
 		sprdwl_deinit_work(priv);
 	sprdwl_cmd_deinit();

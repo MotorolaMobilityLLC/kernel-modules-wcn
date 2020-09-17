@@ -292,16 +292,6 @@ struct api_version_t g_api_array[] = {
 		.cmd_id = WIFI_CMD_PACKET_OFFLOAD,
 		.drv_version = 1,
 	},
-	[85]{
-		/*ID:85*/
-		.cmd_id = WIFI_CMD_SET_SAE_PARAM,
-		.drv_version = 1,
-	},
-	[89]{
-		/*ID:85*/
-		.cmd_id = WIFI_CMD_EXTENED_LLSTAT,
-		.drv_version = 1,
-	},
 	[128]{	/*ID:0x80*/
 		.cmd_id = WIFI_EVENT_CONNECT,
 		.drv_version = 1,
