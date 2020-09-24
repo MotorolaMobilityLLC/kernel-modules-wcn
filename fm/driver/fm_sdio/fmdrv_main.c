@@ -62,7 +62,7 @@
 #include <linux/dma-direction.h>
 #include <linux/dma-mapping.h>
 
-#define FM_DUMP_DATA
+//#define FM_DUMP_DATA
 struct platform_device *g_fm_pdev = NULL;
 static struct device *dm_rx_t = NULL;
 unsigned long dm_rx_phy[FM_PCIE_RX_MAX_NUM];
@@ -82,8 +82,6 @@ uint8_t wcn_hw_type = 0;
 	((unsigned short) ((ocf & 0x03ff) | (ogf << 10)))
 #define HCI_EV_CMD_COMPLETE		0x0e
 #define HCI_VS_EVENT			0xFF
-
-#define FM_DUMP_DATA
 
 #define seekformat "rssi_th =%d,snr_th =%d,freq_offset_th =%d,"\
                    "pilot_power_th= %d,noise_power_th=%d"
@@ -160,6 +158,7 @@ static int fm_sdio_send_cmd(unsigned char subcmd, void *payload, int payload_len
     unsigned char *cmd_buf;
     struct fm_cmd_hdr *cmd_hdr;
     int size;
+    unsigned char *tx_data = NULL;
 
     size = sizeof(struct fm_cmd_hdr) + ((payload == NULL) ? 0 : payload_len);
     cmd_buf = kzalloc(size + FM_SDIO_HEAD_LEN, GFP_KERNEL);
@@ -186,6 +185,25 @@ static int fm_sdio_send_cmd(unsigned char subcmd, void *payload, int payload_len
 #ifdef FM_DUMP_DATA
 	dump_buf((unsigned char *)fmdev->tx_head->buf, (unsigned char)size, __func__);
 #endif
+	tx_data = (unsigned char *)fmdev->tx_head->buf;
+	if (size == 6) {
+		dev_unisoc_fm_err(fm_miscdev," tx data : %02X %02X %02X %02X %02X %02X \n",
+			tx_data[0],tx_data[1],tx_data[2],
+			tx_data[3],tx_data[4],tx_data[5]);
+	} else if(size == 7) {
+		dev_unisoc_fm_err(fm_miscdev," tx data : %02X %02X %02X %02X %02X %02X %02X \n",
+			tx_data[0],tx_data[1],tx_data[2],
+			tx_data[3],tx_data[4],tx_data[5],tx_data[6]);
+	} else if(size == 8) {
+		dev_unisoc_fm_err(fm_miscdev," tx data : %02X %02X %02X %02X %02X %02X %02X %02X \n",
+			tx_data[0],tx_data[1],tx_data[2],
+			tx_data[3],tx_data[4],tx_data[5],tx_data[6],tx_data[7]);
+	} else if(size == 135){
+		dev_unisoc_fm_err(fm_miscdev," tx data : %02X %02X %02X %02X %02X %02X %02X %02X \n",
+			tx_data[7],tx_data[11],tx_data[12],
+			tx_data[13],tx_data[14],tx_data[15],tx_data[16],tx_data[17]);
+	}
+
         if ( sprdwcn_bus_push_list(FM_SDIO_TX_CHANNEL, fmdev->tx_head, fmdev->tx_tail, num)) {
 			dev_unisoc_fm_err(fm_miscdev,"fmdrv write cmd to sdiom fail, free buf\n");
             kfree(fmdev->tx_head->buf);
@@ -465,11 +483,29 @@ ssize_t fm_read_rds_data(struct file *filp, char __user *buf, size_t count, loff
 
 int parse_sdio_header(struct mbuf_t *head,struct mbuf_t *tail, int num, struct fm_sdio_hdr *hdr)
 {
+    unsigned char * rx_data = NULL;
     hdr->length = ((head->buf[2] & 0x7F) << 9) + (head->buf[1] << 1) + (head->buf[0] >> 7);
     hdr->type = head->buf[3] >> 4;
     hdr->subtype = head->buf[3];
 	dev_unisoc_fm_info(fm_miscdev,"%s length: %d, type: %d, subtype: %d", __func__, hdr->length, hdr->type, hdr->subtype);
-    dump_buf((unsigned char *)head->buf, (hdr->length)+4, __func__);
+	rx_data = (unsigned char *)head->buf;
+	if (hdr->length == 7) {
+		dev_unisoc_fm_err(fm_miscdev," %s rx data : %02X %02X %02X %02X \n",
+			__func__,rx_data[4],rx_data[5],rx_data[6],rx_data[10]);
+	} else if(hdr->length == 8){
+		dev_unisoc_fm_err(fm_miscdev," %s rx data : %02X %02X %02X %02X %02X \n",
+			__func__,rx_data[4],rx_data[5],rx_data[6],rx_data[10],rx_data[11]);
+	} else if(hdr->length == 9){
+		dev_unisoc_fm_err(fm_miscdev," %s rx data : %02X %02X %02X %02X %02X %02X \n",
+			__func__,rx_data[4],rx_data[5],rx_data[6],
+			rx_data[10],rx_data[11],rx_data[12]);
+	} else if(hdr->length == 11){
+		dev_unisoc_fm_err(fm_miscdev," %s rx data : %02X %02X %02X %02X %02X %02X %02X %02X\n",
+			__func__,rx_data[4],rx_data[5],rx_data[6],rx_data[10],
+			rx_data[11],rx_data[12],rx_data[13],rx_data[14]);
+	}
+
+    //dump_buf((unsigned char *)head->buf, (hdr->length)+4, __func__);
     return 0;
 }
 
@@ -507,9 +543,11 @@ int fm_sdio_tx_cback(int channel, struct mbuf_t *head,struct mbuf_t *tail, int n
     int i;
     struct mbuf_t *pos = NULL;
 	dev_unisoc_fm_info(fm_miscdev,"%s channel: %d, head: %p, tail: %p num: %d\n", __func__, channel, head, tail, num);
-    if (head->buf)
-        for (i = 0; i < head->len + 4; i++)
-			dev_unisoc_fm_info(fm_miscdev,"%s i%d 0x%x\n", __func__, i, head->buf[i]);
+	if (head->buf) {
+		dev_unisoc_fm_info(fm_miscdev,"%s 0x%x 0x%x 0x%x 0x%x\n", __func__,
+			head->buf[head->len],head->buf[head->len + 1],head->buf[head->len + 2],head->buf[head->len + 3]);
+	}
+
     pos = head;
     for (i = 0; i < num; i++, pos = pos->next) {
         kfree(pos->buf);
