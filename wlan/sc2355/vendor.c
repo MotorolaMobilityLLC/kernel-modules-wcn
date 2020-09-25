@@ -473,7 +473,7 @@ static int sprdwl_vendor_get_llstat_handler(struct wiphy *wiphy,
 	u16 r_len = sizeof(*llst);
 	u8 r_buf[r_len], i;
 	u32 reply_radio_length, reply_iface_length;
-	int ret;
+	int ret = 0;
 	struct sprdwl_priv *priv = wiphy_priv(wiphy);
 	struct sprdwl_vif *vif = container_of(wdev, struct sprdwl_vif, wdev);
 
@@ -486,8 +486,10 @@ static int sprdwl_vendor_get_llstat_handler(struct wiphy *wiphy,
 	iface_st = kzalloc(sizeof(*iface_st), GFP_KERNEL);
 	dif_radio = kzalloc(sizeof(*dif_radio), GFP_KERNEL);
 
-	if (!radio_st || !iface_st || !dif_radio)
+	if (!radio_st || !iface_st || !dif_radio) {
+		ret = -ENOMEM;
 		goto clean;
+	}
 	ret = sprdwl_llstat(priv, vif->ctx_id, SPRDWL_SUBCMD_GET, NULL, 0,
 			    r_buf, &r_len);
 	if (ret)
