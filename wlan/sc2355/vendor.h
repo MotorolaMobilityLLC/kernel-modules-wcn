@@ -893,6 +893,7 @@ struct wifi_channel_stat {
 };
 
 /* radio statistics */
+#define SPRDWL_LLSTATE_MAX_CHANEL_NUM	    1
 struct wifi_radio_stat {
 	u32 radio;
 	u32 on_time;
@@ -907,7 +908,7 @@ struct wifi_radio_stat {
 	u32 on_time_pno_scan;
 	u32 on_time_hs20;
 	u32 num_channels;
-	struct wifi_channel_stat channels[];
+	struct wifi_channel_stat channels[SPRDWL_LLSTATE_MAX_CHANEL_NUM];
 };
 
 struct sprdwl_wmm_ac_stat {
