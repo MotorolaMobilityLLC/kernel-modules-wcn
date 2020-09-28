@@ -662,13 +662,8 @@ int sprdwl_intf_tx_list(struct sprdwl_intf *dev,
 		return ret;
 	}
 
-	/*BT is on: call sdiohal_txthread to send data.*/
-	if (coex_bt_on)
-		ret = sprdwcn_bus_push_list(dev->tx_data_port,
-					    head, tail, tx_count);
-	else
-		ret = sprdwcn_bus_push_list_direct(dev->tx_data_port,
-						   head, tail, tx_count);
+	ret = sprdwcn_bus_push_list_direct(dev->tx_data_port,
+					   head, tail, tx_count);
 	if (ret != 0) {
 		sprdwcn_bus_list_free(dev->tx_data_port, head, tail, tx_count);
 		sprdwl_add_tx_list_head(tx_list_head, tx_list,
@@ -685,8 +680,7 @@ int sprdwl_intf_tx_list(struct sprdwl_intf *dev,
 		wl_info("%s,tx_count=%d,total=%lu,mbuf=%lu,%lu\n",
 			__func__, tx_count, tx_packets,
 			mbufalloc, mbufpop);/*TODO*/
-		if (!coex_bt_on)
-			sprdwl_add_topop_list(dev->tx_data_port, head, tail, tx_count);
+		sprdwl_add_topop_list(dev->tx_data_port, head, tail, tx_count);
 	}
 	return ret;
 }
