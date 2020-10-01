@@ -369,15 +369,14 @@ static int stty_write(struct tty_struct *tty,
 		bt_host_data_save(buf, count, BT_DATA_OUT);
 	}
 	if(COMMAND_HEAD == buf[0]){
-		dev_unisoc_bt_info(ttyBT_dev,
+		dev_unisoc_bt_dbg(ttyBT_dev,
 							"%s bufwrite_length = %d\n",
 							__func__, count);
-		if(count <= 16){
+		if(count < 4){
 			hex_dump_block((unsigned char *)buf, count);
 		}
 		else{
-			hex_dump_block((unsigned char*)buf, 8);
-			hex_dump_block((unsigned char*)(buf+count-8), 8);
+			hex_dump_block((unsigned char*)buf, 4);
 		}
 	}
 	left_legnth = count;
