@@ -452,7 +452,7 @@ sprdwl_ftm_cfg80211_start_session(struct sprdwl_priv *priv,
 	bool has_lci = false, has_lcr = false;
 	u8 max_meas = 0, channel, *ptr;
 	u32 i, cmd_len;
-	struct ftm_session_start *cmd;
+	struct ftm_session_start *cmd = NULL;
 	struct sprdwl_msg_buf *msg;
 	struct sprdwl_cmd_rtt *rtt;
 
