@@ -212,7 +212,6 @@ sprdwl_rx_mh_addr_process(struct sprdwl_rx_if *rx_if, void *data,
 		wl_debug("%s: Add RX code here\n", __func__);
 		mm_mh_data_event_process(&rx_if->mm_entry, data,
 					 len, buffer_type);
-		sprdwl_free_data(data, buffer_type);
 	} else {
 		/* TODO: Add TX complete code here */
 		wl_debug("%s: Add TX complete code here\n", __func__);
