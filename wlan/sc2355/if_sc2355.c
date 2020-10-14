@@ -596,6 +596,10 @@ int sprdwl_intf_tx_list(struct sprdwl_intf *dev,
 			}
 			k++;
 		} else {
+			if (!mbuf_pos) {
+				wl_err("%s:%d mbuf addr is NULL!\n", __func__, __LINE__);
+				return -1;
+			}
 			mbuf_pos->buf = data_ptr;
 			mbuf_pos->len = msg_pos->len;
 		}
