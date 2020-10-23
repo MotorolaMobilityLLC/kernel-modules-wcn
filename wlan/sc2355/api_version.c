@@ -65,7 +65,7 @@ struct api_version_t g_api_array[] = {
 	},
 	{	/*ID:11*/
 		.cmd_id = WIFI_CMD_SCAN,
-		.drv_version = 2,
+		.drv_version = 3,
 	},
 	{	/*ID:12*/
 		.cmd_id = WIFI_CMD_SCHED_SCAN,
