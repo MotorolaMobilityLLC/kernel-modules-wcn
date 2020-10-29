@@ -368,15 +368,10 @@ static int sprdwl_open(struct net_device *ndev)
 static int sprdwl_close(struct net_device *ndev)
 {
 	struct sprdwl_vif *vif = netdev_priv(ndev);
-	struct sprdwl_priv *priv = vif->priv;
 
 	netdev_info(ndev, "%s\n", __func__);
 
-	/*if firmware is in scan process, cancel scan first*/
-	if (priv->scan_vif && priv->scan_vif == vif) {
-		wl_info("%s cancel scan \n", __func__);
-		sprdwl_abort_scan(priv, vif->ctx_id);
-	}
+	sprdwl_scan_done(vif, true);
 	sprdwl_sched_scan_done(vif, true);
 	netif_stop_queue(ndev);
 	if (netif_carrier_ok(ndev))
