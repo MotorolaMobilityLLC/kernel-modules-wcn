@@ -40,6 +40,7 @@
 #include "fmdrv_main.h"
 #include "fmdrv_ops.h"
 #include "fmdrv_rds_parser.h"
+#include "fm_rf_marlin3.h"
 
 //#ifdef KERNEL_VERSION_414
 //#include <misc/marlin_platform.h>
@@ -476,8 +477,9 @@ EXPORT_SYMBOL_GPL(fm_sipc_tx_cback);
 int fm_powerup(struct fm_tune_parm *p)
 {
 	struct fm_tune_parm parm;
-	unsigned short payload;
+	unsigned short payload[65];
 	int ret = -1;
+	struct fm_config_t fm_data;
 	uint32_t anten=fmdev->pdata->lna_gpio;
 	uint32_t ana_switch = fmdev->pdata->ana_inner;
 	//int i = 0;
@@ -530,9 +532,11 @@ int fm_powerup(struct fm_tune_parm *p)
 
 	parm.freq = 875;
 	parm.freq *= 10;
-	dev_unisoc_fm_info(fm_miscdev,"fm ioctl power up freq= %d\n", parm.freq);
+	get_fm_config_param(&fm_data);
+	dev_unisoc_fm_info(fm_miscdev,"fm ioctl power up freq = %d\n", parm.freq);
 
-	payload = parm.freq;
+	payload[0] = parm.freq;
+	memcpy(&payload[1],&fm_data,sizeof(struct fm_config_t));
 	ret = fm_write_cmd(FM_POWERUP_CMD, &payload,
 		sizeof(payload), NULL, NULL);
 	if (ret < 0) {
