@@ -460,7 +460,7 @@ static int wifi_nvm_parse(const char *path, void *p_data)
 int get_wifi_config_param(struct wifi_conf_t *p)
 {
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0)
-#if 0
+#ifndef SIPC_SUPPORT
 	if (wcn_get_chip_type() == WCN_CHIP_ID_INVALID) {
 		wl_err("%s, marlin chip ID is invalid\n", __func__);
 		return -1;

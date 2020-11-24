@@ -383,9 +383,6 @@ static struct sk_buff *mm_single_buffer_unlink(struct sprdwl_mm *mm_entry,
 
 	if (SPRDWL_HW_SIPC == rx_if->intf->priv->hw_type) {
 		memcpy_fromio(&node, buffer + SPRDWL_MAX_DATA_RXLEN, sizeof(node));
-		//node = (struct sprdwl_buf_node *)(buffer - sizeof(struct sprdwl_buf_node));
-		wl_err("%s: ###node %p, buff %p####", __func__, node, buffer);
-		//sprdwl_hex_dump("node rx:", node->buf, 64);
 		skb = node->addr;
 		skb_unlink(skb, &mm_entry->buffer_list);
 		CLEAR_ADDR(skb->data, sizeof(skb));
@@ -393,7 +390,6 @@ static struct sk_buff *mm_single_buffer_unlink(struct sprdwl_mm *mm_entry,
 		RESTORE_ADDR(skb, buffer, sizeof(skb));
 		skb_unlink(skb, &mm_entry->buffer_list);
 		CLEAR_ADDR(skb->data, sizeof(skb));
-		//wl_err("%s: ###buffer %p, skb %p, skb data %p####", __func__, buffer, skb, skb->data);
 	}
 
 	return skb;

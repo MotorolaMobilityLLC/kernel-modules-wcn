@@ -2130,7 +2130,7 @@ int sprdwl_set_mc_filter(struct sprdwl_priv *priv,  u8 vif_ctx_id,
 	struct sprdwl_msg_buf *msg;
 	struct sprdwl_cmd_set_mac_addr *p;
 
-	if (SPRDWL_HW_SIPC == priv->hw_type) {
+	if (SPRDWL_HW_SC2355_PCIE == priv->hw_type) {
 		/*wcn bus is down, drop skb*/
 		if (sprdwcn_bus_get_status() == WCN_BUS_DOWN) {
 			wl_err("%s,wcn bus is down, drop cmd!\n", __func__);

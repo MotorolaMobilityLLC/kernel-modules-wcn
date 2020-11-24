@@ -11,11 +11,14 @@
 #define SPRDWL_MH_SIPC_ADDRESS_BIT 0x00F0FFFFFF
 #define SPRDWL_MH_SIPC_ADDRESS_BASE 0x87000000
 
-//#define SPRDWL_MAX_MH_BUF 500
+#ifdef SIPC_SUPPORT
 #define SPRDWL_MAX_MH_BUF 450
-
-//#define SPRDWL_MAX_ADD_MH_BUF_ONCE 100
 #define SPRDWL_MAX_ADD_MH_BUF_ONCE 52
+#else
+#define SPRDWL_MAX_MH_BUF 500
+#define SPRDWL_MAX_ADD_MH_BUF_ONCE 100
+#endif
+
 #define SPRDWL_ADDR_BUF_LEN (sizeof(struct sprdwl_addr_hdr) +\
 			     sizeof(struct sprdwl_addr_trans_value) +\
 			     (SPRDWL_MAX_ADD_MH_BUF_ONCE * SPRDWL_PHYS_LEN))
