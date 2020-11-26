@@ -638,6 +638,12 @@ int sprdwl_intf_tx_list(struct sprdwl_intf *dev,
 						addr_buffer =
 						sprdwl_set_pcie_addr_to_mbuf(
 						tx_msg, mbuf_pos, cnt);
+						if (addr_buffer == NULL) {
+							wl_err("%s:%d alloc pcie addr buf fail\n",
+								__func__, __LINE__);
+							sprdwl_mbuf_list_free(dev, head, tail, pcie_count);
+							return -1;
+						}
 					} else {
 						wl_err("%s: cnt %d\n", __func__, cnt);
 					}
