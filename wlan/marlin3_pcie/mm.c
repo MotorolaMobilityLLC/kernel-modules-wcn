@@ -447,7 +447,7 @@ static int mm_buffer_unlink(struct sprdwl_mm *mm_entry,
 			    int total_len)
 {
 	int num = 0;
-	unsigned long pcie_addr = 0;
+	unsigned long long pcie_addr;
 	struct sk_buff *skb = NULL;
 	struct rx_msdu_desc *msdu_desc = NULL;
 	int len = 0;

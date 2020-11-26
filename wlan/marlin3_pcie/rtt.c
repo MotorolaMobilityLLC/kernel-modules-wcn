@@ -739,7 +739,9 @@ out:
 		kfree_skb(reply);
 }
 
+#ifndef BITS_PER_LONG
 #define BITS_PER_LONG 64
+#endif
 unsigned long int_sqrt(unsigned long x)
 {
 	unsigned long op, res, one;

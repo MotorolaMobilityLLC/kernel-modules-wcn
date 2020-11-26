@@ -6,8 +6,8 @@
 #include <linux/dma-mapping.h>
 
 #define SPRDWL_PHYS_LEN 5
-#define SPRDWL_PHYS_MASK ((1UL << 40) - 1)
-#define SPRDWL_MH_ADDRESS_BIT (1UL << 39)
+#define SPRDWL_PHYS_MASK ((1ULL << 40) - 1)
+#define SPRDWL_MH_ADDRESS_BIT (1ULL << 39)
 #define SPRDWL_MH_SIPC_ADDRESS_BIT 0x00F0FFFFFF
 #define SPRDWL_MH_SIPC_ADDRESS_BASE 0x87000000
 
