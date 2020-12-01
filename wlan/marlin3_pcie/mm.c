@@ -305,6 +305,7 @@ static int mm_single_buffer_alloc(struct sprdwl_mm *mm_entry)
 			node->addr = (void *)skb;
 		} else {
 			wl_err("%s: Node list is NULL. \n", __func__);
+			dev_kfree_skb(skb);
 			return -1;
 		}
 	}
@@ -377,8 +378,8 @@ static struct sk_buff *mm_single_buffer_unlink(struct sprdwl_mm *mm_entry,
 				 SPRDWL_MAX_DATA_RXLEN, DMA_FROM_DEVICE, true);
 	else if (rx_if->intf->priv->hw_type == SPRDWL_HW_SIPC) {
 		phy_addr = pcie_addr & (~(SPRDWL_MH_ADDRESS_BIT) & SPRDWL_PHYS_MASK);
-		phy_addr = pcie_addr | SPRDWL_MH_SIPC_ADDRESS_BASE;
-		buffer = (void *)phy_addr + sipc_get_address_offset();
+		phy_addr |= SPRDWL_MH_SIPC_ADDRESS_BASE;
+		buffer = (void *)(phy_addr + sipc_get_address_offset());
 	}
 
 	if (SPRDWL_HW_SIPC == rx_if->intf->priv->hw_type) {

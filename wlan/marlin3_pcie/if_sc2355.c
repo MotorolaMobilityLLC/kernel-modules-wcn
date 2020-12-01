@@ -95,7 +95,7 @@ static int sprdwl_push_link(struct sprdwl_intf *intf, int chn,
 	struct mbuf_t *pos = head;
 	int i = 0;
 
-	wl_info("%s: start send chn %d, num %d\n", __func__, chn, num);
+	wl_debug("%s: start send chn %d, num %d\n", __func__, chn, num);
 
 	for (i = 0; i < num; i++) {
 #ifdef CONFIG_SPRD_WCN_DEBUG
@@ -274,7 +274,7 @@ inline int if_tx_addr_trans(struct sprdwl_intf *intf,
 			rx_if->addr_trans_num = 0;
 		}
 	}
-	wl_info("%s, trans rx buf, %d, cp2 buffer: %d\n", __func__, ret, skb_queue_len(&rx_if->mm_entry.buffer_list));
+	wl_debug("%s, trans rx buf, %d, cp2 buffer: %d\n", __func__, ret, skb_queue_len(&rx_if->mm_entry.buffer_list));
 	return ret;
 }
 
@@ -538,7 +538,11 @@ int sprdwl_intf_tx_list(struct sprdwl_intf *dev,
 			int tx_count,
 			int ac_index)
 {
+#ifdef SIPC_SUPPORT
+#define PCIE_TX_NUM 48
+#else
 #define PCIE_TX_NUM 96
+#endif
 	int ret = 0, i = 0, j = PCIE_TX_NUM, k = 0, pcie_count = 0, cnt = 0, num = 0;
 	struct sprdwl_msg_buf *msg_pos;
 	struct pcie_addr_buffer *addr_buffer = NULL;
@@ -1565,7 +1569,7 @@ int sprdwl_tx_data_pop_list(int channel, struct mbuf_t *head, struct mbuf_t *tai
 
 	tx_msg = (struct sprdwl_tx_msg *)intf->sprdwl_tx;
 
-	wl_info("%s channel: %d, head: %p, tail: %p num: %d\n",
+	wl_debug("%s channel: %d, head: %p, tail: %p num: %d\n",
 		 __func__, channel, head, tail, num);
 
 	if (intf->priv->hw_type == SPRDWL_HW_SC2355_PCIE) {
