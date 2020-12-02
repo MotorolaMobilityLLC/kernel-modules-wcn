@@ -194,6 +194,7 @@ struct sprdwl_priv {
 	u32 fw_ver;
 	u32 fw_std;
 	u32 fw_capa;
+	__le32 extend_feature;
 	struct sprdwl_ver wl_ver;
 	u8 max_ap_assoc_sta;
 	u8 max_acl_mac_addrs;

@@ -218,6 +218,7 @@ static const u32 sprdwl_cipher_suites[] = {
 	WLAN_CIPHER_SUITE_TKIP,
 	WLAN_CIPHER_SUITE_CCMP,
 	WLAN_CIPHER_SUITE_SMS4,
+	WLAN_CIPHER_SUITE_GCMP_256,
 	/* required by ieee802.11w */
 	WLAN_CIPHER_SUITE_AES_CMAC,
 	WLAN_CIPHER_SUITE_PMK
@@ -671,6 +672,12 @@ static inline u8 sprdwl_parse_akm(u32 akm)
 		break;
 	case WLAN_AKM_SUITE_8021X_SHA256:
 		ret = SPRDWL_AKM_SUITE_8021X_SHA256;
+		break;
+	case WLAN_AKM_SUITE_OWE:
+		ret = SPRDWL_AKM_SUITE_OWE;
+		break;
+	case WLAN_AKM_SUITE_SAE:
+		ret = SPRDWL_AKM_SUITE_SAE;
 		break;
 	default:
 		ret = SPRDWL_AKM_SUITE_NONE;
@@ -1773,6 +1780,7 @@ static int sprdwl_cfg80211_connect(struct wiphy *wiphy, struct net_device *ndev,
 	struct sprdwl_vif *vif = netdev_priv(ndev);
 	struct sprdwl_cmd_connect con;
 	enum sm_state old_state = vif->sm_state;
+	bool ie_set_flag = false;
 	int is_wep = (sme->crypto.cipher_group == WLAN_CIPHER_SUITE_WEP40) ||
 	    (sme->crypto.cipher_group == WLAN_CIPHER_SUITE_WEP104);
 	int ret = -EPERM;
@@ -1795,11 +1803,36 @@ static int sprdwl_cfg80211_connect(struct wiphy *wiphy, struct net_device *ndev,
 
 	/* Set wps ie */
 	if (sme->ie_len > 0) {
+		int i;
+
 		netdev_info(ndev, "set assoc req ie, len %zx\n", sme->ie_len);
-		ret = sprdwl_set_ie(vif->priv, vif->ctx_id, SPRDWL_IE_ASSOC_REQ,
-				    sme->ie, sme->ie_len);
-		if (ret)
-			goto err;
+		for (i = 0; i < sme->ie_len - 6; i++) {
+			if (sme->ie[i] == 0xDD &&
+			    sme->ie[i + 2] == 0x40 &&
+			    sme->ie[i + 3] == 0x45 &&
+			    sme->ie[i + 4] == 0xDA &&
+			    sme->ie[i + 5] == 0x02) {
+				ie_set_flag = true;
+				ret = sprdwl_set_ie(vif->priv, vif->ctx_id,
+						    SPRDWL_IE_ASSOC_REQ,
+						    sme->ie, i);
+				if (ret)
+					goto err;
+				ret = sprdwl_set_ie(vif->priv, vif->ctx_id,
+						    SPRDWL_IE_SAE, sme->ie + i,
+						    (sme->ie_len - i));
+				if (ret)
+					goto err;
+			}
+		}
+
+		if (!ie_set_flag) {
+			ret = sprdwl_set_ie(vif->priv, vif->ctx_id,
+					    SPRDWL_IE_ASSOC_REQ, sme->ie,
+					    sme->ie_len);
+			if (ret)
+				goto err;
+		}
 	}
 
 	netdev_info(ndev, "wpa versions %#x\n", sme->crypto.wpa_versions);
@@ -1814,6 +1847,8 @@ static int sprdwl_cfg80211_connect(struct wiphy *wiphy, struct net_device *ndev,
 	else if ((sme->auth_type == NL80211_AUTHTYPE_SHARED_KEY) ||
 		 ((sme->auth_type == NL80211_AUTHTYPE_AUTOMATIC) && is_wep))
 		con.auth_type = SPRDWL_AUTH_SHARED;
+	else if (sme->auth_type == NL80211_AUTHTYPE_SAE)
+		con.auth_type = SPRDWL_AUTH_SAE;
 
 	/* Set pairewise cipher */
 	if (sme->crypto.n_ciphers_pairwise) {
@@ -3612,6 +3647,7 @@ void sprdwl_setup_wiphy(struct wiphy *wiphy, struct sprdwl_priv *priv)
 	wiphy_ext_feature_set(wiphy,
 		NL80211_EXT_FEATURE_SCHED_SCAN_RELATIVE_RSSI);
 #endif
+	wiphy->features |= NL80211_FEATURE_SAE;
 }
 
 static void sprdwl_check_intf_ops(struct sprdwl_if_ops *ops)

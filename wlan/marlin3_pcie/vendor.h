@@ -1444,6 +1444,8 @@ enum sprdwl_gscan_event {
 	WIFI_SCAN_COMPLETE,
 };
 
+#define SPRD_NL80211_VENDOR_SUBCMD_GET_AKM_SUITE 0xB0
+
 struct sprdwl_gscan_bucket_spec {
 	u8 bucket;
 	u8 band;
