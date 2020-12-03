@@ -1684,7 +1684,7 @@ int sprdwl_tx_free_pcie_data(struct sprdwl_priv *priv, unsigned char *data)
 	int i;
 	struct sprdwl_intf *dev = (struct sprdwl_intf *)priv->hw_priv;
 	struct sprdwl_tx_msg *tx_msg = (struct sprdwl_tx_msg *)dev->sprdwl_tx;
-	void *data_addr_ptr;
+	void *data_addr_ptr = NULL;
 	unsigned long long pcie_addr = 0;
 	unsigned long phy_addr;
 	unsigned short	data_num;

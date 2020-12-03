@@ -66,7 +66,7 @@ static void sipc_buf_node_init(struct sipc_buf_node *node)
 int sipc_buf_rx_init_test(int num, struct sipc_buf_mm *buf_mm)
 {
 	struct sprdwl_msg_list *list = &buf_mm->nlist;
-	struct sipc_buf_node *node;
+	struct sipc_buf_node *node = NULL;
 	struct sipc_buf_node *pos;
 	int i;
 
@@ -163,7 +163,8 @@ void sipc_buf_mm_deinit(struct sprdwl_msg_list *list)
 	struct sipc_buf_node *node;
 	struct sipc_buf_node *pos;
 	struct timespec txmsgftime1, txmsgftime2;
-
+	memset(&txmsgftime1, 0, sizeof(struct timespec));
+	memset(&txmsgftime2, 0, sizeof(struct timespec));
 	atomic_add(SPRDWL_NODE_EXIT_VAL, &list->ref);
 	if (atomic_read(&list->ref) > SPRDWL_NODE_EXIT_VAL)
 		wl_err("%s ref not ok! wait for pop!\n", __func__);
