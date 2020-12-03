@@ -385,6 +385,11 @@ static struct sk_buff *mm_single_buffer_unlink(struct sprdwl_mm *mm_entry,
 	if (SPRDWL_HW_SIPC == rx_if->intf->priv->hw_type) {
 		memcpy_fromio(&node, buffer + SPRDWL_MAX_DATA_RXLEN, sizeof(node));
 		skb = node->addr;
+		if (!skb) {
+			wl_err("%s phy 0x%0x ,sipc address 0x%0x, node address 0x%p, resv %02x\n",
+				__func__, phy_addr, pcie_addr, node->buf, node->resv);
+			return NULL;
+		}
 		skb_unlink(skb, &mm_entry->buffer_list);
 		CLEAR_ADDR(skb->data, sizeof(skb));
 	} else {
@@ -475,6 +480,10 @@ static int mm_buffer_unlink(struct sprdwl_mm *mm_entry,
 
 		skb = mm_single_buffer_unlink(mm_entry, pcie_addr);
 		if (SPRDWL_HW_SIPC == rx_if->intf->priv->hw_type) {
+			if (!skb) {
+				wl_err("%s:Rx address buffer is valid.\n");
+				continue;
+			}
 			skb = sipc_rx_mm_buf_to_skb(skb);
 		}
 		if (likely(skb)) {

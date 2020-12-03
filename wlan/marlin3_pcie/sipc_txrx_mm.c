@@ -597,7 +597,7 @@ struct sk_buff *sipc_rx_mm_buf_to_skb(struct sk_buff *skb)
 	memcpy_fromio(nskb->data, node->buf, SPRDWL_MAX_DATA_RXLEN);
 
 err_alloc:
-	memset_io(node->buf, 0, rx_buf->len);
+	memset_io(node->buf, 0, SPRDWL_MAX_DATA_RXLEN);
 	node->addr = NULL;
 	sipc_dequeue_node_to_freelist(node, &rx_buf->nlist);
 	dev_kfree_skb(skb);
