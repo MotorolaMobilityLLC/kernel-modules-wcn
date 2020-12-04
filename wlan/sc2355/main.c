@@ -624,6 +624,12 @@ static int sprdwl_set_power_save(struct net_device *ndev, struct ifreq *ifr)
 	if (copy_from_user(&priv_cmd, ifr->ifr_data, sizeof(priv_cmd)))
 		return -EFAULT;
 
+	/*add length check to avoid invalid NULL ptr*/
+	if ( (!priv_cmd.total_len) || (MAX_PRIV_CMD_LEN < priv_cmd.total_len)) {
+		netdev_info(ndev, "%s: priv cmd total len is invalid\n", __func__);
+		return -EINVAL;
+	}
+
 	command = kmalloc(priv_cmd.total_len, GFP_KERNEL);
 	if (!command)
 		return -ENOMEM;
@@ -676,6 +682,12 @@ static int sprdwl_set_tlv(struct net_device *ndev, struct ifreq *ifr)
 
 	if (copy_from_user(&priv_cmd, ifr->ifr_data, sizeof(priv_cmd)))
 		return -EFAULT;
+
+	/*add length check to avoid invalid NULL ptr*/
+	if ( (!priv_cmd.total_len) || (MAX_PRIV_CMD_LEN < priv_cmd.total_len)) {
+		netdev_info(ndev, "%s: priv cmd total len is invalid\n", __func__);
+		return -EINVAL;
+	}
 
 	if (priv_cmd.total_len < sizeof(*tlv))
 		return -EINVAL;
@@ -736,10 +748,18 @@ static int sprdwl_set_p2p_mac(struct net_device *ndev, struct ifreq *ifr)
 	int ret = 0;
 	struct sprdwl_vif *tmp1, *tmp2;
 	u8 addr[ETH_ALEN] = {0};
+
 	if (!ifr->ifr_data)
 		return -EINVAL;
 	if (copy_from_user(&priv_cmd, ifr->ifr_data, sizeof(priv_cmd)))
 		return -EFAULT;
+
+	/*add length check to avoid invalid NULL ptr*/
+	if ((!priv_cmd.total_len) || (SPRDWL_MAX_CMD_TXLEN < priv_cmd.total_len)) {
+		netdev_err(ndev, "%s: priv cmd total len is invalid\n", __func__);
+		return -EINVAL;
+	}
+
 	command = kmalloc(priv_cmd.total_len, GFP_KERNEL);
 	if (!command)
 		return -ENOMEM;
