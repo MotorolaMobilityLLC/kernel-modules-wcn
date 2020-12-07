@@ -140,6 +140,7 @@ static const char *cmd2str(u8 cmd)
 	C2S(WIFI_CMD_HANG_RECEIVED)
 	C2S(WIFI_CMD_VOWIFI_DATA_PROTECT)
 	C2S(WIFI_CMD_SET_TLV)
+	C2S(WIFI_CMD_SET_SAE_PARAM)
 	default : return "WIFI_CMD_UNKNOWN";
 	}
 #undef C2S
@@ -3654,3 +3655,28 @@ void sprdwl_set_tlv_elmt(u8 *addr, u16 type, u16 len, u8 *data)
 	p->len = len;
 	memcpy(p->data, data, len);
 }
+
+
+int sprdwl_softap_set_sae_para(struct sprdwl_priv *priv, u8 ctx_id, char *data,
+			       int data_len)
+{
+	struct sprdwl_sae_param *param;
+	struct sprdwl_msg_buf *msg;
+	int len;
+
+	len = sizeof(*param) + data_len;
+	wl_info("total len is : %d, data len\n", len, data_len);
+
+	msg = sprdwl_cmd_getbuf(priv, len, ctx_id,
+				SPRDWL_HEAD_RSP, WIFI_CMD_SET_SAE_PARAM);
+	if (!msg)
+		return -ENOMEM;
+
+	param = (struct sprdwl_sae_param *)msg->data;
+	param->request_type = SPRDWL_SAE_PASSWORD_ENTRY;
+	memcpy(param->data, data, data_len);
+
+	return sprdwl_cmd_send_recv(priv, msg, CMD_WAIT_TIMEOUT,
+				    NULL, NULL);
+}
+

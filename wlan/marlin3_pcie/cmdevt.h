@@ -178,6 +178,7 @@ enum SPRDWL_CMD_LIST {
 	WIFI_CMD_HANG_RECEIVED = 78,
 	WIFI_CMD_RESET_BEACON = 79,
 	WIFI_CMD_VOWIFI_DATA_PROTECT = 80,
+	WIFI_CMD_SET_SAE_PARAM = 85,
 	/*Please add new command above line,
 	* conditional compile flag is not recommended
 	*/
@@ -944,6 +945,14 @@ struct acs_result {
         u32 time_busy;
         u32 time_ext_busy;
 };
+
+#define		SPRDWL_SAE_PASSPHRASE		1
+#define		SPRDWL_SAE_PASSWORD_ENTRY	2
+
+struct sprdwl_sae_param {
+	u16 request_type;
+	u8 data[0];
+} __packed;
 
 int sprdwl_cmd_rsp(struct sprdwl_priv *priv, u8 *msg);
 /*driver & fw API sync function start*/
