@@ -491,10 +491,11 @@ static int sprdwl_atcmd_assert(struct sprdwl_priv *priv, u8 vif_ctx_id, u8 cmd_i
 		intf->cp_asserted = 1;
 
 		if((strlen(cmd2str(cmd_id)) + strlen(assert_reason_to_str(reason)) +
-		   strlen("[CMD] ") + strlen(", [REASON] ")) < ASSERT_INFO_BUF_SIZE)
-			idx += sprintf(buf+idx, "[CMD] %s, [REASON] %s", cmd2str(cmd_id), assert_reason_to_str(reason));
+		   strlen("[CMD] ") + strlen(", [REASON] ") + strlen(", [LOG_LEVEL] ")) < ASSERT_INFO_BUF_SIZE)
+			idx += sprintf(buf+idx, "[CMD] %s, [REASON] %s, [LOG_LEVEL] %d", cmd2str(cmd_id), assert_reason_to_str(reason),
+							console_loglevel);
 		else
-			idx += sprintf(buf+idx, "[CMD ID] %d, [REASON ID] %d", cmd_id, reason);
+			idx += sprintf(buf+idx, "[CMD ID] %d, [REASON ID] %d, [LOG_LEVEL] %d", cmd_id, reason, console_loglevel);
 
 		buf[idx] = '\0';
 
