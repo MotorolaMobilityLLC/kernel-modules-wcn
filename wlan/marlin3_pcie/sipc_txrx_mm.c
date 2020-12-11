@@ -137,7 +137,7 @@ int sipc_buf_mm_init(int num, struct sipc_buf_mm *buf_mm)
 			return 0;
 		}
 		node->buf = ptr;
-		node->priv = buf_mm;
+		node->priv = NULL;
 		sipc_buf_node_init(node);
 		list_add_tail(&node->list, &list->freelist);
 		atomic_inc(&list->ref);
@@ -581,14 +581,8 @@ struct sk_buff *sipc_rx_mm_buf_to_skb(struct sk_buff *skb)
 	struct sipc_buf_mm *rx_buf = NULL;
 	struct sipc_buf_node *node = NULL;
 
-	memcpy_toio(&node, skb->data, sizeof(node));
-	//wl_err("%s: ###node %p, node addr %p, node buf %p", __func__, node, &node->addr, &node->buf);
-	//wl_err("%s: ###node buf %p", __func__, node->buf);
 	rx_buf = sipc_get_rx_mm_buf();
-	if (!rx_buf) {
-		wl_err("%s:get rx mm buffer failed.\n", __func__);
-		goto err_alloc;
-	}
+	memcpy_toio(&node, skb->data, sizeof(node));
 
 	nskb = dev_alloc_skb(SPRDWL_MAX_DATA_RXLEN);
 	if (!nskb) {
@@ -598,7 +592,7 @@ struct sk_buff *sipc_rx_mm_buf_to_skb(struct sk_buff *skb)
 	memcpy_fromio(nskb->data, node->buf, SPRDWL_MAX_DATA_RXLEN);
 
 err_alloc:
-	memset_io(node->buf, 0, SPRDWL_MAX_DATA_RXLEN);
+	memset_io(node->buf, 0, rx_buf->len);
 	node->addr = NULL;
 	sipc_dequeue_node_to_freelist(node, &rx_buf->nlist);
 	dev_kfree_skb(skb);

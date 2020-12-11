@@ -371,7 +371,7 @@ static struct sk_buff *mm_single_buffer_unlink(struct sprdwl_mm *mm_entry,
 	struct sk_buff *skb = NULL;
 	void *buffer = NULL;
 	struct sipc_buf_node *node = NULL;
-	unsigned long phy_addr;
+	unsigned long phy_addr = 0;
 
 	if (rx_if->intf->priv->hw_type == SPRDWL_HW_SC2355_PCIE)
 		buffer = mm_phys_to_virt(&rx_if->intf->pdev->dev, pcie_addr,
@@ -384,14 +384,16 @@ static struct sk_buff *mm_single_buffer_unlink(struct sprdwl_mm *mm_entry,
 
 	if (SPRDWL_HW_SIPC == rx_if->intf->priv->hw_type) {
 		memcpy_fromio(&node, buffer + SPRDWL_MAX_DATA_RXLEN, sizeof(node));
-		skb = node->addr;
-		if (!skb) {
-			wl_err("%s phy 0x%0x ,sipc address 0x%0x, node address 0x%p, resv %02x\n",
-				__func__, phy_addr, pcie_addr, node->buf, node->resv);
+		if (node && node->addr) {
+			skb = node->addr;
+			skb_unlink(skb, &mm_entry->buffer_list);
+			CLEAR_ADDR(skb->data, sizeof(skb));
+		} else {
+			/*assert is better*/
+			wl_err("%s node or addr is null, phy 0x%0x ,\
+				sipc address 0x%0x\n",__func__, phy_addr, pcie_addr);
 			return NULL;
 		}
-		skb_unlink(skb, &mm_entry->buffer_list);
-		CLEAR_ADDR(skb->data, sizeof(skb));
 	} else {
 		RESTORE_ADDR(skb, buffer, sizeof(skb));
 		skb_unlink(skb, &mm_entry->buffer_list);
