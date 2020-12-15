@@ -1860,7 +1860,7 @@ int sprdwl_tx_filter_ip_pkt(struct sk_buff *skb, struct net_device *ndev)
 	bool is_vowifi2cmd;
 	unsigned char *dhcpdata = NULL;
 	struct udphdr *udphdr;
-	struct iphdr *iphdr;
+	struct iphdr *iphdr = NULL;
 	struct ipv6hdr *ipv6hdr;
 	__sum16 checksum = 0;
 	struct ethhdr *ethhdr = (struct ethhdr *)skb->data;

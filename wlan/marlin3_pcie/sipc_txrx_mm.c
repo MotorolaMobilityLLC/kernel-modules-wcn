@@ -53,55 +53,6 @@ struct sipc_buf_mm *sipc_get_tx_mm_buf(void)
 	return  g_txrx_buf->tx_buf;
 }
 
-static void sipc_buf_node_init(struct sipc_buf_node *node)
-{
-	INIT_LIST_HEAD(&node->list);
-	node->flag = SIPC_MEMORY_FREE;
-	node->location = SIPC_LOC_BUFF_FREE;
-	node->ctxt_id = 0;
-	memset_io(node->buf, 0x0, SPRDWL_MAX_DATA_RXLEN);
-	node->addr = NULL;
-}
-
-int sipc_buf_rx_init_test(int num, struct sipc_buf_mm *buf_mm)
-{
-	struct sprdwl_msg_list *list = &buf_mm->nlist;
-	struct sipc_buf_node *node = NULL;
-	struct sipc_buf_node *pos;
-	int i;
-
-	INIT_LIST_HEAD(&list->freelist);
-	INIT_LIST_HEAD(&list->busylist);
-	INIT_LIST_HEAD(&list->cmd_to_free);
-	list->maxnum = num;
-	spin_lock_init(&list->freelock);
-	spin_lock_init(&list->busylock);
-	spin_lock_init(&list->complock);
-	atomic_set(&list->ref, 0);
-	atomic_set(&list->flow, 0);
-
-	for(i = 0; i < 512; i++) {
-		node = kmalloc(sizeof(*node), GFP_KERNEL);
-		if(!node){
-			wl_err("%s: alloc rx node failed.\n", __func__);
-			goto err_alloc;
-		}
-
-		sipc_buf_node_init(node);
-		list_add_tail(&node->list, &list->freelist);
-		atomic_inc(&list->ref);
-	}
-
-	return 0;
-
-err_alloc:
-	list_for_each_entry_safe(node, pos, &list->freelist, list) {
-		list_del(&node->list);
-		kfree(node);
-	}
-	return -1;
-}
-
 int sipc_buf_mm_init(int num, struct sipc_buf_mm *buf_mm)
 {
 	int i;
@@ -136,9 +87,15 @@ int sipc_buf_mm_init(int num, struct sipc_buf_mm *buf_mm)
 			list->maxnum = num;
 			return 0;
 		}
+
+		INIT_LIST_HEAD(&node->list);
 		node->buf = ptr;
 		node->priv = NULL;
-		sipc_buf_node_init(node);
+		node->flag = SIPC_MEMORY_FREE;
+		node->location = SIPC_LOC_BUFF_FREE;
+		node->ctxt_id = 0;
+		node->addr = NULL;
+		memset_io(node->buf, 0x0, SPRDWL_MAX_DATA_RXLEN);
 		list_add_tail(&node->list, &list->freelist);
 		atomic_inc(&list->ref);
 		ptr += buf_mm->len;
