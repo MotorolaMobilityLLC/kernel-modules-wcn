@@ -39,6 +39,8 @@
 #include "rfkill.h"
 #include "dump.h"
 
+static unsigned int log_level = MTTY_LOG_LEVEL_VER;
+
 #define STTY_DEV_MAX_NR     1
 #define STTY_MAX_DATA_LEN   4096
 #define STTY_STATE_OPEN     1
@@ -419,6 +421,14 @@ static int mtty_sipc_write(struct tty_struct *tty,
 
     if (is_user_debug) {
         bt_host_data_save(buf, count, BT_DATA_OUT);
+    }
+
+    if (log_level == MTTY_LOG_LEVEL_VER) {
+        if (buf[0] == COMMAND_HEAD) {
+            dev_unisoc_bt_err(ttyBT_dev,
+                          "%s dump cmd %02X %02X %02X %02X \n",
+                          __func__, buf[0], buf[1], buf[2],buf[3]);
+        }
     }
 
     block = kmalloc(count + BT_SIPC_HEAD_LEN, GFP_KERNEL);
