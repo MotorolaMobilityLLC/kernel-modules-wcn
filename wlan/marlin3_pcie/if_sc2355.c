@@ -1345,6 +1345,17 @@ static int sprdwl_sc2355_rx_handle(int chn, struct mbuf_t *head, struct mbuf_t *
 			msg->data = msg->tran_data;
 		}
 		sprdwl_queue_msg_buf(msg, &rx_if->rx_list);
+
+/*add this for debugging cmd timeout*/
+#ifdef SIPC_SUPPORT
+		if (SIPC_WIFI_CMD_RX == chn &&
+			SPRDWL_TYPE_CMD == SPRDWL_HEAD_GET_TYPE(msg->data)) {
+			wl_info("%s: channel:%d head:%p tail:%p num:%d\n",
+			__func__, chn, head->buf, tail->buf, num);
+			sprdwl_hex_dump("CMD", (unsigned char *)(msg->data), 12);
+			wl_info("%s rsp_event_cnt %d\n", __func__, rx_if->rsp_event_cnt);
+		}
+#endif
 	}
 
 #if 0

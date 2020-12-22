@@ -343,6 +343,7 @@ static int sprdwl_rx_work_queue(void *data)
 #endif /* FPGA_LOOPBACK_TEST */
 				break;
 			case SPRDWL_TYPE_CMD:
+				rx_if->rsp_event_cnt++;
 				if (msg->len > SPRDWL_MAX_CMD_RXLEN)
 					wl_err("err rx cmd too long:%d > %d\n",
 							msg->len, SPRDWL_MAX_CMD_RXLEN);
