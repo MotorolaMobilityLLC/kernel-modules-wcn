@@ -59,7 +59,7 @@ struct sipc_mem_region {
 #define SPRDWL_SIPC_MEM_RX_OFFSET				0x1B5800
 #define SIPC_TXRX_BUF_BLOCK_TYPE               (1)
 #define SIPC_TXRX_BUF_SINGLE_TYPE              (0)
-#define SIPC_TXRX_TX_BUF_MAX_NUM               (1000)
+#define SIPC_TXRX_TX_BUF_MAX_NUM               (300)
 #define SIPC_TXRX_RX_BUF_MAX_NUM               (450)
 struct sipc_buf_mm {
 	struct sprdwl_msg_list nlist;
