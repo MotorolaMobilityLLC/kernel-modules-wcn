@@ -3517,8 +3517,13 @@ static int sprdwl_parse_sae_entry(struct sprdwl_sae_entry *entry,
 		case SPRDWL_VENDOR_SAE_PASSWORD:
 			data_len = nla_len(pos);
 			entry->passwd_len = data_len;
-			nla_strlcpy(entry->password, pos, data_len + 1);
-			wl_info("entry->passwd: %s, entry->len:%d\n", entry->password, entry->passwd_len);
+			if (entry->passwd_len <= MAX_PASSWORD_LEN) {
+				nla_strlcpy(entry->password, pos, data_len + 1);
+				wl_info("entry->passwd: %s, entry->len:%d\n", entry->password, entry->passwd_len);
+			} else {
+				wl_err("entry->passwd_len(%d) is more than expected\n", entry->passwd_len);
+				return -ENOEXEC;
+			}
 			break;
 		case SPRDWL_VENDOR_SAE_IDENTIFIER:
 			data_len = nla_len(pos);
