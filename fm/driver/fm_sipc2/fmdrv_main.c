@@ -512,24 +512,7 @@ int fm_powerup(struct fm_tune_parm *p)
 		// return -ENODEV;
 	// }
 
-	/*for (i = 0; i < 100; i++ ){
-		ret = sbuf_status(fmdev->pdata->dst, fmdev->pdata->rx_channel);
-		if (ret == 0){
-		dev_unisoc_fm_err(fm_miscdev,
-							"stty_open sbuf ready to open!dst=%d,channel=%d\n");
-			break;
-		}
-		dev_unisoc_fm_err(fm_miscdev,
-							"stty_open sbuf not ready,time:%d,go on",i);
-		msleep (500);
-		if (i == 99) {
-		dev_unisoc_fm_err(fm_miscdev,
-							"stty_open sbuf not ready to open!dst=%d,channel=%d\n",
-							fmdev->pdata->dst, fmdev->pdata->rx_channel);
-		//return -ENODEV;
-	    }
-    }*/
-
+	memset(&fm_data, 0, sizeof(struct fm_config_t));
 	parm.freq = 875;
 	parm.freq *= 10;
 	get_fm_config_param(&fm_data);
