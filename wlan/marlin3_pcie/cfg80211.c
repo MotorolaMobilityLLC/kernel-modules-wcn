@@ -1068,7 +1068,8 @@ static int sprdwl_cfg80211_get_station(struct wiphy *wiphy,
 {
 	struct sprdwl_vif *vif = netdev_priv(ndev);
 	struct sprdwl_cmd_get_station sta;
-	struct sprdwl_rate_info *rate;
+	struct sprdwl_rate_info *tx_rate;
+	struct sprdwl_rate_info *rx_rate;
 	int ret;
 
 	sinfo->filled |= BIT(NL80211_STA_INFO_TX_BYTES) |
@@ -1085,7 +1086,8 @@ static int sprdwl_cfg80211_get_station(struct wiphy *wiphy,
 				 &sta);
 	if (ret)
 		goto out;
-	rate = (struct sprdwl_rate_info *)&sta;
+	tx_rate = &sta.tx_rate;
+	rx_rate = &sta.rx_rate;
 
 	sinfo->signal = sta.signal;
 	sinfo->filled |= BIT(NL80211_STA_INFO_SIGNAL);
@@ -1093,42 +1095,77 @@ static int sprdwl_cfg80211_get_station(struct wiphy *wiphy,
 	sinfo->tx_failed = sta.txfailed;
 	sinfo->filled |= BIT(NL80211_STA_INFO_TX_BITRATE) |
 		BIT(NL80211_STA_INFO_TX_FAILED);
+	sinfo->filled |= BIT(NL80211_STA_INFO_RX_BITRATE);
 
-	/*fill rate info */
+	/*fill tx rate info */
 	/*if bit 2,3,4 not set*/
-	if (!(rate->flags & 0x1c))
+	if (!(tx_rate->flags & 0x1c))
 		sinfo->txrate.bw = RATE_INFO_BW_20;
 
-	if ((rate->flags) & BIT(2))
+	if ((tx_rate->flags) & BIT(2))
 		sinfo->txrate.bw = RATE_INFO_BW_40;
 
-	if ((rate->flags) & BIT(3))
+	if ((tx_rate->flags) & BIT(3))
 		sinfo->txrate.bw = RATE_INFO_BW_80;
 
-	if ((rate->flags) & BIT(4) ||
-		(rate->flags) & BIT(5))
+	if ((tx_rate->flags) & BIT(4) ||
+		(tx_rate->flags) & BIT(5))
 		sinfo->txrate.bw = RATE_INFO_BW_160;
 
-	if ((rate->flags) & BIT(6))
+	if ((tx_rate->flags) & BIT(6))
 		sinfo->txrate.flags |= RATE_INFO_FLAGS_SHORT_GI;
 
-	if ((rate->flags & RATE_INFO_FLAGS_MCS) ||
-		(rate->flags & RATE_INFO_FLAGS_VHT_MCS)) {
+	if ((tx_rate->flags & RATE_INFO_FLAGS_MCS) ||
+		(tx_rate->flags & RATE_INFO_FLAGS_VHT_MCS)) {
 
-		sinfo->txrate.flags = (rate->flags & 0x3);
-		sinfo->txrate.mcs = rate->mcs;
+		sinfo->txrate.flags = (tx_rate->flags & 0x3);
+		sinfo->txrate.mcs = tx_rate->mcs;
 
-		if ((rate->flags & RATE_INFO_FLAGS_VHT_MCS) &&
-			(0 != rate->nss)) {
-			sinfo->txrate.nss = rate->nss;
+		if ((tx_rate->flags & RATE_INFO_FLAGS_VHT_MCS) &&
+			(0 != tx_rate->nss)) {
+			sinfo->txrate.nss = tx_rate->nss;
 		}
 	} else {
-		sinfo->txrate.legacy = rate->legacy;
+		sinfo->txrate.legacy = tx_rate->legacy;
 	}
 
-	netdev_info(ndev, "%s signal %d legacy %d mcs:%d flags:0x:%x\n",
-			__func__, sinfo->signal, sinfo->txrate.legacy,
-			rate->mcs, rate->flags);
+	/*fill rx rate info */
+	/*if bit 2,3,4 not set*/
+	if (!(rx_rate->flags & 0x1c))
+		sinfo->rxrate.bw = RATE_INFO_BW_20;
+
+	if ((rx_rate->flags) & BIT(2))
+		sinfo->rxrate.bw = RATE_INFO_BW_40;
+
+	if ((rx_rate->flags) & BIT(3))
+		sinfo->rxrate.bw = RATE_INFO_BW_80;
+
+	if ((rx_rate->flags) & BIT(4) ||
+		(rx_rate->flags) & BIT(5))
+		sinfo->rxrate.bw = RATE_INFO_BW_160;
+
+	if ((rx_rate->flags) & BIT(6))
+		sinfo->rxrate.flags |= RATE_INFO_FLAGS_SHORT_GI;
+
+	if ((rx_rate->flags & RATE_INFO_FLAGS_MCS) ||
+		(rx_rate->flags & RATE_INFO_FLAGS_VHT_MCS)) {
+
+		sinfo->rxrate.flags = (rx_rate->flags & 0x3);
+		sinfo->rxrate.mcs = rx_rate->mcs;
+
+		if ((rx_rate->flags & RATE_INFO_FLAGS_VHT_MCS) &&
+			(0 != rx_rate->nss)) {
+			sinfo->rxrate.nss = rx_rate->nss;
+		}
+	} else {
+		sinfo->rxrate.legacy = rx_rate->legacy;
+	}
+
+	netdev_info(ndev, "%s signal %d noise=%d, txlegacy %d txmcs:%d txflags:0x:%x,rxlegacy %d rxmcs:%d rxflags:0x:%x\n",
+				__func__, sinfo->signal, sta.noise, sinfo->txrate.legacy,
+				tx_rate->mcs, tx_rate->flags,
+				sinfo->rxrate.legacy,
+				rx_rate->mcs, rx_rate->flags);
 out:
 	return ret;
 }

@@ -452,11 +452,12 @@ struct sprdwl_rate_info {
 
 /* WIFI_CMD_GET_STATION */
 struct sprdwl_cmd_get_station {
-	struct sprdwl_rate_info rate;
+	struct sprdwl_rate_info tx_rate;
 	s8 signal;
 	u8 noise;
 	u8 reserved;
 	__le32 txfailed;
+	struct sprdwl_rate_info rx_rate;
 } __packed;
 
 /* WIFI_CMD_SET_CHANNEL */
@@ -884,15 +885,31 @@ struct event_thermal_warn {
 	u32 action;
 } __packed;
 
-struct event_wfd_mib_cnt {
-	u32 wfd_throughput;
-	u32 sum_tx_throughput;
+struct vdev_tx_stats {
+	u32 tx_mpdu_cnt[4];
+	u32 tx_mpdu_suc_cnt[4];
 	u32 tx_mpdu_lost_cnt[4];
+	u32 tx_retries[4];
+	u32 tx_mpdu_len;
+	u32 tx_tp_in_mbps;
+}__packed;
+
+struct vdev_rx_stats {
+	u32 rx_mpdu_cnt[4];
+	u32 rx_retry_cnt[4];
+	u32 rx_mpdu_len;
+	u32 rx_tp_in_mbps;
+}__packed;
+
+struct event_wfd_mib_cnt {
+	u32 ctxt_id;
 	u32 tx_frame_cnt;
+	u32 rx_mine_cycle_cnt;
 	u32 rx_clear_cnt;
 	u32 mib_cycle_cnt;
+	struct vdev_tx_stats tx_stats;
+	struct vdev_rx_stats rx_stats;
 } __packed;
-
 void sprdwl_cmd_init(void);
 void sprdwl_cmd_wake_upall(void);
 void sprdwl_cmd_deinit(void);

@@ -3251,19 +3251,20 @@ void sprdwl_wfd_mib_cnt(struct sprdwl_vif *vif, u8 *data, u16 len)
 		(struct event_wfd_mib_cnt *)data;
 	u32 tx_cnt, busy_cnt, wfd_rate;
 
-	wl_info("%s, %d, tp=%d, sum_tp=%d, drop=%d,%d,%d,%d, frame=%d, clear=%d, mib=%d\n",
-		__func__, __LINE__,
-		wfd->wfd_throughput, wfd->sum_tx_throughput,
-		wfd->tx_mpdu_lost_cnt[0], wfd->tx_mpdu_lost_cnt[1], wfd->tx_mpdu_lost_cnt[2], wfd->tx_mpdu_lost_cnt[3],
-		wfd->tx_frame_cnt, wfd->rx_clear_cnt, wfd->mib_cycle_cnt);
-
-	tx_cnt = wfd->tx_frame_cnt / wfd->mib_cycle_cnt;
-	busy_cnt = (10 * wfd->rx_clear_cnt) / wfd->mib_cycle_cnt;
+	wl_info("%s, %d, drop=%d,%d,%d,%d, frame=%d, clear=%d, mib=%d\n",
+			__func__, __LINE__,
+			wfd->tx_frame_cnt, wfd->rx_clear_cnt, wfd->mib_cycle_cnt);
+	if(!wfd->mib_cycle_cnt)	{
+		return;
+	} else {
+		tx_cnt = wfd->tx_frame_cnt / wfd->mib_cycle_cnt;
+		busy_cnt = (10 * wfd->rx_clear_cnt) / wfd->mib_cycle_cnt;
+	}
 
 	if (busy_cnt > 8)
-		wfd_rate = wfd->sum_tx_throughput;
+		wfd_rate = wfd->tx_stats.tx_tp_in_mbps;
 	else
-		wfd_rate = wfd->sum_tx_throughput + wfd->sum_tx_throughput * (1 / tx_cnt) * ((10 - busy_cnt) / 10) / 2;
+		wfd_rate = wfd->tx_stats.tx_tp_in_mbps + wfd->tx_stats.tx_tp_in_mbps * (1 / tx_cnt) * ((10 - busy_cnt) / 10) / 2;
 	wl_info("%s, %d, wfd_rate=%d\n", __func__, __LINE__, wfd_rate);
 	wfd_rate = 2;
 	/* wfd_notifier_call_chain(WIFI_EVENT_WFD_RATE, (void *)(unsigned long)wfd_rate); */
