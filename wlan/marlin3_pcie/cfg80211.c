@@ -414,6 +414,13 @@ int sprdwl_init_fw(struct sprdwl_vif *vif)
 	else
 		mac = vif->ndev->dev_addr;
 
+	if (vif->mode ==SPRDWL_MODE_P2P_GO) {
+		if (vif->has_rand_mac) {
+				netdev_info(vif->ndev, "GO use random mac addr: %pM\n", vif->random_mac);
+				mac = vif->random_mac;
+		}
+	}
+
 	if (sprdwl_open_fw(priv, &vif_ctx_id, vif->mode, mac)) {
 		netdev_err(vif->ndev, "%s failed!\n", __func__);
 		vif->mode = SPRDWL_MODE_NONE;
@@ -1780,9 +1787,10 @@ static int sprdwl_cfg80211_connect(struct wiphy *wiphy, struct net_device *ndev,
 	struct sprdwl_vif *vif = netdev_priv(ndev);
 	struct sprdwl_cmd_connect con;
 	enum sm_state old_state = vif->sm_state;
-	bool ie_set_flag = false;
+	int ie_set_flag = 0;
 	int is_wep = (sme->crypto.cipher_group == WLAN_CIPHER_SUITE_WEP40) ||
 	    (sme->crypto.cipher_group == WLAN_CIPHER_SUITE_WEP104);
+	int random_mac_flag;
 	int ret = -EPERM;
 	struct sprdwl_intf *intf = (struct sprdwl_intf *)(vif->priv->hw_priv);
 
@@ -1791,6 +1799,16 @@ static int sprdwl_cfg80211_connect(struct wiphy *wiphy, struct net_device *ndev,
 		wl_err("%s, %d, error!mode%d connect after closed not allowed",
 		       __func__, __LINE__, vif->mode);
 		goto err;
+	}
+
+	if (vif->mode == SPRDWL_MODE_STATION) {
+		if (vif->has_rand_mac) {
+			random_mac_flag = SPRDWL_CONNECT_RANDOM_ADDR;
+			ret = wlan_cmd_set_rand_mac(vif->priv, vif->ctx_id,
+										random_mac_flag, vif->random_mac);
+			if (ret)
+				netdev_info(ndev, "Set random mac failed!\n");
+		}
 	}
 
 	memset(&con, 0, sizeof(con));
@@ -3533,7 +3551,10 @@ void sprdwl_setup_wiphy(struct wiphy *wiphy, struct sprdwl_priv *priv)
 	wiphy->max_remain_on_channel_duration = 5000;
 	wiphy->max_num_pmkids = SPRDWL_MAX_NUM_PMKIDS;
 #ifdef RND_MAC_SUPPORT
-	wiphy->features |= NL80211_FEATURE_SCAN_RANDOM_MAC_ADDR;
+	if (!(wfa_cap & SPRDWL_WFA_CAP_NON_RAN_MAC)) {
+		wl_info("\tRandom MAC address scan default supported\n");
+		wiphy->features |= NL80211_FEATURE_SCAN_RANDOM_MAC_ADDR;
+	}
 #endif
 	wiphy->features |= NL80211_FEATURE_CELL_BASE_REG_HINTS;
 
