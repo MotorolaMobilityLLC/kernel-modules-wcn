@@ -50,11 +50,11 @@ static unsigned int log_level = MTTY_LOG_LEVEL_VER;
 static struct semaphore sem_id;
 
 struct rx_data {
-    unsigned int channel;
-    struct mbuf_t *head;
-    struct mbuf_t *tail;
-    unsigned int num;
-    struct list_head entry;
+	unsigned int channel;
+	struct mbuf_t *head;
+	struct mbuf_t *tail;
+	unsigned int num;
+	struct list_head entry;
 };
 
 struct stty_device {
@@ -69,19 +69,18 @@ struct stty_device {
 	//uint32_t		stty_state;
 	struct mutex		stat_lock;
 
-    /* mtty state */
-    atomic_t state;
-    /*spinlock_t    rw_lock;*/
-    struct mutex    rw_mutex;
-    struct list_head rx_head;
-    /*struct tasklet_struct rx_task;*/
-    struct work_struct bt_rx_work;
-    struct workqueue_struct *bt_rx_workqueue;
+	/* mtty state */
+	atomic_t state;
+	/*spinlock_t    rw_lock;*/
+	struct mutex    rw_mutex;
+	struct list_head rx_head;
+	/*struct tasklet_struct rx_task;*/
+	struct work_struct bt_rx_work;
+	struct workqueue_struct *bt_rx_workqueue;
 
 };
 
 struct stty_device *stty_dev;
-
 
 extern int set_power_ret;
 
@@ -107,30 +106,30 @@ static struct tty_struct *mtty;
 #endif
 
 static ssize_t dumpmem_store(struct device *dev,
-    struct device_attribute *attr, const char *buf, size_t count)
+	struct device_attribute *attr, const char *buf, size_t count)
 {
-    if (buf[0] == 2) {
-        dev_unisoc_bt_info(ttyBT_dev,
-                           "Set is_user_debug true!\n");
-        is_user_debug = true;
-        return 0;
-    }
+	if (buf[0] == 2) {
+		dev_unisoc_bt_info(ttyBT_dev,
+							"Set is_user_debug true!\n");
+		is_user_debug = true;
+		return 0;
+	}
 
-    if (is_dumped == false) {
-        dev_unisoc_bt_info(ttyBT_dev,
-                           "mtty BT start dump cp mem !\n");
-        bt_host_data_printf();
-        if (data_dump != NULL) {
-            vfree(data_dump);
-            data_dump = NULL;
-        }
-    } else {
-        dev_unisoc_bt_info(ttyBT_dev,
-                           "mtty BT has dumped cp mem, pls restart phone!\n");
-    }
-    is_dumped = true;
+	if (is_dumped == false) {
+		dev_unisoc_bt_info(ttyBT_dev,
+							"mtty BT start dump cp mem !\n");
+		bt_host_data_printf();
+		if (data_dump != NULL) {
+			vfree(data_dump);
+			data_dump = NULL;
+		}
+	} else {
+		dev_unisoc_bt_info(ttyBT_dev,
+							"mtty BT has dumped cp mem, pls restart phone!\n");
+	}
+	is_dumped = true;
 
-    return 0;
+	return 0;
 }
 
 static ssize_t chipid_show(struct device *dev,
@@ -164,177 +163,176 @@ static struct attribute_group bluetooth_group = {
 
 /* static void mtty_rx_task(unsigned long data) */
 static void stty_rx_work_queue(struct work_struct *work)
-
 {
-    int i, ret = 0;
-    /*struct stty_device *mtty = (struct stty_device *)data;*/
-    struct stty_device *stty;
-    struct rx_data *rx = NULL;
+	int i, ret = 0;
+	/*struct stty_device *mtty = (struct stty_device *)data;*/
+	struct stty_device *stty;
+	struct rx_data *rx = NULL;
 
-    que_task = que_task + 1;
-    if (que_task > 65530)
-        que_task = 0;
-    dev_unisoc_bt_info(ttyBT_dev,
-                       "mtty que_task= %d\n",
-                       que_task);
-    que_sche = que_sche - 1;
+	que_task = que_task + 1;
+	if (que_task > 65530)
+		que_task = 0;
+	dev_unisoc_bt_info(ttyBT_dev,
+						"mtty que_task= %d\n",
+						que_task);
+	que_sche = que_sche - 1;
 
-    stty = container_of(work, struct stty_device, bt_rx_work);
-    if (unlikely(!stty)) {
-        dev_unisoc_bt_err(ttyBT_dev,
-                          "mtty_rx_task mtty is NULL\n");
-        return;
-    }
-    if (atomic_read(&stty->state) == STTY_STATE_OPEN) {
-        do {
-            mutex_lock(&stty->rw_mutex);
-            if (list_empty_careful(&stty->rx_head)) {
-                dev_unisoc_bt_err(ttyBT_dev,
-                                  "mtty over load queue done\n");
-                mutex_unlock(&stty->rw_mutex);
-                break;
-            }
-            rx = list_first_entry_or_null(&stty->rx_head,
-                        struct rx_data, entry);
-            if (!rx) {
-                dev_unisoc_bt_err(ttyBT_dev,
-                                  "mtty over load queue abort\n");
-                mutex_unlock(&stty->rw_mutex);
-                break;
-            }
-            list_del(&rx->entry);
-            mutex_unlock(&stty->rw_mutex);
+	stty = container_of(work, struct stty_device, bt_rx_work);
+	if (unlikely(!stty)) {
+		dev_unisoc_bt_err(ttyBT_dev,
+							"mtty_rx_task mtty is NULL\n");
+		return;
+	}
+	if (atomic_read(&stty->state) == STTY_STATE_OPEN) {
+		do {
+			mutex_lock(&stty->rw_mutex);
+			if (list_empty_careful(&stty->rx_head)) {
+				dev_unisoc_bt_err(ttyBT_dev,
+									"mtty over load queue done\n");
+				mutex_unlock(&stty->rw_mutex);
+				break;
+			}
+			rx = list_first_entry_or_null(&stty->rx_head,
+											struct rx_data, entry);
+			if (!rx) {
+				dev_unisoc_bt_err(ttyBT_dev,
+									"mtty over load queue abort\n");
+				mutex_unlock(&stty->rw_mutex);
+				break;
+			}
+			list_del(&rx->entry);
+			mutex_unlock(&stty->rw_mutex);
 
-            dev_unisoc_bt_err(ttyBT_dev,
-                              "mtty over load working at channel: %d, len: %d\n",
-                              rx->channel, rx->head->len);
-            for (i = 0; i < rx->head->len; i++) {
-                ret = tty_insert_flip_char(mtty->port,
-                            *(rx->head->buf+i), TTY_NORMAL);
-                if (ret != 1) {
-                    i--;
-                    continue;
-                } else {
-                    tty_flip_buffer_push(mtty->port);
-                }
-            }
-            dev_unisoc_bt_err(ttyBT_dev,
-                              "mtty over load cut channel: %d\n",
-                              rx->channel);
-            kfree(rx->head->buf);
-            kfree(rx);
+			dev_unisoc_bt_err(ttyBT_dev,
+								"mtty over load working at channel: %d, len: %d\n",
+								rx->channel, rx->head->len);
+			for (i = 0; i < rx->head->len; i++) {
+				ret = tty_insert_flip_char(mtty->port,
+											*(rx->head->buf+i), TTY_NORMAL);
+				if (ret != 1) {
+					i--;
+					continue;
+				} else {
+					tty_flip_buffer_push(mtty->port);
+				}
+			}
+			dev_unisoc_bt_err(ttyBT_dev,
+								"mtty over load cut channel: %d\n",
+								rx->channel);
+			kfree(rx->head->buf);
+			kfree(rx);
 
-        } while (1);
-    } else {
-        dev_unisoc_bt_info(ttyBT_dev,
-                           "mtty status isn't open, status:%d\n",
-                           atomic_read(&stty->state));
-        mutex_unlock(&stty->stat_lock);
-    }
+		} while (1);
+	} else {
+		dev_unisoc_bt_info(ttyBT_dev,
+							"mtty status isn't open, status:%d\n",
+							atomic_read(&stty->state));
+		mutex_unlock(&stty->stat_lock);
+	}
 }
 
 static int mtty_sipc_rx_cb(int chn, struct mbuf_t *head, struct mbuf_t *tail, int num)
 {
-    int ret = 0, len_send;
-    struct rx_data *rx;
+	int ret = 0, len_send;
+	struct rx_data *rx;
 	len_send = head->len;
 
-    bt_wakeup_host();
-    if (atomic_read(&stty_dev->state) == STTY_STATE_CLOSE) {
-        dev_unisoc_bt_err(ttyBT_dev,
-                          "%s mtty bt is closed abnormally\n",
-                          __func__);
-        sprdwcn_bus_push_list(chn, head, tail, num);
-        return -1;
-    }
+	bt_wakeup_host();
+	if (atomic_read(&stty_dev->state) == STTY_STATE_CLOSE) {
+		dev_unisoc_bt_err(ttyBT_dev,
+							"%s mtty bt is closed abnormally\n",
+							__func__);
+		sprdwcn_bus_push_list(chn, head, tail, num);
+		return -1;
+	}
 
-    if (stty_dev != NULL) {
-        if (!work_pending(&stty_dev->bt_rx_work)) {
-            dev_unisoc_bt_dbg(ttyBT_dev,
-                              "%s tty_insert_flip_string",
-                              __func__);
-            ret = tty_insert_flip_string(stty_dev->port,
-                            (unsigned char *)head->buf + BT_SIPC_HEAD_LEN,
-                            len_send);   // -BT_SDIO_HEAD_LEN
-            dev_unisoc_bt_dbg(ttyBT_dev,
-                              "%s ret: %d, len: %d\n",
-                              __func__, ret, len_send);
-            if (ret)
-                tty_flip_buffer_push(stty_dev->port);
-            if (ret == (len_send)) {
-                dev_unisoc_bt_dbg(ttyBT_dev,
-                                  "%s send success",
-                                  __func__);
-                sprdwcn_bus_push_list(chn, head, tail, num);
-                return 0;
-            }
-        }
+	if (stty_dev != NULL) {
+		if (!work_pending(&stty_dev->bt_rx_work)) {
+			dev_unisoc_bt_dbg(ttyBT_dev,
+								"%s tty_insert_flip_string",
+								__func__);
+			ret = tty_insert_flip_string(stty_dev->port,
+					(unsigned char *)head->buf + BT_SIPC_HEAD_LEN,
+					len_send);   // -BT_SDIO_HEAD_LEN
+			dev_unisoc_bt_dbg(ttyBT_dev,
+								"%s ret: %d, len: %d\n",
+								__func__, ret, len_send);
+			if (ret)
+				tty_flip_buffer_push(stty_dev->port);
+			if (ret == (len_send)) {
+				dev_unisoc_bt_dbg(ttyBT_dev,
+									"%s send success",
+									__func__);
+				sprdwcn_bus_push_list(chn, head, tail, num);
+				return 0;
+			}
+		}
 
-        rx = kmalloc(sizeof(struct rx_data), GFP_KERNEL);
-        if (rx == NULL) {
-            dev_unisoc_bt_err(ttyBT_dev,
-                              "%s rx == NULL\n",
-                              __func__);
-            sprdwcn_bus_push_list(chn, head, tail, num);
-            return -ENOMEM;
-        }
+		rx = kmalloc(sizeof(struct rx_data), GFP_KERNEL);
+		if (rx == NULL) {
+			dev_unisoc_bt_err(ttyBT_dev,
+								"%s rx == NULL\n",
+								__func__);
+			sprdwcn_bus_push_list(chn, head, tail, num);
+			return -ENOMEM;
+		}
 
-        rx->head = head;
-        rx->tail = tail;
-        rx->channel = chn;
-        rx->num = num;
-        rx->head->len = (len_send) - ret;
-        rx->head->buf = kmalloc(rx->head->len, GFP_KERNEL);
-        if (rx->head->buf == NULL) {
-            dev_unisoc_bt_err(ttyBT_dev,
-                              "mtty low memory!\n");
-            kfree(rx);
-            sprdwcn_bus_push_list(chn, head, tail, num);
-            return -ENOMEM;
-        }
+		rx->head = head;
+		rx->tail = tail;
+		rx->channel = chn;
+		rx->num = num;
+		rx->head->len = (len_send) - ret;
+		rx->head->buf = kmalloc(rx->head->len, GFP_KERNEL);
+		if (rx->head->buf == NULL) {
+			dev_unisoc_bt_err(ttyBT_dev,
+								"mtty low memory!\n");
+			kfree(rx);
+			sprdwcn_bus_push_list(chn, head, tail, num);
+			return -ENOMEM;
+		}
 
-        memcpy(rx->head->buf, (unsigned char *)head->buf + BT_SIPC_HEAD_LEN + ret, rx->head->len);
-        sprdwcn_bus_push_list(chn, head, tail, num);
-        mutex_lock(&stty_dev->rw_mutex);
-        dev_unisoc_bt_err(ttyBT_dev,
-                          "mtty over load push %d -> %d, channel: %d len: %d\n",
-                          len_send, ret, rx->channel, rx->head->len);
-        list_add_tail(&rx->entry, &stty_dev->rx_head);
-        mutex_unlock(&stty_dev->rw_mutex);
-        if (!work_pending(&stty_dev->bt_rx_work)) {
-        dev_unisoc_bt_err(ttyBT_dev,
-                          "work_pending\n");
-            queue_work(stty_dev->bt_rx_workqueue,
-                        &stty_dev->bt_rx_work);
-        }
-        return 0;
-    }
-    dev_unisoc_bt_err(ttyBT_dev,
-                      "mtty_rx_cb stty_dev is NULL!!!\n");
+		memcpy(rx->head->buf, (unsigned char *)head->buf + BT_SIPC_HEAD_LEN + ret, rx->head->len);
+		sprdwcn_bus_push_list(chn, head, tail, num);
+		mutex_lock(&stty_dev->rw_mutex);
+		dev_unisoc_bt_err(ttyBT_dev,
+							"mtty over load push %d -> %d, channel: %d len: %d\n",
+							len_send, ret, rx->channel, rx->head->len);
+		list_add_tail(&rx->entry, &stty_dev->rx_head);
+		mutex_unlock(&stty_dev->rw_mutex);
+		if (!work_pending(&stty_dev->bt_rx_work)) {
+		dev_unisoc_bt_err(ttyBT_dev,
+							"work_pending\n");
+		queue_work(stty_dev->bt_rx_workqueue,
+					&stty_dev->bt_rx_work);
+		}
+		return 0;
+	}
+	dev_unisoc_bt_err(ttyBT_dev,
+						"mtty_rx_cb stty_dev is NULL!!!\n");
 
-    return -1;
+	return -1;
 }
 
 static int mtty_sipc_tx_cb(int chn, struct mbuf_t *head, struct mbuf_t *tail, int num)
 {
-    int i;
-    struct mbuf_t *pos = NULL;
-    dev_unisoc_bt_dbg(ttyBT_dev,
-                      "%s channel: %d, head: %p, tail: %p num: %d\n",
-                      __func__, chn, head, tail, num);
-    pos = head;
-    for (i = 0; i < num; i++, pos = pos->next) {
-        kfree(pos->buf);
-        pos->buf = NULL;
-    }
-    if ((sprdwcn_bus_list_free(chn, head, tail, num)) == 0)
-    {
-        up(&sem_id);
-    }
-    else
+	int i;
+	struct mbuf_t *pos = NULL;
+	dev_unisoc_bt_dbg(ttyBT_dev,
+						"%s channel: %d, head: %p, tail: %p num: %d\n",
+						__func__, chn, head, tail, num);
+	pos = head;
+	for (i = 0; i < num; i++, pos = pos->next) {
+		kfree(pos->buf);
+		pos->buf = NULL;
+	}
+	if ((sprdwcn_bus_list_free(chn, head, tail, num)) == 0)
+	{
+		up(&sem_id);
+	}
+	else
 		dev_unisoc_bt_err(ttyBT_dev,"%s sprdwcn_bus_list_free() fail\n", __func__);
 
-    return 0;
+	return 0;
 }
 
 static int stty_open(struct tty_struct *tty, struct file *filp)
@@ -342,8 +340,8 @@ static int stty_open(struct tty_struct *tty, struct file *filp)
 	struct stty_device *stty = NULL;
 	struct tty_driver *driver = NULL;
 
-    data_dump = (bt_host_data_dump* )vmalloc(sizeof(bt_host_data_dump));
-    memset(data_dump, 0 , sizeof(bt_host_data_dump));
+	data_dump = (bt_host_data_dump* )vmalloc(sizeof(bt_host_data_dump));
+	memset(data_dump, 0 , sizeof(bt_host_data_dump));
 
 	dev_unisoc_bt_info(ttyBT_dev,"stty_open\n");
 
@@ -406,43 +404,43 @@ static void stty_close(struct tty_struct *tty, struct file *filp)
 	rf2351_vddwpa_ctrl_power_enable(0);
 #endif
 
-    if (data_dump != NULL) {
-       vfree(data_dump);
-       data_dump = NULL;
-    }
+	if (data_dump != NULL) {
+		vfree(data_dump);
+		data_dump = NULL;
+	}
 }
 
 static int mtty_sipc_write(struct tty_struct *tty,
-            const unsigned char *buf, int count)
+			const unsigned char *buf, int count)
 {
 	int num = 1, ret;
-    struct mbuf_t *tx_head = NULL, *tx_tail = NULL;
-    unsigned char *block = NULL;
+	struct mbuf_t *tx_head = NULL, *tx_tail = NULL;
+	unsigned char *block = NULL;
 
-    if (is_user_debug) {
-        bt_host_data_save(buf, count, BT_DATA_OUT);
-    }
+	if (is_user_debug) {
+		bt_host_data_save(buf, count, BT_DATA_OUT);
+	}
 
-    if (log_level == MTTY_LOG_LEVEL_VER) {
-        if (buf[0] == COMMAND_HEAD) {
-            dev_unisoc_bt_err(ttyBT_dev,
-                          "%s dump cmd %02X %02X %02X %02X \n",
-                          __func__, buf[0], buf[1], buf[2],buf[3]);
-        }
-    }
+	if (log_level == MTTY_LOG_LEVEL_VER) {
+		if (buf[0] == COMMAND_HEAD) {
+			dev_unisoc_bt_err(ttyBT_dev,
+								"%s dump cmd %02X %02X %02X %02X \n",
+								__func__, buf[0], buf[1], buf[2],buf[3]);
+		}
+	}
 
-    block = kmalloc(count + BT_SIPC_HEAD_LEN, GFP_KERNEL);
+	block = kmalloc(count + BT_SIPC_HEAD_LEN, GFP_KERNEL);
 
-    if (!block) {
-        dev_unisoc_bt_err(ttyBT_dev,
-                          "%s kmalloc failed\n",
-                          __func__);
-        return -ENOMEM;
-    }
-    memset(block, 0, count + BT_SIPC_HEAD_LEN);
-    memcpy(block + BT_SIPC_HEAD_LEN, buf, count);
-    down(&sem_id);
-    ret = sprdwcn_bus_list_alloc(BT_SIPC_TX_CHANNEL, &tx_head, &tx_tail, &num);
+	if (!block) {
+		dev_unisoc_bt_err(ttyBT_dev,
+							"%s kmalloc failed\n",
+							__func__);
+		return -ENOMEM;
+	}
+	memset(block, 0, count + BT_SIPC_HEAD_LEN);
+	memcpy(block + BT_SIPC_HEAD_LEN, buf, count);
+	down(&sem_id);
+	ret = sprdwcn_bus_list_alloc(BT_SIPC_TX_CHANNEL, &tx_head, &tx_tail, &num);
 	if (ret) {
 		dev_unisoc_bt_err(ttyBT_dev,
 							"%s sprdwcn_bus_list_alloc failed: %d\n",
@@ -471,7 +469,7 @@ static int mtty_sipc_write(struct tty_struct *tty,
 }
 
 static int mtty_write(struct tty_struct *tty,
-            const unsigned char *buf, int count)
+			const unsigned char *buf, int count)
 {
 	int mcount;
 	mcount = mtty_sipc_write(tty,buf,count);
@@ -484,7 +482,7 @@ static int stty_data_transmit(uint8_t *data, size_t count)
 }
 
 static int stty_write_plus(struct tty_struct *tty,
-	      const unsigned char *buf, int count)
+			const unsigned char *buf, int count)
 {
 	return sitm_write(buf, count, stty_data_transmit);
 }
@@ -509,7 +507,6 @@ static const struct tty_operations stty_ops = {
 static struct tty_port *stty_port_init(void)
 {
 	struct tty_port *port = NULL;
-
 
 	port = kzalloc(sizeof(struct tty_port), GFP_KERNEL);
 	if (port == NULL)
@@ -582,40 +579,40 @@ static int stty_parse_dt(struct stty_init_data **init, struct device *dev)
 	if (!pdata){
 		dev_unisoc_bt_err(ttyBT_dev,"dubugw pdata!\n");
 		return -ENOMEM;
-    }
+	}
 	ret = of_property_read_string(np,
-				      "sprd,name",
-				      (const char **)&pdata->name);
+									"sprd,name",
+									(const char **)&pdata->name);
 	if (ret){
 		dev_unisoc_bt_err(ttyBT_dev,"dubugw name!\n");
 		goto error;
-    }
+	}
 
 	ret = of_property_read_u32(np, "sprd,dst", (uint32_t *)&data);
 	if (ret){
 		dev_unisoc_bt_err(ttyBT_dev,"dubugw dst!\n");
 		goto error;
-    }
+	}
 	pdata->dst = (uint8_t)data;
 
 	ret = of_property_read_u32(np, "sprd,channel", (uint32_t *)&data);
 	if (ret){
 		dev_unisoc_bt_err(ttyBT_dev,"dubugw channel!\n");
 		goto error;
-    }
+	}
 	pdata->channel = (uint8_t)data;
 
 	ret = of_property_read_u32(np, "sprd,tx_bufid", (uint32_t *)&pdata->tx_bufid);
 	if (ret){
 		dev_unisoc_bt_err(ttyBT_dev,"dubugw tx_bufid!\n");
 		goto error;
-    }
+	}
 
 	ret = of_property_read_u32(np, "sprd,rx_bufid", (uint32_t *)&pdata->rx_bufid);
 	if (ret){
 		dev_unisoc_bt_err(ttyBT_dev,"dubugw rx_bufid!\n");
 		goto error;
-    }
+	}
 
 	*init = pdata;
 	return 0;
@@ -636,19 +633,19 @@ static inline void stty_destroy_pdata(struct stty_init_data **init,
 }
 
 struct mchn_ops_t bt_sipc_rx_ops = {
-    .channel = BT_SIPC_RX_CHANNEL,
-    .hif_type = HW_TYPE_SIPC,
+	.channel = BT_SIPC_RX_CHANNEL,
+	.hif_type = HW_TYPE_SIPC,
 	.inout = BT_RX_INOUT,
-    .pool_size = BT_RX_POOL_SIZE,
-    .pop_link = mtty_sipc_rx_cb,
+	.pool_size = BT_RX_POOL_SIZE,
+	.pop_link = mtty_sipc_rx_cb,
 };
 
 struct mchn_ops_t bt_sipc_tx_ops = {
-    .channel = BT_SIPC_TX_CHANNEL,
-    .hif_type = HW_TYPE_SIPC,
+	.channel = BT_SIPC_TX_CHANNEL,
+	.hif_type = HW_TYPE_SIPC,
 	.inout = BT_TX_INOUT,
-    .pool_size = BT_TX_POOL_SIZE,
-    .pop_link = mtty_sipc_tx_cb,
+	.pool_size = BT_TX_POOL_SIZE,
+	.pop_link = mtty_sipc_tx_cb,
 };
 
 static int  stty_probe(struct platform_device *pdev)
@@ -671,14 +668,14 @@ static int  stty_probe(struct platform_device *pdev)
 						"stty: after parse device tree, name=%s, dst=%u, channel=%u, tx_bufid=%u, rx_bufid=%u\n",
 						pdata->name, pdata->dst, pdata->channel, pdata->tx_bufid, pdata->rx_bufid);
 
-    stty = kzalloc(sizeof(struct stty_device), GFP_KERNEL);
+	stty = kzalloc(sizeof(struct stty_device), GFP_KERNEL);
 	ttyBT_dev = &pdev->dev;
-    if (stty == NULL) {
-        stty_destroy_pdata(&pdata, &pdev->dev);
-        pr_err("stty Failed to allocate device!\n");
-        return -ENOMEM;
-    }
-    memset(stty, 0 ,sizeof(struct stty_device));
+	if (stty == NULL) {
+		stty_destroy_pdata(&pdata, &pdev->dev);
+		pr_err("stty Failed to allocate device!\n");
+		return -ENOMEM;
+	}
+	memset(stty, 0 ,sizeof(struct stty_device));
 
 	stty->pdata = pdata;
 	rval = stty_driver_init(stty);
@@ -702,17 +699,17 @@ static int  stty_probe(struct platform_device *pdev)
 	INIT_LIST_HEAD(&stty->rx_head);
 
 	stty->bt_rx_workqueue = create_singlethread_workqueue("SPRDBT_RX_QUEUE");
-    if (!stty->bt_rx_workqueue) {
+	if (!stty->bt_rx_workqueue) {
 		stty_driver_exit(stty);
-        kfree(stty->port);
-        kfree(stty);
-        stty_destroy_pdata(&pdata, &pdev->dev);
-        dev_unisoc_bt_err(ttyBT_dev,
-                          "%s SPRDBT_RX_QUEUE create failed",
-                          __func__);
-        return -ENOMEM;
-    }
-    INIT_WORK(&stty->bt_rx_work, stty_rx_work_queue);
+		kfree(stty->port);
+		kfree(stty);
+		stty_destroy_pdata(&pdata, &pdev->dev);
+		dev_unisoc_bt_err(ttyBT_dev,
+							"%s SPRDBT_RX_QUEUE create failed",
+							__func__);
+		return -ENOMEM;
+	}
+	INIT_WORK(&stty->bt_rx_work, stty_rx_work_queue);
 
 	if (sysfs_create_group(&pdev->dev.kobj,
 			&bluetooth_group)) {
@@ -726,14 +723,14 @@ static int  stty_probe(struct platform_device *pdev)
 
 	sprdwcn_bus_chn_init(&bt_sipc_rx_ops);
 	sprdwcn_bus_chn_init(&bt_sipc_tx_ops);
-    sema_init(&sem_id, BT_TX_POOL_SIZE - 1);
+	sema_init(&sem_id, BT_TX_POOL_SIZE - 1);
 
 	dev_unisoc_bt_info(ttyBT_dev,"mtty_probe successful!\n");
 
 	return 0;
 }
 
-static int  stty_remove(struct platform_device *pdev)
+static int stty_remove(struct platform_device *pdev)
 {
 	struct stty_device *stty = platform_get_drvdata(pdev);
 
@@ -742,8 +739,8 @@ static int  stty_remove(struct platform_device *pdev)
 	sprdwcn_bus_chn_deinit(&bt_sipc_tx_ops);
 	kfree(stty->port);
 	stty_destroy_pdata(&stty->pdata, &pdev->dev);
-    flush_workqueue(stty_dev->bt_rx_workqueue);
-    destroy_workqueue(stty_dev->bt_rx_workqueue);
+	flush_workqueue(stty_dev->bt_rx_workqueue);
+	destroy_workqueue(stty_dev->bt_rx_workqueue);
 	devm_kfree(&pdev->dev, stty);
 	platform_set_drvdata(pdev, NULL);
 	sysfs_remove_group(&pdev->dev.kobj, &bluetooth_group);
