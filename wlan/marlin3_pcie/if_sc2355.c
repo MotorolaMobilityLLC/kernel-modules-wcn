@@ -98,6 +98,7 @@ static int sprdwl_push_link(struct sprdwl_intf *intf, int chn,
 	wl_debug("%s: start send chn %d, num %d\n", __func__, chn, num);
 
 	for (i = 0; i < num; i++) {
+#ifndef SIPC_SUPPORT
 #ifdef CONFIG_SPRD_WCN_DEBUG
 		unsigned int zero_phy = 0;
 
@@ -106,6 +107,7 @@ static int sprdwl_push_link(struct sprdwl_intf *intf, int chn,
 				pos->phy, (long unsigned int)pos->buf, chn);
 			BUG_ON(1);
 		}
+#endif
 #endif
 		if ((i == num) && (pos != tail)) {
 			wl_info("num of head to tail is not match\n");
@@ -244,10 +246,6 @@ inline int if_tx_addr_trans(struct sprdwl_intf *intf,
 			if (SPRDWL_HW_SC2355_PCIE == intf->priv->hw_type)
 				mbuf->phy = mm_virt_to_phys(&intf->pdev->dev, mbuf->buf,
 						mbuf->len, DMA_TO_DEVICE);
-			else if (SPRDWL_HW_SIPC == intf->priv->hw_type) {
-				mbuf->phy = virt_to_phys(mbuf->buf) | SPRDWL_MH_ADDRESS_BIT;
-			}
-
 			if (rx_if->addr_trans_head) {
 				((struct mbuf_t *)
 					rx_if->addr_trans_tail)->next = head;
@@ -632,9 +630,6 @@ int sprdwl_intf_tx_list(struct sprdwl_intf *dev,
 							mbuf_pos->phy =
 								mm_virt_to_phys(&dev->pdev->dev, mbuf_pos->buf,
 				    					mbuf_pos->len, DMA_TO_DEVICE);
-						else if (SPRDWL_HW_SIPC == dev->priv->hw_type)
-							mbuf_pos->phy = virt_to_phys(mbuf_pos->buf) | SPRDWL_MH_ADDRESS_BIT;
-
 						if (sprdwl_debug_level >= L_DBG)
 							sprdwl_hex_dump("tx to addr trans",
 								(unsigned char *)(mbuf_pos->buf), mbuf_pos->len);
@@ -657,9 +652,6 @@ int sprdwl_intf_tx_list(struct sprdwl_intf *dev,
 					if (SPRDWL_HW_SC2355_PCIE == dev->priv->hw_type)
 						mbuf_pos->phy =mm_virt_to_phys(&dev->pdev->dev,
 							mbuf_pos->buf,mbuf_pos->len, DMA_TO_DEVICE);
-					else if (SPRDWL_HW_SIPC == dev->priv->hw_type)
-						mbuf_pos->phy = virt_to_phys(mbuf_pos->buf) | SPRDWL_MH_ADDRESS_BIT;
-
 					if (sprdwl_debug_level >= L_DBG)
 						sprdwl_hex_dump("tx to addr trans",
 							(unsigned char *)(mbuf_pos->buf), mbuf_pos->len);
@@ -706,9 +698,6 @@ int sprdwl_intf_tx_list(struct sprdwl_intf *dev,
 	if (SPRDWL_HW_SC2355_PCIE == dev->priv->hw_type)
 		mbuf_pos->phy = mm_virt_to_phys(&dev->pdev->dev,
 			mbuf_pos->buf, mbuf_pos->len, DMA_TO_DEVICE);
-	else if (SPRDWL_HW_SIPC == dev->priv->hw_type)
-		mbuf_pos->phy = virt_to_phys(mbuf_pos->buf) | SPRDWL_MH_ADDRESS_BIT;
-
 	if (sprdwl_debug_level >= L_DBG)
 		sprdwl_hex_dump("tx to addr trans",
 			(unsigned char *)(mbuf_pos->buf), mbuf_pos->len);
