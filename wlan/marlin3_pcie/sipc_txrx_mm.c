@@ -57,8 +57,8 @@ int sipc_buf_mm_init(int num, struct sipc_buf_mm *buf_mm)
 {
 	int i;
 	struct sprdwl_msg_list *list = &buf_mm->nlist;
-	struct sipc_buf_node *node;
-	struct sipc_buf_node *pos;
+	struct sipc_buf_node *node = NULL;
+	struct sipc_buf_node *pos = NULL;
 	void *ptr = buf_mm->virt_start;
 
 	if (!list)
@@ -74,7 +74,7 @@ int sipc_buf_mm_init(int num, struct sipc_buf_mm *buf_mm)
 	atomic_set(&list->flow, 0);
 
 	for (i = 0; i < num; i++) {
-		node = kmalloc(sizeof(*node), GFP_KERNEL);
+		node = kzalloc(sizeof(*node), GFP_KERNEL);
 		if(!node){
 			wl_err("%s: alloc rx node failed.\n", __func__);
 			goto err_alloc;
@@ -85,6 +85,7 @@ int sipc_buf_mm_init(int num, struct sipc_buf_mm *buf_mm)
 			wl_err("%s out of memory, alloc buf node num %d!\n",
 				__func__, num);
 			list->maxnum = num;
+			kfree(node);
 			return 0;
 		}
 
