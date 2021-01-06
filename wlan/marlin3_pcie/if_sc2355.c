@@ -95,7 +95,8 @@ static int sprdwl_push_link(struct sprdwl_intf *intf, int chn,
 	struct mbuf_t *pos = head;
 	int i = 0;
 
-	wl_debug("%s: start send chn %d, num %d\n", __func__, chn, num);
+	wl_debug("%s: start send chn %d, num %d, head %p, tail %p\n",
+		 __func__, chn, num, head, tail);
 
 	for (i = 0; i < num; i++) {
 #ifndef SIPC_SUPPORT
