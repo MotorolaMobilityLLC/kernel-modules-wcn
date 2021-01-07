@@ -133,6 +133,7 @@ static const char *cmd2str(u8 cmd)
 	C2S(WIFI_CMD_SET_PROTECT_MODE)
 	C2S(WIFI_CMD_GET_PROTECT_MODE)
 	C2S(WIFI_CMD_DOWNLOAD_INI)
+	C2S(WIFI_CMD_PACKET_OFFLOAD)
 #ifdef DFS_MASTER
 	C2S(WIFI_CMD_RADAR_DETECT)
 	C2S(WIFI_CMD_RESET_BEACON)
@@ -3647,6 +3648,33 @@ int sprdwl_set_tlv_data(struct sprdwl_priv *priv, u8 ctx_id,
 	wl_info("%s tlv type = %d\n", __func__, tlv->type);
 
 	return sprdwl_cmd_send_recv(priv, msg, CMD_WAIT_TIMEOUT, NULL, NULL);
+}
+
+int sprdwl_set_packet_offload(struct sprdwl_priv *priv, u8 vif_ctx_id,
+			      u32 req, u8 enable, u32 interval,
+			      u32 len, u8 *data)
+{
+	struct sprdwl_msg_buf *msg;
+	struct sprdwl_cmd_packet_offload *p;
+	struct sprdwl_cmd_packet_offload *packet = NULL;
+	u16 r_len = sizeof(*packet);
+	u8 r_buf[r_len];
+
+	msg = sprdwl_cmd_getbuf(priv, sizeof(*p) + len, vif_ctx_id,
+				SPRDWL_HEAD_RSP, WIFI_CMD_PACKET_OFFLOAD);
+	if (!msg)
+		return -ENOMEM;
+	p = (struct sprdwl_cmd_packet_offload *)msg->data;
+
+	p->enable = enable;
+	p->req_id = req;
+	if (enable) {
+		p->period = interval;
+		p->len = len;
+		memcpy(p->data, data, len);
+	}
+
+	return sprdwl_cmd_send_recv(priv, msg, CMD_WAIT_TIMEOUT, r_buf, &r_len);
 }
 
 void sprdwl_set_tlv_elmt(u8 *addr, u16 type, u16 len, u8 *data)

@@ -103,6 +103,7 @@ enum sprdwl_vendor_subcommand_id {
 	SPRDWL_VENDOR_SUBCMD_PNO_NETWORK_FOUND = 72,
 	SPRDWL_VENDOR_SUBCMD_GET_LOGGER_FEATURE_SET = 76,
 	SPRDWL_VENDOR_SUBCMD_GET_RING_DATA = 77,
+	SPRDWL_VENDOR_SUBCMD_OFFLOADED_PACKETS = 79,
 	SPRDWL_VENDOR_SUBCMD_MONITOR_RSSI = 80,
 	SPRDWL_VENDOR_SUBCMD_ENABLE_ND_OFFLOAD = 82,
 	SPRDWL_VENDOR_SUBCMD_GET_WAKE_REASON_STATS = 85,
@@ -1704,6 +1705,26 @@ struct wifi_passpoint_network {
 	unsigned char plmn[3];
 };
 
+enum offloaded_packets_sending_control {
+	OFFLOADED_PACKETS_SENDING_CONTROL_INVALID = 0,
+	OFFLOADED_PACKETS_SENDING_START,
+	OFFLOADED_PACKETS_SENDING_STOP
+};
+
+enum sprdwl_attr_offloaded_packets {
+	OFFLOADED_PACKETS_INVALID = 0,
+	OFFLOADED_PACKETS_SENDING_CONTROL,
+	OFFLOADED_PACKETS_REQUEST_ID,
+	OFFLOADED_PACKETS_IP_PACKET_DATA,
+	OFFLOADED_PACKETS_SRC_MAC_ADDR,
+	OFFLOADED_PACKETS_DST_MAC_ADDR,
+	OFFLOADED_PACKETS_PERIOD,
+	OFFLOADED_PACKETS_ETHER_PROTO_TYPE,
+	OFFLOADED_PACKETS_AFTER_LAST,
+	OFFLOADED_PACKETS_MAX =
+	OFFLOADED_PACKETS_AFTER_LAST - 1,
+};
+
 void sprdwl_report_gscan_result(struct sprdwl_vif *vif,
 				u32 report_event, u8 bucketid,
 				u16 chan, s16 rssi, const u8 *buf, u16 len);
@@ -1724,5 +1745,8 @@ int sprdwl_vendor_cache_significant_change_result(struct sprdwl_vif *vif,
 int sprdwl_report_acs_lte_event(struct sprdwl_vif *vif);
 int sprdwl_softap_set_sae_para(struct sprdwl_priv *priv, u8 ctx_id, char *data,
 			       int data_len);
+int sprdwl_set_packet_offload(struct sprdwl_priv *priv, u8 vif_ctx_id,
+			      u32 req, u8 enable, u32 interval,
+			      u32 len, u8 *data);
 
 #endif

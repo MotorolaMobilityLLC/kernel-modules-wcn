@@ -183,6 +183,7 @@ enum SPRDWL_CMD_LIST {
 	WIFI_CMD_HANG_RECEIVED = 78,
 	WIFI_CMD_RESET_BEACON = 79,
 	WIFI_CMD_VOWIFI_DATA_PROTECT = 80,
+	WIFI_CMD_PACKET_OFFLOAD = 84,
 	WIFI_CMD_SET_SAE_PARAM = 85,
 	/*Please add new command above line,
 	* conditional compile flag is not recommended
@@ -967,6 +968,15 @@ struct acs_result {
         u32 time_busy;
         u32 time_ext_busy;
 };
+
+/* packet offload struct */
+struct sprdwl_cmd_packet_offload {
+	u32 req_id;
+	u8 enable;
+	u32 period;
+	u16 len;
+	u8 data[0];
+} __packed;
 
 #define		SPRDWL_SAE_PASSPHRASE		1
 #define		SPRDWL_SAE_PASSWORD_ENTRY	2
