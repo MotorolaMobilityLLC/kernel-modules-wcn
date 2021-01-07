@@ -21,7 +21,9 @@
 #include "cmdevt.h"
 #include "work.h"
 #include <linux/dma-mapping.h>
+#ifdef SIPC_SUPPORT
 #include "sipc_txrx_mm.h"
+#endif
 
 extern struct sprdwl_intf_sc2355 g_intf_sc2355;
 

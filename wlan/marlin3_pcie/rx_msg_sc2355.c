@@ -29,7 +29,9 @@
 #include "tcp_ack.h"
 #include <linux/kthread.h>
 #include <uapi/linux/sched/types.h>
+#ifdef SIPC_SUPPORT
 #include "sipc_txrx_mm.h"
+#endif
 
 
 #ifdef SC2355_HW_CSUM

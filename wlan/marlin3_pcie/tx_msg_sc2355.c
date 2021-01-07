@@ -35,7 +35,9 @@
 #include "work.h"
 #include <linux/kthread.h>
 #include "txrx_buf_mm.h"
+#ifdef SIPC_SUPPORT
 #include "sipc_txrx_mm.h"
+#endif
 
 unsigned int g_max_fw_tx_dscr = 0;
 

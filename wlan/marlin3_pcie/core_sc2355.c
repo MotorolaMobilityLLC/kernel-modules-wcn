@@ -43,8 +43,10 @@
 #include "work.h"
 #include <linux/irq.h>
 #include "txrx_buf_mm.h"
+#ifdef SIPC_SUPPORT
 #include "sipc_txrx_mm.h"
 #include "sipc_debug.h"
+#endif
 
 
 #ifdef CONFIG_SPRD_WCN_DEBUG

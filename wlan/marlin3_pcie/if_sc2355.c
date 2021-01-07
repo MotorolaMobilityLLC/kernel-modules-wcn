@@ -25,7 +25,9 @@
 #include "tcp_ack.h"
 #include "pam_wifi_driver.h"
 #include "txrx_buf_mm.h"
+#ifdef SIPC_SUPPORT
 #include "sipc_txrx_mm.h"
+#endif
 
 
 #define INIT_INTF_SC2355(num, type, out, interval, bsize, psize, max,\
