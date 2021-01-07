@@ -522,8 +522,10 @@ void sprdwl_rx_flush_buffer(void *intf)
 	mm_flush_buffer(mm_entry);
 
 	if (SPRDWL_HW_SIPC == ((struct sprdwl_intf *)intf)->priv->hw_type) {
+#ifdef SIPC_SUPPORT
 		wl_err("%s:flush sipc rx buffer\n", __func__);
-		sipc_mm_rx_buf_flush();
+		sipc_mm_rx_buf_flush((struct sprdwl_intf *)intf);
+#endif
 	}
 }
 

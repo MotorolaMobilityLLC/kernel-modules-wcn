@@ -66,10 +66,10 @@ struct sipc_buf_mm {
 	void *virt_start;
 	void *virt_end;
 	unsigned long offset;
-	int len;
-	int type;
-	int buf_count;
-	int padding;
+	u32 len;
+	u32 type;
+	u32 buf_count;
+	u32 padding;
 };
 
 struct sipc_txrx_mm {
@@ -78,31 +78,22 @@ struct sipc_txrx_mm {
 	struct sipc_mem_region smem;
 };
 
-
-
-struct sipc_buf_node *sipc_buf_mm_alloc(struct sipc_buf_mm *mm);
-struct sipc_buf_node *sipc_alloc_tx_buf(void);
-void sipc_free_tx_buf(struct sipc_buf_node *node);
-int sipc_get_tx_buf_len(void);
-int sipc_get_tx_buf_num(void);
-int sipc_txrx_buf_init(struct platform_device *pdev);
-void sipc_txrx_buf_deinit(void);
-struct sipc_buf_node *sipc_rx_alloc_node_buf(void);
-void sipc_mm_rx_buf_deinit(void);
-void sipc_mm_rx_buf_flush(void);
+void sipc_free_tx_buf(struct sprdwl_intf *intf, struct sipc_buf_node *node);
+int sipc_txrx_buf_init(struct platform_device *pdev, struct sprdwl_intf *intf);
+void sipc_mm_rx_buf_deinit(struct sprdwl_intf *intf);
+void sipc_mm_rx_buf_flush(struct sprdwl_intf *intf);
+int sipc_get_tx_buf_num(struct sprdwl_intf *intf);
+void sipc_txrx_buf_deinit(struct sprdwl_intf *intf);
+void sprdwl_sipc_txrx_buf_deinit(struct sprdwl_intf *intf);
+struct sipc_buf_node *sipc_rx_alloc_node_buf(struct sprdwl_intf *intf);
 void sipc_free_node_buf(struct sipc_buf_node *node,
 			 struct sprdwl_msg_list *list);
-struct sipc_buf_mm *sipc_get_rx_mm_buf(void);
-struct sipc_buf_mm *sipc_get_tx_mm_buf(void);
 int sipc_skb_to_tx_buf(struct sprdwl_intf *dev,
 				struct sprdwl_msg_buf *msg_pos);
-struct sk_buff *sipc_rx_mm_buf_to_skb(struct sk_buff *skb);
+struct sk_buff *sipc_rx_mm_buf_to_skb(struct sprdwl_intf *intf,
+				struct sk_buff *skb);
 void sipc_queue_node_buf(struct sipc_buf_node *node,
 			  struct sprdwl_msg_list *list);
-void sipc_rx_list_dump(void);
-void sprdwl_sipc_txrx_buf_deinit(enum sprdwl_hw_type hw_type);
-void sipc_set_address_offset(unsigned long offset);
-unsigned long sipc_get_address_offset(void);
 void *sipc_fill_mbuf(void *data, unsigned int len);
 
 #endif /*__SIPC_TXRX_BUF_MM_H__*/

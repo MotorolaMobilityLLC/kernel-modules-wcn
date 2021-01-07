@@ -646,11 +646,14 @@ int sprdwl_fc_get_send_num(struct sprdwl_tx_msg *tx_msg,
 					  sprdwl_get_tx_buf_num()?
 					  sprdwl_get_tx_buf_num():
 					  g_max_fw_tx_dscr;
-		else if (priv->hw_type == SPRDWL_HW_SIPC)
+		else if (priv->hw_type == SPRDWL_HW_SIPC) {
+#ifdef SIPC_SUPPORT
 			tx_buf_max = g_max_fw_tx_dscr >
-					  sipc_get_tx_buf_num()?
-					  sipc_get_tx_buf_num():
+					  sipc_get_tx_buf_num(tx_msg->intf)?
+					  sipc_get_tx_buf_num(tx_msg->intf):
 					  g_max_fw_tx_dscr;
+#endif
+			}
 
 		free_num = atomic_read(&tx_msg->xmit_msg_list.free_num);
 		if (printk_timed_ratelimit(&caller_jiffies, 1000)) {
@@ -759,11 +762,14 @@ int sprdwl_fc_test_send_num(struct sprdwl_tx_msg *tx_msg,
 				sprdwl_get_tx_buf_num()?
 				sprdwl_get_tx_buf_num():
 				g_max_fw_tx_dscr;
-		else if (priv->hw_type == SPRDWL_HW_SIPC)
+		else if (priv->hw_type == SPRDWL_HW_SIPC) {
+#ifdef SIPC_SUPPORT
 			tx_buf_max = g_max_fw_tx_dscr >
-				sipc_get_tx_buf_num()?
-				sipc_get_tx_buf_num():
+				sipc_get_tx_buf_num(tx_msg->intf)?
+				sipc_get_tx_buf_num(tx_msg->intf):
 				g_max_fw_tx_dscr;
+#endif
+		}
 
 		free_num = atomic_read(&tx_msg->xmit_msg_list.free_num);
 		if (printk_timed_ratelimit(&caller_jiffies, 1000)) {
@@ -1376,14 +1382,14 @@ int sprdwl_tx_msg_func(void *pdev, struct sprdwl_msg_buf *msg)
 							 msg->tran_data, msg->len,
 							 DMA_TO_DEVICE);
 			SAVE_ADDR(msg->tran_data, msg, sizeof(msg));
-		} else {
-			//msg->pcie_addr = virt_to_phys(msg->tran_data) | SPRDWL_MH_ADDRESS_BIT;
-			//msg->pcie_addr &= SPRDWL_MH_SIPC_ADDRESS_BIT;
+		} else if (intf->priv->hw_type == SPRDWL_HW_SIPC){
+#ifdef SIPC_SUPPORT
 			SAVE_ADDR(msg->tran_data, msg, sizeof(msg));
+#endif
 		}
-			sprdwl_queue_data_msg_buf(msg);
-			atomic_inc(&tx_msg->tx_list[msg->mode]->mode_list_num);
-			wl_err_ratelimited("lut=%d,qos_index=%d,tid=%d,lnum=%d,tx data num:%d\n",
+		sprdwl_queue_data_msg_buf(msg);
+		atomic_inc(&tx_msg->tx_list[msg->mode]->mode_list_num);
+		wl_err_ratelimited("lut=%d,qos_index=%d,tid=%d,lnum=%d,tx data num:%d\n",
 					   tx_msg->tx_list[msg->mode]->lut_id,
 					   qos_index,tid,
 					   atomic_read(&msg->data_list->l_num),

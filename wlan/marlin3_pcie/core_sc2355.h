@@ -210,6 +210,9 @@ struct sprdwl_intf {
 #ifdef WMMAC_WFA_CERTIFICATION
 	unsigned char wmm_special_flag;
 #endif
+#ifdef SIPC_SUPPORT
+	struct sipc_txrx_mm  *sipc_mm;
+#endif
 };
 
 void sprdwl_free_data(void *data, int buffer_type);

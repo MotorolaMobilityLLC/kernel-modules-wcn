@@ -19,10 +19,10 @@
 #include "sipc_debug.h"
 #include "sipc_txrx_mm.h"
 
-
+extern struct sprdwl_intf *g_intf;
 void sipc_rx_list_dump(void)
 {
-	struct sipc_buf_mm *mm = sipc_get_rx_mm_buf();
+	struct sipc_buf_mm *mm = g_intf->sipc_mm->rx_buf;
 
 	if (!mm) {
 		wl_err("List is NULL.\n");
@@ -37,7 +37,7 @@ void sipc_rx_list_dump(void)
 
 void sipc_tx_list_dump(void)
 {
-	struct sipc_buf_mm *mm = sipc_get_tx_mm_buf();
+	struct sipc_buf_mm *mm = g_intf->sipc_mm->tx_buf;
 
 	if (!mm) {
 		wl_err("List is NULL.\n");

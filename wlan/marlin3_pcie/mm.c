@@ -278,17 +278,20 @@ static int mm_single_buffer_alloc(struct sprdwl_mm *mm_entry)
 	struct sk_buff *skb = NULL;
 	unsigned long pcie_addr = 0;
 	int ret = -ENOMEM;
-	struct sipc_buf_node *node = NULL;
-	struct sipc_buf_mm *rx_mm = sipc_get_rx_mm_buf();
 	void *buff = NULL;
+#ifdef SIPC_SUPPORT
+	struct sipc_buf_node *node = NULL;
+	struct sipc_buf_mm *rx_mm = NULL;
 	void *pad = NULL;
+#endif
 
 	if (SPRDWL_HW_SIPC == rx_if->intf->priv->hw_type) {
+#ifdef SIPC_SUPPORT
 		skb = dev_alloc_skb(sizeof(unsigned long));
+#endif
 	} else {
 		skb = dev_alloc_skb(SPRDWL_MAX_DATA_RXLEN);
 	}
-	//wl_err("%s, skb %p, skb: 0x%p!\n", __func__, skb, skb->data);
 	if (!skb) {
 		wl_err("%s: alloc skb failed\n", __func__);
 		return ret;
@@ -296,7 +299,9 @@ static int mm_single_buffer_alloc(struct sprdwl_mm *mm_entry)
 
 	buff = skb->data;
 	if (SPRDWL_HW_SIPC == rx_if->intf->priv->hw_type) {
-		node = sipc_rx_alloc_node_buf();
+#ifdef SIPC_SUPPORT
+		rx_mm = rx_if->intf->sipc_mm->rx_buf;
+		node = sipc_rx_alloc_node_buf(rx_if->intf);
 		if(node) {
 			memcpy(skb->data, &node, sizeof(node));
 			pad = node->buf + SPRDWL_MAX_DATA_RXLEN;
@@ -308,6 +313,7 @@ static int mm_single_buffer_alloc(struct sprdwl_mm *mm_entry)
 			dev_kfree_skb(skb);
 			return -1;
 		}
+#endif
 	}
 
 	SAVE_ADDR(skb->data, skb, sizeof(skb));
@@ -317,9 +323,11 @@ static int mm_single_buffer_alloc(struct sprdwl_mm *mm_entry)
 				buff, SPRDWL_MAX_DATA_RXLEN,
 				DMA_FROM_DEVICE);
 	else if (SPRDWL_HW_SIPC == rx_if->intf->priv->hw_type) {
-		pcie_addr = ((unsigned long)buff - sipc_get_address_offset()) | SPRDWL_MH_ADDRESS_BIT;
+#ifdef SIPC_SUPPORT
+		pcie_addr = ((unsigned long)buff - rx_mm->offset) | SPRDWL_MH_ADDRESS_BIT;
 		pcie_addr = pcie_addr & SPRDWL_MH_SIPC_ADDRESS_BIT;
 		wl_debug("%s: sipc_addr is 0x%lx. \n", __func__, pcie_addr);
+#endif
 	}
 
 	if (likely(pcie_addr)) {
@@ -328,16 +336,20 @@ static int mm_single_buffer_alloc(struct sprdwl_mm *mm_entry)
 			wl_err("%s: write addr buf fail: %d\n",
 				__func__, ret);
 			if (SPRDWL_HW_SIPC == rx_if->intf->priv->hw_type) {
+#ifdef SIPC_SUPPORT
 				/*free node*/
 				node->addr = NULL;
 				sipc_free_node_buf(node, &rx_mm->nlist);
+#endif
 			}
 			dev_kfree_skb(skb);
 		} else {
 				skb_queue_tail(&mm_entry->buffer_list, skb);
 				/*queue node to busylist*/
 				if (SPRDWL_HW_SIPC == rx_if->intf->priv->hw_type) {
+#ifdef SIPC_SUPPORT
 					sipc_queue_node_buf(node, &rx_mm->nlist);
+#endif
 				}
 		}
 	}
@@ -370,19 +382,26 @@ static struct sk_buff *mm_single_buffer_unlink(struct sprdwl_mm *mm_entry,
 			container_of(mm_entry, struct sprdwl_rx_if, mm_entry);
 	struct sk_buff *skb = NULL;
 	void *buffer = NULL;
+#ifdef SIPC_SUPPORT
 	struct sipc_buf_node *node = NULL;
 	unsigned long phy_addr = 0;
+	struct sipc_buf_mm *rx_buf = NULL;
+#endif
 
 	if (rx_if->intf->priv->hw_type == SPRDWL_HW_SC2355_PCIE)
 		buffer = mm_phys_to_virt(&rx_if->intf->pdev->dev, pcie_addr,
 				 SPRDWL_MAX_DATA_RXLEN, DMA_FROM_DEVICE, true);
 	else if (rx_if->intf->priv->hw_type == SPRDWL_HW_SIPC) {
+#ifdef SIPC_SUPPORT
+		rx_buf = rx_if->intf->sipc_mm->rx_buf;
 		phy_addr = pcie_addr & (~(SPRDWL_MH_ADDRESS_BIT) & SPRDWL_PHYS_MASK);
 		phy_addr |= SPRDWL_MH_SIPC_ADDRESS_BASE;
-		buffer = (void *)(phy_addr + sipc_get_address_offset());
+		buffer = (void *)(phy_addr + rx_buf->offset);
+#endif
 	}
 
 	if (SPRDWL_HW_SIPC == rx_if->intf->priv->hw_type) {
+#ifdef SIPC_SUPPORT
 		memcpy_fromio(&node, buffer + SPRDWL_MAX_DATA_RXLEN, sizeof(node));
 		if (node && node->addr) {
 			skb = node->addr;
@@ -394,6 +413,7 @@ static struct sk_buff *mm_single_buffer_unlink(struct sprdwl_mm *mm_entry,
 				sipc address 0x%0x\n",__func__, phy_addr, pcie_addr);
 			return NULL;
 		}
+#endif
 	} else {
 		RESTORE_ADDR(skb, buffer, sizeof(skb));
 		skb_unlink(skb, &mm_entry->buffer_list);
@@ -482,11 +502,13 @@ static int mm_buffer_unlink(struct sprdwl_mm *mm_entry,
 
 		skb = mm_single_buffer_unlink(mm_entry, pcie_addr);
 		if (SPRDWL_HW_SIPC == rx_if->intf->priv->hw_type) {
+#ifdef SIPC_SUPPORT
 			if (!skb) {
 				wl_err("%s:Rx address buffer is valid.\n");
 				continue;
 			}
-			skb = sipc_rx_mm_buf_to_skb(skb);
+			skb = sipc_rx_mm_buf_to_skb(rx_if->intf, skb);
+#endif
 		}
 		if (likely(skb)) {
 			if (sprdwl_debug_level >= L_DBG)

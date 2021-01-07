@@ -266,7 +266,7 @@ void adjust_max_fw_tx_dscr(char *buf, unsigned char offset)
 	wl_err("%s, change max_fw_tx_dscr to %d\n", __func__, value);
 }
 
-
+#ifdef SIPC_SUPPORT
 void sipc_txrx_debug(char *buf, unsigned char offset)
 {
     int item = buf[offset] - '0';
@@ -297,6 +297,7 @@ void sipc_txrx_debug(char *buf, unsigned char offset)
 		wl_err("%s, unknown sipc debug type.", __func__);
     }
 }
+#endif
 
 struct debuginfo_s {
 	void (*func)(char *, unsigned char offset);
@@ -317,7 +318,9 @@ struct debuginfo_s {
 #ifdef ENABLE_PAM_WIFI
 	{pam_wifi_debug, "pam_wifi="},
 #endif
+#ifdef SIPC_SUPPORT
     {sipc_txrx_debug, "sipc_txrx_dbg="},
+#endif
 };
 
 /* TODO: Could we use netdev_alloc_frag instead of kmalloc?
@@ -732,7 +735,12 @@ static struct sprdwl_if_ops sprdwl_core_ops = {
 
 enum sprdwl_hw_type sprd_core_get_hwintf_mode(void)
 {
-	return SPRDWL_HW_SIPC;/*TBD*/
+	/*It's better that BSP layer can provide a API interface for this.*/
+#ifdef SIPC_SUPPORT
+	return SPRDWL_HW_SIPC;
+#else
+	return SPRDWL_HW_SC2355_PCIE;
+#endif
 }
 
 void config_wifi_ddr_priority(struct platform_device *pdev)
@@ -823,17 +831,18 @@ static int sprdwl_probe(struct platform_device *pdev)
 		intf->tx_cmd_port = SDIO_TX_CMD_PORT;
 		intf->tx_data_port = SDIO_TX_DATA_PORT;
 	} else if (priv->hw_type == SPRDWL_HW_SIPC) {
+#ifdef SIPC_SUPPORT
 		intf->hif_offset = 0;
 		intf->rx_cmd_port = SIPC_WIFI_CMD_RX;
 		intf->rx_data_port = SIPC_WIFI_DATA0_RX;
 		intf->tx_cmd_port = SIPC_WIFI_CMD_TX;
 		intf->tx_data_port = SIPC_WIFI_DATA0_TX;
-
-		if (sipc_txrx_buf_init(pdev)) {
+		if (sipc_txrx_buf_init(pdev, intf)) {
 			wl_err("%s sipc txrx init failed.\n", __func__);
 			goto err_txrx_buf_init;
 		}
 		wl_info("%s txrx buf init success.\n", __func__);
+#endif
 	}else {
 		intf->hif_offset = 0;
 		intf->rx_cmd_port = PCIE_RX_CMD_PORT;
@@ -888,7 +897,9 @@ err_tx_init:
 err_rx_init:
 	sprdwl_intf_deinit(intf);
 err_if_init:
-	sprdwl_sipc_txrx_buf_deinit(priv->hw_type);
+#ifdef SIPC_SUPPORT
+	sprdwl_sipc_txrx_buf_deinit(intf);
+#endif
 	sprdwl_txrx_buf_deinit();
 err_txrx_buf_init:
 	sprdwl_core_free((struct sprdwl_priv *)intf->priv);
@@ -911,7 +922,9 @@ static int sprdwl_remove(struct platform_device *pdev)
 	sprdwl_tx_deinit(intf);
 	sprdwl_rx_deinit(intf);
 	sprdwl_intf_deinit(intf);
-	sprdwl_sipc_txrx_buf_deinit(priv->hw_type);
+#ifdef SIPC_SUPPORT
+	sprdwl_sipc_txrx_buf_deinit(intf);
+#endif
 	sprdwl_txrx_buf_deinit();
 	sprdwl_core_free(priv);
 	kfree(intf);

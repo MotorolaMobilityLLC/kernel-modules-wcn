@@ -34,25 +34,6 @@
 #include <linux/seq_file.h>
 #include <linux/slab.h>
 
-static struct sipc_txrx_mm *g_txrx_buf;
-static unsigned long addr_offset;
-
-struct sipc_buf_mm *sipc_get_rx_mm_buf(void)
-{
-	if (!g_txrx_buf)
-		return NULL;
-
-	return  g_txrx_buf->rx_buf;
-}
-
-struct sipc_buf_mm *sipc_get_tx_mm_buf(void)
-{
-	if (!g_txrx_buf)
-		return NULL;
-
-	return  g_txrx_buf->tx_buf;
-}
-
 int sipc_buf_mm_init(int num, struct sipc_buf_mm *buf_mm)
 {
 	int i;
@@ -96,7 +77,7 @@ int sipc_buf_mm_init(int num, struct sipc_buf_mm *buf_mm)
 		node->location = SIPC_LOC_BUFF_FREE;
 		node->ctxt_id = 0;
 		node->addr = NULL;
-		memset_io(node->buf, 0x0, SPRDWL_MAX_DATA_RXLEN);
+		memset_io(node->buf, 0x0, buf_mm->len);
 		list_add_tail(&node->list, &list->freelist);
 		atomic_inc(&list->ref);
 		ptr += buf_mm->len;
@@ -206,9 +187,10 @@ void sipc_queue_node_buf(struct sipc_buf_node *node,
 	spin_unlock_bh(&list->busylock);
 }
 
-void sipc_free_tx_buf(struct sipc_buf_node *node)
+void sipc_free_tx_buf(struct sprdwl_intf *intf,
+						struct sipc_buf_node *node)
 {
-	struct sipc_buf_mm *tx_buf = sipc_get_tx_mm_buf();
+	struct sipc_buf_mm *tx_buf = intf->sipc_mm->tx_buf;
 
 	if (tx_buf == NULL) {
 		wl_err("%s:Tx_buf is not init.\n", __func__);
@@ -220,17 +202,13 @@ void sipc_free_tx_buf(struct sipc_buf_node *node)
 
 }
 
-int sipc_get_tx_buf_num(void)
+int sipc_get_tx_buf_num(struct sprdwl_intf *intf)
 {
 	int num;
-	struct sipc_buf_mm *tx_buf = sipc_get_tx_mm_buf();
-
-	if (tx_buf == NULL)
-		return 0;
+	struct sipc_buf_mm *tx_buf = intf->sipc_mm->tx_buf;
 
 	num = atomic_read(&tx_buf->nlist.ref);
 
-	//wl_err("%s: Free tx node num %d.\n", __func__, num);
 	return num;
 }
 
@@ -296,6 +274,7 @@ void *sipc_pkt_txrx_mm(phys_addr_t start, size_t size)
 	kfree(pages);
 	return vaddr;
 }
+
 static inline int
 sipc_pkt_mem_map(struct platform_device *pdev,
 				struct sipc_mem_region *smem)
@@ -324,7 +303,6 @@ sipc_pkt_mem_map(struct platform_device *pdev,
 		wl_err("Failed mapping mem\n");
 		return -ENOMEM;
 	}
-	sipc_set_address_offset((unsigned long)smem->virt_base - (unsigned long)smem->phy_base);
 
 	wl_info("Allocated reserved memory, vaddr: 0x%llx, paddr: 0x%llx\n",
 			(u64)smem->virt_base, smem->phy_base);
@@ -399,30 +377,32 @@ err_mm_init:
 	return -1;
 }
 
-int sipc_txrx_buf_init(struct platform_device *pdev)
+int sipc_txrx_buf_init(struct platform_device *pdev, struct sprdwl_intf *intf)
 {
 	int ret;
+	struct sipc_txrx_mm  *txrx_mm = NULL;
 
-	g_txrx_buf = kzalloc(sizeof(struct sipc_txrx_mm), GFP_KERNEL);
-	if (!g_txrx_buf) {
+	intf->sipc_mm = kzalloc(sizeof(struct sipc_txrx_mm), GFP_KERNEL);
+	if (!intf->sipc_mm) {
 		wl_err("%s: alloc sprdwl_txrx_mm fail", __func__);
 		return -1;
 	}
 
-	ret = sipc_pkt_mem_map(pdev, &g_txrx_buf->smem);
+	txrx_mm = intf->sipc_mm;
+	ret = sipc_pkt_mem_map(pdev, &txrx_mm->smem);
 	if (ret) {
 		wl_err("%s:pkt mem map fail", __func__);
 		return ret;
 	}
 
-	ret = sipc_init_tx_mm(g_txrx_buf);
+	ret = sipc_init_tx_mm(txrx_mm);
 	if (ret) {
 		wl_err("%s: init_tx_mm fail", __func__);
 		goto err_memunmap;
 	}
 	wl_err("%s: init_tx_mm success", __func__);
 
-	ret = sipc_init_rx_mm(g_txrx_buf);
+	ret = sipc_init_rx_mm(txrx_mm);
 	if (ret) {
 		wl_err("%s: init_rx_mm fail", __func__);
 		goto err_init_rx;
@@ -432,28 +412,29 @@ int sipc_txrx_buf_init(struct platform_device *pdev)
 	return 0;
 
 err_init_rx:
-	kfree(g_txrx_buf->tx_buf);
-	sipc_buf_mm_deinit(&g_txrx_buf->tx_buf->nlist);
+	kfree(txrx_mm->tx_buf);
+	sipc_buf_mm_deinit(&txrx_mm->tx_buf->nlist);
 
 err_memunmap:
-	vm_unmap_ram(g_txrx_buf->smem.virt_base, g_txrx_buf->smem.page_count);
-	kfree(g_txrx_buf);
-	g_txrx_buf = NULL;
+	vm_unmap_ram(txrx_mm->smem.virt_base, txrx_mm->smem.page_count);
+	kfree(txrx_mm);
+	intf->sipc_mm = NULL;
+	txrx_mm = NULL;
 
 	return ret;
 }
 
-void sipc_mm_rx_buf_deinit(void)
+void sipc_mm_rx_buf_deinit(struct sprdwl_intf *intf)
 {
-	struct sipc_buf_mm *buf_mm = sipc_get_rx_mm_buf();
+	struct sipc_buf_mm *buf_mm = intf->sipc_mm->rx_buf;
 
 	if (buf_mm)
 		sipc_txrx_buf_single_deinit(buf_mm);
 }
 
-void sipc_mm_rx_buf_flush(void)
+void sipc_mm_rx_buf_flush(struct sprdwl_intf *intf)
 {
-	struct sipc_buf_mm *buf_mm = sipc_get_rx_mm_buf();
+	struct sipc_buf_mm *buf_mm = intf->sipc_mm->rx_buf;
 	struct sprdwl_msg_list *list;
 	struct sipc_buf_node *node = NULL, *pos_node = NULL;
 	unsigned long flags = 0;
@@ -475,24 +456,26 @@ void sipc_mm_rx_buf_flush(void)
 	spin_unlock_irqrestore(&list->busylock, flags);
 }
 
-void sipc_txrx_buf_deinit(void)
+void sipc_txrx_buf_deinit(struct sprdwl_intf *intf)
 {
+	struct sipc_txrx_mm *sipc_mm = intf->sipc_mm;
 	struct sipc_buf_mm *buf_mm = NULL;
 
-	if (g_txrx_buf) {
-		buf_mm = g_txrx_buf->tx_buf;
+	if (sipc_mm) {
+		buf_mm = sipc_mm->tx_buf;
 		if (buf_mm->type == SIPC_TXRX_BUF_SINGLE_TYPE)
 			sipc_txrx_buf_single_deinit(buf_mm);
 
-		buf_mm  = g_txrx_buf->rx_buf;
+		buf_mm = sipc_mm->rx_buf;
 		if (buf_mm->type == SIPC_TXRX_BUF_SINGLE_TYPE)
 			sipc_txrx_buf_single_deinit(buf_mm);
 
-		if (g_txrx_buf->smem.virt_base)
-			vm_unmap_ram(g_txrx_buf->smem.virt_base, g_txrx_buf->smem.page_count);
+		if (sipc_mm->smem.virt_base)
+			vm_unmap_ram(sipc_mm->smem.virt_base, sipc_mm->smem.page_count);
 
-		kfree(g_txrx_buf);
-		g_txrx_buf = NULL;
+		kfree(sipc_mm);
+		intf->sipc_mm = NULL;
+		sipc_mm = NULL;
 	}
 
 }
@@ -506,7 +489,7 @@ int sipc_skb_to_tx_buf(struct sprdwl_intf *intf,
 	struct sipc_buf_mm *tx_buf = NULL;
 	void *pad = NULL;
 
-	tx_buf = sipc_get_tx_mm_buf();
+	tx_buf = intf->sipc_mm->tx_buf;
 	if (!tx_buf)
 		return -1;
 
@@ -533,13 +516,14 @@ int sipc_skb_to_tx_buf(struct sprdwl_intf *intf,
 	return 0;
 }
 
-struct sk_buff *sipc_rx_mm_buf_to_skb(struct sk_buff *skb)
+struct sk_buff *sipc_rx_mm_buf_to_skb(struct sprdwl_intf *intf,
+				struct sk_buff *skb)
 {
 	struct sk_buff *nskb = NULL;
 	struct sipc_buf_mm *rx_buf = NULL;
 	struct sipc_buf_node *node = NULL;
 
-	rx_buf = sipc_get_rx_mm_buf();
+	rx_buf = intf->sipc_mm->rx_buf;
 	memcpy_toio(&node, skb->data, sizeof(node));
 
 	nskb = dev_alloc_skb(SPRDWL_MAX_DATA_RXLEN);
@@ -558,9 +542,9 @@ err_alloc:
 	return nskb;
 }
 
-struct sipc_buf_node *sipc_rx_alloc_node_buf(void)
+struct sipc_buf_node *sipc_rx_alloc_node_buf(struct sprdwl_intf *intf)
 {
-	struct sipc_buf_mm *rx_buf = sipc_get_rx_mm_buf();
+	struct sipc_buf_mm *rx_buf = intf->sipc_mm->rx_buf;
 
 	if (!rx_buf) {
 		wl_err("%s:rx buf is NULL.\n", __func__);
@@ -571,22 +555,13 @@ struct sipc_buf_node *sipc_rx_alloc_node_buf(void)
 }
 
 
-void sipc_set_address_offset(unsigned long offset)
+void sprdwl_sipc_txrx_buf_deinit(struct sprdwl_intf *intf)
 {
-	addr_offset = offset;
-}
+	enum sprdwl_hw_type hw_type = intf->priv->hw_type;
 
-unsigned long sipc_get_address_offset(void)
-{
-	return addr_offset;
-}
-
-void sprdwl_sipc_txrx_buf_deinit(enum sprdwl_hw_type hw_type)
-{
 	if (SPRDWL_HW_SIPC == hw_type)
-		sipc_txrx_buf_deinit();
+		sipc_txrx_buf_deinit(intf);
 }
-
 
 void *sipc_fill_mbuf(void *data, unsigned int len)
 {

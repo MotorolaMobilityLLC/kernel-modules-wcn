@@ -673,9 +673,12 @@ int sprdwl_intf_tx_list(struct sprdwl_intf *dev,
 
 			if (msg_pos->skb) {
 				if (SPRDWL_HW_SC2355_PCIE == dev->priv->hw_type)
-						sprdwl_skb_to_tx_buf(dev, msg_pos);
-				else if (SPRDWL_HW_SIPC == dev->priv->hw_type)
-						sipc_skb_to_tx_buf(dev, msg_pos);
+					sprdwl_skb_to_tx_buf(dev, msg_pos);
+				else if (SPRDWL_HW_SIPC == dev->priv->hw_type) {
+#ifdef SIPC_SUPPORT
+					sipc_skb_to_tx_buf(dev, msg_pos);
+#endif
+				}
 			}
 
 			wl_debug("debug pcie addr: 0x%lx\n", msg_pos->pcie_addr);
@@ -1330,13 +1333,15 @@ static int sprdwl_sc2355_rx_handle(int chn, struct mbuf_t *head, struct mbuf_t *
 		//pos->buf = NULL;
 
 		if (intf->priv->hw_type == SPRDWL_HW_SIPC) {
+#ifdef SIPC_SUPPORT
 			msg->buffer_type = SPRDWL_RSERVE_MEM;
 			msg->tran_data = sipc_fill_mbuf(pos->buf, pos->len);
 			msg->data = msg->tran_data;
+#endif
 		}
 		sprdwl_queue_msg_buf(msg, &rx_if->rx_list);
 
-/*add this for debugging cmd timeout*/
+		/*add this for debugging cmd timeout*/
 #ifdef SIPC_SUPPORT
 		if (SIPC_WIFI_CMD_RX == chn &&
 			SPRDWL_TYPE_CMD == SPRDWL_HEAD_GET_TYPE(msg->data)) {
@@ -1658,10 +1663,12 @@ static inline int sprdwl_tx_free_txc_msg(struct sprdwl_tx_msg *tx_msg,
 	spin_unlock_irqrestore(&tx_msg->xmit_msg_list.free_lock, lockflag_txc);
 
 	if (SPRDWL_HW_SIPC == hw_type) {
+#ifdef SIPC_SUPPORT
 		if (msg_buf->sipc_node) {
-			sipc_free_tx_buf(msg_buf->sipc_node);
+			sipc_free_tx_buf(tx_msg->intf, msg_buf->sipc_node);
 			msg_buf->sipc_node = NULL;
 		}
+#endif
 	} else if (SPRDWL_HW_SC2355_PCIE == hw_type) {
 		if (msg_buf->node) {
 			sprdwl_free_tx_buf(msg_buf->node);
@@ -1687,7 +1694,6 @@ int sprdwl_tx_free_pcie_data(struct sprdwl_priv *priv, unsigned char *data)
 	struct sprdwl_tx_msg *tx_msg = (struct sprdwl_tx_msg *)dev->sprdwl_tx;
 	void *data_addr_ptr = NULL;
 	unsigned long long pcie_addr = 0;
-	unsigned long phy_addr;
 	unsigned short	data_num;
 	struct txc_addr_buff *txc_addr;
 	unsigned char (*pos)[5];
@@ -1695,8 +1701,10 @@ int sprdwl_tx_free_pcie_data(struct sprdwl_priv *priv, unsigned char *data)
 #if defined(MORE_DEBUG)
 	unsigned long tx_start_time = 0;
 #endif
+#ifdef SIPC_SUPPORT
+	unsigned long phy_addr;
 	struct sipc_buf_node *node = NULL;
-
+#endif
 
 	static unsigned long caller_jiffies = 0;
 
@@ -1729,18 +1737,21 @@ int sprdwl_tx_free_pcie_data(struct sprdwl_priv *priv, unsigned char *data)
 						SPRDWL_MAX_DATA_TXLEN,
 						DMA_TO_DEVICE, false);
 		} else if(SPRDWL_HW_SIPC == dev->priv->hw_type) {
+#ifdef SIPC_SUPPORT
 			phy_addr = pcie_addr & (~(SPRDWL_MH_ADDRESS_BIT) & SPRDWL_PHYS_MASK);
 			phy_addr = phy_addr | SPRDWL_MH_SIPC_ADDRESS_BASE;
-			data_addr_ptr = (void *)(phy_addr + sipc_get_address_offset());
+			data_addr_ptr = (void *)(phy_addr + dev->sipc_mm->tx_buf->offset);
+#endif
 		}
 		msg_buf = NULL;
 		if (SPRDWL_HW_SC2355_PCIE == dev->priv->hw_type)
 			RESTORE_ADDR(msg_buf, data_addr_ptr, sizeof(msg_buf));
 		else if (SPRDWL_HW_SIPC == dev->priv->hw_type) {
+#ifdef SIPC_SUPPORT
 			memcpy_fromio(&node, (char *)data_addr_ptr + SPRDWL_MAX_DATA_TXLEN, sizeof(node));
 			msg_buf = node->priv;
+#endif
 		}
-
 		if (last_msg_buf == msg_buf) {
 			wl_info("%s: same msg buf: %lx, %lx\n", __func__,
 				 (unsigned long)msg_buf, (unsigned long)last_msg_buf);
@@ -1956,7 +1967,7 @@ struct mchn_ops_t pcie_hif_ops[] = {
 			NULL, NULL, NULL),
 };
 
-
+#ifdef SIPC_SUPPORT
 struct mchn_ops_t sipc_hif_ops[] = {
 	/* RX channels */
 	INIT_INTF_SC2355(SIPC_WIFI_CMD_RX, 2, 0, 0, SPRDWL_MAX_CMD_RXLEN,
@@ -1981,7 +1992,7 @@ struct mchn_ops_t sipc_hif_ops[] = {
 			64, 0, 0, 0, 1, 4, sprdwl_tx_data_pop_list,
 			NULL, NULL, NULL),
 };
-
+#endif
 
 struct sprdwl_peer_entry
 *sprdwl_find_peer_entry_using_lut_index(struct sprdwl_intf *intf,
@@ -2248,8 +2259,10 @@ int sprdwl_intf_init(struct sprdwl_priv *priv, struct sprdwl_intf *intf)
 		g_intf_sc2355.hif_ops = pcie_hif_ops;
 		g_intf_sc2355.max_num = sizeof(pcie_hif_ops)/sizeof(struct mchn_ops_t);
 	} else if (SPRDWL_HW_SIPC == priv->hw_type){
+#ifdef SIPC_SUPPORT
 		g_intf_sc2355.hif_ops = sipc_hif_ops;
 		g_intf_sc2355.max_num = sizeof(sipc_hif_ops)/sizeof(struct mchn_ops_t);
+#endif
 	}
 	g_intf_sc2355.intf = (void *)intf;
 	g_intf = intf;

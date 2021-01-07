@@ -8,7 +8,7 @@
 #   done is this Kbuild file
 #
 
-ifeq ($(filter $(strip $(BSP_BOARD_WLAN_DEVICE)),sc2332 sc2355 marlin3_pcie),)
+ifeq ($(filter $(strip $(BSP_BOARD_WLAN_DEVICE)),sc2332 sc2355 marlin3_sipc),)
 $(error no BSP_BOARD_WLAN_DEVICE, pls fix it !!!)
 endif
 
@@ -17,8 +17,13 @@ WLAN_DEVICE := $(strip $(BSP_BOARD_WLAN_DEVICE))
 #
 # Source List
 #
-KO_MODULE_NAME := sprdwl_ng
+
+ifeq ($(strip $(WLAN_DEVICE)),marlin3_sipc)
+KO_MODULE_PATH := $(src)/marlin3_pcie
+else
 KO_MODULE_PATH := $(src)/$(WLAN_DEVICE)
+endif
+KO_MODULE_NAME := sprdwl_ng
 KO_MODULE_SRC  :=
 
 KO_MODULE_SRC += \
@@ -46,7 +51,7 @@ ccflags-y += -DTCPACK_DELAY_SUPPORT
   ccflags-y += -DCONFIG_SPRD_WCN_DEBUG
   endif
 ccflags-y += -DSPLIT_STACK
-else ifeq ($(strip $(WLAN_DEVICE)),marlin3_pcie)
+else ifeq ($(strip $(WLAN_DEVICE)),marlin3_sipc)
 ccflags-y += -DSC2355_FTR -DSC2355_TX_FILTER -DSC2355_QOS_MAP
 ccflags-y += -DIBSS_SUPPORT -DIBSS_RSN_SUPPORT
 ccflags-y += -DNAN_SUPPORT
@@ -71,8 +76,28 @@ endif
 #
 obj-m := $(KO_MODULE_NAME).o
 # Comment it if the only object file has the same name with module
+
+ifeq ($(strip $(WLAN_DEVICE)),marlin3_sipc)
+KO_SRC_PATH := marlin3_pcie
+$(KO_MODULE_NAME)-y += $(addprefix $(KO_SRC_PATH)/,main.o cfg80211.o txrx.o \
+						cmdevt.o npi.o msg.o work.o vendor.o tcp_ack.o mm.o \
+						reorder.o core_sc2355.o tx_msg_sc2355.o rx_msg_sc2355.o \
+						if_sc2355.o qos.o edma_test.o)
+
+$(KO_MODULE_NAME)-y += $(addprefix $(KO_SRC_PATH)/,defrag.o)
+$(KO_MODULE_NAME)-y += $(addprefix $(KO_SRC_PATH)/,ibss.o)
+$(KO_MODULE_NAME)-y += $(addprefix $(KO_SRC_PATH)/,nan.o)
+$(KO_MODULE_NAME)-y += $(addprefix $(KO_SRC_PATH)/,tracer.o)
+$(KO_MODULE_NAME)-y += $(addprefix $(KO_SRC_PATH)/,rf_marlin3.o)
+$(KO_MODULE_NAME)-y += $(addprefix $(KO_SRC_PATH)/,rtt.o)
+$(KO_MODULE_NAME)-y += $(addprefix $(KO_SRC_PATH)/,api_version.o)
+$(KO_MODULE_NAME)-y += $(addprefix $(KO_SRC_PATH)/,rnd_mac_addr.o)
+$(KO_MODULE_NAME)-y += $(addprefix $(KO_SRC_PATH)/,softap_hook.o)
+$(KO_MODULE_NAME)-y += $(addprefix $(KO_SRC_PATH)/,debug.o)
+$(KO_MODULE_NAME)-y += $(addprefix $(KO_SRC_PATH)/,txrx_buf_mm.o)
+# support for sipc
+$(KO_MODULE_NAME)-y += $(addprefix $(KO_SRC_PATH)/,sipc_txrx_mm.o sipc_debug.o)
+
+else
 $(KO_MODULE_NAME)-y := $(patsubst $(src)/%.c,%.o,$(KO_MODULE_SRC))
-ifeq ($(strip $(WLAN_DEVICE)),marlin3_pcie)
-EXCLUDE_OBJ := $(addprefix marlin3_pcie/, 11h.o pam_wifi.o)
-$(KO_MODULE_NAME)-y := $(filter-out $(EXCLUDE_OBJ),$($(KO_MODULE_NAME)-y))
 endif
