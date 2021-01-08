@@ -19,9 +19,15 @@ struct version_t {
 
 /*[Section 2: Board Config]*/
 struct board_config_t {
+#ifndef SIPC_SUPPORT
 	uint16_t calib_bypass;
 	uint8_t txchain_mask;
 	uint8_t rxchain_mask;
+#else
+	uint16_t calibration_bypass;
+	uint8_t g2_chain_mask;
+	uint8_t g5_chain_mask;
+#endif
 };
 
 /*[Section 3: Board Config TPC]*/
@@ -39,8 +45,13 @@ struct tpc_element_lut_t {
 };
 /*[Section 4: TPC-LUT]*/
 struct tpc_lut_t {
+#ifndef SIPC_SUPPORT
 	struct tpc_element_lut_t chain0_lut[8];
 	struct tpc_element_lut_t chain1_lut[8];
+#else
+	struct tpc_element_lut_t g2_lut[8];
+	struct tpc_element_lut_t g5_lut[8];
+#endif
 };
 
 /*[Section 5: Board Config Frequency Compensation]*/
@@ -54,21 +65,40 @@ struct board_conf_freq_comp_t {
 
 /*[Section 6: Rate To Power with BW 20M]*/
 struct power_20m_t {
+#ifndef SIPC_SUPPORT
 	int8_t power_11b[4];
 	int8_t power_11ag[8];
 	int8_t power_11n[17];
 	int8_t power_11ac[20];
 	int8_t reserved[3];
+#else
+	int8_t power_11b[4];
+	int8_t power_11g[8];
+	int8_t power_11a[8];
+	int8_t power_2g_11n[17];
+	int8_t power_5g_11n[17];
+	int8_t power_11ac[20];
+	int8_t reserved[3];
+#endif
 };
 
 /*[Section 7: Power Backoff]*/
 struct power_backoff_t {
 	int8_t green_wifi_offset;
+#ifndef SIPC_SUPPORT
 	int8_t ht40_power_offset;
+#else
+	int8_t ht40_2g_power_offset;
+	int8_t ht40_5g_power_offset;
+#endif
 	int8_t vht40_power_offset;
 	int8_t vht80_power_offset;
 	int8_t sar_power_offset;
 	int8_t mean_power_offset;
+#ifdef SIPC_SUPPORT
+	int8_t apc_mode;
+	int8_t magic_word;
+#endif
 	int8_t reserved[2];
 };
 
@@ -96,8 +126,19 @@ struct tx_scale_t {
 struct misc_t {
 	int8_t dfs_switch;
 	int8_t power_save_switch;
+#ifndef SIPC_SUPPORT
 	int8_t fem_lan_param_setup;
+#endif
 	int8_t rssi_report_diff;
+#ifdef SIPC_SUPPORT
+	int8_t ex_fem_en;
+	int8_t tx_en_ctrl;
+	int8_t lna_en_ctrl;
+	int8_t sw_en_ctrl;
+	int8_t lna_gain;
+	int8_t lna_bypass_gain;
+	int8_t ex_fem_pdet;
+#endif
 };
 
 /*[Section 12: debug reg]*/

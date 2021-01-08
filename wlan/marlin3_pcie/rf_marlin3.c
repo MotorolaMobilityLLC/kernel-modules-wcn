@@ -41,9 +41,15 @@ static struct nvm_name_table g_config_table[] = {
 
 	/* [SETCTION 2]Board Config: board_config_t
 	 */
+#ifndef SIPC_SUPPORT
 	CF_TAB("Calib_Bypass", board_config.calib_bypass, 2),
 	CF_TAB("TxChain_Mask", board_config.txchain_mask, 1),
 	CF_TAB("RxChain_Mask", board_config.rxchain_mask, 1),
+#else
+	CF_TAB("Calibration_Bypass", board_config.calibration_bypass, 2),
+	CF_TAB("2G_Chain_Mask", board_config.g2_chain_mask, 1),
+	CF_TAB("5G_Chain_Mask", board_config.g5_chain_mask, 1),
+#endif
 
 	/* [SETCTION 3]Board Config TPC: board_config_tpc_t
 	 */
@@ -52,6 +58,7 @@ static struct nvm_name_table g_config_table[] = {
 	CF_TAB("TPC_Goal_Chain1", board_config_tpc.tpc_goal_chain1[0], 2),
 	/* [SETCTION 4]TPC-LUT: tpc_lut_t
 	 */
+#ifndef SIPC_SUPPORT
 	CF_TAB("Chain0_LUT_0", tpc_lut.chain0_lut[0], 1),
 	CF_TAB("Chain0_LUT_1", tpc_lut.chain0_lut[1], 1),
 	CF_TAB("Chain0_LUT_2", tpc_lut.chain0_lut[2], 1),
@@ -68,6 +75,24 @@ static struct nvm_name_table g_config_table[] = {
 	CF_TAB("Chain1_LUT_5", tpc_lut.chain1_lut[5], 1),
 	CF_TAB("Chain1_LUT_6", tpc_lut.chain1_lut[6], 1),
 	CF_TAB("Chain1_LUT_7", tpc_lut.chain1_lut[7], 1),
+#else
+	CF_TAB("2G_LUT_0", tpc_lut.g2_lut[0], 1),
+	CF_TAB("2G_LUT_1", tpc_lut.g2_lut[1], 1),
+	CF_TAB("2G_LUT_2", tpc_lut.g2_lut[2], 1),
+	CF_TAB("2G_LUT_3", tpc_lut.g2_lut[3], 1),
+	CF_TAB("2G_LUT_4", tpc_lut.g2_lut[4], 1),
+	CF_TAB("2G_LUT_5", tpc_lut.g2_lut[5], 1),
+	CF_TAB("2G_LUT_6", tpc_lut.g2_lut[6], 1),
+	CF_TAB("2G_LUT_7", tpc_lut.g2_lut[7], 1),
+	CF_TAB("5G_LUT_0", tpc_lut.g5_lut[0], 1),
+	CF_TAB("5G_LUT_1", tpc_lut.g5_lut[1], 1),
+	CF_TAB("5G_LUT_2", tpc_lut.g5_lut[2], 1),
+	CF_TAB("5G_LUT_3", tpc_lut.g5_lut[3], 1),
+	CF_TAB("5G_LUT_4", tpc_lut.g5_lut[4], 1),
+	CF_TAB("5G_LUT_5", tpc_lut.g5_lut[5], 1),
+	CF_TAB("5G_LUT_6", tpc_lut.g5_lut[6], 1),
+	CF_TAB("5G_LUT_7", tpc_lut.g5_lut[7], 1),
+#endif
 
 	/*[SETCTION 5]Board Config Frequency Compensation:
 	 * board_conf_freq_comp_t
@@ -83,19 +108,37 @@ static struct nvm_name_table g_config_table[] = {
 
 	/*[SETCTION 6]Rate To Power with BW 20M: power_20m_t
 	 */
+#ifndef SIPC_SUPPORT
 	CF_TAB("11b_Power", power_20m.power_11b[0], 1),
 	CF_TAB("11ag_Power", power_20m.power_11ag[0], 1),
 	CF_TAB("11n_Power", power_20m.power_11n[0], 1),
 	CF_TAB("11ac_Power", power_20m.power_11ac[0], 1),
+#else
+	CF_TAB("11b_Power", power_20m.power_11b[0], 1),
+	CF_TAB("11g_Power", power_20m.power_11g[0], 1),
+	CF_TAB("11a_Power", power_20m.power_11a[0], 1),
+	CF_TAB("11n_2G_Power", power_20m.power_2g_11n[0], 1),
+	CF_TAB("11n_5G_Power", power_20m.power_5g_11n[0], 1),
+	CF_TAB("11ac_Power", power_20m.power_11ac[0], 1),
+#endif
 
 	/*[SETCTION 7]Power Backoff:power_backoff_t
 	 */
 	CF_TAB("Green_WIFI_offset", power_backoff.green_wifi_offset, 1),
+#ifndef SIPC_SUPPORT
 	CF_TAB("HT40_Power_offset", power_backoff.ht40_power_offset, 1),
+#else
+	CF_TAB("HT40_2G_Power_offset", power_backoff.ht40_2g_power_offset, 1),
+	CF_TAB("HT40_5G_Power_offset", power_backoff.ht40_5g_power_offset, 1),
+#endif
 	CF_TAB("VHT40_Power_offset", power_backoff.vht40_power_offset, 1),
 	CF_TAB("VHT80_Power_offset", power_backoff.vht80_power_offset, 1),
 	CF_TAB("SAR_Power_offset", power_backoff.sar_power_offset, 1),
 	CF_TAB("Mean_Power_offset", power_backoff.mean_power_offset, 1),
+#ifdef SIPC_SUPPORT
+	CF_TAB("APC_mode", power_backoff.apc_mode, 1),
+	CF_TAB("MAGIC_word", power_backoff.magic_word,1),
+#endif
 
 	/*[SETCTION 8]Reg Domain:reg_domain_t
 	 */
@@ -194,9 +237,19 @@ static struct nvm_name_table g_config_table[] = {
 	 */
 	CF_TAB("DFS_switch", misc.dfs_switch, 1),
 	CF_TAB("power_save_switch", misc.power_save_switch, 1),
+#ifndef SIPC_SUPPORT
 	CF_TAB("ex-Fem_and_ex-LNA_param_setup", misc.fem_lan_param_setup, 1),
+#endif
 	CF_TAB("rssi_report_diff", misc.rssi_report_diff, 1),
-
+#ifdef SIPC_SUPPORT
+	CF_TAB("Ex_FEM_En", misc.ex_fem_en, 1),
+	CF_TAB("TX_En_Ctrl", misc.tx_en_ctrl, 1),
+	CF_TAB("LNA_En_Ctrl", misc.lna_en_ctrl, 1),
+	CF_TAB("SW_En_Ctrl", misc.sw_en_ctrl, 1),
+	CF_TAB("LNA_Gain", misc.lna_gain, 1),
+	CF_TAB("LNA_Bypass_Gain", misc.lna_bypass_gain, 1),
+	CF_TAB("Ex_FEM_PDET", misc.ex_fem_pdet, 1),
+#endif
 	/*[SETCTION 12]debug reg:debug_reg_t
 	 */
 	CF_TAB("address", debug_reg.address[0], 4),
@@ -237,8 +290,9 @@ static struct nvm_name_table g_config_table[] = {
 	CF_TAB("roaming_5g_prefer", wifi_param.roaming_param.band_5g_prefer, 1),
 };
 
-static int find_type(char key)
+static int find_type(char key, char *str, int *index_ptr)
 {
+	int index = *index_ptr;
 	if ((key >= 'a' && key <= 'w') ||
 		(key >= 'y' && key <= 'z') ||
 		(key >= 'A' && key <= 'W') ||
@@ -252,6 +306,11 @@ static int find_type(char key)
 		('X' == key) ||
 		('.' == key))
 		return 3;
+	if ((index > 0) && (str[index - 1] == ',') &&
+		(key == '\r')&&(str[index + 1] == '\n')) {
+		*index_ptr = index + 1;
+		return 0;
+	}
 	if ((key == '\0') ||
 		('\r' == key) ||
 		('\n' == key) ||
@@ -311,7 +370,7 @@ static void get_cmd_par(char *str, struct nvm_cali_cmd *cmd)
 
 	for (i = 0, j = 0;; i++) {
 		c = str[i];
-		cType = find_type(c);
+		cType = find_type(c, str, &i);
 		if ((1 == cType) ||
 			(2 == cType) ||
 			(3 == cType)) {
