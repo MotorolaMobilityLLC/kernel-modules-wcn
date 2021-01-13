@@ -43,7 +43,6 @@ struct sipc_buf_node {
 	u8 ctxt_id;
 	u8 location;
 	u8 resv;
-	void *addr;
 	void *buf;
 	void *priv;
 } __packed;
@@ -90,7 +89,7 @@ void sipc_free_node_buf(struct sipc_buf_node *node,
 			 struct sprdwl_msg_list *list);
 int sipc_skb_to_tx_buf(struct sprdwl_intf *dev,
 				struct sprdwl_msg_buf *msg_pos);
-struct sk_buff *sipc_rx_mm_buf_to_skb(struct sprdwl_intf *intf,
+int sipc_rx_mm_buf_to_skb(struct sprdwl_intf *intf,
 				struct sk_buff *skb);
 void sipc_queue_node_buf(struct sipc_buf_node *node,
 			  struct sprdwl_msg_list *list);

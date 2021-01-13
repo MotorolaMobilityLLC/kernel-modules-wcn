@@ -76,7 +76,6 @@ int sipc_buf_mm_init(int num, struct sipc_buf_mm *buf_mm)
 		node->flag = SIPC_MEMORY_FREE;
 		node->location = SIPC_LOC_BUFF_FREE;
 		node->ctxt_id = 0;
-		node->addr = NULL;
 		memset_io(node->buf, 0x0, buf_mm->len);
 		list_add_tail(&node->list, &list->freelist);
 		atomic_inc(&list->ref);
@@ -221,7 +220,6 @@ sipc_txrx_buf_single_deinit(struct sipc_buf_mm *mm)
 
 	spin_lock_irqsave(&list->busylock, flags);
 	list_for_each_entry_safe(node, pos_node, &list->busylist, list) {
-		node->addr = NULL;
 		node->priv = NULL;
 		list_del(&node->list);
 		memset_io(node->buf, 0, mm->len);
@@ -232,7 +230,6 @@ sipc_txrx_buf_single_deinit(struct sipc_buf_mm *mm)
 	flags = 0;
 	spin_lock_irqsave(&list->freelock, flags);
 	list_for_each_entry_safe(node, pos_node, &list->freelist, list) {
-		node->addr = NULL;
 		node->priv = NULL;
 		list_del(&node->list);
 		memset_io(node->buf, 0, mm->len);
@@ -450,7 +447,7 @@ void sipc_mm_rx_buf_flush(struct sprdwl_intf *intf)
 		list_del(&node->list);
 		atomic_dec(&list->flow);
 		memset_io(node->buf, 0, buf_mm->len);
-		node->addr = NULL;
+		node->priv = NULL;
 		sipc_free_node_buf(node, list);
 	}
 	spin_unlock_irqrestore(&list->busylock, flags);
@@ -516,30 +513,20 @@ int sipc_skb_to_tx_buf(struct sprdwl_intf *intf,
 	return 0;
 }
 
-struct sk_buff *sipc_rx_mm_buf_to_skb(struct sprdwl_intf *intf,
+int sipc_rx_mm_buf_to_skb(struct sprdwl_intf *intf,
 				struct sk_buff *skb)
 {
-	struct sk_buff *nskb = NULL;
 	struct sipc_buf_mm *rx_buf = NULL;
 	struct sipc_buf_node *node = NULL;
 
 	rx_buf = intf->sipc_mm->rx_buf;
 	memcpy_toio(&node, skb->data, sizeof(node));
-
-	nskb = dev_alloc_skb(SPRDWL_MAX_DATA_RXLEN);
-	if (!nskb) {
-		wl_err("%s:rx mm alloc skb failed.\n", __func__);
-		goto err_alloc;
-	}
-	memcpy_fromio(nskb->data, node->buf, SPRDWL_MAX_DATA_RXLEN);
-
-err_alloc:
+	memcpy_fromio(skb->data, node->buf, SPRDWL_MAX_DATA_RXLEN);
 	memset_io(node->buf, 0, rx_buf->len);
-	node->addr = NULL;
+	node->priv = NULL;
 	sipc_dequeue_node_to_freelist(node, &rx_buf->nlist);
-	dev_kfree_skb(skb);
 
-	return nskb;
+	return 0;
 }
 
 struct sipc_buf_node *sipc_rx_alloc_node_buf(struct sprdwl_intf *intf)

@@ -287,13 +287,7 @@ static int mm_single_buffer_alloc(struct sprdwl_mm *mm_entry)
 	void *pad = NULL;
 #endif
 
-	if (SPRDWL_HW_SIPC == rx_if->intf->priv->hw_type) {
-#ifdef SIPC_SUPPORT
-		skb = dev_alloc_skb(sizeof(unsigned long));
-#endif
-	} else {
-		skb = dev_alloc_skb(SPRDWL_MAX_DATA_RXLEN);
-	}
+	skb = dev_alloc_skb(SPRDWL_MAX_DATA_RXLEN);
 	if (!skb) {
 		wl_err("%s: alloc skb failed\n", __func__);
 		return ret;
@@ -309,7 +303,7 @@ static int mm_single_buffer_alloc(struct sprdwl_mm *mm_entry)
 			pad = node->buf + SPRDWL_MAX_DATA_RXLEN;
 			memcpy_toio(pad, &node, sizeof(node));
 			buff = node->buf;
-			node->addr = (void *)skb;
+			node->priv = (void *)skb;
 		} else {
 			wl_err("%s: Node list is NULL. \n", __func__);
 			dev_kfree_skb(skb);
@@ -340,7 +334,7 @@ static int mm_single_buffer_alloc(struct sprdwl_mm *mm_entry)
 			if (SPRDWL_HW_SIPC == rx_if->intf->priv->hw_type) {
 #ifdef SIPC_SUPPORT
 				/*free node*/
-				node->addr = NULL;
+				node->priv = NULL;
 				sipc_free_node_buf(node, &rx_mm->nlist);
 #endif
 			}
@@ -405,8 +399,8 @@ static struct sk_buff *mm_single_buffer_unlink(struct sprdwl_mm *mm_entry,
 	if (SPRDWL_HW_SIPC == rx_if->intf->priv->hw_type) {
 #ifdef SIPC_SUPPORT
 		memcpy_fromio(&node, buffer + SPRDWL_MAX_DATA_RXLEN, sizeof(node));
-		if (node && node->addr) {
-			skb = node->addr;
+		if (node && node->priv) {
+			skb = node->priv;
 			skb_unlink(skb, &mm_entry->buffer_list);
 			CLEAR_ADDR(skb->data, sizeof(skb));
 		} else {
@@ -509,7 +503,7 @@ static int mm_buffer_unlink(struct sprdwl_mm *mm_entry,
 				wl_err("%s:Rx address buffer is valid.\n");
 				continue;
 			}
-			skb = sipc_rx_mm_buf_to_skb(rx_if->intf, skb);
+			sipc_rx_mm_buf_to_skb(rx_if->intf, skb);
 #endif
 		}
 		if (likely(skb)) {
