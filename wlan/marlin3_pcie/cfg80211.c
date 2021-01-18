@@ -686,6 +686,9 @@ static inline u8 sprdwl_parse_akm(u32 akm)
 	case WLAN_AKM_SUITE_SAE:
 		ret = SPRDWL_AKM_SUITE_SAE;
 		break;
+	case WLAN_AKM_SUITE_8021X_SUITE_B_192:
+		ret = SPRDWL_AKM_8021X_SUITE_B_192;
+		break;
 	default:
 		ret = SPRDWL_AKM_SUITE_NONE;
 		break;
@@ -718,6 +721,8 @@ static inline u8 sprdwl_parse_cipher(u32 cipher)
 	case WLAN_CIPHER_SUITE_AES_CMAC:
 		ret = SPRDWL_CIPHER_AES_CMAC;
 		break;
+	case WLAN_CIPHER_SUITE_GCMP_256:
+		ret = SPRDWL_CIPHER_GCMP_256;
 	default:
 		ret = SPRDWL_CIPHER_NONE;
 		break;
