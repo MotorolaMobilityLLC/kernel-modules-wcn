@@ -1202,7 +1202,8 @@ static void sprdwl_set_mac_addr(struct sprdwl_vif *vif, u8 *pending_addr,
 	switch (type) {
 	case NL80211_IFTYPE_STATION:
 	case NL80211_IFTYPE_AP:
-		ether_addr_copy(priv->default_mac, addr);
+		if (priv)
+			ether_addr_copy(priv->default_mac, addr);
 		break;
 	case NL80211_IFTYPE_P2P_CLIENT:
 	case NL80211_IFTYPE_P2P_GO:
