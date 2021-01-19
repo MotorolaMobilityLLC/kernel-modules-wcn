@@ -120,11 +120,13 @@ void sipc_buf_mm_deinit(struct sprdwl_msg_list *list)
 
 	list_for_each_entry_safe(node, pos, &list->busylist, list) {
 		list_del(&node->list);
+		kfree(node);
 		atomic_dec(&list->flow);
 	}
 
 	list_for_each_entry_safe(node, pos, &list->freelist, list) {
 		list_del(&node->list);
+		kfree(node);
 		atomic_dec(&list->ref);
 	}
 }
@@ -223,6 +225,7 @@ sipc_txrx_buf_single_deinit(struct sipc_buf_mm *mm)
 		node->priv = NULL;
 		list_del(&node->list);
 		memset_io(node->buf, 0, mm->len);
+		kfree(node);
 		atomic_dec(&list->flow);
 	}
 	spin_unlock_irqrestore(&list->busylock, flags);
@@ -233,6 +236,7 @@ sipc_txrx_buf_single_deinit(struct sipc_buf_mm *mm)
 		node->priv = NULL;
 		list_del(&node->list);
 		memset_io(node->buf, 0, mm->len);
+		kfree(node);
 		atomic_dec(&list->ref);
 	}
 	spin_unlock_irqrestore(&list->freelock, flags);
