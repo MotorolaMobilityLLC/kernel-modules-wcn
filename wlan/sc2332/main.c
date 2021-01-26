@@ -293,6 +293,8 @@ static void sprdwl_tx_timeout(struct net_device *ndev)
 #define CMD_11V_SET_CFG			"11VCFG_SET"
 #define CMD_11V_WNM_SLEEP		"WNM_SLEEP"
 #define CMD_P2P_MAC			"P2PMACADDR"
+#define CMD_SET_SAR			"SET_SAR"
+
 
 static int sprdwl_priv_cmd(struct net_device *ndev, struct ifreq *ifr)
 {
@@ -542,6 +544,17 @@ static int sprdwl_set_power_save(struct net_device *ndev, struct ifreq *ifr)
 			    __func__, value);
 		ret = sprdwl_power_save(priv, vif->mode,
 					SPRDWL_SET_TX_POWER, value);
+	} else if (!strncasecmp(command, CMD_SET_SAR,
+				strlen(CMD_SET_SAR))) {
+		skip = strlen(CMD_SET_SAR) + 1;
+		ret = kstrtoint(command + skip, 0, &value);
+		if (ret)
+			goto out;
+		netdev_info(ndev, "%s: set sar,value : %d\n",
+			    __func__, value);
+		ret = sprdwl_set_sar(priv, vif->mode, SPRDWl_SET_SAR_ABSOLUTE,
+				     value, SPRDWL_SET_SAR_ALL_MODE);
+
 	} else {
 		netdev_err(ndev, "%s command not support\n", __func__);
 		ret = -ENOTSUPP;
