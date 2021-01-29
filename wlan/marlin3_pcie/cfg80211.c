@@ -221,7 +221,10 @@ static const u32 sprdwl_cipher_suites[] = {
 	WLAN_CIPHER_SUITE_GCMP_256,
 	/* required by ieee802.11w */
 	WLAN_CIPHER_SUITE_AES_CMAC,
-	WLAN_CIPHER_SUITE_PMK
+	/* required by wpa3 enterprise */
+	WLAN_CIPHER_SUITE_GCMP_256,
+	WLAN_CIPHER_SUITE_BIP_GMAC_256,
+	WLAN_CIPHER_SUITE_PMK,
 };
 
 /* Supported mgmt frame types to be advertised to cfg80211 */
@@ -723,6 +726,7 @@ static inline u8 sprdwl_parse_cipher(u32 cipher)
 		break;
 	case WLAN_CIPHER_SUITE_GCMP_256:
 		ret = SPRDWL_CIPHER_GCMP_256;
+		break;
 	default:
 		ret = SPRDWL_CIPHER_NONE;
 		break;
