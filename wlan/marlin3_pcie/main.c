@@ -1185,7 +1185,7 @@ static void sprdwl_set_mac_addr(struct sprdwl_vif *vif, u8 *pending_addr,
 		ether_addr_copy(addr, priv->mac_addr);
 	} else if (pending_addr && is_valid_ether_addr(pending_addr)) {
 		ether_addr_copy(addr, pending_addr);
-	} else if (is_valid_ether_addr(priv->default_mac)) {
+	} else if (priv && is_valid_ether_addr(priv->default_mac)) {
 		ether_addr_copy(addr, priv->default_mac);
 	} else if (sprdwl_get_mac_from_file(vif, addr)) {
 		random_ether_addr(addr);
