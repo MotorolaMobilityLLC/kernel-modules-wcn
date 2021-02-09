@@ -1285,7 +1285,7 @@ static int sprdwl_sc2355_rx_handle(int chn, struct mbuf_t *head,
 	struct sprdwl_rx_if *rx_if = (struct sprdwl_rx_if *)intf->sprdwl_rx;
 	struct sprdwl_msg_buf *msg = NULL;
 
-	wl_err("%s: channel:%d head:%p tail:%p num:%d\n",
+	wl_debug("%s: channel:%d head:%p tail:%p num:%d\n",
 		__func__, chn, head, tail, num);
 
 	if (intf->priv->hw_type == SPRDWL_HW_SC2355_PCIE) {
