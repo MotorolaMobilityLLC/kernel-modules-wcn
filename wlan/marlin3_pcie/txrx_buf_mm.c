@@ -230,6 +230,15 @@ int sprdwl_skb_to_tx_buf(struct sprdwl_intf *dev,
 
 	node->ctxt_id = msg_pos->ctxt_id;
 	node->location = LOC_TX_INTF;
+	if (node->addr == NULL) {
+		wl_err("%s %d\n", __func__, __LINE__);
+		return -1;
+	}
+
+	if (msg_pos == NULL) {
+		wl_err("%s %d\n", __func__, __LINE__);
+		return -1;
+	}
 	memcpy(node->addr, &msg_pos, sizeof(msg_pos));
 
 	if (skb->len > sprdwl_get_tx_buf_len()) {

@@ -2058,8 +2058,11 @@ void sprdwl_event_sta_lut(struct sprdwl_vif *vif, u8 *data, u16 len)
 		intf->tx_num[i] = 0;
 		sprdwl_dis_flush_txlist(intf, i);
 #ifdef ENABLE_PAM_WIFI
-		if(vif->mode == SPRDWL_MODE_AP && sta_lut->sta_lut_index > 5)
-			pam_wifi_update_router_table(sta_lut, vif->priv, 1);
+		intf->peer_entry[i].vif = NULL;
+		memset(intf->peer_entry[i].tx.sa, 0x0, ETHER_ADDR_LEN);
+		if(vif->mode == SPRDWL_MODE_AP && sta_lut->sta_lut_index > 5) {
+			pamwifi_update_router_table(vif->priv, sta_lut, vif->mode, 0, 1);
+		}
 #endif
 		break;
 	case UPD_LUT_INDEX:
@@ -2080,8 +2083,14 @@ void sprdwl_event_sta_lut(struct sprdwl_vif *vif, u8 *data, u16 len)
 			sta_lut->ra[3], sta_lut->ra[4], sta_lut->ra[5]);
 		ether_addr_copy(intf->peer_entry[i].tx.da, sta_lut->ra);
 #ifdef ENABLE_PAM_WIFI
-		if(vif->mode == SPRDWL_MODE_AP && sta_lut->sta_lut_index > 5)
-			pam_wifi_update_router_table(sta_lut, vif->priv, 0);
+		intf->peer_entry[i].vif = vif;
+		if(vif->mode == SPRDWL_MODE_AP && sta_lut->sta_lut_index > 5) {
+			if (!vif->ndev)
+				ether_addr_copy(intf->peer_entry[i].tx.sa, vif->wdev.address);
+			else
+				ether_addr_copy(intf->peer_entry[i].tx.sa, vif->ndev->dev_addr);
+			pamwifi_update_router_table(vif->priv, sta_lut, vif->mode, 0, 0);
+		}
 #endif
 		break;
 	default:

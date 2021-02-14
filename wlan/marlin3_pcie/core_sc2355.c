@@ -887,9 +887,6 @@ static int sprdwl_probe(struct platform_device *pdev)
 
 	sprdwl_debugfs_init(intf);
 
-	if(priv->hw_type == SPRDWL_HW_SC2355_PCIE)
-		config_wifi_ddr_priority(pdev);
-
 	return ret;
 
 err_core_init:

@@ -664,4 +664,7 @@ extern u64 pam_wifi_base_addr_remap;
 //---------------------------------------------------------------------------
 
 #define    BIT_PAM_WIFI_DUMMY_REG_DUMMY_REG(_X_)                                             ((_X_) & 0xFFFFFFFF)
+
+void pamwifi_update_router_table(struct sprdwl_priv *priv, struct sprdwl_sta_lut_ind *sta_lut,
+								 u8 vif_mode, u32 index, int flag);
 #endif

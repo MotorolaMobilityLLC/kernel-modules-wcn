@@ -519,6 +519,100 @@ static inline u32 pam_wifi_disable_int_bit(u64 fifo_base, u32 int_bit)
 	return ret;
 }
 
+void pamwifi_update_router_table(struct sprdwl_priv *priv, struct sprdwl_sta_lut_ind *sta_lut,
+								 u8 vif_mode, u32 index, int flag)
+{
+	struct sprdwl_vif *vif;
+	struct sprdwl_intf *intf;
+	int i;
+	u8 router_lut, ram_index, select_ram;
+	u32 temp;
+
+	vif = mode_to_vif(priv, vif_mode);
+	intf = (struct sprdwl_intf *)vif->priv->hw_priv;
+	router_lut = sta_lut->sta_lut_index - 6;
+	ram_index = router_lut / 2;
+	select_ram = router_lut % 2;
+
+	/*check ctx_id*/
+	if (vif->ctx_id != sta_lut->ctx_id) {
+		wl_err("ctx_id do not match!\n");
+		return;
+	}
+
+	if(pamwifi_table_lock() == FALSE)
+	{
+		wl_err("%s pam_wifi_table_lock FALSE\n", __func__);
+	}
+	else
+	{
+		wl_err("%s pam_wifi_table_lock TRUE\n", __func__);
+	}
+
+	if (flag == 0) {
+		if (!select_ram) {
+			/*temp = (u32)(sta_lut->ra[0] |(sta_lut->ra[1] << 8) |(sta_lut->ra[2] << 16) |
+				 	 (sta_lut->ra[3] << 24));*/
+			temp = 0x0l;
+			writel_relaxed(temp, (void *)(PSEL_RAM1 + 16 * ram_index));
+			/*backup*/
+			pamwifi_priv->router_table_backup[router_lut][0] = temp;
+
+			/*consider uc w2w pkt, sa maybe not be marlin3 self mac addr, so only set da*/
+			temp = (u32)((sta_lut->ra[0] << 16) |(sta_lut->ra[1]<< 24));
+			writel_relaxed(temp, (void *)(PSEL_RAM1 + 0x04 + 16 * ram_index ));
+			pamwifi_priv->router_table_backup[router_lut][1] = temp;
+
+			temp = (u32)(sta_lut->ra[2] | (sta_lut->ra[3] << 8) | (sta_lut->ra[4] << 16) |
+				   (sta_lut->ra[5] << 24));
+			writel_relaxed(temp, (void *)(PSEL_RAM1 + 0x08 + 16 * ram_index ));
+			pamwifi_priv->router_table_backup[router_lut][2] = temp;
+
+			temp = (sta_lut->sta_lut_index & 0x3FF) | ((vif->ctx_id & 0x7) << 10) | ((index & 0xFF) << 24);
+			writel_relaxed(temp, (void *)(PSEL_RAM1 + 0x0C + 16 * ram_index ));
+			pamwifi_priv->router_table_backup[router_lut][3] = temp;
+		} else {
+			/*temp = (u32)(sta_lut->ra[0] |(sta_lut->ra[1] << 8) |(sta_lut->ra[2] << 16) |
+				 	 (sta_lut->ra[3] << 24));*/
+			temp = 0x0l;
+			writel_relaxed(temp, (void *)(PSEL_RAM2 + 16 * ram_index));
+			/*backup*/
+			pamwifi_priv->router_table_backup[router_lut][0] = temp;
+
+			temp = (u32)((sta_lut->ra[0] << 16) |(sta_lut->ra[1]<< 24));
+			writel_relaxed(temp, (void *)(PSEL_RAM2 + 0x04 + 16 * ram_index ));
+			/*backup*/
+			pamwifi_priv->router_table_backup[router_lut][1] = temp;
+
+			temp = (u32)(sta_lut->ra[2] | (sta_lut->ra[3] << 8) | (sta_lut->ra[4] << 16) |
+				   (sta_lut->ra[5] << 24));
+			writel_relaxed(temp, (void *)(PSEL_RAM2 + 0x08 + 16 * ram_index ));
+			/*backup*/
+			pamwifi_priv->router_table_backup[router_lut][2] = temp;
+
+			temp = (sta_lut->sta_lut_index & 0x3FF) | ((vif->ctx_id & 0x7) << 10) | ((index & 0xFF) << 24);
+			writel_relaxed(temp, (void *)(PSEL_RAM2 + 0x0C + 16 * ram_index ));
+			/*backup*/
+			pamwifi_priv->router_table_backup[router_lut][3] = temp;
+		}
+	}else if (flag == 1) {
+		if (!select_ram) {
+			writel_relaxed(0x00000000, (void *)(PSEL_RAM1 + 16 * ram_index));
+			writel_relaxed(0x00000000, (void *)(PSEL_RAM1 + 0x04 + 16 * ram_index));
+			writel_relaxed(0x00000000, (void *)(PSEL_RAM1 + 0x08 + 16 * ram_index));
+			writel_relaxed(0x00000000, (void *)(PSEL_RAM1 + 0x0C + 16 * ram_index));
+		} else {
+			writel_relaxed(0x00000000, (void *)(PSEL_RAM2 + 16 * ram_index));
+			writel_relaxed(0x00000000, (void *)(PSEL_RAM2 + 0x04 + 16 * ram_index));
+			writel_relaxed(0x00000000, (void *)(PSEL_RAM2 + 0x08 + 16 * ram_index));
+			writel_relaxed(0x00000000, (void *)(PSEL_RAM2 + 0x0C + 16 * ram_index));
+		}
+		for(i = 0; i < 4; i++)
+			pamwifi_priv->router_table_backup[router_lut][i] = 0;
+	}
+		pamwifi_table_unlock();
+}
+
 static u32 ipa_pkt_to_node(struct data_pkt_tag *pkt, u32 force_intr, struct sipa_node_description_tag *node)
 {
 	node->address	= (u64)(pkt->head_ptr) & 0xFFFFFFFFFFll;

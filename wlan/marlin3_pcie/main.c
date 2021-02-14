@@ -251,8 +251,10 @@ static int sprdwl_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 	}
 
 #ifdef ENABLE_PAM_WIFI
-	ret = sprdwl_xmit_to_ipa_pamwifi(skb, ndev);
-	return ret;
+	if (vif->mode == SPRDWL_MODE_AP) {
+		ret = sprdwl_xmit_to_ipa_pamwifi(skb, ndev);
+		return ret;
+	}
 #if 0
 	/*filter pkt to pam wifi*/
 	if (ethhdr->h_proto == htons(ETH_P_IP)) {

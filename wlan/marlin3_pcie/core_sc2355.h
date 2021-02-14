@@ -85,6 +85,9 @@ struct sprdwl_peer_entry {
 	u8 vowifi_enabled;
 	u8 vowifi_pkt_cnt;
 	struct timespec time[6 + 1];
+#ifdef ENABLE_PAM_WIFI
+	struct sprdwl_vif *vif;
+#endif
 };
 
 #if defined(MORE_DEBUG)
