@@ -255,56 +255,6 @@ static int sprdwl_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 		ret = sprdwl_xmit_to_ipa_pamwifi(skb, ndev);
 		return ret;
 	}
-#if 0
-	/*filter pkt to pam wifi*/
-	if (ethhdr->h_proto == htons(ETH_P_IP)) {
-		intf->skb_da = skb->data;
-		lut_index = sprdwl_find_lut_index(intf, vif);
-		if(lut_index > 5) {
-			//struct eth_dev *dev = netdev_priv(vif->ndev);
-
-			if (skb_headroom(skb) < (32 + NET_IP_ALIGN)) {
-				struct sk_buff *tmp_skb = skb;
-
-				skb = skb_realloc_headroom(skb, 32 + NET_IP_ALIGN);
-				dev_kfree_skb(tmp_skb);
-				if (!skb) {
-					netdev_err(ndev,
-						   "%send to pam wifi, skb_realloc_headroom failed\n",
-						   __func__);
-					goto out;
-				}
-			}
-			ret = sipa_nic_tx(vif->priv->nic_id, SIPA_TERM_WIFI, -1, skb);
-			if (unlikely(ret != 0)) {
-				wl_err("sipa_wifi fail to send skb, ret %d\n", ret);
-				if (ret == -ENOMEM || ret == -EAGAIN) {
-					//netif_stop_queue(net);
-					return NETDEV_TX_BUSY;
-				}
-			}
-			//wl_err("sipa_wifi succ to send skb, ret %d\n", lut_index);
-			wl_err("%s, sipa_wifi succ to send skb, lut_index: %u, macaddr:%02x:%02x:%02x:%02x:%02x:%02x, %02x:%02x:%02x:%02x:%02x:%02x\n",
-				__func__, lut_index, skb->data[0], skb->data[1], skb->data[2],
-				skb->data[3], skb->data[4], skb->data[5], skb->data[6], skb->data[7], skb->data[8],
-				skb->data[9], skb->data[10], skb->data[11]);
-			//sprdwl_hex_dump("sprdwl xmit dump:", skb->data, 100);
-			return NETDEV_TX_OK;
-		}
-	}
-	if (ethhdr->h_proto == htons(ETH_P_IPV6) ||ethhdr->h_proto == htons(ETH_P_IP)) {
-			wl_err("ip pkt send by driver");
-			sprdwl_roc1_pkt_checksum(skb, ndev);
-	}
-	wl_err("%s, macaddr:%02x:%02x:%02x:%02x:%02x:%02x, %02x:%02x:%02x:%02x:%02x:%02x\n",
-			__func__, skb->data[0], skb->data[1], skb->data[2],
-			skb->data[3], skb->data[4], skb->data[5], skb->data[6], skb->data[7], skb->data[8],
-			skb->data[9], skb->data[10], skb->data[11]);
-	//sprdwl_hex_dump("sprdwl xmit dump:", skb->data, 100);
-	sprdwl_xmit_data2cmd_wq(skb, ndev);
-
-	return NETDEV_TX_OK;
-#endif
 #endif
 
 	/*do not send packet before connected*/

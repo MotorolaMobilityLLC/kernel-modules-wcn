@@ -275,17 +275,6 @@ struct sprdwl_priv {
 #define OTT_NO_SUPT	(0)
 #define OTT_SUPT	(1)
 	unsigned char ott_supt;
-#ifdef ENABLE_PAM_WIFI
-	struct sipa_connect_params sipa_params;
-	struct sipa_to_pam_info sipa_info;
-	int state;
-	enum sipa_nic_id nic_id;
-	wait_queue_head_t sipa_recv_wq;
-	struct task_struct *recv_thread;
-	int kthread_stop;
-	struct sk_buff_head buffer_list;
-	unsigned int pam_wifi_miss_irq;
-#endif
 	int is_suspending;
 	int is_screen_off;
 };

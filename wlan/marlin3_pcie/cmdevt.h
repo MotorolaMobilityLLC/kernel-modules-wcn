@@ -21,6 +21,9 @@
 #include "msg.h"
 #include <linux/math64.h>
 #include <linux/pm_wakeup.h>
+#ifdef ENABLE_PAM_WIFI
+#include "pam_wifi.h"
+#endif
 
 #define SPRDWL_VALID_CONFIG		(0x80)
 #define  CMD_WAIT_TIMEOUT		(3000)
@@ -186,6 +189,9 @@ enum SPRDWL_CMD_LIST {
 	WIFI_CMD_VOWIFI_DATA_PROTECT = 80,
 	WIFI_CMD_PACKET_OFFLOAD = 84,
 	WIFI_CMD_SET_SAE_PARAM = 85,
+#ifdef ENABLE_PAM_WIFI
+	WIFI_CMD_UL_RES_STS,
+#endif
 	/*Please add new command above line,
 	* conditional compile flag is not recommended
 	*/
@@ -362,6 +368,9 @@ struct sprdwl_cmd_open {
 	u8 mode;
 	u8 reserved;
 	u8 mac[ETH_ALEN];
+#ifdef ENABLE_PAM_WIFI
+	u8 enable_pamwifi;
+#endif
 } __packed;
 
 /* WIFI_CMD_CLOSE */
@@ -717,6 +726,9 @@ enum SPRDWL_EVENT_LIST {
 	WIFI_EVENT_CHAN_CHANGED = 0xfb,
 	WIFI_EVENT_ACS_DONE = 0xfc,
 	WIFI_EVENT_ACS_LTE_CONFLICT_EVENT = 0xfd,
+#ifdef ENABLE_PAM_WIFI
+	WIFI_EVENT_PAMWIFI_UL_RESOURCE_EVENT = 0xfe,
+#endif
 	WIFI_EVENT_MAX
 };
 
@@ -937,6 +949,10 @@ struct sprdwl_tlv_data {
 /* TLV type list */
 #define GET_INFO_TLV_TP_OTT	1
 #define NOTIFY_AP_VERSION	2
+#ifdef ENABLE_PAM_WIFI
+#define PAM_WIFI_AP_CAP_TLV_TYPE	6
+#define GET_INFO_TLV_PAM_WIFI_CP_CAP 2
+#endif
 
 struct ap_version_tlv_elmt {
 #define NOTIFY_AP_VERSION_USER 0

@@ -18,9 +18,7 @@ WLAN_DEVICE := $(strip $(BSP_BOARD_WLAN_DEVICE))
 # Source List
 #
 
-ifeq ($(strip $(WLAN_DEVICE)),marlin3_sipc)
-KO_MODULE_PATH := $(src)/marlin3_pcie
-else ifeq ($(strip $(WLAN_DEVICE)),marlin3_pcie)
+ifeq ($(strip $(WLAN_DEVICE)),marlin3_sipc marlin3_pcie)
 KO_MODULE_PATH := $(src)/marlin3_pcie
 else
 KO_MODULE_PATH := $(src)/$(WLAN_DEVICE)
@@ -139,7 +137,7 @@ $(KO_MODULE_NAME)-y += $(addprefix $(KO_SRC_PATH)/,softap_hook.o)
 $(KO_MODULE_NAME)-y += $(addprefix $(KO_SRC_PATH)/,debug.o)
 $(KO_MODULE_NAME)-y += $(addprefix $(KO_SRC_PATH)/,txrx_buf_mm.o)
 # support for pam_wifi
-#$(KO_MODULE_NAME)-y += $(addprefix $(KO_SRC_PATH)/,pam_wifi.o)
+$(KO_MODULE_NAME)-y += $(addprefix $(KO_SRC_PATH)/,pam_wifi.o)
 else
 $(KO_MODULE_NAME)-y := $(patsubst $(src)/%.c,%.o,$(KO_MODULE_SRC))
 endif

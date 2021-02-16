@@ -38,6 +38,9 @@
 #ifdef WMMAC_WFA_CERTIFICATION
 #include "qos.h"
 #endif
+#ifdef ENABLE_PAM_WIFI
+#include "pam_wifi_driver.h"
+#endif
 
 struct sprdwl_cmd {
 	u8 cmd_id;
@@ -794,6 +797,9 @@ void sprdwl_download_ini(struct sprdwl_priv *priv)
 	kfree(wifi_data);
 }
 
+#ifdef ENABLE_PAM_WIFI
+extern struct sprdwl_pamwifi_priv *pamwifi_priv;
+#endif
 int sprdwl_get_fw_info(struct sprdwl_priv *priv)
 {
 	int ret;
@@ -811,6 +817,10 @@ int sprdwl_get_fw_info(struct sprdwl_priv *priv)
 	u8 ap_version = NOTIFY_AP_VERSION_USER_DEBUG;
 #else
 	u8 ap_version = NOTIFY_AP_VERSION_USER;
+#endif
+#ifdef ENABLE_PAM_WIFI
+	u8 offset = 0;
+	struct pamwifi_cap_tlv pam_wifi_tlv;
 #endif
 
 	memset(r_buf, 0, r_len);
@@ -841,6 +851,16 @@ int sprdwl_get_fw_info(struct sprdwl_priv *priv)
 
 	sprdwl_set_tlv_elmt((u8 *)msg->data, NOTIFY_AP_VERSION,
 				sizeof(ap_version), &ap_version);
+
+#ifdef ENABLE_PAM_WIFI
+	pam_wifi_tlv.ap_pam_wifi_support = 1;
+	pam_wifi_tlv.mux_tx_cmn_fifo_support = 1;
+	pam_wifi_tlv.ipi_mode_support = 2;
+	pam_wifi_tlv.dl_rx_cmn_fifo_depth = 1024;
+	offset += (sizeof(*tlv) + 1);
+	sprdwl_set_tlv_elmt((u8 *)(msg->data + offset), PAM_WIFI_AP_CAP_TLV_TYPE,
+				sizeof(struct pamwifi_cap_tlv), (u8 *)(&pam_wifi_tlv));
+#endif
 
 	ret = sprdwl_cmd_send_recv(priv, msg, CMD_WAIT_TIMEOUT, r_buf, &r_len);
 	if (!ret && r_len) {
@@ -897,6 +917,25 @@ int sprdwl_get_fw_info(struct sprdwl_priv *priv)
 						b_tlv_data_chk = true;
 					}
 					break;
+#ifdef ENABLE_PAM_WIFI
+				case GET_INFO_TLV_PAM_WIFI_CP_CAP:
+					if (tlv->len == 31) {
+						memcpy(&pamwifi_priv->cp_cap, (struct pam_wifi_cap_cp *)(tlv->data),
+							sizeof(struct pam_wifi_cap_cp));
+						wl_err("pam cap, support:%u, ver:%u, mux_support:%u, depth:%u, mux_addrl:%u, mux_addrh:%u, ipi_mode:%u, ipi_addr:%u %u %u %u, %u, %u, %u, %u\n",
+							pamwifi_priv->cp_cap.cp_pam_wifi_support,
+							pamwifi_priv->cp_cap.chip_ver, pamwifi_priv->cp_cap.mux_tx_common_fifo_support,
+							pamwifi_priv->cp_cap.mux_tx_common_fifo_depth, pamwifi_priv->cp_cap.mux_tx_common_fifo_base_addr_l,
+							pamwifi_priv->cp_cap.mux_tx_common_fifo_base_addr_h, pamwifi_priv->cp_cap.ipi_mode,
+							pamwifi_priv->cp_cap.ipi_reg_addr_l[0], pamwifi_priv->cp_cap.ipi_reg_addr_l[1],
+							pamwifi_priv->cp_cap.ipi_reg_addr_l[2], pamwifi_priv->cp_cap.ipi_reg_addr_l[3],
+							pamwifi_priv->cp_cap.ipi_reg_addr_h[0], pamwifi_priv->cp_cap.ipi_reg_addr_h[1],
+							pamwifi_priv->cp_cap.ipi_reg_addr_h[2], pamwifi_priv->cp_cap.ipi_reg_addr_h[3]);
+						sprdwl_hex_dump("pam_wifi", (unsigned char *)(&pamwifi_priv->cp_cap), sizeof(struct pam_wifi_cap_cp));
+						b_tlv_data_chk = true;
+					}
+					break;
+#endif
 				default:
 					break;
 				}
@@ -1004,7 +1043,12 @@ int sprdwl_open_fw(struct sprdwl_priv *priv, u8 *vif_ctx_id,
 		memcpy(&p->mac[0], mac_addr, sizeof(p->mac));
 	else
 		wl_err("%s, %d, mac_addr error!\n", __func__, __LINE__);
-
+#ifdef ENABLE_PAM_WIFI
+	if (mode == SPRDWL_MODE_AP)
+		p->enable_pamwifi = 1;
+	else
+		p->enable_pamwifi = 0;
+#endif
 	p->reserved = 0;
 	if (0 != wfa_cap) {
 		p->reserved = wfa_cap;
@@ -3192,16 +3236,33 @@ void sprdwl_event_hang_recovery(struct sprdwl_vif *vif, u8 *data, u16 len)
 		(struct event_hang_recovery *)data;
 	struct sprdwl_intf *intf = (struct sprdwl_intf *)(vif->priv->hw_priv);
 	struct sprdwl_tx_msg *tx_msg = (struct sprdwl_tx_msg *)intf->sprdwl_tx;
+#ifdef ENABLE_PAM_WIFI
+	u32 temp;
+#endif
 
 	tx_msg->hang_recovery_status = hang->action;
 	wl_info("%s, %d, action=%d, status=%d\n",
 		__func__, __LINE__,
 		hang->action,
 		tx_msg->hang_recovery_status);
-	if (hang->action == HANG_RECOVERY_BEGIN)
+	if (hang->action == HANG_RECOVERY_BEGIN) {
 		sprdwl_add_hang_cmd(vif);
-	if (hang->action == HANG_RECOVERY_END)
+#ifdef ENABLE_PAM_WIFI
+	//pause pamwifi
+	temp = readl_relaxed((void *)REG_PAM_WIFI_CFG_START);
+	temp |= BIT_(6);
+	writel_relaxed(temp, (void *)REG_PAM_WIFI_CFG_START);
+#endif
+	}
+	if (hang->action == HANG_RECOVERY_END) {
 		tx_up(tx_msg);
+#ifdef ENABLE_PAM_WIFI
+	//start pamwifi
+	temp = readl_relaxed((void *)REG_PAM_WIFI_CFG_START);
+	temp &= ~ BIT_(6);
+	writel_relaxed(temp, (void *)REG_PAM_WIFI_CFG_START);
+#endif
+	}
 }
 
 void sprdwl_event_thermal_warn(struct sprdwl_vif *vif, u8 *data, u16 len)
@@ -3617,6 +3678,11 @@ unsigned short sprdwl_rx_event_process(struct sprdwl_priv *priv, u8 *msg)
 	case WIFI_EVENT_ACS_LTE_CONFLICT_EVENT:
 		sprdwl_event_acs_lte_event(vif);
 		break;
+#ifdef ENABLE_PAM_WIFI
+	case WIFI_EVENT_PAMWIFI_UL_RESOURCE_EVENT:
+		pamwifi_ul_resource_event(vif, data, len);
+		break;
+#endif
 	default:
 		wl_info("unsupported event: %d\n", hdr->cmd_id);
 		break;

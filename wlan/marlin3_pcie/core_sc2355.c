@@ -86,35 +86,103 @@ void adjust_debug_level(char *buf, unsigned char offset)
 }
 
 #ifdef ENABLE_PAM_WIFI
+extern unsigned char tx_ipv4_udp[244];
+
 extern struct sprdwl_intf_sc2355 g_intf_sc2355;
+
 extern void set_reg_bits_all_one(u64 u4_addr, u32 mask);
-void pam_wifi_debug(char *buf, unsigned char offset)
+extern struct sprdwl_pamwifi_priv *pamwifi_priv;
+void pamwifi_debug(char *buf, unsigned char offset)
 {
 	unsigned int pam_wifi_start_pkt;
-	struct sprdwl_intf *intf = (struct sprdwl_intf *)g_intf_sc2355.intf;
-	struct sprdwl_priv *priv = intf->priv;
-	int ret = 0;
+	int ret = 0, i;
+	//struct sprdwl_intf *intf = (struct sprdwl_intf *)g_intf_sc2355.intf;
+	struct sk_buff *skb = NULL;
 
 	wl_err("%s, %s\n", __func__, buf);
 	pam_wifi_start_pkt = buf[9] - '0';
 
 	if(pam_wifi_start_pkt == 0) {
-	    wl_err("pam wifi start!\n");
-	    set_reg_bits_all_one(REG_CFG_START,  BIT_PAM_WIFI_CFG_START_PAM_WIFI_START);
-	    wl_err("pam wifi end!\n");
+		pamwifi_update_router_table_test();
+		set_reg_bits_all_one(REG_PAM_WIFI_CFG_START,  BIT_PAM_WIFI_CFG_START_PAM_WIFI_START);
 	} else if (pam_wifi_start_pkt == 1) {
-/*register pam wifi miss irq*/
-	priv->pam_wifi_miss_irq = platform_get_irq_byname(intf->pdev, "pam-wifi-miss-irq-gpio");
-
-	ret = request_irq(priv->pam_wifi_miss_irq,
-			pam_wifi_miss_handle,
-			IRQF_TRIGGER_RISING | IRQF_NO_SUSPEND,
-			"pam_wifi_miss_irq",
-			NULL);
-	wl_err("pam_wifi_miss_irq-%d , ret: %d!!!\n", priv->pam_wifi_miss_irq, ret);
+		wl_err("%s, %d, send type1 pkt\n", __func__, __LINE__);
+		skb = dev_alloc_skb(SPRDWL_MAX_DATA_RXLEN);
+		tx_ipv4_udp[15] = 0x00;
+		skb_reserve(skb, NET_IP_ALIGN);
+		memcpy(skb->data, tx_ipv4_udp, 244);
+		skb_put(skb, 244);
+		wl_err("skb->len = %d", skb->len);
+		//wifi_dev_test_create_skb(skb);
+		ret = sipa_nic_tx(pamwifi_priv->nic_id, SIPA_TERM_WIFI, -1, skb);
+		if (unlikely(ret != 0)) {
+				wl_err("sipa_wifi fail to send skb, ret %d\n", ret);
+				if (ret == -ENOMEM || ret == -EAGAIN) {
+					if (sipa_nic_check_flow_ctrl(pamwifi_priv->nic_id)) {
+						wl_err("%s,%d, send fail\n", __func__, __LINE__);
+					}
+					return;
+				}
+		}
 	} else if (pam_wifi_start_pkt == 2) {
-		disable_irq(priv->pam_wifi_miss_irq);
-		free_irq(priv->pam_wifi_miss_irq, NULL);
+		for (i = 0; i < 1025; i++) {
+			wl_err("%s, %d, send type1 pkt\n", __func__, __LINE__);
+			skb = dev_alloc_skb(SPRDWL_MAX_DATA_RXLEN);
+			tx_ipv4_udp[15] = 0x20;
+			skb_reserve(skb, NET_IP_ALIGN);
+			memcpy(skb->data, tx_ipv4_udp, 244);
+			skb_put(skb, 244);
+			wl_err("skb->len = %d", skb->len);
+			//wifi_dev_test_create_skb(skb);
+			ret = sipa_nic_tx(pamwifi_priv->nic_id, SIPA_TERM_WIFI, -1, skb);
+			if (unlikely(ret != 0)) {
+					wl_err("sipa_wifi fail to send skb, ret %d\n", ret);
+					if (ret == -ENOMEM || ret == -EAGAIN) {
+						if (sipa_nic_check_flow_ctrl(pamwifi_priv->nic_id)) {
+							wl_err("%s,%d, send fail\n", __func__, __LINE__);
+						}
+						return;
+					}
+			}
+		}
+	} else if (pam_wifi_start_pkt == 3) {
+		wl_err("%s, %d, send type3 pkt\n", __func__, __LINE__);
+		skb = dev_alloc_skb(SPRDWL_MAX_DATA_RXLEN);
+		tx_ipv4_udp[15] = 0x80;
+		skb_reserve(skb, NET_IP_ALIGN);
+		memcpy(skb->data, tx_ipv4_udp, 244);
+		skb_put(skb, 244);
+		wl_err("skb->len = %d", skb->len);
+		ret = sipa_nic_tx(pamwifi_priv->nic_id, SIPA_TERM_WIFI, -1, skb);
+		if (unlikely(ret != 0)) {
+				wl_err("sipa_wifi fail to send skb, ret %d\n", ret);
+				if (ret == -ENOMEM || ret == -EAGAIN) {
+					if (sipa_nic_check_flow_ctrl(pamwifi_priv->nic_id)) {
+						wl_err("%s,%d, send fail\n", __func__, __LINE__);
+					}
+					return;
+				}
+		}
+	} else if (pam_wifi_start_pkt == 4) {
+		wl_err("%s, %d, send type4 pkt\n", __func__, __LINE__);
+		skb = dev_alloc_skb(SPRDWL_MAX_DATA_RXLEN);
+		tx_ipv4_udp[15] = 0xC0;
+		skb_reserve(skb, NET_IP_ALIGN);
+		memcpy(skb->data, tx_ipv4_udp, 244);
+		skb_put(skb, 244);
+		wl_err("skb->len = %d", skb->len);
+		ret = sipa_nic_tx(pamwifi_priv->nic_id, SIPA_TERM_WIFI, -1, skb);
+		if (unlikely(ret != 0)) {
+				wl_err("sipa_wifi fail to send skb, ret %d\n", ret);
+				if (ret == -ENOMEM || ret == -EAGAIN) {
+					if (sipa_nic_check_flow_ctrl(pamwifi_priv->nic_id)) {
+						wl_err("%s,%d, send fail\n", __func__, __LINE__);
+					}
+					return;
+				}
+		}
+	} else if (pam_wifi_start_pkt == 5) {
+		pam_wifi_update_tx_fifo_wptr(PSEL_UL, 10);
 	}
 }
 #endif
@@ -318,7 +386,7 @@ struct debuginfo_s {
 	{adjust_tcpack_time_in_ms, "tcpack_time_in_ms="},
 	{adjust_max_fw_tx_dscr, "max_fw_tx_dscr="},
 #ifdef ENABLE_PAM_WIFI
-	{pam_wifi_debug, "pam_wifi="},
+	{pamwifi_debug, "pam_wifi="},
 #endif
 #ifdef SIPC_SUPPORT
     {sipc_txrx_debug, "sipc_txrx_dbg="},
@@ -780,9 +848,6 @@ static int sprdwl_probe(struct platform_device *pdev)
 	u8 i;
 
 	sprdwl_dev = &pdev->dev;
-#ifdef ENABLE_PAM_WIFI
-	sprdwl_pamwifi_probe(pdev);
-#endif
 	wl_err("%s enter, printk=%d\n", __func__, console_loglevel);
 	if (start_marlin(MARLIN_WIFI)) {
 		wl_err("%s power on chipset failed\n", __func__);
@@ -810,10 +875,6 @@ static int sprdwl_probe(struct platform_device *pdev)
 		ret = -ENXIO;
 		goto err_core_create;
 	}
-
-#ifdef ENABLE_PAM_WIFI
-	ipa_to_pam_wifi_init(priv, pdev);
-#endif
 
 	memcpy(priv->wl_ver.kernel_ver, utsname()->release,
 			strlen(utsname()->release));
@@ -913,9 +974,6 @@ static int sprdwl_remove(struct platform_device *pdev)
 	struct sprdwl_intf *intf = platform_get_drvdata(pdev);
 	struct sprdwl_priv *priv = intf->priv;
 
-#ifdef ENABLE_PAM_WIFI
-	sprdwl_deinit_pamwifi_fifo(priv, intf->pdev);
-#endif
 	sprdwl_debugfs_deinit();
 	sprdwl_core_deinit(priv);
 	sprdwl_tx_deinit(intf);

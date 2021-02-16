@@ -1838,6 +1838,9 @@ int sprdwl_rx_data_push(int chn, struct mbuf_t **head, struct mbuf_t **tail, int
  * 0 - suspend
  * 1 - resume
  */
+ #ifdef ENABLE_PAM_WIFI
+ extern struct sprdwl_pamwifi_priv *pamwifi_priv;
+ #endif
 int sprdwl_suspend_resume_handle(int chn, int mode)
 {
 	struct sprdwl_intf *intf = get_intf();
@@ -1870,6 +1873,13 @@ int sprdwl_suspend_resume_handle(int chn, int mode)
 	}
 
 	if (mode == 0) {
+#ifdef ENABLE_PAM_WIFI
+		if (sprdwl_mode == SPRDWL_MODE_AP && pamwifi_priv->ul_resource_flag == 1) {
+			wl_err("ul resource not released, can not sleep!");
+			sprdwl_put_vif(vif);
+			return -EBUSY;
+		}
+#endif
 		if (atomic_read(&tx_msg->tx_list_qos_pool.ref) > 0 ||
 			atomic_read(&tx_msg->tx_list_cmd.ref) > 0 ||
 			!list_empty(&tx_msg->xmit_msg_list.to_send_list) ||
@@ -2086,9 +2096,9 @@ void sprdwl_event_sta_lut(struct sprdwl_vif *vif, u8 *data, u16 len)
 		intf->peer_entry[i].vif = vif;
 		if(vif->mode == SPRDWL_MODE_AP && sta_lut->sta_lut_index > 5) {
 			if (!vif->ndev)
-				ether_addr_copy(intf->peer_entry[i].tx.sa, vif->wdev.address);
+			ether_addr_copy(intf->peer_entry[i].tx.sa, vif->wdev.address);
 			else
-				ether_addr_copy(intf->peer_entry[i].tx.sa, vif->ndev->dev_addr);
+			ether_addr_copy(intf->peer_entry[i].tx.sa, vif->ndev->dev_addr);
 			pamwifi_update_router_table(vif->priv, sta_lut, vif->mode, 0, 0);
 		}
 #endif

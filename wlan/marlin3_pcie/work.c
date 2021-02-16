@@ -171,8 +171,9 @@ static void sprdwl_do_work(struct work_struct *work)
 						     sprdwl_work->len);
 			break;
 #ifdef ENABLE_PAM_WIFI
-		case SPRDWL_PAM_WIFI_MISS_NODE_WORK:
-			sprdwl_pam_wifi_miss_node_send(sprdwl_work->data);
+		case SPRDWL_WORK_UL_RES_STS_CMD:
+			sprdwl_send_ul_res_cmd(vif->priv, vif->ctx_id,
+					sprdwl_work->data, sprdwl_work->len);
 			break;
 #endif
 #ifdef WMMAC_WFA_CERTIFICATION

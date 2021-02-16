@@ -376,12 +376,16 @@ static inline enum sprdwl_mode type_to_mode(enum nl80211_iftype type)
 	return mode;
 }
 
+#ifdef ENABLE_PAM_WIFI
+extern struct sprdwl_intf_sc2355 g_intf_sc2355;
+extern struct sprdwl_pamwifi_priv *pamwifi_priv;
+#endif
 int sprdwl_init_fw(struct sprdwl_vif *vif)
 {
 	struct sprdwl_priv *priv = vif->priv;
 #ifdef ENABLE_PAM_WIFI
-	struct sprdwl_intf *intf = (struct sprdwl_intf *)(priv->hw_priv);
-	int ret = 0;
+	int all_pamwifi = 0, ret = 0;
+	struct sprdwl_intf *intf = (struct sprdwl_intf *)g_intf_sc2355.intf;
 #endif
 	enum nl80211_iftype type = vif->wdev.iftype;
 	enum sprdwl_mode mode;
@@ -417,6 +421,23 @@ int sprdwl_init_fw(struct sprdwl_vif *vif)
 	else
 		mac = vif->ndev->dev_addr;
 
+#ifdef ENABLE_PAM_WIFI
+	if (mode == SPRDWL_MODE_AP) {
+		/*init pamwifi*/
+		ret = sprdwl_pamwifi_init(intf->pdev);
+		/*software conf enable*/
+		if (!ret) {
+			sprdwl_pamwifi_enable(vif);
+		} else {
+			/*TODO, make sure rx buffer free*/
+			wl_err("softap open fail, because pamwifi init fail\n");
+			return ret;
+		}
+
+		/*debug tmp for haps*/
+		sipa_rm_request_resource(SIPA_RM_RES_CONS_WIFI_UL);
+	}
+#endif
 	if (vif->mode ==SPRDWL_MODE_P2P_GO) {
 		if (vif->has_rand_mac) {
 				netdev_info(vif->ndev, "GO use random mac addr: %pM\n", vif->random_mac);
@@ -431,21 +452,6 @@ int sprdwl_init_fw(struct sprdwl_vif *vif)
 	}
 	vif->ctx_id  = vif_ctx_id;
 
-#ifdef ENABLE_PAM_WIFI
-	if (vif->mode == SPRDWL_MODE_AP) {
-		priv->pam_wifi_miss_irq = platform_get_irq_byname(intf->pdev, "pam-wifi-miss-irq-gpio");
-		ret = request_irq(priv->pam_wifi_miss_irq,
-			pam_wifi_miss_handle,
-			IRQF_TRIGGER_RISING | IRQF_NO_SUSPEND,
-			"pam_wifi_miss_irq",
-			NULL);
-		wl_err("pam_wifi_miss_irq-%d , ret: %d!!!\n", priv->pam_wifi_miss_irq, ret);
-
-		pam_wifi_update_tx_fifo_wptr(PSEL_UL, 500);
-		sprdwl_pamwifi_init(vif, intf->pdev);
-	}
-#endif
-
 	netdev_info(vif->ndev, "%s,open success type %d, mode:%d, ctx_id:%d\n",
 		    __func__, type,
 		    vif->mode, vif->ctx_id);
@@ -459,7 +465,13 @@ int sprdwl_init_fw(struct sprdwl_vif *vif)
 		wl_info("%s, mm buffer already filled\n", __func__);
 		return 0;
 	}
-
+#ifdef ENABLE_PAM_WIFI
+	if (all_pamwifi)
+		sprdwl_pamwifi_fill_rx_buf(priv->hw_priv);
+	else {
+		sprdwl_mm_fill_all_buffer(priv->hw_priv);
+	}
+#endif
 #ifndef ENABLE_PAM_WIFI
 	sprdwl_mm_fill_all_buffer(priv->hw_priv);
 #endif
@@ -513,42 +525,11 @@ int sprdwl_uninit_fw(struct sprdwl_vif *vif)
 	handle_tx_status_after_close(vif);
 
 #ifdef ENABLE_PAM_WIFI
-	/*power off pam wifi and disconnect ipa*/
 	if (vif->mode == SPRDWL_MODE_AP) {
-		u32 value = 0;
-		int timeout = 10;
-
-		sipa_disconnect(SIPA_EP_WIFI, SIPA_DISCONNECT_START);
-		//value = readl_relaxed(pamu3->base + PAM_U3_CTL0);
-			/*DL fill wr/rd == free wr/rd
-			UL fill wr/rd == free wr/rd
-			IPA DL/UL as so*/
-		value = check_pamwifi_ipa_fifo_status();
-		wl_info("%s, Start to close Pam wifi!\n", __func__);
-		while(!value) {
-			value = check_pamwifi_ipa_fifo_status();
-			if (!timeout--) {
-				wl_err("Pam wifi close fail!\n");
-				break;
-			}
-			wl_err("Pam wifi closing!\n");
-			usleep_range(10, 15);
-		}
-		sipa_disconnect( SIPA_EP_WIFI, SIPA_DISCONNECT_END);
-		wl_err("%d,Pam wifi close success!!\n", __LINE__);
-		/*stop pam wifi*/
-		clear_reg_bits(REG_CFG_START, BIT_PAM_WIFI_CFG_START_PAM_WIFI_START);
-		//set_reg_bits_all_one(REG_CFG_START,  BIT_PAM_WIFI_CFG_START_PAM_WIFI_STOP);
-		pam_wifi_disable();
-
-		priv->kthread_stop = 1;
-		wake_up(&priv->sipa_recv_wq);
-		kthread_stop(priv->recv_thread);
-
-		sipa_nic_close(priv->nic_id);
-
-		disable_irq(priv->pam_wifi_miss_irq);
-		free_irq(priv->pam_wifi_miss_irq, NULL);
+		/*software conf disable*/
+		sprdwl_pamwifi_disable(vif);
+		/*uninit pamwifi*/
+		sprdwl_pamwifi_uninit(intf->pdev);
 	}
 #endif
 
