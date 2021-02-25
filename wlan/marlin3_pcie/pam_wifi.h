@@ -193,7 +193,7 @@ extern u64 pam_wifi_base_addr_remap;
 #define PAMWIFI_INT_GEN_CTL_EN					0x30l
 #define PAMWIFI_INT_GEN_CTL_CLR					0x48l
 
-#define PAM_WIFI_HW_LOCK_TO           20*1000
+#define PAM_WIFI_HW_LOCK_TO           (20*1000)
 //---------------------------------------------------------------------------
 // Register Name   : REG_PAM_WIFI_CFG_START
 // Register Offset : 0x0050
