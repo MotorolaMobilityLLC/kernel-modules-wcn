@@ -72,8 +72,10 @@ long fm_ioctl(struct file *filep, unsigned int cmd, unsigned long arg) {
     pr_debug("FM_IOCTL cmd: 0x%x.\n", cmd);
     switch (cmd) {
     case FM_IOCTL_POWERUP:
-        fm_powerup(argp);
-        ret = fm_tune(argp);
+        //fm_powerup(argp);
+        //ret = fm_tune(argp);
+        pr_debug("not support ioctl power call \n");
+        ret = -1;
         break;
     case FM_IOCTL_POWERDOWN:
         ret = fm_powerdown();
@@ -348,7 +350,6 @@ static int fm_rx_cback(int chn, mbuf_t *head,mbuf_t *tail, int num)
 
         pr_debug("(fmdrv) %s(): tasklet_schedule start\n", __func__);
         tasklet_schedule(&fmdev->rx_task);
-        sprdwcn_bus_push_list(chn, head, tail, num);
     }
     return 0;
 }
@@ -476,35 +477,44 @@ mchn_ops_t fm_rx_ops = {
 };
 
 int fm_open(struct inode *inode, struct file *filep) {
+    int ret = -1;
     pr_info("start open SPRD fm pcie module...\n");
-	if (start_marlin(MARLIN_FM)) {
-       pr_err("marlin3 chip %s failed\n", __func__);
+    if (start_marlin(MARLIN_FM)) {
+        pr_err("marlin3 chip %s failed\n", __func__);
         return -ENODEV;
     }
 
     sprdwcn_bus_chn_init(&fm_tx_ops);
     sprdwcn_bus_chn_init(&fm_rx_ops);
     fm_dma_buf_alloc(FM_RX_CHANNEL, FM_RX_DMA_SIZE, FM_RX_MAX_NUM);
-    return 0;
+
+    ret = fm_powerup();
+    if (ret < 0) {
+        pr_err("%s powerup failed\n", __func__);
+    }
+    return ret;
 }
 
 int fm_release(struct inode *inode, struct file *filep) {
+    int ret = -1;
     pr_info("fm_misc_release.\n");
-    pr_info("fm power status:%d\n",fmdev->power_status);
-    fm_dma_buf_free(FM_RX_MAX_NUM);
-    if(fmdev->power_status){
-        fm_powerdown();
+    if (fmdev->power_status) {
+        ret = fm_powerdown();
+        if (ret < 0) {
+            pr_err("%s powerdown failed\n", __func__);
+        }
     }
-	sprdwcn_bus_chn_deinit(&fm_tx_ops);
+
+    fm_dma_buf_free(FM_RX_MAX_NUM);
+    sprdwcn_bus_chn_deinit(&fm_tx_ops);
     sprdwcn_bus_chn_deinit(&fm_rx_ops);
 
-	if (stop_marlin(MARLIN_FM) < 0) {
-		pr_info("fm_open stop_marlin failed");
-	}
+    /* stop_marlin(MARLIN_FM); */
+    if (stop_marlin(MARLIN_FM) < 0) {
+        pr_info("fm_powerdown stop_marlin failed");
+    }
 
-    wake_up_interruptible(&fmdev->rds_han.rx_queue);
-    fmdev->rds_han.new_data_flag = 1;
-    return 0;
+    return ret;
 }
 
 #ifdef CONFIG_COMPAT

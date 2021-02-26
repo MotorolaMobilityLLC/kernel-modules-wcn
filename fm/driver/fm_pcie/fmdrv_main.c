@@ -501,19 +501,17 @@ int fm_write(unsigned char *array, unsigned char len)
 }
 #endif
 
-int fm_powerup(void *arg) {
+int fm_powerup(void) {
     struct fm_tune_parm parm;
     unsigned short payload[65];
     int ret = -1;
     struct fm_config_t fm_data;
     fmdev-> power_status = 0;
     fmdev-> power_status ++;
-    if (copy_from_user(&parm, arg, sizeof(parm))) {
-        pr_err("fm powerup 's ret value is -eFAULT\n");
-        return -EFAULT;
-    }
 
-    parm.freq *= 10;
+    memset(&parm, 0, sizeof(struct fm_tune_parm));
+    parm.freq = 8750;
+
     pr_info("fm ioctl power up freq= %d\n", parm.freq);
     get_fm_config_param(&fm_data);
     payload[0] = parm.freq;
@@ -539,7 +537,7 @@ int fm_powerdown(void) {
         pr_err("(fmdrv) %s FM write pwrdown cmd status failed %d\n", __func__, ret);
         return ret;
     }
-    /* stop_marlin(MARLIN_FM); */
+
     return ret;
 }
 
@@ -554,7 +552,7 @@ int fm_tune(void *arg){
         pr_info("fm tune 's ret value is -eFAULT\n");
         return -EFAULT;
     }
-    parm.freq *= 10;
+    //parm.freq *= 10;
 #ifdef RDS_DEBUG
     global_freq = parm.freq;
 #endif
@@ -585,7 +583,7 @@ int fm_seek(void *arg) {
         pr_info("fm seek 's ret value is -eFAULT\n");
         return -EFAULT;
     }
-    parm.freq *= 10;
+    //parm.freq *= 10;
     payload[0] = (parm.freq & 0xFF);
     payload[1] = (parm.freq >> 8);
     payload[2] = parm.seekdir;
@@ -621,7 +619,7 @@ int fm_seek(void *arg) {
 	}
 #endif
     parm.freq = respond_buf[3] + (respond_buf[4] << 8);
-    parm.freq /= 10;
+    //parm.freq /= 10;
     pr_info("(fmdrv) fm seek have finshed!!status = %d, RSSI=%d\n"
             "(fmdrv) fm seek SNR=%d, freq=%d\n", respond_buf[0], respond_buf[1], respond_buf[2], parm.freq);
     /* pass the value to user space */
