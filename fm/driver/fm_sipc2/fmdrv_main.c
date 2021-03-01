@@ -461,9 +461,10 @@ int fm_sipc_tx_cback(int channel, struct mbuf_t *head,struct mbuf_t *tail, int n
     int i;
     struct mbuf_t *pos = NULL;
 	dev_unisoc_fm_info(fm_miscdev,"%s channel: %d, head: %p, tail: %p num: %d\n", __func__, channel, head, tail, num);
-    if (head->buf)
-        for (i = 0; i < head->len + 4; i++)
-			dev_unisoc_fm_info(fm_miscdev,"%s i%d 0x%x\n", __func__, i, head->buf[i]);
+    if (head->buf) {
+        for (i = 0; i < head->len + FM_SIPC_HEAD_LEN; i++)
+           dev_unisoc_fm_info(fm_miscdev,"%s i%d 0x%x\n", __func__, i, head->buf[i]);
+    }
     pos = head;
     for (i = 0; i < num; i++, pos = pos->next) {
         kfree(pos->buf);
