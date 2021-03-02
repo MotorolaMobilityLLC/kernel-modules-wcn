@@ -733,13 +733,14 @@ struct sprdwl_tlv_data {
 	u8 data[0];
 } __packed;
 
+#define MAX_PASSWORD_LEN 63
 struct sprdwl_sae_entry {
 	bool used;
 	u8 peer_addr[ETH_ALEN];
 	u8 id_len;
 	char identifier[32];
 	u8 passwd_len;
-	char password[32];
+	char password[MAX_PASSWORD_LEN + 1];
 	u32 vlan_id;
 };
 
