@@ -1469,7 +1469,7 @@ struct sprdwl_sae_entry {
 	u8 id_len;
 	char identifier[32];
 	u8 passwd_len;
-	char password[64];
+	char password[MAX_PASSWORD_LEN + 1];
 	u32 vlan_id;
 } __packed;
 
