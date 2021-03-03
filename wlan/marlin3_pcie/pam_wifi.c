@@ -1201,7 +1201,7 @@ int sprdwl_pamwifi_get_node_dscr(u32 fifo_depth)
 	tx_rdptr = readl_relaxed((void *)(PSEL_DL_MISS + PAMWIFI_COMMON_TX_FIFO_RD)) >> 16;
 	temp_wrptr = tx_wrptr % fifo_depth;
 	temp_rdptr = tx_rdptr % fifo_depth;
-	if (temp_wrptr > temp_rdptr) {
+	if (temp_wrptr >= temp_rdptr) {
 		free_num = temp_wrptr - temp_rdptr;
 		for (i = 0; i < free_num; i++) {
 			spin_lock_irqsave(&pamwifi_priv->pamwifi_msg_list->free_lock, flags);
@@ -1380,7 +1380,7 @@ void sprdwl_analyze_pamwifi_miss_node(void)
 		return;
 	temp_wrptr = rx_wrptr % fifo_depth;
 	temp_rdptr = rx_rdptr % fifo_depth;
-	if (temp_wrptr > temp_rdptr) {
+	if (temp_wrptr >= temp_rdptr) {
 		free_num = temp_rdptr + fifo_depth - temp_wrptr;
 	} else if (temp_wrptr < temp_rdptr) {
 		free_num = temp_rdptr - temp_wrptr;
@@ -1395,25 +1395,28 @@ void sprdwl_analyze_pamwifi_miss_node(void)
 			pamwifi_msg_buf = list_first_entry(&pamwifi_priv->pamwifi_msg_list->busy_list,
 										   struct sprdwl_pamwifi_msg_buf, list);
 			list_del(&pamwifi_msg_buf->list);
-		}
-		spin_unlock_irqrestore(&pamwifi_priv->pamwifi_msg_list->busy_lock, flags);
-		/*overflow pkt free directly, others send by special data*/
-		if (!pamwifi_msg_buf->dscr.flag) {
-			/*TODO by ipa*/
-			skb = sipa_find_sent_skb(pamwifi_msg_buf->dscr.address);
-			tmp_skb = skb_copy(skb, (GFP_DMA | GFP_ATOMIC));
-			vif = sprdwl_find_miss_vif(tmp_skb);
-			if (sprdwl_xmit_data2cmd_wq(tmp_skb, vif->ndev) == -EAGAIN)
-				/*TODO: if miss pkt send fail?*/
-				continue;
-		}
+			spin_unlock_irqrestore(&pamwifi_priv->pamwifi_msg_list->busy_lock, flags);
 
-		rx_node.address = pamwifi_msg_buf->dscr.address;
-		rx_node.length = pamwifi_msg_buf->dscr.length;
-		rx_node.offset = pamwifi_msg_buf->dscr.address;
-		rx_node.src_id = pamwifi_msg_buf->dscr.src_id;
-		rx_node.tos = pamwifi_msg_buf->dscr.tos;
-		rx_node.flag = pamwifi_msg_buf->dscr.flag;
+			/*overflow pkt free directly, others send by special data*/
+			if (!pamwifi_msg_buf->dscr.flag) {
+				/*TODO by ipa*/
+				skb = sipa_find_sent_skb(pamwifi_msg_buf->dscr.address);
+				tmp_skb = skb_copy(skb, (GFP_DMA | GFP_ATOMIC));
+				vif = sprdwl_find_miss_vif(tmp_skb);
+				if (sprdwl_xmit_data2cmd_wq(tmp_skb, vif->ndev) == -EAGAIN)
+					/*TODO: if miss pkt send fail?*/
+					continue;
+			}
+
+			rx_node.address = pamwifi_msg_buf->dscr.address;
+			rx_node.length = pamwifi_msg_buf->dscr.length;
+			rx_node.offset = pamwifi_msg_buf->dscr.address;
+			rx_node.src_id = pamwifi_msg_buf->dscr.src_id;
+			rx_node.tos = pamwifi_msg_buf->dscr.tos;
+			rx_node.flag = pamwifi_msg_buf->dscr.flag;
+		} else {
+			spin_unlock_irqrestore(&pamwifi_priv->pamwifi_msg_list->busy_lock, flags);
+		}
 		/*free miss node*/
 		sprdwl_pamwifi_retrieve_buf(&rx_node, i, temp_wrptr, temp_rdptr, fifo_depth);
 	}
@@ -1672,7 +1675,7 @@ static int sprdwl_pamwifi_resume(void)
 	u32 pamwifi_tx_intr_threshold_en = 2, pamwifi_tx_intr_threshold_delay_en = 1,
 		pamwifi_tx_intr_threshold = (u32)1 << 16l, pamwifi_tx_intr_threshold_delay = 0xFFFFl,
 		pamwifi_fifo_depth = 1024, value_index_search_depth = 16;
-	int i, j, search_depth, ret = 0;
+	int i, j, search_depth = 16, ret = 0;
 	struct sprdwl_intf *intf = (struct sprdwl_intf *)g_intf_sc2355.intf;
 
 	/*init ipa for pamwifi*/
@@ -2135,6 +2138,11 @@ int sprdwl_pamwifi_init(struct platform_device *pdev)
 void sprdwl_pamwifi_uninit(struct platform_device *pdev)
 {
 	int read_on_reg;
+	unsigned long flags = 0;
+	struct sprdwl_pamwifi_msg_buf *pamwifi_msg_buf = NULL;
+	struct sprdwl_pamwifi_msg_list *pamwifi_msg_list = NULL;
+
+	pamwifi_msg_list = pamwifi_priv->pamwifi_msg_list;
 
 	pamwifi_priv->kthread_stop = 1;
 	complete(&pamwifi_priv->tx_completed);
@@ -2157,6 +2165,18 @@ void sprdwl_pamwifi_uninit(struct platform_device *pdev)
 	/*destroy power workqueue*/
 	destroy_workqueue(pamwifi_priv->power_wq);
 	sipa_dummy_unregister_wifi_recv_handler(&wifi_recv_skb);
+
+	spin_lock_irqsave(&pamwifi_priv->pamwifi_msg_list->free_lock, flags);
+	if (!list_empty(&pamwifi_priv->pamwifi_msg_list->free_list)) {
+		pamwifi_msg_buf = list_first_entry(&pamwifi_priv->pamwifi_msg_list->free_list,
+										   struct sprdwl_pamwifi_msg_buf, list);
+		list_del(&pamwifi_msg_buf->list);
+		kfree(pamwifi_msg_buf);
+	}
+	spin_unlock_irqrestore(&pamwifi_priv->pamwifi_msg_list->free_lock, flags);
+
+	kfree(pamwifi_msg_list);
+	kfree(pamwifi_priv);
 }
 
 int sprdwl_pamwifi_pkt_checksum(struct sk_buff *skb, struct net_device *ndev)
