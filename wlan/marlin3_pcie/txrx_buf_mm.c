@@ -218,10 +218,16 @@ void sprdwl_txrx_buf_deinit(void)
 int sprdwl_skb_to_tx_buf(struct sprdwl_intf *dev,
                          struct sprdwl_msg_buf *msg_pos)
 {
-	struct sk_buff *skb = msg_pos->skb;
+	struct sk_buff *skb = NULL;
 	unsigned long dma_addr = 0;
 	struct sprdwl_buf_node *node = NULL;
 
+	if (msg_pos == NULL) {
+		wl_err("%s %d\n", __func__, __LINE__);
+		return -1;
+	}
+
+	skb = msg_pos->skb;
 	node = sprdwl_alloc_tx_buf();
 	if (unlikely(node == NULL)) {
 		wl_debug("%s: alloc tx buf fail.\n", __func__);
@@ -235,10 +241,6 @@ int sprdwl_skb_to_tx_buf(struct sprdwl_intf *dev,
 		return -1;
 	}
 
-	if (msg_pos == NULL) {
-		wl_err("%s %d\n", __func__, __LINE__);
-		return -1;
-	}
 	memcpy(node->addr, &msg_pos, sizeof(msg_pos));
 
 	if (skb->len > sprdwl_get_tx_buf_len()) {
