@@ -729,9 +729,11 @@ int fm_powerup(struct fm_tune_parm *p) {
 		dev_unisoc_fm_err(fm_miscdev,"marlin3 chip %s failed\n", __func__);
         return -ENODEV;
     }
+
+    memset(&fm_data, 0, sizeof(struct fm_config_t));
     parm.freq = 875;
     parm.freq *= 10;
-	dev_unisoc_fm_info(fm_miscdev,"fm ioctl power up freq= %d\n", parm.freq);
+    dev_unisoc_fm_info(fm_miscdev,"fm ioctl power up freq= %d\n", parm.freq);
     get_fm_config_param(&fm_data);
     payload[0] = parm.freq;
     memcpy(&payload[1],&fm_data,sizeof(struct fm_config_t));

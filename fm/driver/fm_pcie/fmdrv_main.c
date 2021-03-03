@@ -311,6 +311,7 @@ static void receive_tasklet(unsigned long arg)
         sdio_hdr = kmalloc(sizeof(struct fm_sdio_hdr), GFP_KERNEL);
         if (!sdio_hdr){
             pr_err("fm sdio_hdr kmalloc fail\n");
+            return;
         }
         parse_sdio_header(head, tail, num, sdio_hdr);
 
@@ -512,6 +513,7 @@ int fm_powerup(void) {
     memset(&parm, 0, sizeof(struct fm_tune_parm));
     parm.freq = 8750;
 
+    memset(&fm_data, 0, sizeof(struct fm_config_t));
     pr_info("fm ioctl power up freq= %d\n", parm.freq);
     get_fm_config_param(&fm_data);
     payload[0] = parm.freq;

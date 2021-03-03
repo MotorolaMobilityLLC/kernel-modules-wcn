@@ -444,7 +444,7 @@ int fm_dma_buf_alloc(int chn, int size, int num)
 }
 
 int fm_dma_buf_free(int num) {
-    unsigned char loop_count = 0;
+    int loop_count = 0;
     for (; loop_count < num; loop_count++) {
         if(!dm_rx_t) {
             pr_err("%s: dm_rx_t or is dm_rx_ptr NULL \n", __func__);

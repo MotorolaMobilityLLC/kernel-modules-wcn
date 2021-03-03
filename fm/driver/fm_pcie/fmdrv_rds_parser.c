@@ -91,7 +91,7 @@ static signed int rds_bm_get_pos(struct rds_bitmap *thiz)
 	signed int j;
 
 	j = 0;
-	while (!(thiz->bm & (1 << i)) && (i > -1))
+	while ((i > -1) && !(thiz->bm & (1 << i)))
 		i--;
 #ifdef FM_RDS_USE_SOLUTION_B
 	for (j = i; j >= 0; j--) {
@@ -1165,7 +1165,7 @@ unsigned char rds_get_group_type(unsigned char *buffer)
 
 void dump_rx_data(unsigned char *buffer, unsigned int len)
 {
-	char i;
+	unsigned int i;
 
 	pr_info("\n fm rx data(%d): ", len);
 	for (i = 0; i < len; i++)
