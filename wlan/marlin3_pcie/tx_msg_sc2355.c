@@ -666,12 +666,22 @@ int sprdwl_fc_get_send_num(struct sprdwl_tx_msg *tx_msg,
 			}
 		}
 
-		if((free_num + data_num) >= tx_buf_max) {
-			wl_err_ratelimited("%s, free_num=%d, data_num=%d\n", __func__,
-					   free_num, data_num);
-			return (tx_buf_max - free_num);
+		if(priv->hw_type == SPRDWL_HW_SIPC) {
+			if(data_num >= tx_buf_max) {
+				wl_err_ratelimited("%s, %d, tx_buf_max=%d, data_num=%d\n", __func__,
+						   __LINE__, tx_buf_max, data_num);
+				return tx_buf_max;
+			} else {
+				return data_num;
+			}
 		} else {
-			return data_num;
+			if((free_num + data_num) >= tx_buf_max) {
+				wl_err_ratelimited("%s, %d, free_num=%d, data_num=%d\n", __func__,
+						   __LINE__, free_num, data_num);
+				return (tx_buf_max - free_num);
+			} else {
+				return data_num;
+			}
 		}
 	}
 	/*TODO. CP2 can not hanle more than 32 packets at one time*/
@@ -782,12 +792,22 @@ int sprdwl_fc_test_send_num(struct sprdwl_tx_msg *tx_msg,
 			}
 		}
 
-		if((free_num + data_num) >= tx_buf_max) {
-			wl_err_ratelimited("%s, free_num=%d, data_num=%d\n",
-					   __func__, free_num, data_num);
-			return (tx_buf_max - free_num);
+		if (priv->hw_type == SPRDWL_HW_SIPC) {
+			if(data_num >= tx_buf_max) {
+				wl_err_ratelimited("%s, %d, tx_buf_max=%d, data_num=%d\n",
+						   __func__, __LINE__, tx_buf_max, data_num);
+				return tx_buf_max;
+			} else {
+				return data_num;
+			}
 		} else {
-			return data_num;
+			if((free_num + data_num) >= tx_buf_max) {
+				wl_err_ratelimited("%s, %d, free_num=%d, data_num=%d\n",
+						   __func__, __LINE__, free_num, data_num);
+				return (tx_buf_max - free_num);
+			} else {
+				return data_num;
+			}
 		}
 	}
 
