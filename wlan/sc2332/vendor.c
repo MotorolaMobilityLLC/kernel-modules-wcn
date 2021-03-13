@@ -443,6 +443,17 @@ static int sprdwl_compose_radio_st(struct sk_buff *reply,
 		struct nlattr *chan_list, *chan_info;
 		chan_list = nla_nest_start(reply, SPRDWL_ATTR_LL_STATS_CH_INFO);
 		chan_info = nla_nest_start(reply, 0);
+
+		if (!chan_list) {
+			wl_err("%s %d\n", __func__, __LINE__);
+			goto out_put_fail;
+		}
+
+		if (!chan_info) {
+			wl_err("%s %d\n", __func__, __LINE__);
+			goto out_put_fail;
+		}
+
 		if (nla_put_u32(reply, SPRDWL_ATTR_LL_STATS_CHANNEL_INFO_WIDTH,
 			radio_st->channels[0].channel.width))
 			goto out_put_fail;

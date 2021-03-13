@@ -783,7 +783,7 @@ static int sprdwl_cfg80211_start_ap(struct wiphy *wiphy,
 	u8 *data = NULL;
 	int ret;
 	int extra_len;
-	u16 freq;
+	u16 freq = 0;
 	struct ieee80211_channel *ch = NULL;
 	struct cfg80211_chan_def chandef;
 
