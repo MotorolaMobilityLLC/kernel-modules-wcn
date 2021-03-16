@@ -1707,10 +1707,10 @@ static int sprdwl_pamwifi_resume(void)
 	/*recovery router table, now max_lut_index 32, so search depth is 16*/
 	for (i = 0; i < search_depth; i++) {
 		for (j = 0; j < 4; j++) {
-			writel_relaxed(pamwifi_priv->router_table_backup[2 * search_depth][j],
-				(void *)(PSEL_RAM1 + 16 * search_depth));
-			writel_relaxed(pamwifi_priv->router_table_backup[2 * search_depth + 1][j],
-				(void *)(PSEL_RAM2 + 16 * search_depth));
+			writel_relaxed(pamwifi_priv->router_table_backup[2 * i][j],
+				(void *)(PSEL_RAM1 + 16 * i));
+			writel_relaxed(pamwifi_priv->router_table_backup[2 * i + 1][j],
+				(void *)(PSEL_RAM2 + 16 * i));
 		}
 	}
 
