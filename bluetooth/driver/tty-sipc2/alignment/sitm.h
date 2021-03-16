@@ -10,6 +10,7 @@
 #define HCI_ACL_PREAMBLE_SIZE 4
 #define HCI_SCO_PREAMBLE_SIZE 3
 #define HCI_EVENT_PREAMBLE_SIZE 2
+#define HCI_ISO_PREAMBLE_SIZE 4
 #define RETRIEVE_ACL_LENGTH(preamble) \
 	((((preamble)[4] & 0xFFFF) << 8) | (preamble)[3])
 #define HCI_HAL_SERIAL_BUFFER_SIZE 1026
@@ -28,7 +29,8 @@ enum serial_data_type_t {
 	DATA_TYPE_COMMAND = 1,
 	DATA_TYPE_ACL     = 2,
 	DATA_TYPE_SCO     = 3,
-	DATA_TYPE_EVENT   = 4
+	DATA_TYPE_EVENT   = 4,
+	DATA_TYPE_ISO     = 5
 };
 
 

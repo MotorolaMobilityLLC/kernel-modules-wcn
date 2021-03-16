@@ -22,7 +22,8 @@ static const uint8_t preamble_sizes[] = {
 	HCI_COMMAND_PREAMBLE_SIZE,
 	HCI_ACL_PREAMBLE_SIZE,
 	HCI_SCO_PREAMBLE_SIZE,
-	HCI_EVENT_PREAMBLE_SIZE
+	HCI_EVENT_PREAMBLE_SIZE,
+	HCI_ISO_PREAMBLE_SIZE
 };
 
 static struct packet_receive_data_t *rd;
@@ -69,7 +70,7 @@ void parse_frame(data_ready_cb data_ready, frame_complete_cb frame_complete)
 	while (data_ready(&byte, 1) == 1) {
 		switch (rd->state) {
 		case BRAND_NEW:
-			if (byte > DATA_TYPE_EVENT
+			if (byte > DATA_TYPE_ISO
 				|| byte < DATA_TYPE_COMMAND) {
 				dev_unisoc_bt_err(ttyBT_dev,
 									"unknown head: 0x%02x\n",
@@ -90,7 +91,8 @@ void parse_frame(data_ready_cb data_ready, frame_complete_cb frame_complete)
 
 			if (rd->bytes_remaining == 0) {
 				rd->bytes_remaining =
-					(rd->type == DATA_TYPE_ACL) ?
+					(rd->type == DATA_TYPE_ACL
+					|| rd->type == DATA_TYPE_ISO) ?
 					RETRIEVE_ACL_LENGTH(rd->preamble)
 					: byte;
 				buffer_size = rd->index
@@ -138,7 +140,8 @@ void parse_frame(data_ready_cb data_ready, frame_complete_cb frame_complete)
 
 		if (rd->state == FINISHED) {
 			if (rd->type == DATA_TYPE_COMMAND
-				|| rd->type == DATA_TYPE_ACL) {
+				|| rd->type == DATA_TYPE_ACL
+				|| rd->type == DATA_TYPE_ISO) {
 				uint32_t tail = BYTE_ALIGNMENT
 					- ((rd->index
 					+ BYTE_ALIGNMENT)
