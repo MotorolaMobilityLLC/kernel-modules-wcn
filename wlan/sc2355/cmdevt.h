@@ -380,6 +380,47 @@ struct sprdwl_cmd_power_save {
 	u8 value;
 } __packed;
 
+/**
+ * @SPRDWL_SET_SAR_RECOVERY: Indicates that need reset sar value.
+ * @SPRDWl_SET_SAR_ABSOLUTE: Indicates that set sar in absolute mode.
+ * @SPRDWL_SET_SAR_RELATIVE: Indicates that set sar in relative mode.
+ */
+enum sprdwl_sar_subtype {
+	SPRDWL_SET_SAR_RECOVERY = 0,
+	SPRDWl_SET_SAR_ABSOLUTE = 1,
+	SPRDWL_SET_SAR_RELATIVE = 2,
+};
+
+enum sprdwl_sar_mode {
+	SPRDWL_SET_SAR_2G_11B = 0,
+	SPRDWL_SET_SAR_2G_11G = 1,
+	SPRDWL_SET_SAR_2G_11N = 2,
+	SPRDWL_SET_SAR_2G_11AC = 3,
+	SPRDWL_SET_SAR_5G_11A = 4,
+	SPRDWL_SET_SAR_5G_11N = 5,
+	SPRDWL_SET_SAR_5G_11AC = 6,
+	SPRDWL_SET_SAR_ALL_MODE = 7,
+};
+
+/**
+ * sprdwl_cmd_set_sar: this struct used to describe set sar parameters.
+ *
+ * @power_save_type:power save command type, we send sar para through
+ *  power save command,so need provide power_save_sub_type,in this case
+ *  this value always set to SPRDWL_PS_SET_SAR, other sub type please ref
+ *  sprdwl_cmd_power_save struct.
+ * @sub_type: Please refer sprdwl_sar_subtype struct.
+ * @value: The value we set.
+ * @mode: 802.11mode, please refer sprdwl_sar_mode struct.
+ */
+struct sprdwl_cmd_set_sar {
+#define SPRDWL_PS_SET_SAR	0x10
+	u8 power_save_type;
+	u8 sub_type;
+	s8 value;
+	u8 mode;
+} __packed;
+
 struct sprdwl_cmd_vowifi {
 	u8 value;
 } __packed;
@@ -1174,6 +1215,8 @@ int sprdwl_cmd_host_wakeup_fw(struct sprdwl_priv *priv, u8 ctx_id);
 void sprdwl_work_host_wakeup_fw(struct sprdwl_vif *vif);
 int sprdwl_externed_llstate(struct sprdwl_priv *priv, u8 ctx_id, u8 type,u8 subtype,
 			    void *buf, u8 len, u8 *r_buf, u16 *r_len);
+int sprdwl_set_sar(struct sprdwl_priv *priv, u8 vif_ctx_id,
+		       u8 sub_type, s8 value, u8 mode);
 struct sprdwl_msg_buf *__sprdwl_cmd_getbuf(struct sprdwl_priv *priv,
 					   u16 len, u8 ctx_id,
 					   enum sprdwl_head_rsp rsp,
