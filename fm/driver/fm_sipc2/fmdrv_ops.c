@@ -50,7 +50,7 @@
 
 #include <misc/wcn_bus.h>
 
-//struct wake_lock fm_wakelock;
+struct wake_lock fm_wakelock;
 struct device *fm_miscdev = NULL;
 
 extern struct mchn_ops_t fm_sipc_tx_ops;
@@ -439,7 +439,7 @@ int  fm_device_init_driver(void)
 		dev_unisoc_fm_info(fm_miscdev,"fm: probe failed: %d\n", ret);
 	}
 	dev_unisoc_fm_info(fm_miscdev,"fm: probe success: %d\n", ret);
-	//wake_lock_init(&fm_wakelock, WAKE_LOCK_SUSPEND, "FM_wakelock");
+	wake_lock_init(&fm_wakelock, WAKE_LOCK_SUSPEND, "FM_wakelock");
 	dev_unisoc_fm_info(fm_miscdev,"------- fm_device_init_driver!\n");
 	return ret;
 }
@@ -447,6 +447,6 @@ int  fm_device_init_driver(void)
 void fm_device_exit_driver(void)
 {
 	platform_driver_unregister(&fm_driver);
-	//wake_lock_destroy(&fm_wakelock);
+	wake_lock_destroy(&fm_wakelock);
 }
 

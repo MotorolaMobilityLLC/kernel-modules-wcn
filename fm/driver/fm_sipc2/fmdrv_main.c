@@ -247,14 +247,14 @@ static int fm_write_cmd(unsigned char subcmd, void *payload,
 	unsigned long timeleft;
 	int ret;
 
-	//wake_lock(&fm_wakelock);
-	//mutex_lock(&fmdev->mutex);
+	wake_lock(&fm_wakelock);
+	mutex_lock(&fmdev->mutex);
 	init_completion(&fmdev->commontask_completion);
 	//ret = fm_send_cmd(subcmd, payload, payload_len);
 	ret = fm_sipc_send_cmd(subcmd, payload, payload_len);
 	if (ret < 0) {
-		//wake_unlock(&fm_wakelock);
-		//mutex_unlock(&fmdev->mutex);
+		wake_unlock(&fm_wakelock);
+		mutex_unlock(&fmdev->mutex);
 		return ret;
 	}
 
@@ -264,11 +264,11 @@ static int fm_write_cmd(unsigned char subcmd, void *payload,
 		dev_unisoc_fm_err(fm_miscdev,"(fmdrv) %s(): Timeout(%d sec),didn't get fm SubCmd\n"
 			"0x%02X completion signal from RX tasklet\n",
 			__func__, jiffies_to_msecs(FM_DRV_TX_TIMEOUT) / 1000, subcmd);
-		//wake_unlock(&fm_wakelock);
-		//mutex_unlock(&fmdev->mutex);
+		wake_unlock(&fm_wakelock);
+		mutex_unlock(&fmdev->mutex);
 		return -ETIMEDOUT;
 	}
-	//mutex_unlock(&fmdev->mutex);
+	mutex_unlock(&fmdev->mutex);
 	dev_unisoc_fm_info(fm_miscdev,"fmdrv wait command have complete\n");
 	/* 0:len; XX XX XX sttaus */
 	if ((fmdev->com_respbuf[4]) != 0) {
@@ -1369,7 +1369,7 @@ int __init init_fm_driver(void)
 	init_completion(&fmdev->commontask_completion);
 	init_completion(&fmdev->seektask_completion);
 	spin_lock_init(&(fmdev->rw_lock));
-	//mutex_init(&fmdev->mutex);
+	mutex_init(&fmdev->mutex);
 	INIT_LIST_HEAD(&(fmdev->rx_head));
 
 	fmdev->read_buf = kzalloc(FM_READ_SIZE, GFP_KERNEL);
