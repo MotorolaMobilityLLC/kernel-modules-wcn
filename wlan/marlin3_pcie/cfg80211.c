@@ -424,7 +424,7 @@ int sprdwl_init_fw(struct sprdwl_vif *vif)
 #ifdef ENABLE_PAM_WIFI
 	if (mode == SPRDWL_MODE_AP) {
 		/*init pamwifi*/
-		ret = sprdwl_pamwifi_init(intf->pdev);
+		ret = sprdwl_pamwifi_init(intf->pdev, priv);
 		/*software conf enable*/
 		if (!ret) {
 			sprdwl_pamwifi_enable(vif);

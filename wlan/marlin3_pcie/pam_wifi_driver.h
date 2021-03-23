@@ -150,24 +150,6 @@ struct pamwifi_cap_tlv {
 	u16 dl_rx_cmn_fifo_depth;
 }__packed;
 
-struct pam_wifi_cap_cp {
-	//GET_INFO_TLV_PAM_WIFI_CP_CAP=2
-	//u16 type;
-	//u16 len;
-	u8 cp_pam_wifi_support;
-	//0:marlin3; 1:songshanw6
-	u8 chip_ver;
-	u8 mux_tx_common_fifo_support;
-	u16 mux_tx_common_fifo_depth;
-	//40bit
-	u32 mux_tx_common_fifo_base_addr_l;
-	u8 mux_tx_common_fifo_base_addr_h;
-	//0:1 ipi; 1:2 ipi; 2:4 ipi
-	u8 ipi_mode;
-	u32 ipi_reg_addr_l[4];
-	u8 ipi_reg_addr_h[4];
-}__packed;
-
 struct sprdwl_pamwifi_priv{
 	int kthread_stop;
 	u32 router_table_backup[32][4];
@@ -189,7 +171,9 @@ struct sprdwl_pamwifi_priv{
 	struct completion tx_completed;
 	struct sprdwl_pamwifi_msg_list *pamwifi_msg_list;
 	struct pamwifi_cap_tlv ap_cap;
+#ifdef ENABLE_PAM_WIFI
 	struct pam_wifi_cap_cp cp_cap;
+#endif
 	void __iomem *pamwifi_glb_base;
 };
 
@@ -214,8 +198,9 @@ u32 pam_wifi_update_tx_fifo_wptr(u64 fifo_base, u32 wptr);
 u32 check_pamwifi_ipa_fifo_status(void);
 void clear_reg_bits(u64 u4_addr, u32 mask);
 int sprdwl_pamwifi_fill_rx_buf(struct sprdwl_intf *intf);
-int sprdwl_pamwifi_init(struct platform_device *pdev);
+int sprdwl_pamwifi_init(struct platform_device *pdev, struct sprdwl_priv *priv);
 void sprdwl_pamwifi_uninit(struct platform_device *pdev);
 //to remove
 extern bool sipa_nic_check_flow_ctrl(enum sipa_nic_id nic_id);
+int sprdwl_pamwifi_probe(struct platform_device *pdev);
 #endif

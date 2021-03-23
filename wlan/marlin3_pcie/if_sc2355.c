@@ -2096,9 +2096,9 @@ void sprdwl_event_sta_lut(struct sprdwl_vif *vif, u8 *data, u16 len)
 		intf->peer_entry[i].vif = vif;
 		if(vif->mode == SPRDWL_MODE_AP && sta_lut->sta_lut_index > 5) {
 			if (!vif->ndev)
-			ether_addr_copy(intf->peer_entry[i].tx.sa, vif->wdev.address);
+				ether_addr_copy(intf->peer_entry[i].tx.sa, vif->wdev.address);
 			else
-			ether_addr_copy(intf->peer_entry[i].tx.sa, vif->ndev->dev_addr);
+				ether_addr_copy(intf->peer_entry[i].tx.sa, vif->ndev->dev_addr);
 			pamwifi_update_router_table(vif->priv, sta_lut, vif->mode, 0, 0);
 		}
 #endif

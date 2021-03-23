@@ -250,13 +250,6 @@ static int sprdwl_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 			return NETDEV_TX_OK;
 	}
 
-#ifdef ENABLE_PAM_WIFI
-	if (vif->mode == SPRDWL_MODE_AP) {
-		ret = sprdwl_xmit_to_ipa_pamwifi(skb, ndev);
-		return ret;
-	}
-#endif
-
 	/*do not send packet before connected*/
 	if ((vif->mode == SPRDWL_MODE_STATION && vif->sm_state != SPRDWL_CONNECTED) ||
 		(vif->mode != SPRDWL_MODE_STATION && vif->priv->fw_stat[vif->mode] != SPRDWL_INTF_OPEN)) {
@@ -265,6 +258,13 @@ static int sprdwl_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 		dev_kfree_skb(skb);
 		return NETDEV_TX_OK;
 	}
+
+#ifdef ENABLE_PAM_WIFI
+	if (vif->mode == SPRDWL_MODE_AP) {
+		ret = sprdwl_xmit_to_ipa_pamwifi(skb, ndev);
+		return ret;
+	}
+#endif
 
 	msg = sprdwl_intf_get_msg_buf(vif->priv,
 				      SPRDWL_TYPE_DATA,

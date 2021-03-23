@@ -372,7 +372,9 @@ void handle_tx_status_after_close(struct sprdwl_vif *vif)
 			tx_msg->ring_ap = 0;
 			atomic_set(&tx_msg->flow_ctrl[i].flow, 0);
 		}
-
+#ifdef ENABLE_PAM_WIFI
+		//sprdwl_pamwifi_free_rx_buf(priv->hw_priv);
+#endif
 		sprdwl_rx_flush_buffer(priv->hw_priv);
 	} else {
 		/*a mode closed,

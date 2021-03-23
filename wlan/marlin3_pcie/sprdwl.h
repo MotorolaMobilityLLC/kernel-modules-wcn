@@ -184,6 +184,26 @@ struct sprdwl_recv_rtt_result {
 	struct sprdwl_dot11_rm_ie *ele2[10];
 };
 
+#ifdef ENABLE_PAM_WIFI
+struct pam_wifi_cap_cp {
+	//GET_INFO_TLV_PAM_WIFI_CP_CAP=2
+	//u16 type;
+	//u16 len;
+	u8 cp_pam_wifi_support;
+	//0:marlin3; 1:songshanw6
+	u8 chip_ver;
+	u8 mux_tx_common_fifo_support;
+	u16 mux_tx_common_fifo_depth;
+	//40bit
+	u32 mux_tx_common_fifo_base_addr_l;
+	u8 mux_tx_common_fifo_base_addr_h;
+	//0:1 ipi; 1:2 ipi; 2:4 ipi
+	u8 ipi_mode;
+	u32 ipi_reg_addr_l[4];
+	u8 ipi_reg_addr_h[4];
+}__packed;
+#endif
+
 struct sprdwl_priv {
 	struct wiphy *wiphy;
 	/* virtual interface list */
@@ -277,6 +297,9 @@ struct sprdwl_priv {
 	unsigned char ott_supt;
 	int is_suspending;
 	int is_screen_off;
+#ifdef ENABLE_PAM_WIFI
+	struct pam_wifi_cap_cp cp_cap;
+#endif
 };
 
 struct sprdwl_eap_hdr {

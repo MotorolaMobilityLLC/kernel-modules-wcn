@@ -857,8 +857,9 @@ int sprdwl_get_fw_info(struct sprdwl_priv *priv)
 	pam_wifi_tlv.mux_tx_cmn_fifo_support = 1;
 	pam_wifi_tlv.ipi_mode_support = 2;
 	pam_wifi_tlv.dl_rx_cmn_fifo_depth = 1024;
-	offset += (sizeof(*tlv) + 1);
-	sprdwl_set_tlv_elmt((u8 *)(msg->data + offset), PAM_WIFI_AP_CAP_TLV_TYPE,
+	//offset += (sizeof(*tlv) + 1);
+	offset += sizeof(struct sprdwl_tlv_data);
+	sprdwl_set_tlv_elmt((u8 *)msg->data + offset, PAM_WIFI_AP_CAP_TLV_TYPE,
 				sizeof(struct pamwifi_cap_tlv), (u8 *)(&pam_wifi_tlv));
 #endif
 
@@ -920,18 +921,18 @@ int sprdwl_get_fw_info(struct sprdwl_priv *priv)
 #ifdef ENABLE_PAM_WIFI
 				case GET_INFO_TLV_PAM_WIFI_CP_CAP:
 					if (tlv->len == 31) {
-						memcpy(&pamwifi_priv->cp_cap, (struct pam_wifi_cap_cp *)(tlv->data),
+						memcpy(&priv->cp_cap, (struct pam_wifi_cap_cp *)(tlv->data),
 							sizeof(struct pam_wifi_cap_cp));
 						wl_err("pam cap, support:%u, ver:%u, mux_support:%u, depth:%u, mux_addrl:%u, mux_addrh:%u, ipi_mode:%u, ipi_addr:%u %u %u %u, %u, %u, %u, %u\n",
-							pamwifi_priv->cp_cap.cp_pam_wifi_support,
-							pamwifi_priv->cp_cap.chip_ver, pamwifi_priv->cp_cap.mux_tx_common_fifo_support,
-							pamwifi_priv->cp_cap.mux_tx_common_fifo_depth, pamwifi_priv->cp_cap.mux_tx_common_fifo_base_addr_l,
-							pamwifi_priv->cp_cap.mux_tx_common_fifo_base_addr_h, pamwifi_priv->cp_cap.ipi_mode,
-							pamwifi_priv->cp_cap.ipi_reg_addr_l[0], pamwifi_priv->cp_cap.ipi_reg_addr_l[1],
-							pamwifi_priv->cp_cap.ipi_reg_addr_l[2], pamwifi_priv->cp_cap.ipi_reg_addr_l[3],
-							pamwifi_priv->cp_cap.ipi_reg_addr_h[0], pamwifi_priv->cp_cap.ipi_reg_addr_h[1],
-							pamwifi_priv->cp_cap.ipi_reg_addr_h[2], pamwifi_priv->cp_cap.ipi_reg_addr_h[3]);
-						sprdwl_hex_dump("pam_wifi", (unsigned char *)(&pamwifi_priv->cp_cap), sizeof(struct pam_wifi_cap_cp));
+							priv->cp_cap.cp_pam_wifi_support,
+							priv->cp_cap.chip_ver, priv->cp_cap.mux_tx_common_fifo_support,
+							priv->cp_cap.mux_tx_common_fifo_depth, priv->cp_cap.mux_tx_common_fifo_base_addr_l,
+							priv->cp_cap.mux_tx_common_fifo_base_addr_h, priv->cp_cap.ipi_mode,
+							priv->cp_cap.ipi_reg_addr_l[0], priv->cp_cap.ipi_reg_addr_l[1],
+							priv->cp_cap.ipi_reg_addr_l[2], priv->cp_cap.ipi_reg_addr_l[3],
+							priv->cp_cap.ipi_reg_addr_h[0], priv->cp_cap.ipi_reg_addr_h[1],
+							priv->cp_cap.ipi_reg_addr_h[2], priv->cp_cap.ipi_reg_addr_h[3]);
+						sprdwl_hex_dump("pam_wifi", (unsigned char *)(&priv->cp_cap), sizeof(struct pam_wifi_cap_cp));
 						b_tlv_data_chk = true;
 					}
 					break;
