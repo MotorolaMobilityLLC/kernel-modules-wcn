@@ -3414,6 +3414,31 @@ int sprdwl_event_acs_lte_event(struct sprdwl_vif *vif)
         return sprdwl_report_acs_lte_event(vif);
 }
 
+int sprdwl_event_report_ip_addr(struct sprdwl_vif *vif, u8 *data, u16 len)
+{
+	struct ip_addr_info *info = (struct ip_addr_info *)data;
+	u8 *p;
+
+	if (!len) {
+		netdev_err(vif->ndev, "%s event data len=0\n", __func__);
+		return -EINVAL;
+	}
+	p = (u8 *)info->ip_addr;
+	if (info->type == 0x0800) {
+		netdev_info(vif->ndev, "%s ipv4: %pI4\n", __func__, p);
+	} else if (info->type == 0x0806) {
+		netdev_info(vif->ndev, "%s ARP ip: %pI4\n", __func__, p);
+	} else if (info->type == 0x86DD) {
+		netdev_info(vif->ndev, "%s ipv6: %pI6", __func__, p);
+	} else if (info->type == 0x888E) {
+		netdev_err(vif->ndev, "%s type: EAPOL(GTK/PTK)\n", __func__);
+	} else {
+		netdev_err(vif->ndev, "%s unknow type:%x\n", __func__, info->type);
+	}
+
+	return 0;
+}
+
 static const char *evt2str(u8 evt)
 {
 #define E2S(x) case x: return #x;
@@ -3449,6 +3474,7 @@ static const char *evt2str(u8 evt)
 	E2S(WIFI_EVENT_COEX_BT_ON_OFF)
 	E2S(WIFI_EVENT_ACS_DONE)
 	E2S(WIFI_EVENT_ACS_LTE_CONFLICT_EVENT)
+	E2S(WIFI_EVENT_REPORT_IP_ADDR)
 	default : return "WIFI_EVENT_UNKNOWN";
 	}
 #undef E2S
@@ -3601,6 +3627,9 @@ unsigned short sprdwl_rx_event_process(struct sprdwl_priv *priv, u8 *msg)
 		break;
 	case WIFI_EVENT_ACS_LTE_CONFLICT_EVENT:
 		sprdwl_event_acs_lte_event(vif);
+		break;
+	case WIFI_EVENT_REPORT_IP_ADDR:
+		sprdwl_event_report_ip_addr(vif, data, len);
 		break;
 	default:
 		wl_info("unsupported event: %d\n", hdr->cmd_id);
