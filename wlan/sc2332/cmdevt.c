@@ -1648,7 +1648,7 @@ int sprdwl_softap_set_sae_para(struct sprdwl_vif *vif,
 		tlv->type = SPRDWL_VENDOR_SAE_PWD;
 		tlv->len = setting->passphrase_len;
 		memcpy(tlv->data, setting->passphrase, setting->passphrase_len);
-		netdev_info(vif->ndev, "%s passphrase: %s, len:%d\n",__func__, setting->passphrase_len, setting->passphrase_len);
+		netdev_info(vif->ndev, "%s passphrase: %s, len:%d\n",__func__, setting->passphrase, setting->passphrase_len);
 		pos += (header_len + setting->passphrase_len);
 		data_len +=  (header_len + setting->passphrase_len);
 	}

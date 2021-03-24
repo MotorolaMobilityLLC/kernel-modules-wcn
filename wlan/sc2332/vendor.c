@@ -1895,7 +1895,7 @@ static int sprdwl_parse_sae_entry(struct net_device *ndev, struct sprdwl_sae_ent
 			nla_memcpy(entry->peer_addr, pos, ETH_ALEN);
 			break;
 		case SPRDWL_VENDOR_SAE_VLAN_ID:
-			entry->vlan_id = nla_get_u32(pos);
+			entry->vlan_id = (s32)nla_get_u32(pos);
 			break;
 		default:
 			break;

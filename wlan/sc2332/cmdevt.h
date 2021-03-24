@@ -741,7 +741,7 @@ struct sprdwl_sae_entry {
 	char identifier[32];
 	u8 passwd_len;
 	char password[MAX_PASSWORD_LEN + 1];
-	u32 vlan_id;
+	s32 vlan_id;
 };
 
 #define	SPRDWl_SAE_MAX_NUM	5

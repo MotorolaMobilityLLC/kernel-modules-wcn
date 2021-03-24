@@ -929,7 +929,7 @@ static int sprdwl_cfg80211_get_station(struct wiphy *wiphy,
 	struct sprdwl_rate_info *tx_rate;
 	struct sprdwl_rate_info *rx_rate;
 	u8 rate;
-	s32 i;
+	u32 i;
 	int ret;
 
 	sinfo->filled |= BIT(NL80211_STA_INFO_TX_BYTES) |
