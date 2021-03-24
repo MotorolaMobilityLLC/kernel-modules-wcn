@@ -48,6 +48,7 @@
 
 #include <misc/marlin_platform.h>
 //#include "wakelock.h"
+#include <linux/notifier.h>
 
 #include "fm_rf_marlin3.h"
 struct platform_device *g_fm_pdev = 0;
@@ -492,6 +493,16 @@ int fm_open(struct inode *inode, struct file *filep) {
     if (ret < 0) {
         pr_err("%s powerup failed\n", __func__);
     }
+	if (fmdev->fm_invalid == 1) {
+		if (ret != 0) {
+			ret = reset_open_state;
+			pr_info("fm wcnd reset stay open invalid status\n");
+			return ret;
+		} else {
+			fmdev->fm_invalid = 0;
+			pr_info("fm wcnd reset stay open valid status\n");
+		}
+	}
     return ret;
 }
 
@@ -552,6 +563,17 @@ static const struct of_device_id  of_match_table_fm[] = {
 };
 MODULE_DEVICE_TABLE(of, of_match_table_fm);
 #endif
+
+static int fm_reset(struct notifier_block *this, unsigned long ev, void *ptr)
+{
+       pr_info("%s: fm reset callback coming\n", __func__);
+       fmdev->fm_invalid = 1;
+       return NOTIFY_DONE;
+}
+
+static struct notifier_block fm_reset_block = {
+       .notifier_call = fm_reset,
+};
 
 static int fm_probe(struct platform_device *pdev) {
     int ret = -EINVAL;
@@ -633,6 +655,7 @@ int  fm_device_init_driver(void) {
 #endif
         pr_info("fm: probe failed: %d\n", ret);
     }
+	atomic_notifier_chain_register(&wcn_reset_notifier_list,&fm_reset_block);
     pr_info("fm: probe success: %d\n", ret);
 
     return ret;

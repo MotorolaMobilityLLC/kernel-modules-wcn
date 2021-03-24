@@ -1043,6 +1043,20 @@ int fm_rds_onoff(void *arg) {
     int ret = 0;
     unsigned char payload[2];
 
+	int status = 0;
+
+	if (fmdev->fm_invalid == 1 ){
+		status = fm_powerup();
+		if(status != 0){
+			ret = reset_open_state;
+			pr_info("fm wcnd reset stay command invalid status\n");
+			return ret;
+		} else {
+			fmdev->fm_invalid = 0;
+			pr_info("fm wcnd reset stay command valid status\n");
+		}
+    }
+
     if (copy_from_user(&rds_on, arg, sizeof(rds_on))) {
         pr_err("fm rds_onoff 's ret value is -eFAULT\n");
         return -EFAULT;

@@ -33,6 +33,7 @@
 #include <linux/workqueue.h>
 
 //#include <linux/marlin_platform.h>
+#include <linux/notifier.h>
 #include <misc/wcn_bus.h>
 #include "tty.h"
 #include "lpm.h"
@@ -656,6 +657,40 @@ static inline void mtty_destroy_pdata(struct mtty_init_data **init)
 
 #define SPRDWL_MH_ADDRESS_BIT (1UL << 39)
 
+static int bluetooth_reset(struct notifier_block *this, unsigned long ev, void *ptr)
+{
+#define RESET_BUFSIZE 5
+
+    int ret = 0;
+    int block_size = RESET_BUFSIZE;
+	unsigned char reset_buf[RESET_BUFSIZE]= {0x04, 0xff, 0x02, 0x57, 0xa5};
+
+	BT_VER("%s: reset callback coming\n", __func__);
+	if (mtty_dev != NULL) {
+		if (!work_pending(&mtty_dev->bt_rx_work)) {
+			BT_VER("%s tty_insert_flip_string", __func__);
+
+			while(ret < block_size){
+				BT_VER("%s before tty_insert_flip_string ret: %d, len: %d\n",
+						__func__, ret, RESET_BUFSIZE);
+				ret = tty_insert_flip_string(mtty_dev->port0,
+									(unsigned char *)reset_buf,
+									RESET_BUFSIZE);   // -BT_SDIO_HEAD_LEN
+			    BT_VER("%s ret: %d, len: %d\n", __func__, ret, RESET_BUFSIZE);
+				if (ret)
+					tty_flip_buffer_push(mtty_dev->port0);
+				block_size = block_size - ret;
+				ret = 0;
+			}
+		}
+	}
+	return NOTIFY_DONE;
+}
+
+static struct notifier_block bluetooth_reset_block = {
+	.notifier_call = bluetooth_reset,
+};
+
 static int mtty_probe(struct platform_device *pdev)
 {
     struct mtty_init_data *pdata = (struct mtty_init_data *)
@@ -709,7 +744,7 @@ static int mtty_probe(struct platform_device *pdev)
 
     rfkill_bluetooth_init(pdev);
     bluesleep_init();
-
+    atomic_notifier_chain_register(&wcn_reset_notifier_list,&bluetooth_reset_block);
     sema_init(&sem_id, BT_TX_POOL_SIZE0 - 1);
 
     return 0;

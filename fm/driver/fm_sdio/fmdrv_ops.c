@@ -48,6 +48,7 @@
 #include "fm_rf_marlin3.h"
 
 #include "unisoc_fm_log.h"
+#include <linux/notifier.h>
 
 struct wake_lock fm_wakelock;
 extern struct platform_device *g_fm_pdev;
@@ -324,17 +325,28 @@ long fm_ioctl(struct file *filep, unsigned int cmd, unsigned long arg) {
 }
 
 int fm_open(struct inode *inode, struct file *filep) {
+	int ret = 0;
 	struct fm_tune_parm powerup_parm;
 	powerup_parm.err = 0;
 	powerup_parm.freq = 875;
-	fm_powerup(&powerup_parm);
+	ret = fm_powerup(&powerup_parm);
+	if (fmdev->fm_invalid == 1) {
+		if (ret != 0) {
+			ret = reset_open_state;
+			pr_info("fm wcnd reset stay open invalid status\n");
+			return ret;
+		} else {
+			fmdev->fm_invalid = 0;
+			pr_info("fm wcnd reset stay open valid status\n");
+		}
+	}
 	dev_unisoc_fm_info(fm_miscdev,"start open SPRD fm module...\n");
 	if (wcn_hw_type == HW_TYPE_PCIE) {
 		sprdwcn_bus_chn_init(&fm_pcie_tx_ops);
 		sprdwcn_bus_chn_init(&fm_pcie_rx_ops);
 		fm_dma_buf_alloc(FM_PCIE_RX_CHANNEL, FM_PCIE_RX_DMA_SIZE, FM_PCIE_RX_MAX_NUM);
 	}
-	return 0;
+	return ret;
 }
 
 int fm_release(struct inode *inode, struct file *filep) {
@@ -383,6 +395,17 @@ static const struct of_device_id  of_match_table_fm[] = {
 };
 MODULE_DEVICE_TABLE(of, of_match_table_fm);
 #endif
+
+static int fm_reset(struct notifier_block *this, unsigned long ev, void *ptr)
+{
+       pr_info("%s: fm reset callback coming\n", __func__);
+       fmdev->fm_invalid = 1;
+       return NOTIFY_DONE;
+}
+
+static struct notifier_block fm_reset_block = {
+       .notifier_call = fm_reset,
+};
 
 static int fm_probe(struct platform_device *pdev) {
     int ret = -EINVAL;
@@ -466,6 +489,7 @@ int  fm_device_init_driver(void) {
 		dev_unisoc_fm_info(fm_miscdev,"fm: probe failed: %d\n", ret);
     }
 	dev_unisoc_fm_info(fm_miscdev,"fm: probe success: %d\n", ret);
+	atomic_notifier_chain_register(&wcn_reset_notifier_list,&fm_reset_block);
     wake_lock_init(&fm_wakelock, WAKE_LOCK_SUSPEND, "FM_wakelock");
     return ret;
 }

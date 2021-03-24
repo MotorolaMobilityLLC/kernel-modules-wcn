@@ -27,6 +27,7 @@
 #include <linux/vt_kern.h>
 #include <linux/sipc.h>
 #include <linux/io.h>
+#include <linux/notifier.h>
 #include "alignment/sitm.h"
 #include "unisoc_bt_log.h"
 
@@ -648,6 +649,48 @@ struct mchn_ops_t bt_sipc_tx_ops = {
 	.pop_link = mtty_sipc_tx_cb,
 };
 
+static int stty_bluetooth_reset(struct notifier_block *this, unsigned long ev, void *ptr)
+{
+#define RESET_BUFSIZE 5
+
+	int ret = 0;
+	unsigned char reset_buf[RESET_BUFSIZE]= {0x04, 0xff, 0x02, 0x57, 0xa5};
+	int i = 0, retry_count = 10;
+
+	dev_unisoc_bt_info(ttyBT_dev,
+					"%s:reset callback coming\n", __func__);
+	if (stty_dev != NULL) {
+                dev_unisoc_bt_info(ttyBT_dev,
+                                        "%s tty_insert_flip_string\n", __func__);
+		mutex_lock(&(stty_dev->stat_lock));
+		if ((atomic_read(&stty_dev->state) == STTY_STATE_OPEN) && (RESET_BUFSIZE > 0)) {
+			for (i = 0; i < RESET_BUFSIZE; i++) {
+				ret = tty_insert_flip_char(stty_dev->port,
+						reset_buf[i],
+						TTY_NORMAL);
+				while((ret != 1) && retry_count--) {
+					msleep(2);
+					dev_unisoc_bt_info(ttyBT_dev,
+								"stty_dev insert data fail ret =%d, retry_count = %d\n",
+								ret, 10 - retry_count);
+					ret = tty_insert_flip_char(stty_dev->port,
+								reset_buf[i],
+								TTY_NORMAL);
+				}
+				if(retry_count != 10)
+					retry_count = 10;
+			}
+			tty_schedule_flip(stty_dev->port);
+		}
+		mutex_unlock(&(stty_dev->stat_lock));
+	}
+	return NOTIFY_DONE;
+}
+
+static struct notifier_block bluetooth_reset_block = {
+	.notifier_call = stty_bluetooth_reset,
+};
+
 static int  stty_probe(struct platform_device *pdev)
 {
 	struct stty_init_data *pdata = (struct stty_init_data *)pdev->
@@ -720,7 +763,7 @@ static int  stty_probe(struct platform_device *pdev)
 
 	rfkill_bluetooth_init(pdev);
 	bluesleep_init();
-
+	atomic_notifier_chain_register(&wcn_reset_notifier_list, &bluetooth_reset_block);
 	sprdwcn_bus_chn_init(&bt_sipc_rx_ops);
 	sprdwcn_bus_chn_init(&bt_sipc_tx_ops);
 	sema_init(&sem_id, BT_TX_POOL_SIZE - 1);

@@ -1193,6 +1193,24 @@ int fm_rds_onoff(void *arg)
 	int ret = 0;
 	unsigned char payload[2];
 
+	int status = 0;
+
+	struct fm_tune_parm powerup_parm;
+	powerup_parm.err = 0;
+	powerup_parm.freq = 875;
+
+	if (fmdev->fm_invalid == 1 ){
+		status = fm_powerup(&powerup_parm);
+		if(status != 0){
+			ret = reset_open_state;
+			pr_info("fm wcnd reset stay command invalid status\n");
+			return ret;
+		} else {
+			fmdev->fm_invalid = 0;
+			pr_info("fm wcnd reset stay command valid status\n");
+		}
+    }
+
 	if (copy_from_user(&rds_on, arg, sizeof(rds_on))) {
 		dev_unisoc_fm_err(fm_miscdev,"fm rds_onoff 's ret value is -eFAULT\n");
 		return -EFAULT;

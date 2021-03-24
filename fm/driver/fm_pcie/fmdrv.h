@@ -50,6 +50,7 @@
 
 /* 1: enable RDS, 0:disable RDS */
 #define FM_RDS_ENABLE 0x01
+#define reset_open_state 2
 
 enum fm_bool {
     fm_false = 0,
@@ -557,6 +558,7 @@ struct fmdrv_ops {
     struct fm_rds_handle rds_han;
     /* fm power state */
     uint8_t power_status;
+	int8_t  fm_invalid;
 };
 
 /* ********** ***********FM IOCTL define start ****************/

@@ -41,6 +41,8 @@
 #define FM_RX_POOL_SIZE   1
 #define FM_SIPC_HEAD_LEN   0
 
+#define reset_open_state 2
+
 enum fm_bool {
 	fm_false = 0,
 	fm_true  = 1
@@ -535,6 +537,7 @@ struct fmdrv_ops {
 	bool	fm_state;
 	/* headset_state: plugin: 0, plugout: 1 */
 	bool	headset_state;
+	int8_t  fm_invalid;
 };
 
 /* ********** ***********FM IOCTL define start ****************/
