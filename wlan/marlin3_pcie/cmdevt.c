@@ -824,6 +824,9 @@ int sprdwl_get_fw_info(struct sprdwl_priv *priv)
 #endif
 
 	memset(r_buf, 0, r_len);
+#ifdef ENABLE_PAM_WIFI
+	tlv_len += sizeof(struct sprdwl_tlv_data) + sizeof(struct pamwifi_cap_tlv);
+#endif
 	msg = sprdwl_cmd_getbuf(priv, tlv_len, SPRDWL_MODE_NONE,
 				SPRDWL_HEAD_RSP, WIFI_CMD_GET_INFO);
 	if (!msg)
@@ -857,8 +860,7 @@ int sprdwl_get_fw_info(struct sprdwl_priv *priv)
 	pam_wifi_tlv.mux_tx_cmn_fifo_support = 1;
 	pam_wifi_tlv.ipi_mode_support = 2;
 	pam_wifi_tlv.dl_rx_cmn_fifo_depth = 1024;
-	//offset += (sizeof(*tlv) + 1);
-	offset += sizeof(struct sprdwl_tlv_data);
+	offset += sizeof(struct sprdwl_tlv_data) + sizeof(ap_version);
 	sprdwl_set_tlv_elmt((u8 *)msg->data + offset, PAM_WIFI_AP_CAP_TLV_TYPE,
 				sizeof(struct pamwifi_cap_tlv), (u8 *)(&pam_wifi_tlv));
 #endif
