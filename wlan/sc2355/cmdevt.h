@@ -188,6 +188,7 @@ enum SPRDWL_CMD_LIST {
 	/*Please add new command above line,
 	* conditional compile flag is not recommended
 	*/
+	WIFI_CMD_MIRACAST = 82,
 	WIFI_CMD_PACKET_OFFLOAD = 84,
 	WIFI_CMD_SET_SAE_PARAM = 85,
 	WIFI_CMD_RESERVED_FOR_PAM_WIFI = 86,
@@ -696,6 +697,10 @@ struct sprdwl_cmd_set_mac_addr {
 	u8 mac[0];
 } __packed;
 
+struct sprdwl_cmd_miracast {
+	u8 value;
+} __packed;
+
 struct sprdwl_cmd_rsp_state_code {
 	__le32 code;
 } __packed;
@@ -1165,6 +1170,8 @@ int sprdwl_del_tx_ts(struct sprdwl_priv *priv, u8 vif_ctx_id, u8 tsid,
 		     const u8 *peer);
 int sprdwl_set_mc_filter(struct sprdwl_priv *priv,  u8 vif_ctx_id,
 			 u8 sub_type, u8 num, u8 *mac_addr);
+int sprdwl_enable_miracast(struct sprdwl_priv *priv,
+		u8 vif_mode, int val);
 int sprdwl_set_gscan_config(struct sprdwl_priv *priv, u8 vif_ctx_id, void *data,
 			    u16 len, u8 *r_buf, u16 *r_len);
 int sprdwl_set_gscan_scan_config(struct sprdwl_priv *priv, u8 vif_ctx_id,
