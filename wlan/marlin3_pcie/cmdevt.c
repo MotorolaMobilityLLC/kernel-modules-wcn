@@ -713,7 +713,7 @@ void sprdwl_download_ini(struct sprdwl_priv *priv)
 	struct wifi_conf_sec2_t *sec2;
 	struct wifi_config_param_t *wifi_param;
 
-	pr_info("%s enter:", __func__);
+	wl_info("%s enter:", __func__);
 	/*if ini file has been download already, return*/
 	if (sprdwl_get_ini_status(priv)) {
 		wl_err("RF ini download already, skip!\n");
