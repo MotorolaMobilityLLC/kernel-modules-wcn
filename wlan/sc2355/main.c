@@ -612,6 +612,46 @@ out:
 	return ret;
 }
 
+int sprdwl_set_miracast(struct net_device *ndev, struct ifreq *ifr)
+{
+	struct sprdwl_vif *vif = netdev_priv(ndev);
+	struct sprdwl_priv *priv = vif->priv;
+	struct android_wifi_priv_cmd priv_cmd;
+	char *command = NULL;
+	unsigned short subtype;
+	int ret = 0, value;
+
+	if (!ifr->ifr_data)
+		return -EINVAL;
+	if (copy_from_user(&priv_cmd, ifr->ifr_data, sizeof(priv_cmd)))
+		return -EINVAL;
+
+	/*add length check to avoid invalid NULL ptr*/
+	if ((!priv_cmd.total_len) || (SPRDWL_MAX_CMD_TXLEN < priv_cmd.total_len)) {
+		netdev_err(ndev, "%s: priv cmd total len is invalid\n", __func__);
+		return -EINVAL;
+	}
+
+	command = kmalloc(priv_cmd.total_len, GFP_KERNEL);
+	if (!command)
+		return -EINVAL;
+	if (copy_from_user(command, priv_cmd.buf, priv_cmd.total_len)) {
+		ret = -EFAULT;
+		goto out;
+	}
+
+	subtype = *(unsigned short *)command;
+	if (subtype == 5) {
+		value = *((int *)(command + 2 * sizeof(unsigned short)));
+		netdev_info(ndev, "%s: set miracast value : %d\n",
+				__func__, value);
+		ret = sprdwl_enable_miracast(priv, vif->mode, value);
+	}
+out:
+	kfree(command);
+	return ret;
+}
+
 static int sprdwl_set_power_save(struct net_device *ndev, struct ifreq *ifr)
 {
 	struct sprdwl_vif *vif = netdev_priv(ndev);
@@ -813,7 +853,7 @@ out:
 }
 
 #define SPRDWLIOCTL		(SIOCDEVPRIVATE + 1)
-#define SPRDWLGETSSID		(SIOCDEVPRIVATE + 2)
+#define SPRDWLSETMIRACAST	(SIOCDEVPRIVATE + 2)
 #define SPRDWLSETFCC		(SIOCDEVPRIVATE + 3)
 #define SPRDWLSETSUSPEND	(SIOCDEVPRIVATE + 4)
 #define SPRDWLSETCOUNTRY	(SIOCDEVPRIVATE + 5)
@@ -826,9 +866,9 @@ static int sprdwl_ioctl(struct net_device *ndev, struct ifreq *req, int cmd)
 	case SPRDWLIOCTL:
 	case SPRDWLSETCOUNTRY:
 		return sprdwl_priv_cmd(ndev, req);
-	case SPRDWLGETSSID:
+	case SPRDWLSETMIRACAST:
 		netdev_err(ndev, "for vts test %d\n", cmd);
-		return 0;
+		return sprdwl_set_miracast(ndev, req);
 	case SPRDWLSETFCC:
 	case SPRDWLSETSUSPEND:
 		return sprdwl_set_power_save(ndev, req);
