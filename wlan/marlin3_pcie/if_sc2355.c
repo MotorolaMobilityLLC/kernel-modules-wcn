@@ -1587,8 +1587,12 @@ int sprdwl_tx_data_pop_list(int channel, struct mbuf_t *head, struct mbuf_t *tai
 			mm_phys_to_virt(&intf->pdev->dev, mbuf_pos->phy,
 					mbuf_pos->len, DMA_TO_DEVICE, false);
 			mbuf_pos->phy = 0;
-			kfree(mbuf_pos->buf);
-			mbuf_pos->buf = NULL;
+			if (mbuf_pos->buf != NULL) {
+                        	kfree(mbuf_pos->buf);
+				mbuf_pos->buf = NULL;
+			}
+			else
+				wl_err("%s:error! mbuf_pos->buf is NULL!\n", __func__);
 			if (--tmp_num == 0)
 				break;
 		}
@@ -1600,8 +1604,12 @@ int sprdwl_tx_data_pop_list(int channel, struct mbuf_t *head, struct mbuf_t *tai
 	} else if (intf->priv->hw_type == SPRDWL_HW_SIPC) {
 		for (mbuf_pos = head; mbuf_pos != NULL; mbuf_pos = mbuf_pos->next) {
 			mbuf_pos->phy = 0;
-			kfree(mbuf_pos->buf);
-			mbuf_pos->buf = NULL;
+			if (mbuf_pos->buf != NULL) {
+				kfree(mbuf_pos->buf);
+				mbuf_pos->buf = NULL;
+			}
+			else
+				wl_err("%s:error! mbuf_pos->buf is NULL!\n", __func__);
 			if (--tmp_num == 0)
 				break;
 		}
