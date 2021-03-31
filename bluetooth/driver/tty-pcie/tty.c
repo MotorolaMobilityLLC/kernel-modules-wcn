@@ -571,7 +571,7 @@ static int mtty_tty_driver_init(struct mtty_device *device)
     if (!device->port1)
         return -ENOMEM;
 
-    driver = alloc_tty_driver(MTTY_DEV_MAX_NR * 2);
+    driver = alloc_tty_driver(MTTY_DEV_MAX_NR);
     if (!driver)
         return -ENOMEM;
 
