@@ -733,12 +733,16 @@ int sprdwl_rx_deinit(struct sprdwl_intf *intf)
 	wl_warn("%s, %d\n", __func__, __LINE__);
 	if (rx_if->rx_thread) {
 		rx_up(rx_if);
-		kthread_stop(rx_if->rx_thread);
+		wl_warn("%s, rx_if->rx_thread->state is %d\n", __func__, rx_if->rx_thread->state);
+		if (rx_if->rx_thread->state == TASK_RUNNING)
+			kthread_stop(rx_if->rx_thread);
 		rx_if->rx_thread = NULL;
 	}
 	if (rx_if->rx_net_thread) {
 		rx_net_up(rx_if);
-		kthread_stop(rx_if->rx_net_thread);
+		wl_warn("%s, rx_if->rx_net_thread->state is %d\n", __func__, rx_if->rx_net_thread->state);
+		if (rx_if->rx_net_thread->state == TASK_RUNNING)
+			kthread_stop(rx_if->rx_net_thread);
 		rx_if->rx_net_thread = NULL;
 	}
 	sprdwl_msg_deinit(&rx_if->rx_list);
