@@ -1497,6 +1497,17 @@ static int sprdwl_tx_work_queue(void *data)
 		if (sprdwl_msg_tx_pended(&tx_msg->tx_list_cmd))
 			sprdwl_tx_cmd(intf, &tx_msg->tx_list_cmd);
 
+		if (intf->cp_asserted == 1) {
+			wl_err("%s, cp2 assert, flush data\n", __func__);
+			for (mode = SPRDWL_MODE_STATION; mode < SPRDWL_MODE_MAX; mode++) {
+				if (atomic_read(&tx_msg->tx_list[mode]->mode_list_num) == 0)
+					continue;
+				sprdwl_flush_mode_txlist(tx_msg, mode);
+			}
+				sprdwl_flush_tosendlist(tx_msg);
+				continue;
+		}
+
 		/* if tx list, send wakeup firstly */
 		if (intf->fw_power_down == 1 &&
 		    (atomic_read(&tx_msg->tx_list_qos_pool.ref) > 0 ||
