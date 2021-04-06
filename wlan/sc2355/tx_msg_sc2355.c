@@ -1339,6 +1339,7 @@ int sprdwl_tx_msg_func(void *pdev, struct sprdwl_msg_buf *msg)
 		}
 		dscr->buffer_info.msdu_tid = tid;
 		peer_entry = &intf->peer_entry[dscr->sta_lut_index];
+		prepare_addba(intf, dscr->sta_lut_index, peer_entry, tid);
 /*TODO. temp for MARLIN2 test*/
 #if 0
 		qos_index = qos_match_q(&tx_msg->tx_list_data,
@@ -1373,8 +1374,6 @@ int sprdwl_tx_msg_func(void *pdev, struct sprdwl_msg_buf *msg)
 
 	if (msg->msg_type != SPRDWL_TYPE_DATA)
 		sprdwl_queue_msg_buf(msg, msg->msglist);
-
-	prepare_addba(intf, dscr->sta_lut_index, peer_entry, tid);
 
 	if (msg->msg_type == SPRDWL_TYPE_CMD)
 		queue_work(tx_msg->tx_queue, &tx_msg->tx_work);
