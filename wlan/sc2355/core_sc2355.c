@@ -787,12 +787,7 @@ static int sprdwl_probe(struct platform_device *pdev)
 
 	ret = sprdwl_core_init(&pdev->dev, priv);
 	if (ret) {
-		sprdwl_intf_deinit(intf);
-		sprdwl_tx_deinit(intf);
-		sprdwl_rx_deinit(intf);
-		sprdwl_core_free((struct sprdwl_priv *)intf->priv);
-		kfree(intf);
-		return ret;
+		goto err_core_init;
 	}
 
 #if defined FPGA_LOOPBACK_TEST
@@ -807,6 +802,8 @@ static int sprdwl_probe(struct platform_device *pdev)
 
 	return ret;
 
+err_core_init:
+	sprdwl_tx_deinit(intf);
 err_tx_init:
 	sprdwl_rx_deinit(intf);
 err_rx_init:
