@@ -145,6 +145,9 @@ static const char *cmd2str(u8 cmd)
 	C2S(WIFI_CMD_VOWIFI_DATA_PROTECT)
 	C2S(WIFI_CMD_SET_TLV)
 	C2S(WIFI_CMD_SET_SAE_PARAM)
+#ifdef ENABLE_PAM_WIFI
+	C2S(WIFI_CMD_UL_RES_STS)
+#endif
 	default : return "WIFI_CMD_UNKNOWN";
 	}
 #undef C2S

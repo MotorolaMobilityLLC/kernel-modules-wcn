@@ -98,91 +98,24 @@ void pamwifi_debug(char *buf, unsigned char offset)
 	int ret = 0, i;
 	//struct sprdwl_intf *intf = (struct sprdwl_intf *)g_intf_sc2355.intf;
 	struct sk_buff *skb = NULL;
+	struct timespec time1, time2;
 
 	wl_err("%s, %s\n", __func__, buf);
 	pam_wifi_start_pkt = buf[9] - '0';
 
 	if(pam_wifi_start_pkt == 0) {
 		pamwifi_update_router_table_test();
-		set_reg_bits_all_one(REG_PAM_WIFI_CFG_START,  BIT_PAM_WIFI_CFG_START_PAM_WIFI_START);
-	} else if (pam_wifi_start_pkt == 1) {
-		wl_err("%s, %d, send type1 pkt\n", __func__, __LINE__);
-		skb = dev_alloc_skb(SPRDWL_MAX_DATA_RXLEN);
-		tx_ipv4_udp[15] = 0x00;
-		skb_reserve(skb, NET_IP_ALIGN);
-		memcpy(skb->data, tx_ipv4_udp, 244);
-		skb_put(skb, 244);
-		wl_err("skb->len = %d", skb->len);
-		//wifi_dev_test_create_skb(skb);
-		ret = sipa_nic_tx(pamwifi_priv->nic_id, SIPA_TERM_WIFI, -1, skb);
-		if (unlikely(ret != 0)) {
-				wl_err("sipa_wifi fail to send skb, ret %d\n", ret);
-				if (ret == -ENOMEM || ret == -EAGAIN) {
-					if (sipa_nic_check_flow_ctrl(pamwifi_priv->nic_id)) {
-						wl_err("%s,%d, send fail\n", __func__, __LINE__);
-					}
-					return;
-				}
-		}
-	} else if (pam_wifi_start_pkt == 2) {
-		for (i = 0; i < 1025; i++) {
-			wl_err("%s, %d, send type1 pkt\n", __func__, __LINE__);
+		getnstimeofday(&time1);
+		for (i = 0; i < 1024; i++) {
 			skb = dev_alloc_skb(SPRDWL_MAX_DATA_RXLEN);
-			tx_ipv4_udp[15] = 0x20;
 			skb_reserve(skb, NET_IP_ALIGN);
 			memcpy(skb->data, tx_ipv4_udp, 244);
 			skb_put(skb, 244);
-			wl_err("skb->len = %d", skb->len);
-			//wifi_dev_test_create_skb(skb);
 			ret = sipa_nic_tx(pamwifi_priv->nic_id, SIPA_TERM_WIFI, -1, skb);
-			if (unlikely(ret != 0)) {
-					wl_err("sipa_wifi fail to send skb, ret %d\n", ret);
-					if (ret == -ENOMEM || ret == -EAGAIN) {
-						if (sipa_nic_check_flow_ctrl(pamwifi_priv->nic_id)) {
-							wl_err("%s,%d, send fail\n", __func__, __LINE__);
-						}
-						return;
-					}
-			}
 		}
-	} else if (pam_wifi_start_pkt == 3) {
-		wl_err("%s, %d, send type3 pkt\n", __func__, __LINE__);
-		skb = dev_alloc_skb(SPRDWL_MAX_DATA_RXLEN);
-		tx_ipv4_udp[15] = 0x80;
-		skb_reserve(skb, NET_IP_ALIGN);
-		memcpy(skb->data, tx_ipv4_udp, 244);
-		skb_put(skb, 244);
-		wl_err("skb->len = %d", skb->len);
-		ret = sipa_nic_tx(pamwifi_priv->nic_id, SIPA_TERM_WIFI, -1, skb);
-		if (unlikely(ret != 0)) {
-				wl_err("sipa_wifi fail to send skb, ret %d\n", ret);
-				if (ret == -ENOMEM || ret == -EAGAIN) {
-					if (sipa_nic_check_flow_ctrl(pamwifi_priv->nic_id)) {
-						wl_err("%s,%d, send fail\n", __func__, __LINE__);
-					}
-					return;
-				}
-		}
-	} else if (pam_wifi_start_pkt == 4) {
-		wl_err("%s, %d, send type4 pkt\n", __func__, __LINE__);
-		skb = dev_alloc_skb(SPRDWL_MAX_DATA_RXLEN);
-		tx_ipv4_udp[15] = 0xC0;
-		skb_reserve(skb, NET_IP_ALIGN);
-		memcpy(skb->data, tx_ipv4_udp, 244);
-		skb_put(skb, 244);
-		wl_err("skb->len = %d", skb->len);
-		ret = sipa_nic_tx(pamwifi_priv->nic_id, SIPA_TERM_WIFI, -1, skb);
-		if (unlikely(ret != 0)) {
-				wl_err("sipa_wifi fail to send skb, ret %d\n", ret);
-				if (ret == -ENOMEM || ret == -EAGAIN) {
-					if (sipa_nic_check_flow_ctrl(pamwifi_priv->nic_id)) {
-						wl_err("%s,%d, send fail\n", __func__, __LINE__);
-					}
-					return;
-				}
-		}
-	} else if (pam_wifi_start_pkt == 5) {
-		pam_wifi_update_tx_fifo_wptr(PSEL_UL, 10);
+		getnstimeofday(&time2);
+		wl_err("%s, %d, cost time: %llu", __func__, __LINE__,
+			(timespec_to_ns(&time2) - timespec_to_ns(&time1))/1000000000);
 	}
 }
 #endif

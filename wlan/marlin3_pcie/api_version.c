@@ -297,6 +297,13 @@ struct api_version_t g_api_array[] = {
 		.cmd_id = WIFI_CMD_SET_SAE_PARAM,
 		.drv_version = 1,
 	},
+#ifdef ENABLE_PAM_WIFI
+	[86]{
+		/*ID:86*/
+		.cmd_id = WIFI_CMD_UL_RES_STS,
+		.drv_version = 1,
+	},
+#endif
 	[128]{	/*ID:0x80*/
 		.cmd_id = WIFI_EVENT_CONNECT,
 		.drv_version = 1,

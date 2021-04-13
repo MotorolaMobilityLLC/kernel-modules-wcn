@@ -190,7 +190,7 @@ enum SPRDWL_CMD_LIST {
 	WIFI_CMD_PACKET_OFFLOAD = 84,
 	WIFI_CMD_SET_SAE_PARAM = 85,
 #ifdef ENABLE_PAM_WIFI
-	WIFI_CMD_UL_RES_STS,
+	WIFI_CMD_UL_RES_STS = 86,
 #endif
 	/*Please add new command above line,
 	* conditional compile flag is not recommended

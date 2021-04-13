@@ -148,10 +148,10 @@ void pamwifi_config_ipa(void)
 	pamwifi_priv->sipa_params.recv_param.tx_leave_flowctrl_watermark = depth / 2;
 	pamwifi_priv->sipa_params.recv_param.flow_ctrl_cfg = 1;
 	pamwifi_priv->sipa_params.send_param.flow_ctrl_irq_mode = 2;
-	pamwifi_priv->sipa_params.send_param.tx_intr_threshold = 10;
-	pamwifi_priv->sipa_params.send_param.tx_intr_delay_us = 5;
-	pamwifi_priv->sipa_params.recv_param.tx_intr_threshold = 10;
-	pamwifi_priv->sipa_params.recv_param.tx_intr_delay_us = 5;
+	pamwifi_priv->sipa_params.send_param.tx_intr_threshold = 64;
+	pamwifi_priv->sipa_params.send_param.tx_intr_delay_us = 200;
+	pamwifi_priv->sipa_params.recv_param.tx_intr_threshold = 64;
+	pamwifi_priv->sipa_params.recv_param.tx_intr_delay_us = 200;
 	pamwifi_priv->sipa_params.id = SIPA_EP_WIFI;
 
 	/*Setting IPA PAM WIFI fifo base addr*/
@@ -615,6 +615,9 @@ void pamwifi_update_router_table_test(void)
         }
 
 	/*consider uc w2w pkt, sa maybe not be marlin3 self mac addr, so only set da*/
+	temp = 0;
+	writel_relaxed(temp, (void *)(PSEL_RAM1 + 0x00 + 16 * 0 ));
+
 	temp = (u32)( (da[0] << 16) | (da[1] << 24));
 	writel_relaxed(temp, (void *)(PSEL_RAM1 + 0x04 + 16 * 0 ));
 
@@ -1639,14 +1642,22 @@ static void pamwifi_ul_rm_notify_cb(void *user_data,
 	struct sprdwl_vif *vif = (struct sprdwl_vif *)user_data;
 
 	wl_info("%s: event %d\n", __func__, event);
+
+	if (!pamwifi_priv)
+		return;
+
 	switch (event) {
 	case SIPA_RM_EVT_GRANTED:
-		pamwifi_priv->ul_resource_flag = 1;
-		pamwifi_ul_res_add_wq(vif, 1);
+		if (pamwifi_priv->ul_resource_flag == 0) {
+			pamwifi_priv->ul_resource_flag = 1;
+			pamwifi_ul_res_add_wq(vif, 1);
+		}
 		break;
 	case SIPA_RM_EVT_RELEASED:
-		//pamwifi_ul_res_add_wq(vif, 0);
-		pamwifi_priv->ul_resource_flag = 0;
+		if (pamwifi_priv->ul_resource_flag == 1) {
+			pamwifi_priv->ul_resource_flag = 0;
+			pamwifi_ul_res_add_wq(vif, 0);
+		}
 		break;
 	default:
 		wl_info("%s: unknown event %d\n", __func__, event);
@@ -1657,6 +1668,11 @@ static void pamwifi_ul_rm_notify_cb(void *user_data,
 static void pamwifi_prepare_suspend(void)
 {
 	u32 value, timeout = 500;
+
+	if (pamwifi_priv->suspend_stage & PAMWIFI_EB_SUSPEND) {
+		wl_err("%s, Pam wifi already disabled!", __func__);
+		return;
+	}
 
 	if (!(pamwifi_priv->suspend_stage & PAMWIFI_REG_SUSPEND)) {
 		sipa_disconnect(SIPA_EP_WIFI, SIPA_DISCONNECT_START);
@@ -1678,10 +1694,8 @@ static void pamwifi_prepare_suspend(void)
 			return;
 	}
 
-	if (!(pamwifi_priv->suspend_stage & PAMWIFI_EB_SUSPEND)) {
-		pamwifi_set_enable(false);
-		pamwifi_priv->suspend_stage |= PAMWIFI_EB_SUSPEND;
-	}
+	pamwifi_set_enable(false);
+	pamwifi_priv->suspend_stage |= PAMWIFI_EB_SUSPEND;
 
 }
 
@@ -1834,7 +1848,7 @@ int sprdwl_pamwifi_res_init(struct sprdwl_vif *vif)
 					SIPA_RM_RES_PROD_PAM_WIFI);
 	if (ret < 0 && ret != -EINPROGRESS) {
 		wl_err("pam ipa add_dependency WIFI_UL fail.\n");
-		sipa_rm_delete_resource(SIPA_RM_RES_PROD_IPA);
+		sipa_rm_delete_resource(SIPA_RM_RES_PROD_PAM_WIFI);
 		return ret;
 	}
 
@@ -1844,7 +1858,7 @@ int sprdwl_pamwifi_res_init(struct sprdwl_vif *vif)
 		wl_err("pam ipa add_dependency WIFI_DL fail.\n");
 		sipa_rm_delete_dependency(SIPA_RM_RES_CONS_WIFI_UL,
 					SIPA_RM_RES_PROD_IPA);
-		sipa_rm_delete_resource(SIPA_RM_RES_PROD_IPA);
+		sipa_rm_delete_resource(SIPA_RM_RES_PROD_PAM_WIFI);
 		return ret;
 	}
 
@@ -1856,7 +1870,7 @@ int sprdwl_pamwifi_res_init(struct sprdwl_vif *vif)
 					SIPA_RM_RES_PROD_IPA);
 		sipa_rm_delete_dependency(SIPA_RM_RES_CONS_WIFI_DL,
 					SIPA_RM_RES_PROD_IPA);
-		sipa_rm_delete_resource(SIPA_RM_RES_PROD_IPA);
+		sipa_rm_delete_resource(SIPA_RM_RES_PROD_PAM_WIFI);
 		return ret;
 	}
 
@@ -1870,7 +1884,7 @@ int sprdwl_pamwifi_res_init(struct sprdwl_vif *vif)
 					SIPA_RM_RES_PROD_IPA);
 		sipa_rm_delete_dependency(SIPA_RM_RES_CONS_WWAN_UL,
 					SIPA_RM_RES_PROD_IPA);
-		sipa_rm_delete_resource(SIPA_RM_RES_PROD_IPA);
+		sipa_rm_delete_resource(SIPA_RM_RES_PROD_PAM_WIFI);
 		return ret;
 	}
 
@@ -1883,7 +1897,7 @@ static void sprdwl_pamwifi_res_uninit(void)
 					SIPA_RM_RES_PROD_PAM_WIFI);
 	sipa_rm_delete_dependency(SIPA_RM_RES_CONS_WIFI_DL,
 					SIPA_RM_RES_PROD_PAM_WIFI);
-	sipa_rm_delete_resource(SIPA_RM_RES_PROD_IPA);
+	sipa_rm_delete_resource(SIPA_RM_RES_PROD_PAM_WIFI);
 }
 
 void sprdwl_pamwifi_enable(struct sprdwl_vif *vif)
@@ -1922,30 +1936,32 @@ void sprdwl_pamwifi_disable(struct sprdwl_vif *vif)
 	u32 value = 0;
 	int timeout = 1000;
 
-	if (!(pamwifi_priv->suspend_stage & PAMWIFI_REG_SUSPEND)) {
-		sipa_disconnect(SIPA_EP_WIFI, SIPA_DISCONNECT_START);
-		value = check_pamwifi_ipa_fifo_status();
-		wl_info("%s, Start to close Pam wifi!\n", __func__);
-		while(value) {
-			value = check_pamwifi_ipa_fifo_status();
-			if (!timeout--) {
-				wl_err("Pam wifi close fail!\n");
-				break;
-			}
-			wl_info("Pam wifi closing!\n");
-			usleep_range(10, 15);
-		}
-		sipa_disconnect( SIPA_EP_WIFI, SIPA_DISCONNECT_END);
-	}
 	sipa_nic_close(pamwifi_priv->nic_id);
 	sprdwl_pamwifi_res_uninit();
-	wl_info("%d,Pam wifi close success!!\n", __LINE__);
-	/*stop pam wifi*/
-	clear_reg_bits(REG_PAM_WIFI_CFG_START, BIT_PAM_WIFI_CFG_START_PAM_WIFI_START);
 
-	/*disable pamwifi eb*/
 	if (!(pamwifi_priv->suspend_stage & PAMWIFI_EB_SUSPEND)) {
+		if (!(pamwifi_priv->suspend_stage & PAMWIFI_REG_SUSPEND)) {
+			sipa_disconnect(SIPA_EP_WIFI, SIPA_DISCONNECT_START);
+			value = check_pamwifi_ipa_fifo_status();
+			wl_info("%s, Start to close Pam wifi!\n", __func__);
+			while(value) {
+				value = check_pamwifi_ipa_fifo_status();
+				if (!timeout--) {
+					wl_err("Pam wifi close fail!\n");
+					break;
+				}
+				wl_info("Pam wifi closing!\n");
+				usleep_range(10, 15);
+			}
+			sipa_disconnect( SIPA_EP_WIFI, SIPA_DISCONNECT_END);
+		}
+		pamwifi_priv->suspend_stage |= PAMWIFI_REG_SUSPEND;
+		wl_info("%d,Pam wifi close success!!\n", __LINE__);
+		/*stop pam wifi*/
+		clear_reg_bits(REG_PAM_WIFI_CFG_START, BIT_PAM_WIFI_CFG_START_PAM_WIFI_START);
+
 		pamwifi_set_enable(false);
+		pamwifi_priv->suspend_stage |= PAMWIFI_EB_SUSPEND;
 	}
 
 }
@@ -2074,7 +2090,7 @@ int sprdwl_pamwifi_init(struct platform_device *pdev, struct sprdwl_priv *priv)
 {
 	u8 enable_4in1 =1;
 	u32 pamwifi_tx_intr_threshold_en = 2, pamwifi_tx_intr_threshold_delay_en = 1,
-		pamwifi_tx_intr_threshold = (u32)1 << 16l, pamwifi_tx_intr_threshold_delay = 0xFFFFl,
+		pamwifi_tx_intr_threshold = (u32)64 << 16l, pamwifi_tx_intr_threshold_delay = 20000,
 		pamwifi_fifo_depth = 1024, value_index_search_depth = 16;
 	struct sprdwl_pamwifi_msg_buf *pamwifi_msg_buf;
 	int i, ret;
@@ -2255,6 +2271,10 @@ int sprdwl_xmit_to_ipa_pamwifi(struct sk_buff *skb, struct net_device *ndev)
 	struct ethhdr *ethhdr = (struct ethhdr *)skb->data;
 	int ret = 0;
 
+	unsigned int qos_index = 0;
+	struct sprdwl_peer_entry *peer_entry = NULL;
+	unsigned char tid = 0, tos = 0;
+
 	wl_debug("skb %p sprdwl_xmit_to_ipa_pamwifi invoked\n", skb);
 
 	wl_debug("skb %p %40ph\n", skb, skb->data);
@@ -2262,8 +2282,13 @@ int sprdwl_xmit_to_ipa_pamwifi(struct sk_buff *skb, struct net_device *ndev)
 	/*filter pkt to pam wifi*/
 	if ((ethhdr->h_proto == htons(ETH_P_IPV6) ||ethhdr->h_proto == htons(ETH_P_IP)) &&
 		lut_index > 5) {
-		intf->skb_da = skb->data;
+		/*add tx ba*/
+		intf->tx_num[lut_index]++;
+		qos_index = get_tid_qosindex(skb, MSDU_DSCR_RSVD + DSCR_LEN, &tid, &tos);
+		peer_entry = &intf->peer_entry[lut_index];
+		prepare_addba(intf, lut_index, peer_entry, tid);
 
+		intf->skb_da = skb->data;
 		if (skb_headroom(skb) < (32 + NET_IP_ALIGN)) {
 			struct sk_buff *tmp_skb = skb;
 
@@ -2288,20 +2313,12 @@ int sprdwl_xmit_to_ipa_pamwifi(struct sk_buff *skb, struct net_device *ndev)
 				return NETDEV_TX_BUSY;
 			}
 		}
-		wl_debug("%s, sipa_wifi succ to send skb, lut_index: %u, macaddr:%02x:%02x:%02x:%02x:%02x:%02x, %02x:%02x:%02x:%02x:%02x:%02x\n",
-			    __func__, lut_index, skb->data[0], skb->data[1], skb->data[2],
-			    skb->data[3], skb->data[4], skb->data[5], skb->data[6], skb->data[7], skb->data[8],
-			    skb->data[9], skb->data[10], skb->data[11]);
 		vif->ndev->stats.tx_bytes += skb->len;
 		vif->ndev->stats.tx_packets++;
 		return NETDEV_TX_OK;
 	}
 
 	sprdwl_pamwifi_pkt_checksum(skb, ndev);
-	wl_info("%s, macaddr:%02x:%02x:%02x:%02x:%02x:%02x, %02x:%02x:%02x:%02x:%02x:%02x\n",
-		    __func__, skb->data[0], skb->data[1], skb->data[2],
-		    skb->data[3], skb->data[4], skb->data[5], skb->data[6], skb->data[7], skb->data[8],
-		    skb->data[9], skb->data[10], skb->data[11]);
 	//sprdwl_hex_dump("sprdwl xmit dump:", skb->data, 100);
 	sprdwl_xmit_data2cmd_wq(skb, ndev);
 
