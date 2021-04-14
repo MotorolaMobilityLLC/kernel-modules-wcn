@@ -554,6 +554,8 @@ struct fmdrv_ops {
     uint8_t power_status;
     uint8_t fm_pd;
 	int8_t  fm_invalid;
+    bool short_ana;
+    int switch_ana_innner_gpio;
 };
 
 /* ********** ***********FM IOCTL define start ****************/
@@ -592,6 +594,7 @@ struct fmdrv_ops {
 /* IOCTL for FM ANTENNA SWITCH */
 #define FM_IOCTL_ANA_SWITCH     _IOWR(FM_IOC_MAGIC, 30, int32_t*)
 #define FM_IOCTL_GETCAPARRAY	_IOWR(FM_IOC_MAGIC, 31, int32_t*)
+#define FM_IOCTL_ANA_SWITCH_INNER     _IOWR(FM_IOC_MAGIC, 32, int32_t*)
 
 /* IOCTL for FM I2S Setting  */
 #define FM_IOCTL_I2S_SETTING  _IOWR(FM_IOC_MAGIC, 33, struct fm_i2s_setting*)

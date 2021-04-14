@@ -50,6 +50,9 @@
 #include "unisoc_fm_log.h"
 #include <linux/notifier.h>
 
+#include <linux/gpio.h>
+#include <linux/of_gpio.h>
+
 struct wake_lock fm_wakelock;
 extern struct platform_device *g_fm_pdev;
 extern uint8_t wcn_hw_type;
@@ -170,6 +173,7 @@ long fm_ioctl(struct file *filep, unsigned int cmd, unsigned long arg) {
 		break;
 
 	case FM_IOCTL_ANA_SWITCH:
+	case FM_IOCTL_ANA_SWITCH_INNER:
 		ret = fm_ana_switch(argp);
 		break;
 
@@ -413,6 +417,22 @@ static int fm_probe(struct platform_device *pdev) {
 #ifdef CONFIG_OF
     struct device_node *np;
     np = pdev->dev.of_node;
+
+	fmdev->switch_ana_innner_gpio = of_get_named_gpio(np,
+			"switch-inner-ana-gpios", 0);
+	if (!gpio_is_valid(fmdev->switch_ana_innner_gpio)) {
+		pr_info("fm not support inner ana\n");
+	} else {
+		pr_info("fm support inner ana\n");
+		if (devm_gpio_request(&pdev->dev,
+			fmdev->switch_ana_innner_gpio, "fm_ana_gpio"))
+			pr_info("request fm gpio error\n");
+	}
+
+	if (of_property_read_bool(np, "sprd,fm-sant")) {
+		pr_info("fm support short antenna\n");
+		fmdev->short_ana = 1;
+	}
 #endif
 
 	dev_unisoc_fm_info(fm_miscdev," marlin3 FM driver，Version: %s", ver_str);
@@ -495,6 +515,8 @@ int  fm_device_init_driver(void) {
 }
 
 void fm_device_exit_driver(void) {
+    if (gpio_is_valid(fmdev->switch_ana_innner_gpio))
+        gpio_free(fmdev->switch_ana_innner_gpio);
     platform_driver_unregister(&fm_driver);
     wake_lock_destroy(&fm_wakelock);
 }
