@@ -100,6 +100,8 @@ void bt_host_data_save(const unsigned char *buf, int count, unsigned char data_i
 
 void bt_host_data_printf(void) {
     unsigned char loop_count_i = 0, loop_count_j = 0;
+    if (data_dump == NULL)
+        return;
     for(; loop_count_j < BT_MAX_DUMP_FRAME_LEN; loop_count_j++) {
         dev_unisoc_bt_info(ttyBT_dev,
                            "bt_host_data_printf txdata[%d]: ",
