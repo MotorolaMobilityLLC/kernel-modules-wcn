@@ -160,7 +160,7 @@ void sprdwl_net_flowcontrl(struct sprdwl_priv *priv,
 		sprdwl_netflowcontrl_all(priv, state);
 }
 
-static int sprdwl_start_xmit(struct sk_buff *skb, struct net_device *ndev)
+static netdev_tx_t sprdwl_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 {
 	struct sprdwl_vif *vif = netdev_priv(ndev);
 	int ret = 0;

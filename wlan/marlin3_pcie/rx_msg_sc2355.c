@@ -276,8 +276,10 @@ static int  sprdwl_rx_net_work_queue(void *data)
 	set_user_nice(current, -20);
 	while (1) {
 		rx_net_down(rx_if);
-		if (rx_if->intf->exit || kthread_should_stop())
+		if (kthread_should_stop())
 			return 0;
+		if (rx_if->intf->exit)
+			continue;
 		reorder_skb = reorder_get_skb_list(&rx_if->ba_entry);
 		while (reorder_skb) {
 			SPRDWL_GET_FIRST_SKB(skb, reorder_skb);
@@ -305,8 +307,10 @@ static int sprdwl_rx_work_queue(void *data)
 	set_user_nice(current, -20);
 	while (1) {
 		rx_down(rx_if);
-		if (intf->exit || kthread_should_stop())
+		if (kthread_should_stop())
 			return 0;
+		if (intf->exit)
+			continue;
 		sprdwl_rx_process(rx_if, NULL);
 
 		while ((msg = sprdwl_peek_msg_buf(&rx_if->rx_list))) {
@@ -733,16 +737,12 @@ int sprdwl_rx_deinit(struct sprdwl_intf *intf)
 	wl_warn("%s, %d\n", __func__, __LINE__);
 	if (rx_if->rx_thread) {
 		rx_up(rx_if);
-		wl_warn("%s, rx_if->rx_thread->state is %d\n", __func__, rx_if->rx_thread->state);
-		if (rx_if->rx_thread->state == TASK_RUNNING)
-			kthread_stop(rx_if->rx_thread);
+		kthread_stop(rx_if->rx_thread);
 		rx_if->rx_thread = NULL;
 	}
 	if (rx_if->rx_net_thread) {
 		rx_net_up(rx_if);
-		wl_warn("%s, rx_if->rx_net_thread->state is %d\n", __func__, rx_if->rx_net_thread->state);
-		if (rx_if->rx_net_thread->state == TASK_RUNNING)
-			kthread_stop(rx_if->rx_net_thread);
+		kthread_stop(rx_if->rx_net_thread);
 		rx_if->rx_net_thread = NULL;
 	}
 	sprdwl_msg_deinit(&rx_if->rx_list);

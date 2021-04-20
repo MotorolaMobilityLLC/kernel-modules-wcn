@@ -1463,8 +1463,10 @@ static int sprdwl_tx_work_queue(void *data)
 
 	while (1) {
 		tx_down(tx_msg);
-		if (intf->exit || kthread_should_stop())
+		if (kthread_should_stop())
 			return 0;
+		if (intf->exit)
+			continue;
 		need_polling = 0;
 		polling_times = 0;
 
@@ -1693,9 +1695,7 @@ void sprdwl_tx_deinit(struct sprdwl_intf *intf)
 
 	if (tx_msg->tx_thread) {
 		tx_up(tx_msg);
-		wl_warn("%s, tx_msg->tx_thread->state is %ld\n", __func__, tx_msg->tx_thread->state);
-		if (tx_msg->tx_thread->state == TASK_RUNNING)
-			kthread_stop(tx_msg->tx_thread);
+		kthread_stop(tx_msg->tx_thread);
 		tx_msg->tx_thread = NULL;
 	}
 
