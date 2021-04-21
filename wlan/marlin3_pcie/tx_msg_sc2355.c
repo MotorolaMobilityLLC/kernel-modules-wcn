@@ -1462,11 +1462,14 @@ static int sprdwl_tx_work_queue(void *data)
 	set_user_nice(current, -20);
 
 	while (1) {
-		tx_down(tx_msg);
-		if (kthread_should_stop())
-			return 0;
-		if (intf->exit)
+		if (intf->exit) {
+			if (kthread_should_stop())
+				return 0;
+			usleep_range(50, 100);
 			continue;
+		} else
+			tx_down(tx_msg);
+
 		need_polling = 0;
 		polling_times = 0;
 

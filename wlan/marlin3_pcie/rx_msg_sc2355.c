@@ -275,11 +275,14 @@ static int  sprdwl_rx_net_work_queue(void *data)
 
 	set_user_nice(current, -20);
 	while (1) {
-		rx_net_down(rx_if);
-		if (kthread_should_stop())
-			return 0;
-		if (rx_if->intf->exit)
+		if (rx_if->intf->exit) {
+			if (kthread_should_stop())
+				return 0;
+			usleep_range(50, 100);
 			continue;
+		} else
+			rx_net_down(rx_if);
+
 		reorder_skb = reorder_get_skb_list(&rx_if->ba_entry);
 		while (reorder_skb) {
 			SPRDWL_GET_FIRST_SKB(skb, reorder_skb);
@@ -306,11 +309,14 @@ static int sprdwl_rx_work_queue(void *data)
 
 	set_user_nice(current, -20);
 	while (1) {
-		rx_down(rx_if);
-		if (kthread_should_stop())
-			return 0;
-		if (intf->exit)
+		if (intf->exit) {
+			if (kthread_should_stop())
+				return 0;
+			usleep_range(50, 100);
 			continue;
+		} else
+			rx_down(rx_if);
+
 		sprdwl_rx_process(rx_if, NULL);
 
 		while ((msg = sprdwl_peek_msg_buf(&rx_if->rx_list))) {
