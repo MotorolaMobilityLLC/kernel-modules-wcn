@@ -232,7 +232,7 @@ static int sprdwl_realloc_skb_headroom(struct sk_buff *skb, struct net_device *n
 	return 0;
 }
 
-static int sprdwl_start_xmit(struct sk_buff *skb, struct net_device *ndev)
+static netdev_tx_t sprdwl_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 {
 	int ret = 0;
 	u8 *data_temp;
