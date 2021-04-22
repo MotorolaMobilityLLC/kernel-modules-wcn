@@ -463,6 +463,7 @@ static int mtty_sipc_write(struct tty_struct *tty,
 		kfree(tx_head->buf);
 		tx_head->buf = NULL;
 		sprdwcn_bus_list_free(BT_SIPC_TX_CHANNEL, tx_head, tx_tail, num);
+		up(&sem_id);
 		return -EBUSY;
 	}
 
