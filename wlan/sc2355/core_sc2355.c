@@ -581,7 +581,7 @@ void sprdwl_debugfs(void *spdev, struct dentry *dir)
 
 static struct dentry *sprdwl_debug_root;
 
-void sprdwl_debugfs_init(void)
+void sprdwl_debugfs_init(struct sprdwl_intf *intf)
 {
 	/* create debugfs */
 	sprdwl_debug_root = debugfs_create_dir("sprdwl_debug", NULL);
@@ -592,11 +592,11 @@ void sprdwl_debugfs_init(void)
 	}
 
 	if (!debugfs_create_file("log_level", 0444,
-		sprdwl_debug_root, NULL, &sprdwl_intf_debug_fops))
+		sprdwl_debug_root, intf, &sprdwl_intf_debug_fops))
 		wl_err("%s, create file fail!\n", __func__);
 
 	if (!debugfs_create_file("txrx_dbg", S_IRUGO,
-		sprdwl_debug_root, NULL, &txrx_debug_fops))
+		sprdwl_debug_root, intf, &txrx_debug_fops))
 		wl_err("%s, %d, create_file fail!\n", __func__, __LINE__);
 	else
 		debug_ctrl_init();
@@ -795,7 +795,7 @@ static int sprdwl_probe(struct platform_device *pdev)
 	sprdwl_intf_tx_data_fpga_test(intf, NULL, 0);
 #endif
 
-	sprdwl_debugfs_init();
+	sprdwl_debugfs_init(intf);
 
 	if(priv->hw_type == SPRDWL_HW_SC2355_PCIE)
 		config_wifi_ddr_priority(pdev);
