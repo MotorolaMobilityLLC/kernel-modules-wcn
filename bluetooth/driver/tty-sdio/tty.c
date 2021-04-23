@@ -711,6 +711,7 @@ static int mtty_sdio_write(struct tty_struct *tty,
 		kfree(tx_head->buf);
 		tx_head->buf = NULL;
 		sprdwcn_bus_list_free(BT_SDIO_TX_CHANNEL, tx_head, tx_tail, num);
+		up(&sem_id);
 		return -EBUSY;
 	}
 
@@ -760,6 +761,7 @@ static int mtty_pcie_write(struct tty_struct *tty,
 			dma_free_coherent(dm, count, (void *)tx_head->buf, tx_head->phy);
 			tx_head->buf = NULL;
 			sprdwcn_bus_list_free(BT_PCIE_TX_CHANNEL, tx_head, tx_tail, num);
+			up(&sem_id);
 			return -EBUSY;
 		}
 		else
