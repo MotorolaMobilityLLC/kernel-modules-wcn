@@ -136,6 +136,7 @@ static const char *cmd2str(u8 cmd)
 	C2S(WIFI_CMD_SET_PROTECT_MODE)
 	C2S(WIFI_CMD_GET_PROTECT_MODE)
 	C2S(WIFI_CMD_DOWNLOAD_INI)
+	C2S(WIFI_CMD_MIRACAST)
 	C2S(WIFI_CMD_PACKET_OFFLOAD)
 #ifdef DFS_MASTER
 	C2S(WIFI_CMD_RADAR_DETECT)
@@ -2174,6 +2175,22 @@ int sprdwl_set_whitelist(struct sprdwl_priv *priv, u8 vif_ctx_id,
 	p->num = num;
 	if (mac_addr)
 		memcpy(p->mac, mac_addr, num * ETH_ALEN);
+
+	return sprdwl_cmd_send_recv(priv, msg, CMD_WAIT_TIMEOUT, NULL, NULL);
+}
+
+int sprdwl_enable_miracast(struct sprdwl_priv *priv,
+			 u8 vif_mode, int val)
+{
+	struct sprdwl_msg_buf *msg;
+	struct sprdwl_cmd_miracast *p = NULL;
+
+	msg = sprdwl_cmd_getbuf(priv, sizeof(*p), vif_mode,
+			SPRDWL_HEAD_RSP, WIFI_CMD_MIRACAST);
+	if (!msg)
+		return -ENOMEM;
+	p = (struct sprdwl_cmd_miracast *)msg->data;
+	p->value = val;
 
 	return sprdwl_cmd_send_recv(priv, msg, CMD_WAIT_TIMEOUT, NULL, NULL);
 }
