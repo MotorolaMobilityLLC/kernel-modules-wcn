@@ -433,9 +433,6 @@ int sprdwl_init_fw(struct sprdwl_vif *vif)
 			wl_err("softap open fail, because pamwifi init fail\n");
 			return ret;
 		}
-
-		/*debug tmp for haps*/
-		sipa_rm_request_resource(SIPA_RM_RES_CONS_WIFI_UL);
 	}
 #endif
 	if (vif->mode ==SPRDWL_MODE_P2P_GO) {

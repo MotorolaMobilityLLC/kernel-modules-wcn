@@ -1467,12 +1467,15 @@ void sprdwl_analyze_pamwifi_miss_node(void)
 
 static int miss_thread(void *data)
 {
-	while (!kthread_should_stop()) {
-		wait_for_completion(&pamwifi_priv->tx_completed);
-		if (pamwifi_priv->kthread_stop == 1)
-			break;
-		else
-			sprdwl_analyze_pamwifi_miss_node();
+	while (1) {
+		if (pamwifi_priv->kthread_stop == 1) {
+			if (kthread_should_stop())
+				return 0;
+			usleep_range(50, 100);
+			continue;
+		} else
+			wait_for_completion(&pamwifi_priv->tx_completed);
+		sprdwl_analyze_pamwifi_miss_node();
 	}
 	return 0;
 }
@@ -1593,6 +1596,7 @@ void pamwifi_ul_res_add_wq(struct sprdwl_vif *vif, u8 flag)
 	}
 	ul_sts.sub_type = flag;
 	ul_sts.value = 1;
+	wl_err("%s, sub_type: %u\n", __func__, __LINE__);
 
 	misc_work->vif = vif;
 	misc_work->id = SPRDWL_WORK_UL_RES_STS_CMD;
@@ -1604,8 +1608,14 @@ void pamwifi_ul_res_add_wq(struct sprdwl_vif *vif, u8 flag)
 /*UL resource management*/
 void pamwifi_ul_resource_event(struct sprdwl_vif *vif, u8 *data, u16 len)
 {
+	struct sprdwl_priv *priv = vif->priv;
 	u8 flag;
 	int ret = 0;
+
+	wl_info("%s, %d, flag:%u\n", __func__, __LINE__, flag);
+	if ((priv->fw_stat[SPRDWL_MODE_AP] == SPRDWL_INTF_CLOSING) ||
+		(priv->fw_stat[SPRDWL_MODE_AP] == SPRDWL_INTF_CLOSE))
+		return;
 
 	memcpy(&flag, data, sizeof(u8));
 	wl_info("%s, %d, flag:%u\n", __func__, __LINE__, flag);
@@ -1619,7 +1629,6 @@ void pamwifi_ul_resource_event(struct sprdwl_vif *vif, u8 *data, u16 len)
 		pamwifi_priv->ul_resource_flag = flag;
 		pamwifi_ul_res_add_wq(vif, flag);
 	}
-
 }
 
 int sprdwl_send_ul_res_cmd(struct sprdwl_priv *priv, u8 vif_ctx_id,
@@ -1644,6 +1653,15 @@ static void pamwifi_ul_rm_notify_cb(void *user_data,
 	wl_info("%s: event %d\n", __func__, event);
 
 	if (!pamwifi_priv)
+		return;
+
+	if (!vif || !(vif->priv))
+		return;
+
+	wl_info("%s: event %d\n", __func__, event);
+
+	if ((vif->priv->fw_stat[SPRDWL_MODE_AP] == SPRDWL_INTF_CLOSING) ||
+		(vif->priv->fw_stat[SPRDWL_MODE_AP] == SPRDWL_INTF_CLOSE))
 		return;
 
 	switch (event) {
@@ -1893,6 +1911,7 @@ int sprdwl_pamwifi_res_init(struct sprdwl_vif *vif)
 
 static void sprdwl_pamwifi_res_uninit(void)
 {
+	sipa_rm_release_resource(SIPA_RM_RES_CONS_WIFI_UL);
 	sipa_rm_delete_dependency(SIPA_RM_RES_CONS_WIFI_UL,
 					SIPA_RM_RES_PROD_PAM_WIFI);
 	sipa_rm_delete_dependency(SIPA_RM_RES_CONS_WIFI_DL,
@@ -2185,10 +2204,9 @@ void sprdwl_pamwifi_uninit(struct platform_device *pdev)
 	pamwifi_msg_list = pamwifi_priv->pamwifi_msg_list;
 
 	pamwifi_priv->kthread_stop = 1;
-	complete(&pamwifi_priv->tx_completed);
 	if (pamwifi_priv->miss_thread) {
-		if (pamwifi_priv->miss_thread->state == TASK_RUNNING)
-			kthread_stop(pamwifi_priv->miss_thread);
+		complete(&pamwifi_priv->tx_completed);
+		kthread_stop(pamwifi_priv->miss_thread);
 		pamwifi_priv->miss_thread = NULL;
 	}
 
@@ -2200,8 +2218,8 @@ void sprdwl_pamwifi_uninit(struct platform_device *pdev)
 	read_on_reg = __raw_readl(pamwifi_priv->pamwifi_glb_base);
 	read_on_reg &= ~0x40l;
 	__raw_writel(read_on_reg, pamwifi_priv->pamwifi_glb_base);
-	devm_iounmap(&pdev->dev, pamwifi_priv->pamwifi_glb_base);
-	devm_iounmap(&pdev->dev, (void __iomem *)pam_wifi_base_addr_remap);
+	//devm_iounmap(&pdev->dev, pamwifi_priv->pamwifi_glb_base);
+	//devm_iounmap(&pdev->dev, (void __iomem *)pam_wifi_base_addr_remap);
 	/*destroy power workqueue*/
 	destroy_workqueue(pamwifi_priv->power_wq);
 	sipa_dummy_unregister_wifi_recv_handler(&wifi_recv_skb);
