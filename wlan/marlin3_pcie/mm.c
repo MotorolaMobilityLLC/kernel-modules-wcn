@@ -621,8 +621,7 @@ static void mm_normal_data_process(struct sprdwl_mm *mm_entry,
 			/* Should not happen */
 			wl_debug("%s: data len is %d, skb need %d\n",
 			       __func__, len, skb_len);
-			skb = mm_data2skb_process(mm_entry, data,
-						  SKB_WITH_OVERHEAD(skb_len));
+			skb = mm_data2skb_process(mm_entry, data, len);
 			free_data = true;
 		}
 
