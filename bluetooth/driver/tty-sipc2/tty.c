@@ -739,6 +739,7 @@ static int  stty_probe(struct platform_device *pdev)
 	stty_dev = stty;
 
 	atomic_set(&stty->state, STTY_STATE_CLOSE);
+	sema_init(&sem_id, BT_TX_POOL_SIZE - 1);
 	mutex_init(&stty->rw_mutex);
 	INIT_LIST_HEAD(&stty->rx_head);
 
@@ -767,7 +768,6 @@ static int  stty_probe(struct platform_device *pdev)
 	atomic_notifier_chain_register(&wcn_reset_notifier_list, &bluetooth_reset_block);
 	sprdwcn_bus_chn_init(&bt_sipc_rx_ops);
 	sprdwcn_bus_chn_init(&bt_sipc_tx_ops);
-	sema_init(&sem_id, BT_TX_POOL_SIZE - 1);
 
 	dev_unisoc_bt_info(ttyBT_dev,"mtty_probe successful!\n");
 
