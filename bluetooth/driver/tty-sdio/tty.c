@@ -47,6 +47,7 @@
 #include <misc/wcn_bus.h>
 #include <linux/dma-direction.h>
 #include <linux/dma-mapping.h>
+#define COMMAND_HEAD 1
 
 static struct semaphore sem_id;
 
@@ -173,7 +174,7 @@ static struct attribute_group bluetooth_group = {
     .attrs = bluetooth_attrs,
 };
 
-/*static void hex_dump(unsigned char *bin, size_t binsz)
+static void hex_dump(unsigned char *bin, size_t binsz)
 {
   char *str, hex_str[]= "0123456789ABCDEF";
   size_t i;
@@ -213,7 +214,7 @@ static void hex_dump_block(unsigned char *bin, size_t binsz)
 
 	if (tail)
 		hex_dump(bin + i * HEX_DUMP_BLOCK_SIZE, tail);
-}*/
+}
 
 int mtty_dmalloc(struct device *priv, struct dma_buf *dm, int size)
 {
@@ -671,12 +672,17 @@ static int mtty_sdio_write(struct tty_struct *tty,
     if (is_user_debug) {
         bt_host_data_save(buf, count, BT_DATA_OUT);
     }
-    /*{
+    if (buf[0] == COMMAND_HEAD) {
         dev_unisoc_bt_info(ttyBT_dev,
                            "%s dump size: %d\n",
                            __func__, count);
-        hex_dump_block((unsigned char *)buf, count);
-    }*/
+        if (count < 16) {
+            hex_dump_block((unsigned char *)buf, count);
+        }
+        else {
+            hex_dump_block((unsigned char*)buf, 16);
+        }
+    }
 
     block = kmalloc(count + BT_SDIO_HEAD_LEN, GFP_KERNEL);
 
