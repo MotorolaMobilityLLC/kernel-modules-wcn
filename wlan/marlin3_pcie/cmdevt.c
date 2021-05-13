@@ -585,6 +585,11 @@ int sprdwl_cmd_send_recv(struct sprdwl_priv *priv,
 			sprdwl_cmd_unlock(cmd);
 			return ret;
 		}
+		if (cmd_id == WIFI_CMD_SYNC_VERSION) {
+			sprdwl_atcmd_assert(priv, ctx_id, cmd_id, CMD_RSP_TIMEOUT_ERROR);
+			sprdwl_cmd_unlock(cmd);
+			return ret;
+		}
 		vif = ctx_id_to_vif(priv, ctx_id);
 		if (vif != NULL) {
 			intf = (struct sprdwl_intf *)(vif->priv->hw_priv);
