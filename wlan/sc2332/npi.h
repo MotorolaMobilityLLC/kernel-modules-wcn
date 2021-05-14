@@ -26,6 +26,8 @@
 #define SPRDWL_STA_GC_EN_SLEEP		(0x3)
 #define SPRDWL_STA_GC_NO_SLEEP		(0x0)
 #define SPRDWL_PSM_PATH			"/opt/etc/.psm.info"
+#define SPRDWL_NPI_CMD_SET_COUNTRY	59
+
 
 /* enable: 0x0
  * disable: 0x1

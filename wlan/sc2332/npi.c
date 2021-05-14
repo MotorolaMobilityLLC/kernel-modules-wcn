@@ -198,13 +198,24 @@ static int sprdwl_nl_npi_handler(struct sk_buff *skb_2, struct genl_info *info)
 
 	sprintf(dbgstr, "[iwnpi][SEND][%d]:", s_len);
 	hdr = (struct sprdwl_npi_cmd_hdr *)s_buf;
-	wl_err("%s type is %d, subtype %d\n", dbgstr, hdr->type, hdr->subtype);
-	sprdwl_npi_send_recv(priv, vif->mode, s_buf, s_len, r_buf, &r_len);
+	if (hdr->subtype == SPRDWL_NPI_CMD_SET_COUNTRY) {
+		char *country = s_buf + sizeof(struct sprdwl_npi_cmd_hdr);
+		/*no need send npi command to firmware*/
+		wl_err("%s show country code : %c%c\n",__func__, country[0], country[1]);
+		err = regulatory_hint(priv->wiphy, country);
+		hdr->len = sizeof(int);
+		hdr->type = SPRDWL_CP2HT_REPLY;
+		r_len = sizeof(*hdr) + hdr->len;
+		memcpy(r_buf, hdr, sizeof(*hdr));
+		memcpy(r_buf + sizeof(*hdr), &err, hdr->len);
+	} else {
+		wl_err("%s type is %d, subtype %d\n", dbgstr, hdr->type, hdr->subtype);
+		sprdwl_npi_send_recv(priv, vif->mode, s_buf, s_len, r_buf, &r_len);
 
-	sprintf(dbgstr, "[iwnpi][RECV][%d]:", r_len);
-	hdr = (struct sprdwl_npi_cmd_hdr *)r_buf;
-	wl_err("%s type is %d, subtype %d\n", dbgstr, hdr->type, hdr->subtype);
-
+		sprintf(dbgstr, "[iwnpi][RECV][%d]:", r_len);
+		hdr = (struct sprdwl_npi_cmd_hdr *)r_buf;
+		wl_err("%s type is %d, subtype %d\n", dbgstr, hdr->type, hdr->subtype);
+	}
 	ret = sprdwl_nl_send_generic(info, SPRDWL_NL_ATTR_CP2AP,
 				     SPRDWL_NL_CMD_NPI, r_len, r_buf);
 

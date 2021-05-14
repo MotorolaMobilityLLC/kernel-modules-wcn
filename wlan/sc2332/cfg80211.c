@@ -27,6 +27,7 @@
 #include "cfg80211.h"
 #include "cmdevt.h"
 #include "work.h"
+#include "fcc.h"
 
 #define RATETAB_ENT(_rate, _rateid, _flags)				\
 {									\
@@ -948,6 +949,18 @@ static int sprdwl_cfg80211_get_station(struct wiphy *wiphy,
 		goto out;
 
 	sinfo->signal = sta.signal;
+	/**
+	 * software need modify signal when in signal weak environment
+	 * to avoid fluctuations, more info please refer BUG:1594176 or
+	 * CQ:SPCSS00841664, changes shown as below:
+	 * -88 ===> -89
+	 */
+	if (sinfo->signal == -88) {
+		sinfo->signal--;
+		netdev_info(ndev, "%s, receive sig: %d, report sig:%d\n", __func__,
+			    sta.signal, sinfo->signal);
+	}
+
 	sinfo->filled |= BIT(NL80211_STA_INFO_SIGNAL);
 
 	sinfo->tx_failed = sta.txfailed;
@@ -2724,6 +2737,8 @@ static void sprdwl_reg_notify(struct wiphy *wiphy,
 	u32 band, channel, i;
 	u32 last_start_freq;
 	u32 n_rules = 0, rd_size;
+	int index;
+	bool found_fcc = false;
 
 	wiphy_info(wiphy, "%s %c%c initiator %d hint_type %d\n", __func__,
 		   request->alpha2[0], request->alpha2[1],
@@ -2811,6 +2826,25 @@ static void sprdwl_reg_notify(struct wiphy *wiphy,
 	if (sprdwl_set_regdom(priv, (u8 *)rd, rd_size))
 		wiphy_err(wiphy, "%s failed to set regdomain!\n", __func__);
 
+	for (i = 0; i < MAC_FCC_COUNTRY_NUM; i++) {
+		if (g_fcc_power_table[i].country[0] == request->alpha2[0] &&
+			g_fcc_power_table[i].country[1] == request->alpha2[1]) {
+			found_fcc = true;
+			wiphy_info(wiphy,"need set fcc power\n");
+			for (index = 0; index < g_fcc_power_table[i].num; index++) {
+		       		sprdwl_set_power_backoff(priv, 0,
+					g_fcc_power_table[i].power_backoff[index].sub_type,
+		       			g_fcc_power_table[i].power_backoff[index].value,
+		       			g_fcc_power_table[i].power_backoff[index].mode,
+		       			g_fcc_power_table[i].power_backoff[index].channel);
+			}
+		}
+	}
+
+	if (!found_fcc) {
+		wiphy_info(wiphy,"not fcc country,need reset fcc power\n");
+		sprdwl_set_power_backoff(priv, 0, 0, 0, 0, 1);
+	}
 	kfree(rd);
 	rd = NULL;
 }

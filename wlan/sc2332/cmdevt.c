@@ -534,6 +534,28 @@ int sprdwl_set_sar(struct sprdwl_priv *priv, u8 vif_mode,
 	return sprdwl_cmd_send_recv(priv, msg, CMD_WAIT_TIMEOUT, NULL, NULL);
 }
 
+int sprdwl_set_power_backoff(struct sprdwl_priv *priv, u8 vif_mode,
+		       u8 sub_type, s8 value, u8 mode, u8 channel)
+{
+	struct sprdwl_msg_buf *msg;
+	struct sprdwl_cmd_set_power_backoff *p;
+
+	msg = sprdwl_cmd_getbuf(priv, sizeof(*p), vif_mode,
+				SPRDWL_HEAD_RSP, WIFI_CMD_POWER_SAVE);
+	if (!msg)
+		return -ENOMEM;
+
+	p = (struct sprdwl_cmd_set_power_backoff *)msg->data;
+	p->power_save_type = SPRDWL_SET_POWER_BACKOFF;
+	p->sub_type = sub_type;
+	p->value = value;
+	p->mode = mode;
+	p->channel = channel;
+	wl_err("sub_type:%d, value : %d, mode : %d, channel:%d\n",
+		sub_type, value, mode, channel);
+	return sprdwl_cmd_send_recv(priv, msg, CMD_WAIT_TIMEOUT, NULL, NULL);
+}
+
 int sprdwl_set_vowifi_state(struct sprdwl_priv *priv, u8 vif_mode, u8 status)
 {
 	struct sprdwl_msg_buf *msg;
