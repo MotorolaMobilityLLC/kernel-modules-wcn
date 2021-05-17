@@ -134,18 +134,27 @@ static ssize_t dumpmem_store(struct device *dev,
 }
 
 static ssize_t chipid_show(struct device *dev,
-		struct device_attribute *attr, char *buf)
+       struct device_attribute *attr, char *buf)
 {
-	int i = 0, id;
+    int i = 0, id;
+    const char *id_str = NULL;
 
-	//id = wcn_get_aon_chip_id();
-	id = 0;
-	dev_unisoc_bt_info(ttyBT_dev,
-						"%s: %d",
-						__func__, id);
+    id = wcn_get_aon_chip_id();
+    id_str = wcn_get_chip_name();
+    dev_unisoc_bt_info(ttyBT_dev,
+                       "%s: chipid: %d, chipid_str: %s",
+                       __func__, id, id_str);
 
-	i += scnprintf(buf + i, PAGE_SIZE - i, "%d\n", id);
-	return i;
+    i = scnprintf(buf, PAGE_SIZE, "%d/", id);
+    dev_unisoc_bt_info(ttyBT_dev,
+                       "%s: buf: %s, i = %d",
+                       __func__, buf, i);
+    strncat(buf, id_str, 32);
+    i += scnprintf(buf + i, PAGE_SIZE - i, "%s", buf + i);
+    dev_unisoc_bt_info(ttyBT_dev,
+                       "%s: buf: %s, i = %d",
+                       __func__, buf, i);
+    return i;
 }
 
 static DEVICE_ATTR_RO(chipid);
