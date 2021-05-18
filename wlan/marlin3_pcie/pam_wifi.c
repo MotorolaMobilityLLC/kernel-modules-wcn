@@ -1304,7 +1304,7 @@ irqreturn_t pamwifi_irq_handle(int irq, void *dev)
 {
 	u32 int_sts, cmn_fifo_intr_sts, temp;
 
-	wl_info("%s, %d, enter!\n", __func__, __LINE__);
+	wl_err("%s, %d, enter!\n", __func__, __LINE__);
 	int_sts = readl_relaxed((void *)REG_PAM_WIFI_INT_STS) & BIT_(9);
 	cmn_fifo_intr_sts = readl_relaxed((void *)(PSEL_DL_MISS + PAMWIFI_INT_GEN_CTL_EN)) & 0x300l;
 	if (int_sts != 0 && cmn_fifo_intr_sts != 0) {
@@ -1328,7 +1328,7 @@ irqreturn_t pamwifi_irq_handle(int irq, void *dev)
 	/*tmp debug*/
 	writel_relaxed(BIT_(9), (void *)REG_PAM_WIFI_INT_CLR);
 
-	wl_info("%s, %d, exit!\n", __func__, __LINE__);
+	wl_err("%s, %d, exit!\n", __func__, __LINE__);
 	return IRQ_HANDLED;
 }
 
@@ -1402,6 +1402,11 @@ void sprdwl_analyze_pamwifi_miss_node(void)
 	int num;
 	u32 rx_rdptr, rx_wrptr, free_num, temp_wrptr, temp_rdptr, fifo_depth = 1024, temp;
 
+	wl_err("%s\n", __func__);
+	if (pamwifi_priv->suspend_stage & PAMWIFI_EB_SUSPEND) {
+		wl_err("%s, Pam wifi already disabled!", __func__);
+		return;
+	}
 	num = atomic_read(&pamwifi_priv->pamwifi_msg_list->ref);
 	rx_wrptr = readl_relaxed((void *)(PSEL_DL_MISS + PAMWIFI_COMMON_RX_FIFO_WR)) >> 16;
 	rx_rdptr = readl_relaxed((void *)(PSEL_DL_MISS + PAMWIFI_COMMON_RX_FIFO_RD)) >> 16;
@@ -2082,26 +2087,37 @@ void sprdwl_deinit_pamwifi_fifo(struct platform_device *pdev, u32 fifo_depth)
 {
 	dma_free_coherent(&pdev->dev, fifo_depth*sizeof(dma_addr_t),
 					 dl_type1_virt_addr, dl_type1_phy_addr);
+	dl_type1_virt_addr = NULL;
 	dma_free_coherent(&pdev->dev, fifo_depth*sizeof(dma_addr_t),
 					 dl_type2_virt_addr, dl_type2_phy_addr);
+	dl_type2_virt_addr = NULL;
 	dma_free_coherent(&pdev->dev, fifo_depth*sizeof(dma_addr_t),
 					 dl_type3_virt_addr, dl_type3_phy_addr);
+	dl_type3_virt_addr = NULL;
 	dma_free_coherent(&pdev->dev, fifo_depth*sizeof(dma_addr_t),
 					 dl_type4_virt_addr, dl_type4_phy_addr);
+	dl_type4_virt_addr = NULL;
 	dma_free_coherent(&pdev->dev, fifo_depth*sizeof(dma_addr_t),
 					 dl_free_virt_addr, dl_free_phy_addr);
+	dl_free_virt_addr = NULL;
 	dma_free_coherent(&pdev->dev, fifo_depth*sizeof(dma_addr_t),
 					 miss_tx_virt_addr, miss_tx_phy_addr);
+	miss_tx_virt_addr = NULL;
 	dma_free_coherent(&pdev->dev, fifo_depth*sizeof(dma_addr_t),
 					 miss_rx_virt_addr, miss_rx_phy_addr);
+	miss_rx_virt_addr = NULL;
 	dma_free_coherent(&pdev->dev, fifo_depth*sizeof(dma_addr_t),
 					 dl_4in1_virt_addr, dl_4in1_phy_addr);
+	dl_4in1_virt_addr = NULL;
 	dma_free_coherent(&pdev->dev, fifo_depth*sizeof(dma_addr_t),
 					 ul_tx_virt_addr, ul_tx_phy_addr);
+	ul_tx_virt_addr = NULL;
 	dma_free_coherent(&pdev->dev, fifo_depth*sizeof(dma_addr_t),
 					 ul_rx_virt_addr, ul_rx_phy_addr);
+	ul_rx_virt_addr = NULL;
 	dma_free_coherent(&pdev->dev, 1*16, pam_wifi_msdu_header_info,
 					 term_pam_wifi_msdu_header_buf);
+	pam_wifi_msdu_header_info = NULL;
 	wl_info("%d,Pam wifi close success!!\n", __LINE__);
 }
 
