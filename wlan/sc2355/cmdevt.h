@@ -23,7 +23,8 @@
 #include <linux/pm_wakeup.h>
 
 #define SPRDWL_VALID_CONFIG		(0x80)
-#define  CMD_WAIT_TIMEOUT		(3000)
+#define CMD_WAIT_TIMEOUT		(3000)
+#define CMD_TIMEOUT_DEBUG_LEVEL		(5000)
 #define CMD_DISCONNECT_TIMEOUT		(5500)
 
 #define ABORT_SCAN_MODE			(0x1)
