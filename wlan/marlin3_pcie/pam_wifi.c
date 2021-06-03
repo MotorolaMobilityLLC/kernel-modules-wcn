@@ -218,6 +218,7 @@ static inline u32 pam_wifi_set_tx_fifo_total_depth(u64 fifo_base, u32 depth)
 *****************************************************************************/
 static inline u32 pam_wifi_update_tx_fifo_rptr(u64 fifo_base, u32 rptr)
 {
+#if 0
 	u32 tmp = 0;
 
 	if (tmp > 0xFFFFl)
@@ -228,11 +229,13 @@ static inline u32 pam_wifi_update_tx_fifo_rptr(u64 fifo_base, u32 rptr)
 		tmp |= (rptr << 16);
 		writel_relaxed(tmp, (void *)(fifo_base + PAMWIFI_COMMON_TX_FIFO_RD));
 	}
+#endif
 	return 0;
 }
 
 u32 pam_wifi_update_tx_fifo_wptr(u64 fifo_base, u32 wptr)
 {
+#if 0
 	u32 tmp = 0;
 
 	if (tmp > 0xFFFFl)
@@ -247,6 +250,7 @@ u32 pam_wifi_update_tx_fifo_wptr(u64 fifo_base, u32 wptr)
 		tmp &= ~ BIT_(1);
 		writel_relaxed(tmp, (void *)(fifo_base + PAMWIFI_COMMON_TX_FIFO_WR));
 	}
+#endif
 	return 0;
 }
 
@@ -277,6 +281,7 @@ static inline u32 pam_wifi_set_rx_fifo_total_depth(u64 fifo_base, u32 depth)
 *****************************************************************************/
 static inline u32 pam_wifi_update_rx_fifo_rptr(u64 fifo_base, u32 rptr)
 {
+#if 0
 	u32 tmp = 0;
 
 	if (rptr > 0xFFFFl)
@@ -287,6 +292,7 @@ static inline u32 pam_wifi_update_rx_fifo_rptr(u64 fifo_base, u32 rptr)
 		tmp |= (rptr << 16);
 		writel_relaxed(tmp, (void *)(fifo_base + PAMWIFI_COMMON_RX_FIFO_RD));
 	}
+#endif
 	return 0;
 }
 
@@ -302,6 +308,7 @@ static inline u32 pam_wifi_update_rx_fifo_rptr(u64 fifo_base, u32 rptr)
 *****************************************************************************/
 static inline u32 pam_wifi_update_rx_fifo_wptr(u64 fifo_base, u32 wptr)
 {
+#if 0
 	u32 tmp = 0;
 
 	if (wptr > 0xFFFFl)
@@ -312,6 +319,7 @@ static inline u32 pam_wifi_update_rx_fifo_wptr(u64 fifo_base, u32 wptr)
 		tmp |= (wptr << 16);
 		writel_relaxed(tmp, (void *)(fifo_base + PAMWIFI_COMMON_RX_FIFO_WR));
 	}
+#endif
 	return 0;
 }
 
@@ -807,8 +815,6 @@ int pamwifi_config_type1_4_common_fifo(struct platform_device *pdev, u32 pamwifi
 	writel_relaxed((u32)(dl_type1_phy_addr >> 32),
 				(void *)(PSEL_DL_TYPE1 + PAMWIFI_COMMON_TX_FIFO_ADDRH));
 	pam_wifi_set_tx_fifo_total_depth(PSEL_DL_TYPE1, pamwifi_fifo_depth);
-	pam_wifi_update_tx_fifo_rptr(PSEL_DL_TYPE1, 0);
-	pam_wifi_update_tx_fifo_wptr(PSEL_DL_TYPE1, 0);
 	temp_threshold_value = readl_relaxed((void *)(PSEL_DL_TYPE1 + PAMWIFI_INT_GEN_CTL_TX_FIFO_VALUE));
 	temp_threshold_value |= pamwifi_tx_intr_threshold;
 	temp_threshold_value |= pamwifi_tx_intr_threshold_delay;
@@ -831,8 +837,6 @@ int pamwifi_config_type1_4_common_fifo(struct platform_device *pdev, u32 pamwifi
 	writel_relaxed((u32)(dl_type2_phy_addr >> 32),
 				(void *)(PSEL_DL_TYPE2 + PAMWIFI_COMMON_TX_FIFO_ADDRH));
 	pam_wifi_set_tx_fifo_total_depth(PSEL_DL_TYPE2, pamwifi_fifo_depth);
-	pam_wifi_update_tx_fifo_rptr(PSEL_DL_TYPE2, 0);
-	pam_wifi_update_tx_fifo_wptr(PSEL_DL_TYPE2, 0);
 	temp_threshold_value = readl_relaxed((void *)(PSEL_DL_TYPE2 + PAMWIFI_INT_GEN_CTL_TX_FIFO_VALUE));
 	temp_threshold_value |= pamwifi_tx_intr_threshold;
 	temp_threshold_value |= pamwifi_tx_intr_threshold_delay;
@@ -855,8 +859,6 @@ int pamwifi_config_type1_4_common_fifo(struct platform_device *pdev, u32 pamwifi
 	writel_relaxed((u32)(dl_type3_phy_addr >> 32),
 				(void *)(PSEL_DL_TYPE3 + PAMWIFI_COMMON_TX_FIFO_ADDRH));
 	pam_wifi_set_tx_fifo_total_depth(PSEL_DL_TYPE3, pamwifi_fifo_depth);
-	pam_wifi_update_tx_fifo_rptr(PSEL_DL_TYPE3, 0);
-	pam_wifi_update_tx_fifo_wptr(PSEL_DL_TYPE3, 0);
 	temp_threshold_value = readl_relaxed((void *)(PSEL_DL_TYPE3 + PAMWIFI_INT_GEN_CTL_TX_FIFO_VALUE));
 	temp_threshold_value |= pamwifi_tx_intr_threshold;
 	temp_threshold_value |= pamwifi_tx_intr_threshold_delay;
@@ -879,8 +881,6 @@ int pamwifi_config_type1_4_common_fifo(struct platform_device *pdev, u32 pamwifi
 	writel_relaxed((u32)(dl_type4_phy_addr >> 32),
 				(void *)(PSEL_DL_TYPE4 + PAMWIFI_COMMON_TX_FIFO_ADDRH));
 	pam_wifi_set_tx_fifo_total_depth(PSEL_DL_TYPE4, pamwifi_fifo_depth);
-	pam_wifi_update_tx_fifo_rptr(PSEL_DL_TYPE4, 0);
-	pam_wifi_update_tx_fifo_wptr(PSEL_DL_TYPE4, 0);
 	temp_threshold_value = readl_relaxed((void *)(PSEL_DL_TYPE4 + PAMWIFI_INT_GEN_CTL_TX_FIFO_VALUE));
 	temp_threshold_value |= pamwifi_tx_intr_threshold;
 	temp_threshold_value |= pamwifi_tx_intr_threshold_delay;
@@ -932,8 +932,7 @@ int sprdwl_pamwifi_fill_rx_buf(struct sprdwl_intf *intf)
 		/*disable pamwifi*/
 		writel_relaxed(temp, (void *)REG_PAM_WIFI_CFG_START);
 	}
-	pam_wifi_update_tx_fifo_rptr(PSEL_UL, 0);
-	pam_wifi_update_tx_fifo_wptr(PSEL_UL, 0);
+	/*to be modified*/
 	pam_wifi_update_tx_fifo_wptr(PSEL_UL, i);
 	/*start pamwifi*/
 	temp |= 0x1l;
@@ -947,7 +946,7 @@ int pamwifi_config_others_common_fifo(struct platform_device *pdev, u32 pamwifi_
 											   u32 pamwifi_tx_intr_threshold_en, u32 pamwifi_tx_intr_threshold_delay,
 											   u32 pamwifi_tx_intr_threshold_delay_en, u32 pamwifi_fifo_depth)
 {
-	u32 temp_threshold_value = 0/*, i*/;
+	u32 temp_threshold_value = 0, pamwifi_tx_wrptr, pamwifi_tx_rdptr;
 
 	/*dl free*/
 	if (!dl_free_virt_addr)
@@ -961,8 +960,6 @@ int pamwifi_config_others_common_fifo(struct platform_device *pdev, u32 pamwifi_
 	writel_relaxed((u32)(dl_free_phy_addr >> 32),
 				(void *)(PSEL_DL_FREE + PAMWIFI_COMMON_RX_FIFO_ADDRH));
 	pam_wifi_set_rx_fifo_total_depth(PSEL_DL_FREE, pamwifi_fifo_depth);
-	pam_wifi_update_rx_fifo_rptr(PSEL_DL_FREE, 0);
-	pam_wifi_update_rx_fifo_wptr(PSEL_DL_FREE, 0);
 
 	/*miss tx*/
 	if (!miss_tx_virt_addr)
@@ -977,8 +974,6 @@ int pamwifi_config_others_common_fifo(struct platform_device *pdev, u32 pamwifi_
 	writel_relaxed((u32)(miss_tx_phy_addr >> 32),
 				(void *)(PSEL_DL_MISS + PAMWIFI_COMMON_TX_FIFO_ADDRH));
 	pam_wifi_set_tx_fifo_total_depth(PSEL_DL_MISS, pamwifi_fifo_depth);
-	pam_wifi_update_tx_fifo_rptr(PSEL_DL_MISS, 0);
-	pam_wifi_update_tx_fifo_wptr(PSEL_DL_MISS, 0);
 	temp_threshold_value = readl_relaxed((void *)(PSEL_DL_MISS + PAMWIFI_INT_GEN_CTL_TX_FIFO_VALUE));
 	temp_threshold_value |= pamwifi_tx_intr_threshold;
 	temp_threshold_value |= pamwifi_tx_intr_threshold_delay;
@@ -1001,8 +996,6 @@ int pamwifi_config_others_common_fifo(struct platform_device *pdev, u32 pamwifi_
 	writel_relaxed((u32)(miss_rx_phy_addr >> 32),
 				(void *)(PSEL_DL_MISS + PAMWIFI_COMMON_RX_FIFO_ADDRH));
 	pam_wifi_set_rx_fifo_total_depth(PSEL_DL_MISS, pamwifi_fifo_depth);
-	pam_wifi_update_rx_fifo_rptr(PSEL_DL_MISS, 0);
-	pam_wifi_update_rx_fifo_wptr(PSEL_DL_MISS, 0);
 
 	/*ul filled*/
 	if (!ul_rx_virt_addr)
@@ -1017,8 +1010,6 @@ int pamwifi_config_others_common_fifo(struct platform_device *pdev, u32 pamwifi_
 	writel_relaxed((u32)(ul_rx_phy_addr >> 32),
 				(void *)(PSEL_UL + PAMWIFI_COMMON_RX_FIFO_ADDRH));
 	pam_wifi_set_rx_fifo_total_depth(PSEL_UL, pamwifi_fifo_depth);
-	pam_wifi_update_rx_fifo_rptr(PSEL_UL, 0);
-	pam_wifi_update_rx_fifo_wptr(PSEL_UL, 0);
 
 	/*ul free*/
 	if (!ul_tx_virt_addr)
@@ -1033,27 +1024,17 @@ int pamwifi_config_others_common_fifo(struct platform_device *pdev, u32 pamwifi_
 	writel_relaxed((u32)(ul_tx_phy_addr >> 32),
 				(void *)(PSEL_UL + PAMWIFI_COMMON_TX_FIFO_ADDRH));
 	pam_wifi_set_tx_fifo_total_depth(PSEL_UL, pamwifi_fifo_depth);
-#if 0
-	for(i = 0; i < 10; i++) {
-		unsigned long pcie_addr = 0;
-		struct sk_buff *skb = NULL;
 
-		skb = dev_alloc_skb(SPRDWL_MAX_DATA_RXLEN);
-		if (skb) {
-			pcie_addr = dma_map_single(&pdev->dev,
-					    skb->data, skb->len,
-					    DMA_FROM_DEVICE);
-			*((unsigned long *)ul_tx_virt_addr + i) = pcie_addr;
+	/*to reset tx rdptr*/
+	pamwifi_tx_wrptr = (readl_relaxed((void *)(PSEL_UL + PAMWIFI_COMMON_TX_FIFO_WR)) >> 16) & 0xFFFFl;
+	pamwifi_tx_rdptr = readl_relaxed((void *)(PSEL_UL + PAMWIFI_COMMON_TX_FIFO_RD)) & 0xFFFFl;
+	pamwifi_tx_rdptr |= pamwifi_tx_wrptr << 16;
+	writel_relaxed(pamwifi_tx_rdptr, (void*)(PSEL_UL + PAMWIFI_COMMON_TX_FIFO_RD));
 
-			tx_ipv4_udp[15] = 0x20;
-			skb_reserve(skb, NET_IP_ALIGN);
-			memcpy((u8 *)(skb->data) + 16, tx_ipv4_udp, 244);
-			//skb_put(skb, 244);
-		}
-	}
-#endif
-	pam_wifi_update_tx_fifo_rptr(PSEL_UL, 0);
-	pam_wifi_update_tx_fifo_wptr(PSEL_UL, 0);
+	pamwifi_tx_wrptr = (readl_relaxed((void *)(PSEL_DL_FREE + PAMWIFI_COMMON_TX_FIFO_WR)) >> 16) & 0xFFFFl;
+	pamwifi_tx_rdptr = readl_relaxed((void *)(PSEL_DL_FREE + PAMWIFI_COMMON_TX_FIFO_RD)) & 0xFFFFl;
+	pamwifi_tx_rdptr |= pamwifi_tx_wrptr << 16;
+	writel_relaxed(pamwifi_tx_rdptr, (void*)(PSEL_DL_FREE + PAMWIFI_COMMON_TX_FIFO_RD));
 
 	temp_threshold_value = readl_relaxed((void *)(PSEL_UL + PAMWIFI_INT_GEN_CTL_TX_FIFO_VALUE));
 	temp_threshold_value |= pamwifi_tx_intr_threshold;
@@ -1086,8 +1067,6 @@ int pamwifi_config_4in1_common_fifo(struct platform_device *pdev, u32 pamwifi_tx
 				(void *)(PSEL_DL_FREE + PAMWIFI_COMMON_TX_FIFO_ADDRH));
 	pam_wifi_set_tx_fifo_total_depth(PSEL_DL_FREE,
 								    pamwifi_priv->cp_cap.mux_tx_common_fifo_depth);
-	pam_wifi_update_tx_fifo_rptr(PSEL_DL_FREE, 0);
-	pam_wifi_update_tx_fifo_wptr(PSEL_DL_FREE, 0);
 	temp_threshold_value = readl_relaxed((void *)(PSEL_DL_FREE + PAMWIFI_INT_GEN_CTL_TX_FIFO_VALUE));
 	temp_threshold_value |= pamwifi_tx_intr_threshold;
 	temp_threshold_value |= pamwifi_tx_intr_threshold_delay;
@@ -1396,8 +1375,8 @@ void sprdwl_analyze_pamwifi_miss_node(void)
 {
 	struct pamwifi_miss_node_rx_dscr rx_node;
 	struct sprdwl_pamwifi_msg_buf *pamwifi_msg_buf = NULL;
-	struct sk_buff *skb = NULL, *tmp_skb = NULL;
-	struct sprdwl_vif *vif = NULL;
+	//struct sk_buff *skb = NULL, *tmp_skb = NULL;
+	//struct sprdwl_vif *vif = NULL;
 	unsigned long flags = 0, i;
 	int num;
 	u32 rx_rdptr, rx_wrptr, free_num, temp_wrptr, temp_rdptr, fifo_depth = 1024, temp;
@@ -1430,7 +1409,8 @@ void sprdwl_analyze_pamwifi_miss_node(void)
 										   struct sprdwl_pamwifi_msg_buf, list);
 			list_del(&pamwifi_msg_buf->list);
 			spin_unlock_irqrestore(&pamwifi_priv->pamwifi_msg_list->busy_lock, flags);
-
+			/*todo*/
+#if 0
 			/*overflow pkt free directly, others send by special data*/
 			if (!pamwifi_msg_buf->dscr.flag) {
 				/*TODO by ipa*/
@@ -1445,7 +1425,7 @@ void sprdwl_analyze_pamwifi_miss_node(void)
 					/*TODO: if miss pkt send fail?*/
 					continue;
 			}
-
+#endif
 			rx_node.address = pamwifi_msg_buf->dscr.address;
 			rx_node.length = pamwifi_msg_buf->dscr.length;
 			rx_node.offset = pamwifi_msg_buf->dscr.address;
@@ -1776,13 +1756,13 @@ static int pamwifi_prepare_resume(void)
 	int ret = 0;
 
 	wl_err("%s, %d, stage: %u\n", __func__, __LINE__, pamwifi_priv->suspend_stage);
+	if (!(pamwifi_priv->suspend_stage & PAMWIFI_EB_SUSPEND))
+		goto out;
+
 	if (pamwifi_priv->suspend_stage & PAMWIFI_EB_SUSPEND) {
 		pamwifi_set_enable(true);
 		pamwifi_priv->suspend_stage &= ~PAMWIFI_EB_SUSPEND;
 	}
-
-	if (!(pamwifi_priv->suspend_stage & PAMWIFI_EB_SUSPEND))
-		goto out;
 
 	if (pamwifi_priv->suspend_stage & PAMWIFI_REG_SUSPEND) {
 		ret = sprdwl_pamwifi_resume();
@@ -1931,6 +1911,14 @@ void sprdwl_pamwifi_enable(struct sprdwl_vif *vif)
 
 	pamwifi_priv->kthread_stop = 0;
 	//set_reg_bits_all_one(REG_PAM_WIFI_CFG_START,  BIT_PAM_WIFI_CFG_START_PAM_WIFI_START);
+
+	sprdwl_pamwifi_res_init(vif);
+	ret = sipa_pam_connect(&pamwifi_priv->sipa_params);
+	if (ret) {
+		wl_err("%s, pamwifi connect ipa fail\n", __func__);
+		pamwifi_priv->suspend_stage = PAMWIFI_REG_SUSPEND;
+	}
+
 	ret = sipa_nic_open(
                 SIPA_TERM_WIFI,
                 -1,
@@ -1939,13 +1927,6 @@ void sprdwl_pamwifi_enable(struct sprdwl_vif *vif)
 	wl_info("%s, nic_id: %d\n", __func__, ret);
 	/*TODO dummp0 ??*/
 	pamwifi_priv->nic_id = ret;
-
-	sprdwl_pamwifi_res_init(vif);
-	ret = sipa_pam_connect(&pamwifi_priv->sipa_params);
-	if (ret) {
-		wl_err("%s, pamwifi connect ipa fail\n", __func__);
-		pamwifi_priv->suspend_stage = PAMWIFI_REG_SUSPEND;
-	}
 
 	temp = readl_relaxed((void *)REG_PAM_WIFI_CFG_START);
 	/*start pamwifi*/
@@ -1983,6 +1964,8 @@ void sprdwl_pamwifi_disable(struct sprdwl_vif *vif)
 		wl_info("%d,Pam wifi close success!!\n", __LINE__);
 		/*stop pam wifi*/
 		clear_reg_bits(REG_PAM_WIFI_CFG_START, BIT_PAM_WIFI_CFG_START_PAM_WIFI_START);
+
+		read_ul_free_dl_fill_wrptr();
 
 		pamwifi_set_enable(false);
 		pamwifi_priv->suspend_stage |= PAMWIFI_EB_SUSPEND;
@@ -2056,26 +2039,51 @@ int sprdwl_pamwifi_probe(struct platform_device *pdev)
 /*check pamwifi idle sts*/
 u32 check_pamwifi_ipa_fifo_status(void)
 {
-	u32 pamwifi_ul_idle, pamwifi_dl_idle, pamwifi_idle, ipa_dl_tx_wrptr,
-		ipa_dl_rx_wrptr, pamwifi_ul_rx_wrptr, pamwifi_ul_tx_wrptr;
+	u32 pamwifi_ul_idle, pamwifi_dl_idle, pamwifi_idle, pamwifi_ul_rx_wrptr,
+		pamwifi_ul_tx_wrptr, pamwifi_dl_rx_wrptr, pamwifi_dl_tx_wrptr,
+		pamwifi_ul_rx_rdptr, 	pamwifi_ul_tx_rdptr, pamwifi_dl_rx_rdptr,
+		pamwifi_dl_tx_rdptr;
 
 	pamwifi_dl_idle = readl_relaxed((void *)(REG_PAM_WIFI_CFG_START)) & BIT_(5);
 	pamwifi_ul_idle = readl_relaxed((void *)(REG_PAM_WIFI_CFG_START)) & BIT_(4);
 	pamwifi_idle = readl_relaxed((void *)(REG_PAM_WIFI_CFG_START)) & BIT_(3);
-	/*ipa_dl_tx_wrptr = readl_relaxed((void *)(pamwifi_priv->sipa_info.dl_fifo.fifo_sts_addr
-							     + PAMWIFI_COMMON_TX_FIFO_WR));
-	ipa_dl_rx_wrptr = readl_relaxed((void *)(pamwifi_priv->sipa_info.dl_fifo.fifo_sts_addr
-							     + PAMWIFI_COMMON_RX_FIFO_WR));*/
-	pamwifi_ul_rx_wrptr = readl_relaxed((void *)(PSEL_UL + PAMWIFI_COMMON_RX_FIFO_WR));
-	pamwifi_ul_tx_wrptr = readl_relaxed((void *)(PSEL_UL + PAMWIFI_COMMON_TX_FIFO_WR));
+	pamwifi_ul_rx_wrptr = (readl_relaxed((void *)(PSEL_UL + PAMWIFI_COMMON_RX_FIFO_WR)) >> 16) & 0xFFFFl;
+	pamwifi_ul_tx_wrptr = (readl_relaxed((void *)(PSEL_UL + PAMWIFI_COMMON_TX_FIFO_WR)) >> 16) & 0xFFFFl;
+	pamwifi_dl_rx_wrptr = (readl_relaxed((void *)(PSEL_DL_FREE + PAMWIFI_COMMON_RX_FIFO_WR)) >> 16) & 0xFFFFl;
+	pamwifi_dl_tx_wrptr = (readl_relaxed((void *)(PSEL_DL_FREE + PAMWIFI_COMMON_TX_FIFO_WR)) >> 16) & 0xFFFFl;
+	pamwifi_ul_rx_rdptr = (readl_relaxed((void *)(PSEL_UL + PAMWIFI_COMMON_RX_FIFO_RD)) >> 16) & 0xFFFFl;
+	pamwifi_ul_tx_rdptr = (readl_relaxed((void *)(PSEL_UL + PAMWIFI_COMMON_TX_FIFO_RD)) >> 16) & 0xFFFFl;
+	pamwifi_dl_rx_rdptr = (readl_relaxed((void *)(PSEL_DL_FREE + PAMWIFI_COMMON_RX_FIFO_RD)) >> 16) & 0xFFFFl;
+	pamwifi_dl_tx_rdptr = (readl_relaxed((void *)(PSEL_DL_FREE + PAMWIFI_COMMON_TX_FIFO_RD)) >> 16) & 0xFFFFl;
 
-	if ((pamwifi_ul_idle == BIT_(4)) && (pamwifi_ul_rx_wrptr == pamwifi_ul_tx_wrptr)) {
-		wl_err("%s, dl_idle_sts:%u, ul_idle_sts:%u, idle_sts:%u, wrptr:%u, %u, %u, %u\n",
-			    pamwifi_dl_idle, pamwifi_ul_idle, pamwifi_idle, ipa_dl_tx_wrptr, ipa_dl_rx_wrptr,
-			    pamwifi_ul_rx_wrptr, pamwifi_ul_tx_wrptr);
+	if ((pamwifi_ul_idle == BIT_(4)) && (pamwifi_ul_rx_wrptr == pamwifi_ul_tx_wrptr) &&
+		pamwifi_dl_idle == BIT_(5) && (pamwifi_dl_rx_wrptr == pamwifi_dl_tx_wrptr)) {
+		wl_err("%s, dl_idle_sts:%u, ul_idle_sts:%u, idle_sts:%u, wrptr:%u, %u, %u, %u, rdptr:%u, %u, %u, %u\n",
+			    pamwifi_dl_idle, pamwifi_ul_idle, pamwifi_ul_rx_wrptr, pamwifi_ul_tx_wrptr,
+			    pamwifi_dl_rx_wrptr, pamwifi_dl_tx_wrptr, pamwifi_ul_rx_rdptr,
+			    pamwifi_ul_tx_rdptr, pamwifi_dl_rx_rdptr,pamwifi_dl_tx_rdptr);
 		return 0;
 	} else
 		return 1;
+}
+
+void read_ul_free_dl_fill_wrptr(void)
+{
+	u32 pamwifi_ul_rx_wrptr, 	pamwifi_ul_tx_wrptr, pamwifi_dl_rx_wrptr, pamwifi_dl_tx_wrptr,
+		pamwifi_ul_rx_rdptr, 	pamwifi_ul_tx_rdptr, pamwifi_dl_rx_rdptr, pamwifi_dl_tx_rdptr;
+
+	pamwifi_ul_rx_wrptr = (readl_relaxed((void *)(PSEL_UL + PAMWIFI_COMMON_RX_FIFO_WR)) >> 16) & 0xFFFFl;
+	pamwifi_ul_tx_wrptr = (readl_relaxed((void *)(PSEL_UL + PAMWIFI_COMMON_TX_FIFO_WR)) >> 16) & 0xFFFFl;
+	pamwifi_dl_rx_wrptr = (readl_relaxed((void *)(PSEL_DL_FREE + PAMWIFI_COMMON_RX_FIFO_WR)) >> 16) & 0xFFFFl;
+	pamwifi_dl_tx_wrptr = (readl_relaxed((void *)(PSEL_DL_FREE + PAMWIFI_COMMON_TX_FIFO_WR)) >> 16) & 0xFFFFl;
+	pamwifi_ul_rx_rdptr = (readl_relaxed((void *)(PSEL_UL + PAMWIFI_COMMON_RX_FIFO_RD)) >> 16) & 0xFFFFl;
+	pamwifi_ul_tx_rdptr = (readl_relaxed((void *)(PSEL_UL + PAMWIFI_COMMON_TX_FIFO_RD)) >> 16) & 0xFFFFl;
+	pamwifi_dl_rx_rdptr = (readl_relaxed((void *)(PSEL_DL_FREE + PAMWIFI_COMMON_RX_FIFO_RD)) >> 16) & 0xFFFFl;
+	pamwifi_dl_tx_rdptr = (readl_relaxed((void *)(PSEL_DL_FREE + PAMWIFI_COMMON_TX_FIFO_RD)) >> 16) & 0xFFFFl;
+
+	wl_err("%s, ul free wrptr:%u, ul free rdptr:%u, dl filled wrptr: %u, dl filled rdptr: %u, ul filled wrptr:%u, ul filled rdptr:%u, dl free wrptr: %u, dl free rdptr: %u,\n",
+		__func__, pamwifi_ul_tx_wrptr, pamwifi_ul_tx_rdptr, pamwifi_dl_tx_wrptr, pamwifi_dl_tx_rdptr,
+		pamwifi_ul_rx_wrptr, pamwifi_ul_rx_rdptr, pamwifi_dl_rx_wrptr, pamwifi_dl_rx_rdptr);
 }
 
 void sprdwl_pamwifi_free_rx_buf(void)
@@ -2347,6 +2355,7 @@ int sprdwl_xmit_to_ipa_pamwifi(struct sk_buff *skb, struct net_device *ndev)
 				return NETDEV_TX_BUSY;
 			}
 		}
+		wl_debug("%s, succeed to send to ipa\n", __func__);
 		vif->ndev->stats.tx_bytes += skb->len;
 		vif->ndev->stats.tx_packets++;
 		return NETDEV_TX_OK;

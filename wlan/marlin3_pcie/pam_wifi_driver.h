@@ -200,7 +200,10 @@ void clear_reg_bits(u64 u4_addr, u32 mask);
 int sprdwl_pamwifi_fill_rx_buf(struct sprdwl_intf *intf);
 int sprdwl_pamwifi_init(struct platform_device *pdev, struct sprdwl_priv *priv);
 void sprdwl_pamwifi_uninit(struct platform_device *pdev);
+void pamwifi_dl_fill_4in1_en_dir(u32 enable, u32 dir);
+void pamwifi_ul_free_en_dir(u32 enable, u32 dir);
 //to remove
 extern bool sipa_nic_check_flow_ctrl(enum sipa_nic_id nic_id);
 int sprdwl_pamwifi_probe(struct platform_device *pdev);
+void read_ul_free_dl_fill_wrptr(void);
 #endif
