@@ -433,6 +433,7 @@ int sprdwl_init_fw(struct sprdwl_vif *vif)
 			wl_err("softap open fail, because pamwifi init fail\n");
 			return ret;
 		}
+		read_ul_free_dl_fill_wrptr();
 	}
 #endif
 	if (vif->mode ==SPRDWL_MODE_P2P_GO) {
@@ -453,6 +454,11 @@ int sprdwl_init_fw(struct sprdwl_vif *vif)
 		    __func__, type,
 		    vif->mode, vif->ctx_id);
 	priv->fw_stat[vif->mode] = SPRDWL_INTF_OPEN;
+#ifdef ENABLE_PAM_WIFI
+	if (mode == SPRDWL_MODE_AP) {
+		read_ul_free_dl_fill_wrptr();
+	}
+#endif
 	/*TODO make sure driver send buf only once*/
 	for (mode = SPRDWL_MODE_STATION; mode < SPRDWL_MODE_MAX; mode++)
 		if (priv->fw_stat[mode] == SPRDWL_INTF_OPEN)
@@ -467,6 +473,9 @@ int sprdwl_init_fw(struct sprdwl_vif *vif)
 		sprdwl_pamwifi_fill_rx_buf(priv->hw_priv);
 	else {
 		sprdwl_mm_fill_all_buffer(priv->hw_priv);
+	}
+	if (mode == SPRDWL_MODE_AP) {
+		read_ul_free_dl_fill_wrptr();
 	}
 #endif
 #ifndef ENABLE_PAM_WIFI
