@@ -25,7 +25,7 @@ struct sprdwl_power_backoff {
 } __packed;
 
 struct fcc_power_bo {
-	char country[2];
+	char country[3];
 	u8 num;
 	struct sprdwl_power_backoff power_backoff[4];
 } __packed;
