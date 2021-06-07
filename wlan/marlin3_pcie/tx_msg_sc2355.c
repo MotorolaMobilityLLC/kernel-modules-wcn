@@ -504,7 +504,7 @@ static void sprdwl_sdio_flush_txlist(struct sprdwl_msg_list *list)
 
 static int sprdwl_tx_cmd(struct sprdwl_intf *intf, struct sprdwl_msg_list *list)
 {
-	int ret = 0;
+	int i, ret = 0;
 	struct sprdwl_msg_buf *msgbuf;
 	struct sprdwl_tx_msg *tx_msg;
 
@@ -533,11 +533,23 @@ static int sprdwl_tx_cmd(struct sprdwl_intf *intf, struct sprdwl_msg_list *list)
 		ret = if_tx_cmd(intf, (unsigned char *)msgbuf->tran_data,
 				msgbuf->len);
 		if (ret) {
-			wl_err("%s err:%d\n", __func__, ret);
-			/* fixme if need retry */
-			kfree(msgbuf->tran_data);
-			msgbuf->tran_data = NULL;
-			sprdwl_free_cmd_buf(msgbuf, list);
+			wl_err("%s, %d, tx cmd err:%d firstly\n", __func__, __LINE__, ret);
+			for (i = 0; i < 10; i++) {
+				msleep(10);
+				ret = if_tx_cmd(intf, (unsigned char *)msgbuf->tran_data,
+					msgbuf->len);
+				if (ret)
+					wl_err("%s, %d, tx cmd retry time:%d err:%d\n", __func__, __LINE__, i, ret);
+				else
+					break;
+			}
+			if (ret) {
+				wl_err("%s, %d, tx cmd err:%d lastly\n", __func__, __LINE__, ret);
+				/* fixme if need retry */
+				kfree(msgbuf->tran_data);
+				msgbuf->tran_data = NULL;
+				sprdwl_free_cmd_buf(msgbuf, list);
+			}
 		}
 	}
 
