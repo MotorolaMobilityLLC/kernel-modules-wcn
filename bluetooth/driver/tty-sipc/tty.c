@@ -193,11 +193,11 @@ static void stty_handler (int event, void *data)
 					0);
 			dev_unisoc_bt_dbg(ttyBT_dev,
 								"%s read data len =%d\n",__func__, cnt);
-			if (is_user_debug && (cnt > 0)) {
-				bt_host_data_save(buf, cnt, BT_DATA_IN);
-			}
 			mutex_lock(&(stty->stat_lock));
 			if ((stty->state == STTY_STATE_OPEN) && (cnt > 0)) {
+				if (is_user_debug && (cnt > 0)) {
+					bt_host_data_save(buf, cnt, BT_DATA_IN);
+				}
 				for (i = 0; i < cnt; i++) {
 					ret = tty_insert_flip_char(stty->port,
 								buf[i],
