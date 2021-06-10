@@ -1060,6 +1060,7 @@ int sprdwl_power_save(struct sprdwl_priv *priv, u8 vif_ctx_id,
 	p = (struct sprdwl_cmd_power_save *)msg->data;
 	p->sub_type = sub_type;
 	p->value = status;
+	wl_info("%s: WIFI_CMD_POWER_SAVE sub_type: %d, status: %d\n", __func__, p->sub_type, p->value);
 	return sprdwl_cmd_send_recv(priv, msg, CMD_WAIT_TIMEOUT, NULL, NULL);
 }
 
@@ -1079,6 +1080,7 @@ int sprdwl_set_sar(struct sprdwl_priv *priv, u8 vif_ctx_id,
 	p->sub_type = sub_type;
 	p->value = value;
 	p->mode = mode;
+	wl_info("%s: WIFI_CMD_POWER_SAVE sub_type: %d, status: %d\n", __func__, p->sub_type, p->value);
 	return sprdwl_cmd_send_recv(priv, msg, CMD_WAIT_TIMEOUT, NULL, NULL);
 }
 
@@ -2587,6 +2589,7 @@ int sprdwl_cmd_host_wakeup_fw(struct sprdwl_priv *priv, u8 ctx_id)
 	p = (struct sprdwl_cmd_power_save *)msg->data;
 	p->sub_type = SPRDWL_HOST_WAKEUP_FW;
 	p->value = 0;
+	wl_info("%s: WIFI_CMD_POWER_SAVE sub_type: %d, status: %d\n", __func__, p->sub_type, p->value);
 
 	ret =  sprdwl_cmd_send_recv(priv, msg, CMD_WAIT_TIMEOUT,
 				    &r_buf, &r_len);
