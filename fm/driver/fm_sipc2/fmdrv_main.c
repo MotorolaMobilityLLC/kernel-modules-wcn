@@ -429,7 +429,7 @@ ssize_t fm_read_rds_data(struct file *filp, char __user *buf,
 
 static int fm_sipc_rx_cback(int chn, struct mbuf_t *head,struct mbuf_t *tail, int num)
 {
-    //wake_lock_timeout(&fm_wakelock, HZ*1);
+    wake_lock_timeout(&fm_wakelock, HZ*1);
 	dev_unisoc_fm_info(fm_miscdev,"%s: channel:%d head:%p tail:%p num:%d\n",__func__, chn, head, tail, num);
 #ifdef FM_DUMP_DATA
     dump_buf((unsigned char *)head->buf, (unsigned char)(head->len + FM_SIPC_HEAD_LEN), __func__);
