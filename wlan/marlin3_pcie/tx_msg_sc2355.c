@@ -1303,11 +1303,23 @@ void prepare_addba(struct sprdwl_intf *intf, unsigned char lut_index,
 		intf->wmm_special_flag == 0 &&
 #endif
 		peer_entry &&
-		peer_entry->ip_acquired &&
 		peer_entry->ht_enable &&
 		peer_entry->vowifi_enabled != 1 &&
 		!test_bit(tid, &peer_entry->ba_tx_done_map)) {
 		struct timespec time;
+		struct sprdwl_vif *vif;
+
+		vif = ctx_id_to_vif(intf->priv, peer_entry->ctx_id);
+		if (!vif) {
+			wl_err("can not get vif base peer_entry ctx id\n");
+			return;
+		}
+
+		if (vif->mode == SPRDWL_MODE_STATION ||
+		    vif->mode == SPRDWL_MODE_P2P_CLIENT) {
+			if (!peer_entry->ip_acquired)
+				return;
+		}
 
 		getnstimeofday(&time);
 		/*need to delay 3s if priv addba failed*/
