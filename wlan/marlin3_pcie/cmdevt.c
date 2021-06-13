@@ -1102,7 +1102,7 @@ int sprdwl_power_save(struct sprdwl_priv *priv, u8 vif_ctx_id,
 	p = (struct sprdwl_cmd_power_save *)msg->data;
 	p->sub_type = sub_type;
 	p->value = status;
-	wl_warn("%s: WIFI_CMD_POWER_SAVE sub_type: %d, status: %d\n", __func__, p->sub_type, p->value);
+	wl_err("%s: WIFI_CMD_POWER_SAVE sub_type: %d, status: %d\n", __func__, p->sub_type, p->value);
 	return sprdwl_cmd_send_recv(priv, msg, CMD_WAIT_TIMEOUT, NULL, NULL);
 }
 
@@ -2648,6 +2648,7 @@ int sprdwl_cmd_host_wakeup_fw(struct sprdwl_priv *priv, u8 ctx_id)
 	p = (struct sprdwl_cmd_power_save *)msg->data;
 	p->sub_type = SPRDWL_HOST_WAKEUP_FW;
 	p->value = 0;
+	wl_err("%s: WIFI_CMD_POWER_SAVE sub_type: %d, status: %d\n", __func__, p->sub_type, p->value);
 
 	ret =  sprdwl_cmd_send_recv(priv, msg, CMD_WAIT_TIMEOUT,
 				    &r_buf, &r_len);
@@ -3375,6 +3376,7 @@ int sprdwl_fw_power_down_ack(struct sprdwl_priv *priv, u8 ctx_id)
 
 	p = (struct sprdwl_cmd_power_save *)msg->data;
 	p->sub_type = SPRDWL_FW_PWR_DOWN_ACK;
+	wl_err("%s, WIFI_CMD_POWER_DOWN sub_type %d\n", __func__, p->sub_type);
 
 	if (atomic_read(&tx_msg->xmit_msg_list.free_num) == 0 &&
 		!list_empty(&tx_msg->xmit_msg_list.to_free_list)) {
