@@ -64,6 +64,7 @@ void sprdwl_msg_deinit(struct sprdwl_msg_list *list)
 	struct sprdwl_msg_buf *msg_buf;
 	struct sprdwl_msg_buf *pos;
 	struct timespec txmsgftime1, txmsgftime2;
+	unsigned long flags = 0;
 
 	atomic_add(SPRDWL_MSG_EXIT_VAL, &list->ref);
 	if (atomic_read(&list->ref) > SPRDWL_MSG_EXIT_VAL)
@@ -83,10 +84,12 @@ void sprdwl_msg_deinit(struct sprdwl_msg_list *list)
 	if (!list_empty(&list->busylist))
 		WARN_ON(1);
 
+	spin_lock_irqsave(&list->freelock, flags);
 	list_for_each_entry_safe(msg_buf, pos, &list->freelist, list) {
 		list_del(&msg_buf->list);
 		kfree(msg_buf);
 	}
+	spin_unlock_irqrestore(&list->freelock, flags);
 }
 
 struct sprdwl_msg_buf *sprdwl_alloc_msg_buf(struct sprdwl_msg_list *list)
@@ -117,6 +120,12 @@ void sprdwl_free_msg_buf(struct sprdwl_msg_buf *msg_buf,
 	unsigned long flags = 0;
 
 	spin_lock_irqsave(&list->freelock, flags);
+	if (list_empty(&list->freelist)) {
+		wl_err("%s, list empty\n", __func__);
+		kfree(msg_buf);
+		spin_unlock_irqrestore(&list->freelock, flags);
+		return;
+	}
 	//spin_lock_bh(&list->freelock);
 	list_add_tail(&msg_buf->list, &list->freelist);
 	atomic_dec(&list->ref);
