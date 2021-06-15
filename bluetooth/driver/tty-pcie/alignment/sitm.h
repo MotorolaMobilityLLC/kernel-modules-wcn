@@ -14,7 +14,7 @@
 	((((preamble)[4] & 0xFFFF) << 8) | (preamble)[3])
 #define HCI_HAL_SERIAL_BUFFER_SIZE 1026
 
-#define BYTE_ALIGNMENT 4
+#define BYTE_ALIGNMENT 8
 
 enum receive_state_t {
 	BRAND_NEW,
