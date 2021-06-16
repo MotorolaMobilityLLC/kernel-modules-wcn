@@ -164,12 +164,26 @@ sprdwl_dequeue_qos_buf(struct sprdwl_msg_buf *msg_buf, int ac_index)
 	spin_unlock_bh(lock);
 }
 
-void sprdwl_dequeue_tofreelist_buf(struct sprdwl_msg_buf *msg_buf)
+void sprdwl_dequeue_tofreelist_buf(struct sprdwl_tx_msg *tx_msg,
+								   struct sprdwl_msg_buf *msg_buf)
 {
+	enum sprdwl_hw_type hw_type = tx_msg->intf->priv->hw_type;
+
 	if (msg_buf->skb)
 		dev_kfree_skb(msg_buf->skb);
-	if (msg_buf->node)
-		sprdwl_free_tx_buf(msg_buf->node);
+
+	if (SPRDWL_HW_SIPC == hw_type) {
+#ifdef SIPC_SUPPORT
+		if (msg_buf->sipc_node) {
+			sipc_free_tx_buf(tx_msg->intf, msg_buf->sipc_node);
+		}
+#endif
+	} else if (SPRDWL_HW_SC2355_PCIE == hw_type) {
+		if (msg_buf->node) {
+			sprdwl_free_tx_buf(msg_buf->node);
+		}
+	}
+
 	list_del(&msg_buf->list);
 	sprdwl_free_msg_buf(msg_buf, msg_buf->msglist);
 }
@@ -285,7 +299,7 @@ static void sprdwl_flush_data_txlist(struct sprdwl_tx_msg *tx_msg)
 					  lockflag_txfree);
 			list_for_each_entry_safe(pos_buf, temp_buf,
 				to_free_list, list)
-				sprdwl_dequeue_tofreelist_buf(pos_buf);
+				sprdwl_dequeue_tofreelist_buf(tx_msg, pos_buf);
 			spin_unlock_irqrestore(&tx_msg->xmit_msg_list.free_lock,
 					       lockflag_txfree);
 			goto out;
