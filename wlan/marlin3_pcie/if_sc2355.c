@@ -1759,7 +1759,13 @@ int sprdwl_tx_free_pcie_data(struct sprdwl_priv *priv, unsigned char *data)
 		else if (SPRDWL_HW_SIPC == dev->priv->hw_type) {
 #ifdef SIPC_SUPPORT
 			memcpy_fromio(&node, (char *)data_addr_ptr + SPRDWL_MAX_DATA_TXLEN, sizeof(node));
-			msg_buf = node->priv;
+			if (node != NULL) {
+				msg_buf = node->priv;
+			} else {
+				wl_err("%s, node already is NULL\n", __func__);
+				continue;
+
+			}
 #endif
 		}
 		if (last_msg_buf == msg_buf) {

@@ -3389,7 +3389,7 @@ int sprdwl_fw_power_down_ack(struct sprdwl_priv *priv, u8 ctx_id)
 		spin_lock_irqsave(&tx_msg->xmit_msg_list.free_lock,
 				  lockflag_txfree);
 		list_for_each_entry_safe(pos, temp, to_free_list, list)
-			sprdwl_dequeue_tofreelist_buf(pos);
+			sprdwl_dequeue_tofreelist_buf(tx_msg, pos);
 		spin_unlock_irqrestore(&tx_msg->xmit_msg_list.free_lock,
 				       lockflag_txfree);
 	}

@@ -135,7 +135,7 @@ void sprdwl_fc_add_share_credit(struct sprdwl_vif *vif);
 bool is_vowifi_pkt(struct sk_buff *skb, bool *b_cmd_path);
 unsigned int do_csum(const unsigned char *buff, int len);
 void tx_up(struct sprdwl_tx_msg *tx_msg);
-void sprdwl_dequeue_tofreelist_buf(struct sprdwl_msg_buf *msg_buf);
+void sprdwl_dequeue_tofreelist_buf(struct sprdwl_tx_msg *tx_msg, struct sprdwl_msg_buf *msg_buf);
 void prepare_addba(struct sprdwl_intf *intf, unsigned char lut_index,
 		    struct sprdwl_peer_entry *peer_entry, unsigned char tid);
 #endif
