@@ -536,6 +536,11 @@ int sprdwl_cmd_send_recv(struct sprdwl_priv *priv,
 	struct sprdwl_intf *intf;
 	struct sprdwl_tx_msg *tx_msg;
 
+	intf = (struct sprdwl_intf *)(priv->hw_priv);
+	if (intf->cp_asserted == 1) {
+		wl_info("%s CP2 assert\n", __func__);
+		return -EIO;
+	}
 	ret = sprdwl_api_available_check(priv, msg);
 	if (ret || sprdwl_cmd_lock(cmd)) {
 		sprdwl_intf_free_msg_buf(priv, msg);
