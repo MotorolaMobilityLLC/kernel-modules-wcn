@@ -1203,7 +1203,7 @@ void sprdwl_scan_timeout(unsigned long data)
 		.aborted = true,
 	};
 #endif
-	netdev_info(priv->scan_vif->ndev, "%s\n", __func__);
+	pr_info("%s\n", __func__);
 
 	spin_lock_bh(&priv->scan_lock);
 	if (priv->scan_request) {
