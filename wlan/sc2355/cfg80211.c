@@ -1452,7 +1452,7 @@ void sprdwl_scan_timeout(unsigned long data)
 	struct api_version_t *api = (&priv->sync_api)->api_array;
 	u8 fw_ver = 0;
 #endif
-	netdev_info(priv->scan_vif->ndev, "%s\n", __func__);
+	pr_info("%s\n", __func__);
 
 	spin_lock_bh(&priv->scan_lock);
 	if (priv->scan_request) {
@@ -1463,7 +1463,7 @@ void sprdwl_scan_timeout(unsigned long data)
 			drv_ver = (api + WIFI_CMD_SCAN)->drv_version;
 			fw_ver = min(fw_ver, drv_ver);
 		}
-		if (fw_ver == 1)
+		if (fw_ver == 1 && priv->scan_vif)
 			clean_survey_info_list(priv->scan_vif);
 #endif /* ACS_SUPPORT */
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0)
