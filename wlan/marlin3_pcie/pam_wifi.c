@@ -1818,16 +1818,16 @@ static int pamwifi_rel_res(void *vif)
 	return 0;
 }
 
+struct sipa_rm_register_params ul_param;
 int sprdwl_pamwifi_res_init(struct sprdwl_vif *vif)
 {
-	struct sipa_rm_register_params dl_param;
 	struct sipa_rm_create_params rm_params;
 	int ret;
 
 	/*UL*/
-	dl_param.user_data = vif;
-	dl_param.notify_cb = pamwifi_ul_rm_notify_cb;
-	ret = sipa_rm_register(SIPA_RM_RES_CONS_WIFI_UL, &dl_param);
+	ul_param.user_data = vif;
+	ul_param.notify_cb = pamwifi_ul_rm_notify_cb;
+	ret = sipa_rm_register(SIPA_RM_RES_CONS_WIFI_UL, &ul_param);
 	if (ret) {
 		wl_err("UL res register failed\n");
 		return ret;
@@ -1902,6 +1902,7 @@ static void sprdwl_pamwifi_res_uninit(void)
 	sipa_rm_delete_dependency(SIPA_RM_RES_CONS_WIFI_DL,
 					SIPA_RM_RES_PROD_PAM_WIFI);
 	sipa_rm_delete_resource(SIPA_RM_RES_PROD_PAM_WIFI);
+	sipa_rm_deregister(SIPA_RM_RES_CONS_WIFI_UL, &ul_param);
 }
 
 void sprdwl_pamwifi_enable(struct sprdwl_vif *vif)
