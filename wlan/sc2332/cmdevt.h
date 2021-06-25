@@ -320,7 +320,7 @@ enum sprdwl_sar_mode {
  * @mode: 802.11mode, please refer sprdwl_sar_mode struct.
  */
 struct sprdwl_cmd_set_sar {
-#define SPRDWL_PS_SET_SAR	0x03
+#define SPRDWL_PS_SET_SAR	0x05
 	u8 power_save_type;
 	u8 sub_type;
 	s8 value;
