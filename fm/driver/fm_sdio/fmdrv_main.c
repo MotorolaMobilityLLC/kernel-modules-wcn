@@ -336,7 +336,7 @@ static int fm_write_cmd(unsigned char subcmd, void *payload,
         return -ETIMEDOUT;
     }
     mutex_unlock(&fmdev->mutex);
-	dev_unisoc_fm_dbg(fm_miscdev,"fmdrv wait command have complete\n")
+	dev_unisoc_fm_dbg(fm_miscdev,"fmdrv wait command have complete\n");
     /* 0:len; XX XX XX sttaus*/
     if ((fmdev->com_respbuf[4]) != 0) {
 		dev_unisoc_fm_err(fm_miscdev,"(fmdrv) %s(): Response status not success for 0x%02X\n",

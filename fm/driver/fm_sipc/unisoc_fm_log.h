@@ -22,7 +22,7 @@
         } else {                                \
             pr_err(fmt, ##__VA_ARGS__);         \
         }                                       \
-    } while(0);
+    } while(0)
 
 #define dev_unisoc_fm_warn(dev, fmt, ...)       \
     do {                                        \
@@ -31,7 +31,7 @@
         } else {                                \
             pr_warn(fmt, ##__VA_ARGS__);        \
         }                                       \
-    } while(0);
+    } while(0)
 
 #define dev_unisoc_fm_info(dev, fmt, ...)       \
     do {                                        \
@@ -40,7 +40,7 @@
         } else {                                \
             pr_info(fmt, ##__VA_ARGS__);        \
         }                                       \
-    } while(0);
+    } while(0)
 
 #define dev_unisoc_fm_dbg(dev, fmt, ...)        \
     do {                                        \
@@ -49,7 +49,7 @@
         } else {                                \
             pr_debug(fmt, ##__VA_ARGS__);       \
         }                                       \
-    } while(0);
+    } while(0)
 
 /*#define dev_unisoc_fm_dbg(dev, fmt, ...)        \
     do {                                        \
@@ -58,6 +58,6 @@
         } else {                                \
             pr_debug(fmt, ##__VA_ARGS__);       \
         }                                       \
-    } while(0);*/
+    } while(0)*/
 
 #endif
