@@ -384,15 +384,16 @@ static int mtty_sdio_rx_cb(int chn, struct mbuf_t *head, struct mbuf_t *tail, in
         hex_dump_block((unsigned char *)head->buf + BT_SDIO_HEAD_LEN, block_size);
     }*/
 
-    if(is_user_debug){
-        bt_host_data_save((unsigned char *)head->buf + BT_SDIO_HEAD_LEN, block_size, BT_DATA_IN);
-    }
     if (atomic_read(&mtty_dev->state) == MTTY_STATE_CLOSE) {
         dev_unisoc_bt_err(ttyBT_dev,
                           "%s mtty bt is closed abnormally\n",
                           __func__);
         sprdwcn_bus_push_list(chn, head, tail, num);
         return -1;
+    }
+
+    if(is_user_debug){
+        bt_host_data_save((unsigned char *)head->buf + BT_SDIO_HEAD_LEN, block_size, BT_DATA_IN);
     }
 
     if (mtty_dev != NULL) {
@@ -643,11 +644,10 @@ static void mtty_close(struct tty_struct *tty, struct file *filp)
 
 	if (wcn_hw_type == HW_TYPE_PCIE) {
 		mtty_dma_buf_free(BT_PCIE_RX_MAX_NUM);
-		atomic_set(&mtty->state, MTTY_STATE_CLOSE);
 		sprdwcn_bus_chn_deinit(&bt_pcie_rx_ops);
 		sprdwcn_bus_chn_deinit(&bt_pcie_tx_ops);
 	}
-
+    atomic_set(&mtty->state, MTTY_STATE_CLOSE);
     sitm_cleanup();
 
     if (data_dump != NULL) {
