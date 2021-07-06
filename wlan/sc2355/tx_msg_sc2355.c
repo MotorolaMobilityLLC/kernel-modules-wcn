@@ -163,7 +163,13 @@ sprdwl_dequeue_qos_buf(struct sprdwl_msg_buf *msg_buf, int ac_index)
 	else
 		lock = &msg_buf->xmit_msg_list->send_lock;
 	spin_lock_bh(lock);
+	if (IS_ERR_OR_NULL(msg_buf->skb)) {
+		spin_unlock_bh(lock);
+		wl_err("%s:%d skb is error\n", __func__, __LINE__);
+		return;
+	}
 	dev_kfree_skb(msg_buf->skb);
+	msg_buf->skb = NULL;
 	list_del(&msg_buf->list);
 	sprdwl_free_msg_buf(msg_buf, msg_buf->msglist);
 	spin_unlock_bh(lock);
@@ -199,7 +205,13 @@ void sprdwl_flush_tx_qoslist(struct sprdwl_tx_msg *tx_msg, int mode, int ac_inde
 
 		list_for_each_entry_safe(pos_buf, temp_buf,
 					 data_list, list) {
+			if (IS_ERR_OR_NULL(pos_buf->skb)) {
+				spin_unlock_bh(plock);
+				wl_err("%s:%d skb is error\n", __func__, __LINE__);
+				return;
+			}
 			dev_kfree_skb(pos_buf->skb);
+			pos_buf->skb = NULL;
 			list_del(&pos_buf->list);
 			sprdwl_free_msg_buf(pos_buf, pos_buf->msglist);
 		}
