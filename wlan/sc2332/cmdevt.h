@@ -804,7 +804,7 @@ struct sprdwl_sae_entry {
 };
 
 #define	SPRDWl_SAE_MAX_NUM	5
-#define	SPRDWL_SAE_NOT_SET	0
+#define	SPRDWL_SAE_NOT_SET	-1
 
 struct sprdwl_softap_sae_setting {
 	struct sprdwl_sae_entry entry[SPRDWl_SAE_MAX_NUM];
