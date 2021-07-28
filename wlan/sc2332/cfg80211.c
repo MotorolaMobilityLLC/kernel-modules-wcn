@@ -1883,7 +1883,7 @@ void sprdwl_check_connection(struct sprdwl_vif *vif)
 				      true, GFP_KERNEL);
 	}
 
-  	vif->sm_state = SPRDWL_DISCONNECTED;
+	vif->sm_state = SPRDWL_DISCONNECTED;
 }
 
 void sprdwl_report_connection(struct sprdwl_vif *vif, u8 *bssid,
@@ -2034,6 +2034,7 @@ err:
 		   status_code);
 	memset(vif->bssid, 0, sizeof(vif->bssid));
 	memset(vif->ssid, 0, sizeof(vif->ssid));
+	vif->sm_state = SPRDWL_DISCONNECTED;
 }
 
 void sprdwl_report_disconnection(struct sprdwl_vif *vif, u16 reason_code)
