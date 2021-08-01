@@ -3894,7 +3894,7 @@ static int sprdwl_vendor_set_sae_password(struct wiphy *wiphy,
 					  struct wireless_dev *wdev,
 					  const void *data, int len)
 {
-	int group_index = 0, sea_entry_index = 0, passphrase_len, rem_len, type;
+	int group_index = 0, sae_entry_index = 0, rem_len, type;
 	struct nlattr *pos;
 	struct sprdwl_softap_sae_setting sae_para;
 	struct sprdwl_vif *vif = netdev_priv(wdev->netdev);
@@ -3915,11 +3915,13 @@ static int sprdwl_vendor_set_sae_password(struct wiphy *wiphy,
 
 		switch (type) {
 		case SPRDWL_VENDOR_SAE_ENTRY:
-			sae_para.entry[sea_entry_index].vlan_id = SPRDWL_SAE_NOT_SET;
-			sae_para.entry[sea_entry_index].used = 1;
-			sprdwl_parse_sae_entry(&sae_para.entry[sea_entry_index],
+			sae_para.entry[sae_entry_index].vlan_id = SPRDWL_SAE_NOT_SET;
+			sae_para.entry[sae_entry_index].used = 1;
+			sprdwl_parse_sae_entry(&sae_para.entry[sae_entry_index],
 					       nla_data(pos), nla_len(pos));
-			sea_entry_index++;
+			sae_entry_index++;
+			if(sae_entry_index >= SPRDWl_SAE_ENTRY_NUM)
+				return -EINVAL;
 			break;
 
 		case SPRDWL_VENDOR_SAE_GROUP_ID:
@@ -3934,11 +3936,11 @@ static int sprdwl_vendor_set_sae_password(struct wiphy *wiphy,
 			break;
 
 		case SPRDWL_VENDOR_SAE_PWD:
-			passphrase_len = nla_len(pos);
+			sae_para.passphrase_len = nla_len(pos);
 			nla_strlcpy(sae_para.passphrase, pos,
-				    passphrase_len + 1);
+				    sae_para.passphrase_len + 1);
 			wl_info("pwd is :%s, len :%d\n", sae_para.passphrase,
-				passphrase_len);
+				sae_para.passphrase_len);
 			break;
 		default:
 			break;
