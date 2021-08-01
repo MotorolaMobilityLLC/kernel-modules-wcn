@@ -71,6 +71,10 @@ struct sprdwl_rx_if {
 	ktime_t rxtimeend;
 
 	unsigned long rx_vi_count;
+	u8 rx_snaphdr_flag;
+        u16 rx_snaphdr_seqnum;
+	u8 rx_snaphdr_lut;
+	u8 rx_snaphdr_tid;
 };
 
 struct sprdwl_addr_trans_value {
