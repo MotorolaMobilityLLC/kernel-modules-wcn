@@ -120,12 +120,8 @@ void sprdwl_free_msg_buf(struct sprdwl_msg_buf *msg_buf,
 	unsigned long flags = 0;
 
 	spin_lock_irqsave(&list->freelock, flags);
-	if (list_empty(&list->freelist)) {
+	if (list_empty(&list->freelist)) 
 		wl_err("%s, list empty\n", __func__);
-		kfree(msg_buf);
-		spin_unlock_irqrestore(&list->freelock, flags);
-		return;
-	}
 	//spin_lock_bh(&list->freelock);
 	list_add_tail(&msg_buf->list, &list->freelist);
 	atomic_dec(&list->ref);
