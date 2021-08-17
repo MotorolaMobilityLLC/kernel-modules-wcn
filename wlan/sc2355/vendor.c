@@ -628,13 +628,14 @@ static int sprdwl_vendor_clr_llstat_handler(struct wiphy *wiphy,
 					    struct wireless_dev *wdev,
 					    const void *data, int len)
 {
+	int ret;
 	struct sk_buff *reply;
 	struct wifi_clr_llstat_rsp clr_rsp;
 	struct nlattr *tb[SPRDWL_LL_STATS_CLR_MAX + 1];
 	u32 *stats_clear_rsp_mask, stats_clear_req_mask = 0;
 	u16 r_len = sizeof(*stats_clear_rsp_mask);
 	u8 r_buf[r_len];
-	u32 reply_length, ret, err;
+	u32 reply_length, err;
 
 	struct sprdwl_priv *priv = wiphy_priv(wiphy);
 	struct sprdwl_vif *vif = container_of(wdev, struct sprdwl_vif, wdev);
