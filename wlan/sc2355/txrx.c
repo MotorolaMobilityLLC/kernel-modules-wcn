@@ -167,6 +167,7 @@ void sprdwl_rx_skb_process(struct sprdwl_priv *priv, struct sk_buff *skb)
 
 	intf = (struct sprdwl_intf *)priv->hw_priv;
 	rx_if = (struct sprdwl_rx_if *)intf->sprdwl_rx;
+
 	if (unlikely(!priv)) {
 		wl_err("%s priv not init.\n", __func__);
 		goto err;
