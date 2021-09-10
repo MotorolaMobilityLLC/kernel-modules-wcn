@@ -1076,6 +1076,29 @@ int sprdwl_set_sar(struct sprdwl_priv *priv, u8 vif_ctx_id,
 	return sprdwl_cmd_send_recv(priv, msg, CMD_WAIT_TIMEOUT, NULL, NULL);
 }
 
+int sprdwl_set_power_backoff(struct sprdwl_priv *priv, u8 vif_mode,
+		       u8 sub_type, s8 value, u8 mode, u8 channel, u8 bw)
+{
+	struct sprdwl_msg_buf *msg;
+	struct sprdwl_cmd_set_power_backoff *p;
+
+	msg = sprdwl_cmd_getbuf(priv, sizeof(*p), vif_mode,
+				SPRDWL_HEAD_RSP, WIFI_CMD_POWER_SAVE);
+	if (!msg)
+		return -ENOMEM;
+
+	p = (struct sprdwl_cmd_set_power_backoff *)msg->data;
+	p->power_save_type = SPRDWL_SET_POWER_BACKOFF;
+	p->sub_type = sub_type;
+	p->value = value;
+	p->mode = mode;
+	p->channel = channel;
+	p->bw = bw;
+	wl_err("sub_type:%d, value : %d, mode : %d, channel:%d, bw: %d\n",
+		sub_type, value, mode, channel, bw);
+	return sprdwl_cmd_send_recv(priv, msg, CMD_WAIT_TIMEOUT, NULL, NULL);
+}
+
 int sprdwl_add_key(struct sprdwl_priv *priv, u8 vif_ctx_id, const u8 *key_data,
 		   u8 key_len, u8 pairwise, u8 key_index, const u8 *key_seq,
 		   u8 cypher_type, const u8 *mac_addr)

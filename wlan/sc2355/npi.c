@@ -211,7 +211,17 @@ static int sprdwl_nl_npi_handler(struct sk_buff *skb_2, struct genl_info *info)
 	wl_err("%s type is %d, subtype %d\n", dbgstr, hdr->type, hdr->subtype);
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0)
-	if(hdr->subtype == SPRDWL_NPI_CMD_GET_CHIPID) {
+	if(hdr->subtype == SPRDWL_NPI_CMD_SET_COUNTRY) {
+		char *country = s_buf + sizeof(struct sprdwl_npi_cmd_hdr);
+		/*no need send npi command to firmware*/
+		wl_err("%s show country code : %c%c\n",__func__, country[0], country[1]);
+		err = regulatory_hint(priv->wiphy, country);
+		hdr->len = sizeof(int);
+		hdr->type = SPRDWL_CP2HT_REPLY;
+		r_len = sizeof(*hdr) + hdr->len;
+		memcpy(r_buf, hdr, sizeof(*hdr));
+		memcpy(r_buf + sizeof(*hdr), &err, hdr->len);
+	} else if(hdr->subtype == SPRDWL_NPI_CMD_GET_CHIPID) {
 		id_name = wcn_get_chip_name();
 		sprintf(r_buf, "%d", status);
 		strcat(r_buf, vendor);
