@@ -31,6 +31,7 @@
 #include "intf_ops.h"
 #include "softap_hook.h"
 #include "defrag.h"
+#include "fcc.h"
 #if defined(SC2355_QOS_MAP)
 #include "tx_msg_sc2355.h"
 #endif
@@ -3433,6 +3434,8 @@ static void sprdwl_reg_notify(struct wiphy *wiphy,
 	u32 band, channel, i;
 	u32 last_start_freq;
 	u32 n_rules = 0, rd_size;
+	int index;
+	bool found_fcc = false;
 
 	wl_info("%s %c%c initiator %d hint_type %d\n", __func__,
 		request->alpha2[0], request->alpha2[1],
@@ -3528,8 +3531,31 @@ static void sprdwl_reg_notify(struct wiphy *wiphy,
 
 	print_hex_dump_debug("regdom:", DUMP_PREFIX_OFFSET, 16, 1,
 			     rd, rd_size, true);
+
 	if (sprdwl_set_regdom(priv, (u8 *)rd, rd_size))
 		wl_err("%s failed to set regdomain!\n", __func__);
+
+	for (i = 0; i < MAC_FCC_COUNTRY_NUM; i++) {
+		if (g_fcc_power_table[i].country[0] == request->alpha2[0] &&
+			g_fcc_power_table[i].country[1] == request->alpha2[1]) {
+			found_fcc = true;
+			wiphy_info(wiphy,"need set fcc power\n");
+			for (index = 0; index < g_fcc_power_table[i].num; index++) {
+				sprdwl_set_power_backoff(priv, 0,
+					g_fcc_power_table[i].power_backoff[index].sub_type,
+					g_fcc_power_table[i].power_backoff[index].value,
+					g_fcc_power_table[i].power_backoff[index].mode,
+					g_fcc_power_table[i].power_backoff[index].channel,
+					g_fcc_power_table[i].power_backoff[index].bw);
+			}
+		}
+	}
+
+	if (!found_fcc) {
+		wiphy_info(wiphy,"not fcc country,need reset fcc power\n");
+		sprdwl_set_power_backoff(priv, 0, 0, 0, 0, 0, 0);
+	}
+
 	if(rd != NULL)
 	{
 		kfree(rd);
