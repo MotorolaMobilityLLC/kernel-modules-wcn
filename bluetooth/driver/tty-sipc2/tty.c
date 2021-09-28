@@ -47,6 +47,7 @@ static unsigned int log_level = MTTY_LOG_LEVEL_VER;
 #define STTY_STATE_OPEN     1
 #define STTY_STATE_CLOSE    0
 #define COMMAND_HEAD        1
+#define ISO_HEAD            5
 
 static struct semaphore sem_id;
 
@@ -459,6 +460,13 @@ static int mtty_sipc_write(struct tty_struct *tty,
 		kfree(block);
 		block = NULL;
 		return -ENOMEM;
+	}
+
+	if (block[0] == ISO_HEAD && (block[4]&0xC0)) {
+			block[4] &= 0x3f;
+			dev_unisoc_bt_err(ttyBT_dev,
+								"%s dump ISO %02X %02X %02X %02X \n",
+								__func__, block[0], block[1], block[2],block[3]);
 	}
 	tx_head->buf = block;
 	tx_head->len = count;

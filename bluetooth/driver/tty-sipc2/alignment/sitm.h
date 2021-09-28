@@ -13,6 +13,8 @@
 #define HCI_ISO_PREAMBLE_SIZE 4
 #define RETRIEVE_ACL_LENGTH(preamble) \
 	((((preamble)[4] & 0xFFFF) << 8) | (preamble)[3])
+#define RETRIEVE_ISO_LENGTH(preamble) \
+	((((preamble)[4] & 0xFF3F) << 8) | (preamble)[3])
 #define HCI_HAL_SERIAL_BUFFER_SIZE 1026
 
 #define BYTE_ALIGNMENT 8

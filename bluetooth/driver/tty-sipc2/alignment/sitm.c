@@ -90,11 +90,13 @@ void parse_frame(data_ready_cb data_ready, frame_complete_cb frame_complete)
 			rd->bytes_remaining--;
 
 			if (rd->bytes_remaining == 0) {
-				rd->bytes_remaining =
-					(rd->type == DATA_TYPE_ACL
-					|| rd->type == DATA_TYPE_ISO) ?
-					RETRIEVE_ACL_LENGTH(rd->preamble)
-					: byte;
+				if (rd->type == DATA_TYPE_ACL) {
+					rd->bytes_remaining = RETRIEVE_ACL_LENGTH(rd->preamble);
+				} else if (rd->type == DATA_TYPE_ISO) {
+					rd->bytes_remaining = RETRIEVE_ISO_LENGTH(rd->preamble);
+				} else {
+					rd->bytes_remaining = byte;
+				}
 				buffer_size = rd->index
 					+ rd->bytes_remaining;
 				if (buffer_size > HCI_HAL_SERIAL_BUFFER_SIZE) {
