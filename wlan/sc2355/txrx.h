@@ -41,6 +41,8 @@ unsigned short sprdwl_rx_rsp_process(struct sprdwl_priv *priv, u8 *msg);
 void sprdwl_rx_skb_process(struct sprdwl_priv *priv, struct sk_buff *pskb);
 void sprdwl_rx_send_cmd_process(struct sprdwl_priv *priv, void *data, int len,
 				unsigned char id, unsigned char ctx_id);
+int sprdwl_rx_defragment_attack_check(struct sprdwl_priv *priv,
+				      struct sk_buff *pskb);
 #if defined FPGA_LOOPBACK_TEST
 int sprdwl_send_data_fpga_test(struct sprdwl_priv *priv,
 				struct sprdwl_msg_buf *msg,
