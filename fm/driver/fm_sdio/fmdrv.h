@@ -1,18 +1,12 @@
 /*
- *  FM Driver for Connectivity chip of Spreadtrum
+ * SPDX-FileCopyrightText: 2015-2022 Unisoc (Shanghai) Technologies Co., Ltd
+ * SPDX-License-Identifier: GPL-2.0
  *
- *  Common header for all FM driver sub-modules.
+ * Copyright 2015-2022 Unisoc (Shanghai) Technologies Co., Ltd
  *
- *  Copyright (C) 2015 spreadtrum
- *
- *  This program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License version 2 as
- *  published by the Free Software Foundation.
- *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms of version 2 of the GNU General Public License
+ * as published by the Free Software Foundation.
  */
 
 #ifndef _FM_DRV_H

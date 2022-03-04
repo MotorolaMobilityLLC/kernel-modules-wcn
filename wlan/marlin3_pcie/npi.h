@@ -1,20 +1,12 @@
 /*
- * Copyright (C) 2013 Spreadtrum Communications Inc.
+ * SPDX-FileCopyrightText: 2015-2022 Unisoc (Shanghai) Technologies Co., Ltd
+ * SPDX-License-Identifier: GPL-2.0
  *
- * Filename : npi.h
- * Abstract : This file is a general definition for NPI cmd
+ * Copyright 2015-2022 Unisoc (Shanghai) Technologies Co., Ltd
  *
- * Authors	:
- * Xianwei.Zhao <xianwei.zhao@spreadtrum.com>
- *
- * This software is licensed under the terms of the GNU General Public
- * License version 2, as published by the Free Software Foundation, and
- * may be copied, distributed, and modified under those terms.
-
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms of version 2 of the GNU General Public License
+ * as published by the Free Software Foundation.
  */
 
 #ifndef __SPRDWL_NPI_H__
