@@ -16,6 +16,7 @@
 #include <linux/list.h>
 #include <linux/spinlock.h>
 #include <linux/types.h>
+#include <linux/version.h>
 
 #define SPRD_DATA_TYPE_NORMAL			0
 #define SPRD_MSG_EXIT_VAL			0x8000

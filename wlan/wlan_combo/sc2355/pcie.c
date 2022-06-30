@@ -76,10 +76,17 @@ static void pcie_clear_stats(struct sprd_hif *hif)
 static void pcie_get_tx_avg_time(struct sprd_hif *hif,
 				 unsigned long tx_start_time)
 {
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+	struct timespec64 tx_end;
+
+	ktime_get_real_ts64(&tx_end);
+	hif->stats.tx_cost_time += timespec64_to_ns(&tx_end) - tx_start_time;
+#else
 	struct timespec tx_end;
 
 	getnstimeofday(&tx_end);
 	hif->stats.tx_cost_time += timespec_to_ns(&tx_end) - tx_start_time;
+#endif
 	if (hif->stats.gap_num >= STATS_COUNT) {
 		hif->stats.tx_avg_time =
 		    hif->stats.tx_cost_time / hif->stats.gap_num;
@@ -298,7 +305,11 @@ static int pcie_rx_fill_mbuf(struct mbuf_t *head, struct mbuf_t *tail, int num,
 	for (pos = head, count = 0; count < num; count++) {
 		pr_debug("%s: pos: %p\n", __func__, pos);
 		pos->len = ALIGN(len, SMP_CACHE_BYTES);
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+		pos->buf = __netdev_alloc_frag_align(pos->len, ~0u);
+#else
 		pos->buf = netdev_alloc_frag(pos->len);
+#endif
 
 		if (unlikely(!pos->buf)) {
 			pr_err("%s: buffer error\n", __func__);
@@ -475,7 +486,11 @@ static int pcie_suspend_resume_handle(int chn, int mode)
 	struct tx_mgmt *tx_mgmt = (struct tx_mgmt *)hif->tx_mgmt;
 	int ret;
 	struct sprd_vif *vif = NULL, *tmp_vif;
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+	struct timespec64 time;
+#else
 	struct timespec time;
+#endif
 
 	spin_lock_bh(&priv->list_lock);
 	list_for_each_entry(tmp_vif, &priv->vif_list, vif_node) {
@@ -504,8 +519,13 @@ static int pcie_suspend_resume_handle(int chn, int mode)
 			return -EBUSY;
 		}
 		hif->suspend_mode = SPRD_PS_SUSPENDING;
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+		ktime_get_real_ts64(&time);
+		hif->sleep_time = timespec64_to_ns(&time);
+#else
 		getnstimeofday(&time);
 		hif->sleep_time = timespec_to_ns(&time);
+#endif
 		priv->is_suspending = 1;
 		ret = sprd_power_save(priv, vif, SPRD_SUSPEND_RESUME, 0);
 		if (ret == 0)
@@ -516,8 +536,13 @@ static int pcie_suspend_resume_handle(int chn, int mode)
 		return ret;
 	} else if (mode == 1) {
 		hif->suspend_mode = SPRD_PS_RESUMING;
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+		ktime_get_real_ts64(&time);
+		hif->sleep_time = timespec64_to_ns(&time) - hif->sleep_time;
+#else
 		getnstimeofday(&time);
 		hif->sleep_time = timespec_to_ns(&time) - hif->sleep_time;
+#endif
 		ret = sprd_power_save(priv, vif, SPRD_SUSPEND_RESUME, 1);
 		pr_info("%s, %d,resume ret=%d, resume after %lu ms\n",
 			__func__, __LINE__, ret, hif->sleep_time / 1000000);
@@ -1766,10 +1791,18 @@ void sc2355_handle_tx_return(struct sprd_hif *hif,
 	if (ret == -2) {
 		atomic_sub(send_num, &list->ref);
 		pr_info("%s,%d,debug: %d\n", __func__, __LINE__, atomic_read(&list->ref));
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+		usleep_range_state(100, 200, TASK_UNINTERRUPTIBLE);
+#else
 		usleep_range(100, 200);
+#endif
 		return;
 	} else if (ret < 0) {
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+		usleep_range_state(100, 200, TASK_UNINTERRUPTIBLE);
+#else
 		usleep_range(100, 200);
+#endif
 		return;
 	} else {
 		pr_info("%s,%d,debug: %d\n", __func__, __LINE__, atomic_read(&list->ref));

@@ -19,6 +19,9 @@
 #include "iface.h"
 #include "report.h"
 #include "tdls.h"
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+#include <linux/bitops.h>
+#endif
 
 static char type_name[16][32] = {
 	"ASSO REQ",
@@ -595,7 +598,11 @@ int sprd_cfg80211_change_beacon(struct wiphy *wiphy, struct net_device *ndev,
 	return cfg80211_set_beacon_ies(vif, beacon);
 }
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+int sprd_cfg80211_stop_ap(struct wiphy *wiphy, struct net_device *ndev, unsigned int link_id)
+#else
 int sprd_cfg80211_stop_ap(struct wiphy *wiphy, struct net_device *ndev)
+#endif
 {
 	struct sprd_priv *priv = wiphy_priv(wiphy);
 	netdev_info(ndev, "%s\n", __func__);
@@ -1133,6 +1140,53 @@ int sprd_cfg80211_mgmt_tx(struct wiphy *wiphy, struct wireless_dev *wdev,
 	return ret;
 }
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+void sprd_cfg80211_mgmt_frame_register(struct wiphy *wiphy,
+				       struct wireless_dev *wdev,
+				       struct mgmt_frame_regs *upd)
+{
+	struct sprd_vif *vif = container_of(wdev, struct sprd_vif, wdev);
+	struct sprd_work *misc_work;
+	struct sprd_reg_mgmt *reg_mgmt;
+	unsigned long new_mask, old_mask, change_mask;
+	u16 frame_type;
+	bool reg;
+	int i = 0;
+
+	if (vif->mode == SPRD_MODE_NONE)
+		return;
+
+	new_mask = upd->interface_stypes;
+	old_mask = vif->mgmt_reg;
+	if (new_mask == old_mask)
+		return;
+	change_mask = new_mask ^ old_mask;
+	vif->mgmt_reg = new_mask;
+	for_each_set_bit(i, &change_mask, MGMT_REG_MASK_BIT)  {
+		if(test_bit(i, &old_mask))
+			reg = 0;
+		else
+			reg = 1;
+
+		frame_type = i << 4;
+		netdev_info(wdev->netdev, "frame_type %d, reg %d\n", frame_type, reg);
+		misc_work = sprd_alloc_work(sizeof(*reg_mgmt));
+		if (!misc_work) {
+			netdev_err(wdev->netdev, "%s out of memory\n", __func__);
+			return;
+		}
+
+		misc_work->vif = vif;
+		misc_work->id = SPRD_WORK_REG_MGMT;
+
+		reg_mgmt = (struct sprd_reg_mgmt *)misc_work->data;
+		reg_mgmt->type = frame_type;
+		reg_mgmt->reg = reg;
+
+		sprd_queue_work(vif->priv, misc_work);
+	}
+}
+#else
 void sprd_cfg80211_mgmt_frame_register(struct wiphy *wiphy,
 				       struct wireless_dev *wdev,
 				       u16 frame_type, bool reg)
@@ -1170,6 +1224,7 @@ void sprd_cfg80211_mgmt_frame_register(struct wiphy *wiphy,
 
 	sprd_queue_work(vif->priv, misc_work);
 }
+#endif
 
 int sprd_cfg80211_set_power_mgmt(struct wiphy *wiphy, struct net_device *ndev,
 				 bool enabled, int timeout)
@@ -1474,7 +1529,11 @@ static struct cfg80211_ops sprd_cfg80211_ops = {
 	.remain_on_channel = sprd_cfg80211_remain_on_channel,
 	.cancel_remain_on_channel = sprd_cfg80211_cancel_remain_on_channel,
 	.mgmt_tx = sprd_cfg80211_mgmt_tx,
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+	.update_mgmt_frame_registrations = sprd_cfg80211_mgmt_frame_register,
+#else
 	.mgmt_frame_register = sprd_cfg80211_mgmt_frame_register,
+#endif
 	.set_power_mgmt = sprd_cfg80211_set_power_mgmt,
 	.set_cqm_rssi_config = sprd_cfg80211_set_cqm_rssi_config,
 	.sched_scan_start = sprd_cfg80211_sched_scan_start,

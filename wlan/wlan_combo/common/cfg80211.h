@@ -13,6 +13,10 @@
 #define __CFG80211_H__
 
 #include <net/cfg80211.h>
+#include <linux/version.h>
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+#include <linux/ieee80211.h>
+#endif
 
 /* auth type */
 #define SPRD_AUTH_OPEN			0
@@ -43,7 +47,13 @@
 /* AKM suite */
 #define WLAN_AKM_SUITE_WAPI_CERT	0x00147201
 #define WLAN_AKM_SUITE_WAPI_PSK		0x00147202
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+//#define WLAN_AKM_SUITE_OWE		0x000FAC12
+#define MGMT_REG_MASK_BIT	32
+#else
 #define WLAN_AKM_SUITE_OWE		0x000FAC12
+#endif
+
 
 #define SPRD_AKM_SUITE_NONE		(0)
 #define SPRD_AKM_SUITE_8021X		(1)

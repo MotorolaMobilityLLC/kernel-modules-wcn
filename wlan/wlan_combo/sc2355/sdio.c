@@ -70,10 +70,17 @@ static void sdio_dump_stats(struct sprd_hif *hif)
 static void sdio_get_tx_avg_time(struct sprd_hif *hif,
 				 unsigned long tx_start_time)
 {
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+	struct timespec64 tx_end;
+
+	ktime_get_real_ts64(&tx_end);
+	hif->stats.tx_cost_time += timespec64_to_ns(&tx_end) - tx_start_time;
+#else
 	struct timespec tx_end;
 
 	getnstimeofday(&tx_end);
 	hif->stats.tx_cost_time += timespec_to_ns(&tx_end) - tx_start_time;
+#endif
 	if (hif->stats.gap_num >= STATS_COUNT) {
 		hif->stats.tx_avg_time =
 		    hif->stats.tx_cost_time / hif->stats.gap_num;
@@ -255,7 +262,11 @@ static int sdio_suspend_resume_handle(int chn, int mode)
 	struct tx_mgmt *tx_mgmt = (struct tx_mgmt *)hif->tx_mgmt;
 	int ret;
 	struct sprd_vif *vif = NULL, *tmp_vif;
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+	struct timespec64 time;
+#else
 	struct timespec time;
+#endif
 
 	spin_lock_bh(&priv->list_lock);
 	list_for_each_entry(tmp_vif, &priv->vif_list, vif_node) {
@@ -279,8 +290,13 @@ static int sdio_suspend_resume_handle(int chn, int mode)
 	if (throughput_static.disable_pd_flag) {
 		throughput_static.disable_pd_flag = false;
 		//allow core powerdown
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+		cpu_latency_qos_update_request(&throughput_static.pm_qos_request_idle,
+					      PM_QOS_CPU_LATENCY_DEFAULT_VALUE);
+#else
 		pm_qos_update_request(&throughput_static.pm_qos_request_idle,
 					      PM_QOS_CPU_DMA_LAT_DEFAULT_VALUE);
+#endif
 	}
 
 	if (mode == 0) {
@@ -293,8 +309,13 @@ static int sdio_suspend_resume_handle(int chn, int mode)
 			return -EBUSY;
 		}
 		hif->suspend_mode = SPRD_PS_SUSPENDING;
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+		ktime_get_real_ts64(&time);
+		hif->sleep_time = timespec64_to_ns(&time);
+#else
 		getnstimeofday(&time);
 		hif->sleep_time = timespec_to_ns(&time);
+#endif
 		priv->is_suspending = 1;
 		ret = sprd_power_save(priv, vif, SPRD_SUSPEND_RESUME, 0);
 		if (ret == 0)
@@ -304,8 +325,13 @@ static int sdio_suspend_resume_handle(int chn, int mode)
 		return ret;
 	} else if (mode == 1) {
 		hif->suspend_mode = SPRD_PS_RESUMING;
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+		ktime_get_real_ts64(&time);
+		hif->sleep_time = timespec64_to_ns(&time) - hif->sleep_time;
+#else
 		getnstimeofday(&time);
 		hif->sleep_time = timespec_to_ns(&time) - hif->sleep_time;
+#endif
 		ret = sprd_power_save(priv, vif, SPRD_SUSPEND_RESUME, 1);
 		pr_info("%s, %d,resume ret=%d, resume after %lu ms\n",
 			__func__, __LINE__, ret, hif->sleep_time / 1000000);
@@ -1257,7 +1283,11 @@ void sc2355_handle_tx_return(struct sprd_hif *hif,
 	if (ret) {
 		printk_ratelimited("%s hif_tx_list err:%d\n", __func__, ret);
 		memset(tx_mgmt->color_num, 0x00, MAX_COLOR_BIT);
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+		usleep_range_state(20, 30, TASK_UNINTERRUPTIBLE);
+#else
 		usleep_range(20, 30);
+#endif
 		return;
 	}
 
@@ -1535,13 +1565,22 @@ void sc2355_sdio_throughput_static_init(void)
 	throughput_static.tx_bytes = 0;
 	throughput_static.last_time = jiffies;
 	throughput_static.disable_pd_flag = false;
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+	cpu_latency_qos_add_request(&throughput_static.pm_qos_request_idle,
+			   PM_QOS_CPU_LATENCY_DEFAULT_VALUE);
+#else
 	pm_qos_add_request(&throughput_static.pm_qos_request_idle,
 			   PM_QOS_CPU_DMA_LATENCY, PM_QOS_CPU_DMA_LAT_DEFAULT_VALUE);
+#endif
 }
 
 void sc2355_sdio_throughput_static_deinit(void)
 {
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+	cpu_latency_qos_remove_request(&throughput_static.pm_qos_request_idle);
+#else
 	pm_qos_remove_request(&throughput_static.pm_qos_request_idle);
+#endif
 }
 
 void sc2355_sdio_throughput_ctl_core_pd(unsigned int len)
@@ -1553,15 +1592,27 @@ void sc2355_sdio_throughput_ctl_core_pd(unsigned int len)
 			if (!throughput_static.disable_pd_flag)	{
 				throughput_static.disable_pd_flag = true;
 				// forbid core powerdown
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+				cpu_latency_qos_update_request(
+							 &throughput_static.pm_qos_request_idle,
+							 100);
+#else
 				pm_qos_update_request(&throughput_static.pm_qos_request_idle,
 					      100);
+#endif
 			}
 		} else {
 			if (throughput_static.disable_pd_flag) {
 				throughput_static.disable_pd_flag = false;
 				//allow core powerdown
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+				cpu_latency_qos_update_request(
+							&throughput_static.pm_qos_request_idle,
+							PM_QOS_CPU_LATENCY_DEFAULT_VALUE);
+#else
 				pm_qos_update_request(&throughput_static.pm_qos_request_idle,
 					      PM_QOS_CPU_DMA_LAT_DEFAULT_VALUE);
+#endif
 			}
 		}
 		throughput_static.tx_bytes = 0;

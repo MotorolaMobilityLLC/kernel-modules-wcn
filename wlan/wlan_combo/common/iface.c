@@ -570,13 +570,21 @@ static struct net_device_stats *iface_get_stats(struct net_device *ndev)
 	return &ndev->stats;
 }
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+static void iface_tx_timeout(struct net_device *ndev, unsigned int txqueue)
+#else
 static void iface_tx_timeout(struct net_device *ndev)
+#endif
 {
 	netdev_info(ndev, "%s\n", __func__);
 	netif_wake_queue(ndev);
 }
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+static int iface_priv_cmd(struct net_device *ndev, void __user *data)
+#else
 static int iface_priv_cmd(struct net_device *ndev, struct ifreq *ifr)
+#endif
 {
 	int n_clients;
 	struct sprd_vif *vif = netdev_priv(ndev);
@@ -589,10 +597,17 @@ static int iface_priv_cmd(struct net_device *ndev, struct ifreq *ifr)
 	int ret = 0, skip, counter, index;
 	#define MAC_ADDR_STR_LEN strlen("00:11:22:33:44:55")
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+	if (!data)
+		return -EINVAL;
+	if (copy_from_user(&priv_cmd, data, sizeof(priv_cmd)))
+		return -EFAULT;
+#else
 	if (!ifr->ifr_data)
 		return -EINVAL;
 	if (copy_from_user(&priv_cmd, ifr->ifr_data, sizeof(priv_cmd)))
 		return -EFAULT;
+#endif
 
 	/* add length check to avoid invalid NULL ptr */
 	if (!priv_cmd.total_len) {
@@ -787,7 +802,11 @@ out:
 	return ret;
 }
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+static int iface_set_power_save(struct net_device *ndev, void __user *data)
+#else
 static int iface_set_power_save(struct net_device *ndev, struct ifreq *ifr)
+#endif
 {
 	struct sprd_vif *vif = netdev_priv(ndev);
 	struct sprd_priv *priv = vif->priv;
@@ -795,10 +814,17 @@ static int iface_set_power_save(struct net_device *ndev, struct ifreq *ifr)
 	char *command = NULL;
 	int ret = 0, skip, value;
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+	if (!data)
+		return -EINVAL;
+	if (copy_from_user(&priv_cmd, data, sizeof(priv_cmd)))
+		return -EFAULT;
+#else
 	if (!ifr->ifr_data)
 		return -EINVAL;
 	if (copy_from_user(&priv_cmd, ifr->ifr_data, sizeof(priv_cmd)))
 		return -EFAULT;
+#endif
 
 	/* add length check to avoid invalid NULL ptr */
 	if (!priv_cmd.total_len) {
@@ -864,7 +890,11 @@ out:
 	return ret;
 }
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+static int iface_set_p2p_mac(struct net_device *ndev, void __user *data)
+#else
 static int iface_set_p2p_mac(struct net_device *ndev, struct ifreq *ifr)
+#endif
 {
 	struct sprd_vif *vif = netdev_priv(ndev);
 	struct sprd_priv *priv = vif->priv;
@@ -874,10 +904,17 @@ static int iface_set_p2p_mac(struct net_device *ndev, struct ifreq *ifr)
 	struct sprd_vif *tmp1, *tmp2;
 	u8 addr[ETH_ALEN] = { 0 };
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+	if (!data)
+		return -EINVAL;
+	if (copy_from_user(&priv_cmd, data, sizeof(priv_cmd)))
+		return -EFAULT;
+#else
 	if (!ifr->ifr_data)
 		return -EINVAL;
 	if (copy_from_user(&priv_cmd, ifr->ifr_data, sizeof(priv_cmd)))
 		return -EFAULT;
+#endif
 
 	/* add length check to avoid invalid NULL ptr */
 	if (!priv_cmd.total_len) {
@@ -936,7 +973,11 @@ out:
 	return ret;
 }
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+static int iface_set_ndev_mac(struct net_device *ndev, void __user *data)
+#else
 static int iface_set_ndev_mac(struct net_device *ndev, struct ifreq *ifr)
+#endif
 {
 	struct sprd_vif *vif = netdev_priv(ndev);
 	struct android_wifi_priv_cmd priv_cmd;
@@ -944,10 +985,17 @@ static int iface_set_ndev_mac(struct net_device *ndev, struct ifreq *ifr)
 	int ret = 0;
 	u8 addr[ETH_ALEN] = { 0 };
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+	if (!data)
+		return -EINVAL;
+	if (copy_from_user(&priv_cmd, data, sizeof(priv_cmd)))
+		return -EFAULT;
+#else
 	if (!ifr->ifr_data)
 		return -EINVAL;
 	if (copy_from_user(&priv_cmd, ifr->ifr_data, sizeof(priv_cmd)))
 		return -EFAULT;
+#endif
 
 	/* add length check to avoid invalid NULL ptr */
 	if (!priv_cmd.total_len) {
@@ -984,7 +1032,35 @@ out:
 	return ret;
 }
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+static int iface_ioctl(struct net_device *ndev, struct ifreq *req, void __user *data,  int cmd)
+{
+	struct sprd_vif *vif = netdev_priv(ndev);
+	struct sprd_priv *priv = vif->priv;
 
+	switch (cmd) {
+	case SPRDWLIOCTL:
+	case SPRDWLSETCOUNTRY:
+		return iface_priv_cmd(ndev, data);
+	case SPRDWLSETMIRACAST:
+		netdev_err(ndev, "for vts test %d\n", cmd);
+		return sprd_set_miracast(priv, ndev, data);
+	case SPRDWLSETFCC:
+	case SPRDWLSETSUSPEND:
+		return iface_set_power_save(ndev, data);
+	case SPRDWLVOWIFI:
+		return sprd_set_vowifi(priv, ndev, data);
+	case SPRDWLSETP2PMAC:
+		return iface_set_p2p_mac(ndev, data);
+	case SPRDWLSETNDEVMAC:
+		return iface_set_ndev_mac(ndev, data);
+	default:
+		netdev_err(ndev, "Unsupported IOCTL %d\n", cmd);
+		return -ENOTSUPP;
+	}
+	return 0;
+}
+#else
 static int iface_ioctl(struct net_device *ndev, struct ifreq *req, int cmd)
 {
 	struct sprd_vif *vif = netdev_priv(ndev);
@@ -1015,6 +1091,7 @@ static int iface_ioctl(struct net_device *ndev, struct ifreq *req, int cmd)
 
 	return 0;
 }
+#endif
 
 static int iface_set_mac(struct net_device *dev, void *addr)
 {
@@ -1183,7 +1260,11 @@ static struct net_device_ops sprd_netdev_ops = {
 	.ndo_start_xmit = iface_start_xmit,
 	.ndo_get_stats = iface_get_stats,
 	.ndo_tx_timeout = iface_tx_timeout,
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+	.ndo_siocdevprivate = iface_ioctl,
+#else
 	.ndo_do_ioctl = iface_ioctl,
+#endif
 	.ndo_set_mac_address = iface_set_mac,
 };
 
@@ -1336,7 +1417,11 @@ static void iface_deinit_vif(struct sprd_vif *vif)
 
 	if (vif->ref > 0) {
 		do {
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+			usleep_range_state(2000, 2500, TASK_UNINTERRUPTIBLE);
+#else
 			usleep_range(2000, 2500);
+#endif
 			cnt++;
 			if (time_after(jiffies, timeout)) {
 				netdev_err(vif->ndev, "%s timeout cnt %d\n",
@@ -1441,7 +1526,11 @@ static struct sprd_vif *iface_register_netdev(struct sprd_priv *priv,
 	memcpy(vif->mac, ndev->dev_addr, ETH_ALEN);
 
 	/* register new Ethernet interface */
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+	ret = cfg80211_register_netdevice(ndev);
+#else
 	ret = register_netdevice(ndev);
+#endif
 	if (ret) {
 		netdev_err(ndev, "failed to regitster netdev(%d)!\n", ret);
 		goto err;
@@ -1463,7 +1552,11 @@ static void iface_unregister_netdev(struct sprd_vif *vif)
 	if (vif->priv->fw_capa & SPRD_CAPA_MC_FILTER)
 		kfree(vif->mc_filter);
 	iface_deinit_vif(vif);
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+	cfg80211_unregister_netdevice(vif->ndev);
+#else
 	unregister_netdevice(vif->ndev);
+#endif
 }
 
 struct wireless_dev *sprd_add_iface(struct sprd_priv *priv, const char *name,

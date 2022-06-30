@@ -1238,7 +1238,11 @@ void sc2355_cmd_deinit(struct sprd_cmd *cmd)
 			pr_err("%s cmd lock timeout\n", __func__);
 			break;
 		}
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+		usleep_range_state(2000, 2500, TASK_UNINTERRUPTIBLE);
+#else
 		usleep_range(2000, 2500);
+#endif
 	}
 	cmdevt_clean_cmd(cmd);
 	mutex_destroy(&cmd->cmd_lock);
@@ -2736,7 +2740,11 @@ static int cmdevt_set_tlv_data(struct sprd_priv *priv, struct sprd_vif *vif,
 	return send_cmd_recv_rsp(priv, msg, NULL, NULL);
 }
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+int sc2355_set_vowifi(struct net_device *ndev, void __user *data)
+#else
 int sc2355_set_vowifi(struct net_device *ndev, struct ifreq *ifr)
+#endif
 {
 	struct sprd_vif *vif = netdev_priv(ndev);
 	struct sprd_priv *priv = vif->priv;
@@ -2744,11 +2752,19 @@ int sc2355_set_vowifi(struct net_device *ndev, struct ifreq *ifr)
 	struct tlv_data *tlv;
 	int ret;
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+	if (!data)
+		return -EINVAL;
+
+	if (copy_from_user(&priv_cmd, data, sizeof(priv_cmd)))
+		return -EFAULT;
+#else
 	if (!ifr->ifr_data)
 		return -EINVAL;
 
 	if (copy_from_user(&priv_cmd, ifr->ifr_data, sizeof(priv_cmd)))
 		return -EFAULT;
+#endif
 
 	/*bug1743709, add length check to avoid invalid NULL ptr*/
 	if ((priv_cmd.total_len < sizeof(*tlv)) ||
@@ -2948,7 +2964,11 @@ out:
 	return ret;
 }
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+int sc2355_set_miracast(struct net_device *ndev, void __user *data)
+#else
 int sc2355_set_miracast(struct net_device *ndev, struct ifreq *ifr)
+#endif
 {
 	struct sprd_vif *vif = netdev_priv(ndev);
 	struct sprd_priv *priv = vif->priv;
@@ -2956,11 +2976,18 @@ int sc2355_set_miracast(struct net_device *ndev, struct ifreq *ifr)
 	char *command = NULL;
 	unsigned short subtype;
 	int ret = 0, value;
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+	if (data == NULL)
+		return -EINVAL;
+	if (copy_from_user(&priv_cmd, data, sizeof(priv_cmd)))
+		return -EINVAL;
 
+#else
 	if (ifr->ifr_data == NULL)
 		return -EINVAL;
 	if (copy_from_user(&priv_cmd, ifr->ifr_data, sizeof(priv_cmd)))
 		return -EINVAL;
+#endif
 
 	/*add length check to avoid invalid NULL ptr*/
 	if (priv_cmd.total_len == 0) {
@@ -3767,7 +3794,11 @@ static void cmdevt_report_chan_changed_evt(struct sprd_vif *vif, u8 *data, u16 l
 			/* we will be active on the channel */
 			cfg80211_chandef_create(&chandef, ch,
 						NL80211_CHAN_HT20);
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+			cfg80211_ch_switch_notify(vif->ndev, &chandef, 0);
+#else
 			cfg80211_ch_switch_notify(vif->ndev, &chandef);
+#endif
 		} else {
 			pr_err("%s, ch is null!\n", __func__);
 		}

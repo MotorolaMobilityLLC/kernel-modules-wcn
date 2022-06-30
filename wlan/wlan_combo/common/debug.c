@@ -585,7 +585,11 @@ EXPORT_SYMBOL(sprd_debug_init);
 void sprd_debug_deinit(struct sprd_debug *dbg)
 {
 	/* remove debugfs */
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+	debugfs_remove(dbg->dir);
+#else
 	debugfs_remove_recursive(dbg->dir);
+#endif
 }
 EXPORT_SYMBOL(sprd_debug_deinit);
 

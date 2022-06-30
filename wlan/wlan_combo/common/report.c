@@ -225,7 +225,11 @@ done:
 	else if (vif->sm_state == SPRD_CONNECTED &&
 		 status_code == SPRD_ROAM_SUCCESS) {
 		memset(&roam_info, 0, sizeof(roam_info));
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+		roam_info.links[0].bss = bss;
+#else
 		roam_info.bss = bss;
+#endif
 		roam_info.req_ie = conn_info->req_ie;
 		roam_info.req_ie_len = conn_info->req_ie_len;
 		roam_info.resp_ie = conn_info->resp_ie;
@@ -347,8 +351,11 @@ void sprd_report_mgmt(struct sprd_vif *vif, u8 chan, const u8 *buf, size_t len)
 
 	band = sprd_channel_to_band(chan);
 	freq = ieee80211_channel_to_frequency(chan, band);
-
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+	ret = cfg80211_rx_mgmt_khz(&vif->wdev, MHZ_TO_KHZ(freq), 0, buf, len, GFP_ATOMIC);
+#else
 	ret = cfg80211_rx_mgmt(&vif->wdev, freq, 0, buf, len, GFP_ATOMIC);
+#endif
 	if (!ret)
 		netdev_err(vif->ndev, "%s unregistered frame!", __func__);
 }

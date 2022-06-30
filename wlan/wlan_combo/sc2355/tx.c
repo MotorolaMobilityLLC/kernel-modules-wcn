@@ -94,7 +94,11 @@ static void tx_flush_data_txlist(struct tx_mgmt *tx_mgmt)
 					       lockflag_txfree);
 			goto out;
 		}
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+		usleep_range_state(2500, 3000, TASK_UNINTERRUPTIBLE);
+#else
 		usleep_range(2500, 3000);
+#endif
 		cnt++;
 	}
 out:
@@ -149,7 +153,11 @@ static void tx_sdio_flush_txlist(struct sprd_msg_list *list)
 	/*wait until cmd list sent completely and freed by HIF */
 	while (!list_empty(&list->cmd_to_free) && (cnt < 1000)) {
 		pr_debug("%s cmd not yet transmited", __func__);
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+		usleep_range_state(2500, 3000, TASK_UNINTERRUPTIBLE);
+#else
 		usleep_range(2500, 3000);
+#endif
 		cnt++;
 	}
 	while ((msg = sprd_peek_msg(list))) {
@@ -487,7 +495,11 @@ static void tx_prepare_addba(struct sprd_hif *hif, unsigned char lut_index,
 	    peer_entry->ht_enable &&
 	    peer_entry->vowifi_enabled != 1 &&
 	    !test_bit(tid, &peer_entry->ba_tx_done_map)) {
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+		struct timespec64 time;
+#else
 		struct timespec time;
+#endif
 		struct sprd_vif *vif;
 
 		vif = sc2355_ctxid_to_vif(hif->priv, peer_entry->ctx_id);
@@ -502,6 +514,19 @@ static void tx_prepare_addba(struct sprd_hif *hif, unsigned char lut_index,
 				return;
 		}
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+		ktime_get_real_ts64(&time);
+		/*need to delay 3s if priv addba failed */
+		if (((timespec64_to_ns(&time) -
+		      timespec64_to_ns(&peer_entry->time[tid])) / 1000000) > 3000 ||
+		      peer_entry->time[tid].tv_nsec == 0) {
+			pr_info("%s, %d, tx_addba, tid=%d\n", __func__,
+				__LINE__, tid);
+			ktime_get_real_ts64(&peer_entry->time[tid]);
+			if (!test_and_set_bit(tid, &peer_entry->ba_tx_done_map))
+				sc2355_tx_addba(hif, peer_entry, tid);
+		}
+#else
 		getnstimeofday(&time);
 		/*need to delay 3s if priv addba failed */
 		if (((timespec_to_ns(&time) -
@@ -513,6 +538,7 @@ static void tx_prepare_addba(struct sprd_hif *hif, unsigned char lut_index,
 			if (!test_and_set_bit(tid, &peer_entry->ba_tx_done_map))
 				sc2355_tx_addba(hif, peer_entry, tid);
 		}
+#endif
 		sprd_put_vif(vif);
 	}
 }
@@ -554,7 +580,11 @@ static void tx_get_pcie_dma_addr(struct sprd_hif *hif, struct sk_buff *skb)
 
 	dma_addr = PFN_PHYS(virt_to_pfn(skb->head)) + offset_in_page(skb->head);
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+	if (!dma_capable(wiphy_dev(hif->priv->wiphy), dma_addr, skb->len, true)) {
+#else
 	if (!dma_capable(wiphy_dev(hif->priv->wiphy), dma_addr, skb->len)) {
+#endif
 		/* current pa is lagrer than device dma mask
 		 * need to use dma buffer
 		 */
@@ -644,11 +674,19 @@ RETRY:
 		return;
 	}
 	if (hif->pushfail_count > 100 && priv->hif.hw_type == SPRD_HW_SC2355_PCIE)
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+		usleep_range_state(5990, 6010, TASK_UNINTERRUPTIBLE);
+#else
 		usleep_range(5990, 6010);
+#endif
 
 	if (!list_empty(&tx_mgmt->xmit_msg_list.to_send_list)) {
 		if (tx_handle_to_send_list(hif, tx_mgmt->xmit_msg_list.mode)) {
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+			usleep_range_state(10, 20, TASK_UNINTERRUPTIBLE);
+#else
 			usleep_range(10, 20);
+#endif
 			return;
 		}
 	}
@@ -683,7 +721,11 @@ RETRY:
 	/*sleep more time if screen off */
 	if (priv->is_screen_off == 1 &&
 	    priv->hif.hw_type == SPRD_HW_SC2355_PCIE) {
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+		usleep_range_state(590, 610, TASK_UNINTERRUPTIBLE);
+#else
 		usleep_range(590, 610);
+#endif
 		goto RETRY;
 	}
 	if (need_polling) {
@@ -1376,7 +1418,11 @@ struct sprd_msg *sc2355_tx_get_msg(struct sprd_chip *chip,
 	struct sprd_hif *hif = &priv->hif;
 	struct tx_mgmt *tx_dev = NULL;
 #if defined(MORE_DEBUG)
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+	struct timespec64 tx_begin;
+#else
 	struct timespec tx_begin;
+#endif
 #endif
 
 	tx_dev = (struct tx_mgmt *)hif->tx_mgmt;
@@ -1417,8 +1463,13 @@ struct sprd_msg *sc2355_tx_get_msg(struct sprd_chip *chip,
 
 	if (msg) {
 #if defined(MORE_DEBUG)
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+		ktime_get_real_ts64(&tx_begin);
+		msg->tx_start_time = timespec64_to_ns(&tx_begin);
+#else
 		getnstimeofday(&tx_begin);
 		msg->tx_start_time = timespec_to_ns(&tx_begin);
+#endif
 #endif
 		if (type == SPRD_TYPE_DATA)
 			msg->msg_type = SPRD_TYPE_DATA;
@@ -2042,7 +2093,11 @@ void sc2355_tx_flush(struct sprd_hif *hif, struct sprd_vif *vif)
 	       count < 100) {
 		printk_ratelimited("error! %s data q not empty, wait\n",
 				   __func__);
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+		usleep_range_state(2500, 3000, TASK_UNINTERRUPTIBLE);
+#else
 		usleep_range(2500, 3000);
+#endif
 		count++;
 	}
 }

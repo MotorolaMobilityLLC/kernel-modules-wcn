@@ -544,14 +544,22 @@ static int vendor_parse_sae_entry(struct sae_entry *entry,
 		case VENDOR_SAE_PASSWORD:
 			data_len = nla_len(pos);
 			entry->passwd_len = data_len;
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+			nla_strscpy(entry->password, pos, data_len + 1);
+#else
 			nla_strlcpy(entry->password, pos, data_len + 1);
+#endif
 			pr_info("entry->passwd: %s, entry->len:%d\n",
 				entry->password, entry->passwd_len);
 			break;
 		case VENDOR_SAE_IDENTIFIER:
 			data_len = nla_len(pos);
 			entry->id_len = data_len;
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+			nla_strscpy(entry->identifier, pos, data_len);
+#else
 			nla_strlcpy(entry->identifier, pos, data_len);
+#endif
 			break;
 		case VENDOR_SAE_PEER_ADDR:
 			nla_memcpy(entry->peer_addr, pos, ETH_ALEN);
@@ -3201,8 +3209,13 @@ static int vendor_set_sae_password(struct wiphy *wiphy,
 
 		case VENDOR_SAE_PWD:
 			sae_para.passphrase_len = nla_len(pos);
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+			nla_strscpy(sae_para.passphrase, pos,
+				    sae_para.passphrase_len + 1);
+#else
 			nla_strlcpy(sae_para.passphrase, pos,
 				    sae_para.passphrase_len + 1);
+#endif
 			pr_info("pwd is :%s, len :%d\n", sae_para.passphrase,
 				sae_para.passphrase_len);
 			break;
