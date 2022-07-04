@@ -27,7 +27,6 @@
 
 #include "unisoc_fm_log.h"
 
-static struct fm_rds_data *g_rds_data_p;
 extern struct device *fm_miscdev;
 
 struct rds_state_machine {
@@ -141,13 +140,6 @@ static signed int rds_bm_set(struct rds_bitmap *thiz, unsigned char addr)
 	return 0;
 }
 
-
-/* the next ps: index = 0 */
-//static unsigned char flag_next = 1;
-void rds_parser_init(void)
-{
-	g_rds_data_p = get_rds_data();
-}
 
 void  fmr_assert(unsigned short *a)
 {
