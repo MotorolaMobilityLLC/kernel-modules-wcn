@@ -15,6 +15,7 @@ endif
 ccflags-y += -DCONFIG_SPRD_WLAN_VENDOR_SPECIFIC
 # ccflags-y += -DCONFIG_SC2355_WLAN_NAN
 # ccflags-y += -DCONFIG_SC2355_WLAN_RTT
+# ccflags-y += -DDRV_RESET_SELF
 
 KO_MODULE_NAME := sprd_wlan_combo
 KO_MODULE_PATH := $(src)
