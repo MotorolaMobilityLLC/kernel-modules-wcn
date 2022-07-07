@@ -11,6 +11,7 @@
 #include <linux/seq_file.h>
 #include <linux/version.h>
 #include <linux/pm_wakeup.h>
+#include <linux/version.h>
 #include <misc/marlin_platform.h>
 #include <linux/export.h>
 #include "unisoc_bt_log.h"
@@ -82,14 +83,23 @@ static int bluesleep_open_proc_btwrite(struct inode *inode, struct file *file)
 	return single_open(file, btwrite_proc_show, PDE_DATA(inode));
 
 }
-
-static const struct file_operations lpm_proc_btwrite_fops = {
+#if(LINUX_VERSION_CODE >= KERNEL_VERSION(5,15,0))
+static const struct proc_ops lpm_proc_btwrite_fops = {
+	.proc_open = bluesleep_open_proc_btwrite,
+	.proc_read = seq_read,
+	.proc_write = bluesleep_write_proc_btwrite,
+	.proc_release = single_release,
+};
+#else
+	static const struct file_operations lpm_proc_btwrite_fops = {
 	.owner = THIS_MODULE,
 	.open = bluesleep_open_proc_btwrite,
 	.read = seq_read,
 	.write = bluesleep_write_proc_btwrite,
 	.release = single_release,
 };
+#endif
+
 
 /*static int __init bluesleep_init(void)*/
 int  bluesleep_init(void)

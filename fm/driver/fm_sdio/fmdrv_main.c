@@ -35,6 +35,7 @@
 #include <linux/types.h>
 #include <linux/interrupt.h>
 #include <linux/wait.h>
+#include <linux/version.h>
 #include "fmdrv.h"
 /*#include <soc/sprd/sdio_dev.h>*/
 /*#include <misc/mdbg_sdio.h>*/
@@ -347,7 +348,11 @@ ssize_t fm_read_rds_data(struct file *filp, char __user *buf, size_t count, loff
         return -EFAULT;
     }
 	dev_unisoc_fm_info(fm_miscdev,"(fm drs) fm event is %x\n", fmdev->rds_data.event_status);
-    fmdev->rds_han.rds_parse_stop_time = get_seconds();
+	#if(LINUX_VERSION_CODE >= KERNEL_VERSION(5,15,0))
+	fmdev->rds_han.rds_parse_start_time = ktime_get_real_seconds();
+	#else
+	fmdev->rds_han.rds_parse_start_time = get_seconds();
+	#endif
     if ((fmdev->rds_han.rds_parse_stop_time -
         fmdev->rds_han.rds_parse_start_time) >
         FM_RDS_PARSE_TIME) {
@@ -440,7 +445,7 @@ return 0;
 }
 #endif
 
-static int fm_rx_cback(int chn, struct mbuf_t *head,struct mbuf_t *tail, int num)
+int fm_rx_cback(int chn, struct mbuf_t *head,struct mbuf_t *tail, int num)
 {
     __pm_wakeup_event(fm_wakelock, jiffies_to_msecs(HZ*1));
 	dev_unisoc_fm_info(fm_miscdev,"%s: channel:%d head:%p tail:%p num:%d\n",__func__, chn, head, tail, num);
@@ -1129,7 +1134,11 @@ int fm_rds_onoff(void *arg) {
         return ret;
     }
 
-    fmdev->rds_han.rds_parse_start_time = get_seconds();
+	#if(LINUX_VERSION_CODE >= KERNEL_VERSION(5,15,0))
+	fmdev->rds_han.rds_parse_start_time = ktime_get_real_seconds();
+	#else
+	fmdev->rds_han.rds_parse_start_time = get_seconds();
+	#endif
     return ret;
 }
 
