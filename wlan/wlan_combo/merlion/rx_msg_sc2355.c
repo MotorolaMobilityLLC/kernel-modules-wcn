@@ -392,8 +392,11 @@ static int sprdwl_rx_work_queue(void *data)
 			}
 next:
 			/* Marlin3 should release buffer by ourself */
-			if (msg->tran_data)
+			if (msg->tran_data) {
 				sprdwl_free_data(msg->tran_data, msg->buffer_type);
+				msg->tran_data = NULL;
+				msg->data = NULL;
+			}
 
 			sprdwl_dequeue_msg_buf(msg, &rx_if->rx_list);
 		}

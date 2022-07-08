@@ -1988,9 +1988,10 @@ int sprdwl_tx_mc_pkt(struct sk_buff *skb, struct net_device *ndev)
 	vif = netdev_priv(ndev);
 	intf = (struct sprdwl_intf *)vif->priv->hw_priv;
 
-	intf->skb_da = skb->data;
-	if (intf->skb_da == NULL)/*TODO*/
+	if (skb->data == NULL)/*TODO*/
 		return 1;
+	else
+		memcpy(intf->skb_da, skb->data, ETH_ALEN);
 
 	if (is_multicast_mac_addr(intf->skb_da) && vif->mode == SPRDWL_MODE_AP) {
 		wl_info("%s,AP mode, multicast bssid: %02x:%02x:%02x:%02x:%02x:%02x\n", __func__,
@@ -2140,7 +2141,7 @@ int sprdwl_tx_filter_ip_pkt(struct sk_buff *skb, struct net_device *ndev)
 
 	if (is_ipv4_dhcp) {
 		wl_info("filter DHCP packet\n");
-		intf->skb_da = skb->data;
+		memcpy(intf->skb_da, skb->data, ETH_ALEN);
 		lut_index = sprdwl_find_lut_index(intf, vif);
 		dhcpdata = skb->data + ETHER_HDR_LEN + iphdrlen + 250;
 		if (*dhcpdata == 0x01) {
@@ -2220,7 +2221,7 @@ int sprdwl_tx_filter_packet(struct sk_buff *skb, struct net_device *ndev)
 	if (ethhdr->h_proto == htons(ETH_P_PREAUTH))
 		wl_info("incoming PREAUTH packet\n");
 
-	intf->skb_da = skb->data;
+	memcpy(intf->skb_da, skb->data, ETH_ALEN);
 	if (ethhdr->h_proto == htons(ETH_P_IPV6)) {
 		lut_index = sprdwl_find_lut_index(intf, vif);
 		if ((vif->mode == SPRDWL_MODE_AP || vif->mode == SPRDWL_MODE_P2P_GO) &&

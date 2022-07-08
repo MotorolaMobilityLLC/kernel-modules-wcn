@@ -774,7 +774,7 @@ unsigned char sprdwl_find_lut_index(struct sprdwl_intf *intf,
 {
 	unsigned char i;
 
-	if (intf->skb_da == NULL)/*TODO*/
+	if (is_zero_ether_addr(intf->skb_da))
 		goto out;
 
 	wl_debug("%s,bssid: %02x:%02x:%02x:%02x:%02x:%02x\n", __func__,
@@ -895,7 +895,7 @@ int sprdwl_intf_fill_msdu_dscr(struct sprdwl_vif *vif,
 #endif
 	}
 
-	dev->skb_da = skb->data;
+	memcpy(dev->skb_da, skb->data, ETH_ALEN);
 
 	lut_index = sprdwl_find_lut_index(dev, vif);
 
@@ -1052,7 +1052,7 @@ int sprdwl_intf_fill_msdu_dscr_test(struct sprdwl_priv *priv,
 			return 0;
 		}
 	}
-	intf->skb_da = skb->data;
+	memcpy(intf->skb_da, skb->data, ETH_ALEN);
 	lut_index = sprdwl_find_index_using_addr(intf);
 	skb_push(skb, sizeof(struct tx_msdu_dscr) + offset);
 	dscr = (struct tx_msdu_dscr *)(skb->data);
