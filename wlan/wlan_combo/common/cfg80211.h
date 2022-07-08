@@ -205,6 +205,8 @@ enum sprd_mode {
 	SPRD_MODE_P2P_CLIENT,
 	SPRD_MODE_P2P_GO,
 
+	SPRD_MODE_MONITOR = 7,
+
 	SPRD_MODE_STATION_SECOND = 10,
 
 	SPRD_MODE_MAX,
@@ -404,5 +406,8 @@ void sprd_core_free(struct sprd_priv *priv);
 #ifdef DRV_RESET_SELF
 void sprd_cancel_reset_work(struct sprd_priv *priv);
 #endif
+int sprd_cfg80211_change_iface(struct wiphy *wiphy, struct net_device *ndev,
+			       enum nl80211_iftype type,
+			       struct vif_params *params);
 
 #endif

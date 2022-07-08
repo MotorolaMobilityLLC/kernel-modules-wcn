@@ -285,6 +285,11 @@ struct sprd_priv {
 
 	/* power backoff flag */
 	atomic_t power_back_off;
+
+	/* sniffer monitor mode */
+	atomic_t monitor_mode;
+	unsigned long monitor_data_cnt;
+	unsigned long monitor_mgmt_cnt;
 };
 
 extern unsigned int wfa_cap;

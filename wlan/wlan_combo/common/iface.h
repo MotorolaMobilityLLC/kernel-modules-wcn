@@ -31,6 +31,7 @@
 #define SPRDWLSETP2PMAC			(SIOCDEVPRIVATE + 6)
 #define SPRDWLVOWIFI			(SIOCDEVPRIVATE + 7)
 #define SPRDWLSETNDEVMAC		(SIOCDEVPRIVATE + 8)
+#define SPRDWLSNIFFER			(SIOCDEVPRIVATE + 9)
 
 #define SPRD_RX_MODE_MULTICAST		1
 
@@ -117,6 +118,8 @@ struct sprd_vif *sprd_mode_to_vif(struct sprd_priv *priv, u8 vif_mode);
 void sprd_net_flowcontrl(struct sprd_priv *priv, enum sprd_mode mode,
 			 bool state);
 void sprd_netif_rx(struct net_device *ndev, struct sk_buff *skb);
+void sprd_rx_monitor_process(struct sprd_vif *vif,
+			     unsigned char *data, unsigned int len);
 struct wireless_dev *sprd_add_iface(struct sprd_priv *priv, const char *name,
 				    enum nl80211_iftype type, u8 *addr);
 int sprd_del_iface(struct sprd_priv *priv, struct sprd_vif *vif);

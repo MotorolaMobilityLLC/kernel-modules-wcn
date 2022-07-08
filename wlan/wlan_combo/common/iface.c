@@ -67,37 +67,6 @@ static struct sprd_priv *iface_get_priv(void)
 	return sprd_prv;
 }
 
-enum sprd_mode sprd_type_to_mode(enum nl80211_iftype type, char *name)
-{
-	enum sprd_mode mode;
-
-	switch (type) {
-	case NL80211_IFTYPE_STATION:
-		if (strncmp(name, "wlan1", 5) == 0)
-			mode = SPRD_MODE_STATION_SECOND;
-		else
-			mode = SPRD_MODE_STATION;
-		break;
-	case NL80211_IFTYPE_AP:
-		mode = SPRD_MODE_AP;
-		break;
-	case NL80211_IFTYPE_P2P_GO:
-		mode = SPRD_MODE_P2P_GO;
-		break;
-	case NL80211_IFTYPE_P2P_CLIENT:
-		mode = SPRD_MODE_P2P_CLIENT;
-		break;
-	case NL80211_IFTYPE_P2P_DEVICE:
-		mode = SPRD_MODE_P2P_DEVICE;
-		break;
-	default:
-		mode = SPRD_MODE_NONE;
-		break;
-	}
-
-	return mode;
-}
-
 static void iface_str2mac(const char *mac_addr, u8 *mac)
 {
 	unsigned int m[ETH_ALEN];
@@ -393,6 +362,34 @@ void sprd_netif_rx(struct net_device *ndev, struct sk_buff *skb)
 	vif = netdev_priv(ndev);
 	hif = &vif->priv->hif;
 
+	/* report sniffer monitor data packet */
+	if (atomic_read(&vif->priv->monitor_mode)) {
+		if (skb->len >= 64)
+			print_hex_dump(KERN_WARNING, "RX sniffer data packet: ", DUMP_PREFIX_OFFSET,
+				       16, 1, skb->data, 64, 0);
+		else
+			print_hex_dump(KERN_WARNING, "RX sniffer data packet: ", DUMP_PREFIX_OFFSET,
+				       16, 1, skb->data, skb->len, 0);
+
+		pr_info("sniffer data cnt: %d\n", vif->priv->monitor_data_cnt++);
+
+		skb->dev = ndev;
+		/* report data for sniffer mode */
+		skb_set_mac_header(skb, 0);
+		skb->ip_summed = CHECKSUM_UNNECESSARY;
+		skb->pkt_type = PACKET_OTHERHOST;
+		skb->protocol = htons(ETH_P_802_2);
+
+		ndev->stats.rx_packets++;
+		ndev->stats.rx_bytes += skb->len;
+
+		local_bh_disable();
+		netif_receive_skb(skb);
+		local_bh_enable();
+
+		return;
+	}
+
 	print_hex_dump_debug("RX packet: ", DUMP_PREFIX_OFFSET,
 			     16, 1, skb->data, skb->len, 0);
 	skb->dev = ndev;
@@ -415,6 +412,47 @@ void sprd_netif_rx(struct net_device *ndev, struct sk_buff *skb)
 	local_bh_enable();
 }
 EXPORT_SYMBOL(sprd_netif_rx);
+
+/* report sniffer monitor mgmt frame */
+void sprd_rx_monitor_process(struct sprd_vif *vif,
+			     unsigned char *data, unsigned int len)
+{
+	struct sk_buff *skb;
+	struct net_device *ndev;
+
+	skb = dev_alloc_skb(len + NET_IP_ALIGN);
+	if (!skb)
+		return;
+
+	if (len >= 64)
+		print_hex_dump(KERN_WARNING, "RX sniffer frame: ", DUMP_PREFIX_OFFSET,
+			       16, 1, data, 64, 0);
+	else
+		print_hex_dump(KERN_WARNING, "RX sniffer frame: ", DUMP_PREFIX_OFFSET,
+			       16, 1, data, len, 0);
+
+	pr_info("sniffer mgmt frame cnt: %d\n", vif->priv->monitor_mgmt_cnt++);
+
+	ndev = vif->ndev;
+	skb_reserve(skb, NET_IP_ALIGN);
+	memcpy(skb->data, data, len);
+	skb_put(skb, len);
+
+	skb->dev = ndev;
+	/* report data for monitor mode */
+	skb_set_mac_header(skb, 0);
+	skb->ip_summed = CHECKSUM_UNNECESSARY;
+	skb->pkt_type = PACKET_OTHERHOST;
+	skb->protocol = htons(ETH_P_802_2);
+
+	ndev->stats.rx_packets++;
+	ndev->stats.rx_bytes += skb->len;
+
+	local_bh_disable();
+	netif_receive_skb(skb);
+	local_bh_enable();
+}
+EXPORT_SYMBOL(sprd_rx_monitor_process);
 
 static int iface_prepare_xmit(struct sprd_vif *vif, struct net_device *ndev,
 			      struct sk_buff *skb)
@@ -963,6 +1001,8 @@ static int iface_ioctl(struct net_device *ndev, struct ifreq *req, int cmd)
 		return iface_set_p2p_mac(ndev, req);
 	case SPRDWLSETNDEVMAC:
 		return iface_set_ndev_mac(ndev, req);
+	case SPRDWLSNIFFER:
+		return sprd_set_sniffer(priv, ndev, req);
 	default:
 		netdev_err(ndev, "Unsupported IOCTL %d\n", cmd);
 		return -ENOTSUPP;

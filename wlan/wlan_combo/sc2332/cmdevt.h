@@ -79,6 +79,9 @@
 
 #ifndef SPRD_MAX_CMD_TXLEN
 #define SPRD_MAX_CMD_TXLEN			1396
+
+#define CMD_SNIFFER_MODE                  "SNIFFER_MODE"
+#define CMD_SNIFFER_LISTEN_CHANNEL        "LISTEN_CHANNEL"
 #endif
 
 enum CMD_LIST {
@@ -149,6 +152,7 @@ enum CMD_LIST {
 	CMD_SET_VOWIFI = 59,
 	CMD_MIRACAST = 60,
 	CMD_MAX_STA = 61,
+	CMD_SET_SNIFFER = 62,
 	CMD_RANDOM_MAC = 63,
 	CMD_PACKET_OFFLOAD = 64,
 	CMD_SET_SAE_PARAM = 65,
@@ -499,6 +503,12 @@ struct cmd_extended_llstate {
 	u8 data[0];
 } __packed;
 
+/* sniffer mode para */
+struct cmd_sniffer_para {
+	u8 value;
+	u8 filter;
+} __packed;
+
 enum EVT_LIST {
 	EVT_MIN = 0x80,
 	/* Station/P2P */
@@ -817,4 +827,5 @@ int sc2332_dump_survey(struct wiphy *wiphy, struct net_device *ndev,
 		       int idx, struct survey_info *s_info);
 
 void sc2332_report_frame_evt(struct sprd_vif *vif, u8 *data, u16 len, bool flag);
+int sc2332_set_sniffer(struct net_device *ndev, struct ifreq *ifr);
 #endif

@@ -297,8 +297,13 @@ struct sprd_api_version_t api_array[] = {
 		.cmd_id = CMD_SET_SAE_PARAM,
 		.drv_version = 1,
 	},
+	[87]{
+		/*ID:87*/
+		.cmd_id = CMD_SET_SNIFFER,
+		.drv_version = 1,
+	},
 	[89]{
-		/*ID:85*/
+		/*ID:89*/
 		.cmd_id = CMD_EXTENDED_LLSTAT,
 		.drv_version = 1,
 	},

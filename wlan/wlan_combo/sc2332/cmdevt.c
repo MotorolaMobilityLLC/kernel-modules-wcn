@@ -16,6 +16,7 @@
 #include "common/common.h"
 #include "common/delay_work.h"
 #include "common/hif.h"
+#include "common/iface.h"
 #include "common/msg.h"
 #include "common/report.h"
 #include "common/tdls.h"
@@ -128,6 +129,8 @@ static const char *cmdevt_cmd2str(u8 cmd)
 		return "CMD_MIRACAST";
 	case CMD_MAX_STA:
 		return "CMD_MAX_STA";
+	case CMD_SET_SNIFFER:
+		return "CMD_SET_SNIFFER";
 	case CMD_RANDOM_MAC:
 		return "CMD_RANDOM_MAC";
 	case CMD_PACKET_OFFLOAD:
@@ -1812,6 +1815,116 @@ out:
 	return ret;
 }
 
+static int cmdevt_set_sniffer(struct sprd_priv *priv, struct sprd_vif *vif,
+			      u8 value)
+{
+	struct sprd_msg *msg;
+	struct cmd_sniffer_para *p;
+
+	msg = get_cmdbuf(priv, vif, sizeof(*p), CMD_SET_SNIFFER);
+	if (!msg)
+		return -ENOMEM;
+
+	p = (struct cmd_sniffer_para *)msg->data;
+	p->value = value;
+	p->filter = 0;
+
+	return send_cmd_recv_rsp(priv, msg, NULL, NULL);
+}
+
+int sc2332_set_sniffer(struct net_device *ndev, struct ifreq *ifr)
+{
+	struct sprd_vif *vif = netdev_priv(ndev);
+	struct sprd_priv *priv = vif->priv;
+	struct wiphy *wiphy = priv->wiphy;
+	struct android_wifi_priv_cmd priv_cmd;
+	char *command = NULL;
+	int ret = 0, skip, value;
+	unsigned int channel = 0;
+
+	if (!ifr->ifr_data)
+		return -EINVAL;
+	if (copy_from_user(&priv_cmd, ifr->ifr_data, sizeof(priv_cmd)))
+		return -EFAULT;
+
+	/* add length check to avoid invalid NULL ptr */
+	if (!priv_cmd.total_len) {
+		netdev_err(ndev, "%s: priv cmd total len is invalid\n",
+			   __func__);
+		return -EINVAL;
+	}
+
+	command = kmalloc(priv_cmd.total_len, GFP_KERNEL);
+	if (!command)
+		return -ENOMEM;
+	if (copy_from_user(command, priv_cmd.buf, priv_cmd.total_len)) {
+		ret = -EFAULT;
+		goto out;
+	}
+
+	if (!strncasecmp(command, CMD_SNIFFER_MODE,
+			 strlen(CMD_SNIFFER_MODE))) {
+		skip = strlen(CMD_SNIFFER_MODE) + 1;
+		ret = kstrtoint(command + skip, 0, &value);
+		if (ret)
+			goto out;
+		netdev_info(ndev, "%s: set sniffer monitor mode, value: %d\n",
+			    __func__, value);
+		if (value == 1) {
+			if (atomic_read(&priv->monitor_mode) == 1) {
+				netdev_err(ndev, "already in sniffer monitor mode\n");
+				goto out;
+			}
+
+			sprd_cfg80211_change_iface(wiphy, ndev, NL80211_IFTYPE_MONITOR, NULL);
+
+			ret = cmdevt_set_sniffer(priv, vif, value);
+			if (!ret) {
+				netdev_err(ndev, "set sniffer monitor success\n");
+				atomic_set(&priv->monitor_mode, 1);
+				priv->monitor_data_cnt = 0;
+				priv->monitor_mgmt_cnt = 0;
+			}
+		} else {
+			if (atomic_read(&priv->monitor_mode) == 0) {
+				netdev_err(ndev, "not in sniffer monitor mode, just return\n");
+				goto out;
+			}
+
+			sprd_cfg80211_change_iface(wiphy, ndev, NL80211_IFTYPE_STATION, NULL);
+
+			ret = cmdevt_set_sniffer(priv, vif, value);
+			if (!ret) {
+				atomic_set(&priv->monitor_mode, 0);
+				netdev_err(ndev, "exit sniffer monitor success\n");
+			}
+		}
+	} else if (!strncasecmp(command, CMD_SNIFFER_LISTEN_CHANNEL,
+				strlen(CMD_SNIFFER_LISTEN_CHANNEL))) {
+		skip = strlen(CMD_SNIFFER_LISTEN_CHANNEL) + 1;
+		ret = kstrtoint(command + skip, 0, &value);
+		if (ret)
+			goto out;
+		netdev_info(ndev, "%s: set sniffer monitor listen channel, value: %d\n",
+			    __func__, value);
+		if (!atomic_read(&priv->monitor_mode))
+			netdev_err(ndev, "%s: set listen channel not in monitor mode\n", __func__);
+		/*use scan command to set channel*/
+		channel |= (1 << (value - 1));
+		ret = sc2332_cmd_scan(vif->priv, vif, channel, 0, NULL, NULL, 0);
+		if (ret) {
+			netdev_err(ndev, "set channel failed\n");
+			goto out;
+		}
+	} else {
+		netdev_err(ndev, "%s command not support\n", __func__);
+		ret = -EOPNOTSUPP;
+	}
+out:
+	kfree(command);
+	return ret;
+}
+
 bool sc2332_do_delay_work(struct sprd_work *work)
 {
 	u8 mac_addr[ETH_ALEN];
@@ -2094,6 +2207,12 @@ void sc2332_report_frame_evt(struct sprd_vif *vif, u8 *data, u16 len, bool flag)
 	channel = frame->channel;
 	type = frame->type;
 	buf_len = SPRD_GET_LE16(frame->len);
+
+	if (atomic_read(&vif->priv->monitor_mode)) {
+		pr_info("%s: enter rx monitor process\n", __func__);
+		sprd_rx_monitor_process(vif, buf, buf_len);
+		return;
+	}
 
 	sprd_dump_frame_prot_info(0, 0, buf, buf_len);
 

@@ -171,6 +171,11 @@
 #define		SPRD_SAE_PASSPHRASE		1
 #define		SPRD_SAE_PASSWORD_ENTRY	2
 
+#define CMD_SNIFFER_MODE		"SNIFFER_MODE"
+#define CMD_SNIFFER_LISTEN_CHANNEL	"LISTEN_CHANNEL"
+#define CMD_SNIFFER_FILTER		"FILTER"
+#define CMD_SNIFFER_BAND		"BAND"
+
 enum CMD_LIST {
 	CMD_MIN = 0,
 	CMD_ERR = CMD_MIN,
@@ -277,7 +282,7 @@ enum CMD_LIST {
 	CMD_PACKET_OFFLOAD = 84,
 	CMD_SET_SAE_PARAM = 85,
 	CMD_RESERVED_FOR_PAM_WIFI = 86,
-	CMD_RESVERED_FOR_FAST_CONNECT = 87,
+	CMD_SET_SNIFFER = 87,
 	CMD_RESVERED_FOR_FILTER = 88,
 	CMD_EXTENDED_LLSTAT = 89,
 	CMD_MAX
@@ -292,6 +297,28 @@ enum sar_mode {
 	SPRD_SET_SAR_5G_11N = 5,
 	SPRD_SET_SAR_5G_11AC = 6,
 	SPRD_SET_SAR_ALL_MODE = 7,
+};
+
+enum sniffer_para_type {
+	SPRD_SNIFFER_ENABLE = 0,
+	SPRD_SNIFFER_FILTER = 1,
+	SPRD_SNIFFER_BAND = 2,
+};
+
+enum sniffer_filter_value {
+	SPRD_SNIFFER_ALL = 0,
+	SPRD_SNIFFER_MGMT = 1,
+	SPRD_SNIFFER_BC_DATA = 2,
+	SPRD_SNIFFER_UC_DATA = 3,
+	SPRD_SNIFFER_ALL_DATA = 4,
+};
+
+enum sniffer_band {
+	SPRD_SNIFFER_BW_20M = 0,
+	SPRD_SNIFFER_BW_40M = 1,
+	SPRD_SNIFFER_BW_80M = 2,
+	SPRD_SNIFFER_BW_160M = 3,
+	SPRD_SNIFFER_BW_80P80 = 4,
 };
 
 /*CMD SYNC_VERSION struct*/
@@ -885,6 +912,11 @@ struct cmd_extended_llstate {
 	u8 data[0];
 } __packed;
 
+struct cmd_sniffer_para {
+	u8 type;
+	u8 value;
+} __packed;
+
 const char *sc2355_cmdevt_cmd2str(u8 cmd);
 struct sprd_vif *sc2355_ctxid_to_vif(struct sprd_priv *priv, u8 vif_ctx_id);
 void sc2355_tdls_count_flow(struct sprd_vif *vif, u8 *data, u16 len);
@@ -1096,4 +1128,5 @@ int sc2355_vendor_init(struct wiphy *wiphy);
 int sc2355_vendor_deinit(struct wiphy *wiphy);
 int sc2355_dump_survey(struct wiphy *wiphy, struct net_device *ndev,
 		       int idx, struct survey_info *s_info);
+int sc2355_set_sniffer(struct net_device *ndev, struct ifreq *ifr);
 #endif

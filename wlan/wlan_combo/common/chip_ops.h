@@ -167,6 +167,7 @@ struct sprd_chip_ops {
 	int (*send_data_offset)(void);
 	void (*fc_add_share_credit)(struct sprd_vif *vif);
 	void (*defrag_recover)(struct sprd_vif *vif);
+	int (*set_sniffer)(struct net_device *ndev, struct ifreq *ifr);
 };
 
 static
@@ -898,6 +899,15 @@ static inline void sprd_defrag_recover(struct sprd_priv *priv,
 {
 	if (priv->chip.ops->defrag_recover)
 		return priv->chip.ops->defrag_recover(vif);
+}
+
+static inline int sprd_set_sniffer(struct sprd_priv *priv,
+				   struct net_device *ndev, struct ifreq *ifr)
+{
+	if (priv->chip.ops->set_sniffer)
+		return priv->chip.ops->set_sniffer(ndev, ifr);
+
+	return 0;
 }
 
 #endif

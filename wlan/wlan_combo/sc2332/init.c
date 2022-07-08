@@ -363,6 +363,7 @@ struct sprd_chip_ops sc2332_chip_ops = {
 #endif /* CONFIG_SPRD_WLAN_VENDOR_SPECIFIC */
 	.send_data = sc2332_send_data,
 	.send_data_offset = sc2332_send_data_offset,
+	.set_sniffer = sc2332_set_sniffer,
 };
 
 MODULE_DESCRIPTION("Spreadtrum SC2332 WLAN Driver");

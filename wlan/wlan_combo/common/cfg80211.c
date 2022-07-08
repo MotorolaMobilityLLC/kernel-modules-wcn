@@ -275,6 +275,9 @@ static enum sprd_mode cfg80211_type_to_mode(enum nl80211_iftype type, char *name
 	case NL80211_IFTYPE_P2P_DEVICE:
 		mode = SPRD_MODE_P2P_DEVICE;
 		break;
+	case NL80211_IFTYPE_MONITOR:
+		mode = SPRD_MODE_MONITOR;
+		break;
 	default:
 		mode = SPRD_MODE_NONE;
 		break;
@@ -438,6 +441,7 @@ int sprd_cfg80211_change_iface(struct wiphy *wiphy, struct net_device *ndev,
 
 	return ret;
 }
+EXPORT_SYMBOL(sprd_cfg80211_change_iface);
 
 int sprd_cfg80211_add_key(struct wiphy *wiphy, struct net_device *ndev,
 			  u8 key_index, bool pairwise, const u8 *mac_addr,
@@ -1512,6 +1516,7 @@ struct sprd_priv *sprd_core_create(struct sprd_chip_ops *chip_ops)
 	chip = &priv->chip;
 	chip->priv = priv;
 	chip->ops = chip_ops;
+	atomic_set(&priv->monitor_mode, 0);
 
 	sprd_cfg80211_ops_update(priv, &sprd_cfg80211_ops);
 
