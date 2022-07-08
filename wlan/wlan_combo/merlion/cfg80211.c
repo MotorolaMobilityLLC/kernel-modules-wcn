@@ -628,6 +628,9 @@ static int sprdwl_cfg80211_change_iface(struct wiphy *wiphy,
 		ret = sprdwl_init_fw(vif);
 		if (ret)
 			vif->wdev.iftype = old_type;
+	} else {
+		netdev_info(vif->ndev, "block command finished!, reset change_iface_block_cmd!\n");
+                atomic_set(&intf->change_iface_block_cmd, 0);
 	}
 
 	if (!ret && type == NL80211_IFTYPE_AP)
