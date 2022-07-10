@@ -590,7 +590,11 @@ static int mtty_tty_driver_init(struct mtty_device *device)
     tty_port_link_device(device->port, driver, 0);
     ret = tty_register_driver(driver);
     if (ret) {
+        #if(LINUX_VERSION_CODE >= KERNEL_VERSION(5,15,0))
         tty_driver_kref_put(driver);
+        #else
+        put_tty_driver(driver);
+        #endif
         tty_port_destroy(device->port);
         return ret;
     }
@@ -602,7 +606,11 @@ static void mtty_tty_driver_exit(struct mtty_device *device)
     struct tty_driver *driver = device->driver;
 
     tty_unregister_driver(driver);
+    #if(LINUX_VERSION_CODE >= KERNEL_VERSION(5,15,0))
     tty_driver_kref_put(driver);
+    #else
+    put_tty_driver(driver);
+    #endif
     tty_port_destroy(device->port);
 }
 
