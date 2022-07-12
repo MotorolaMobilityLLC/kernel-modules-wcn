@@ -202,7 +202,11 @@ static netdev_tx_t sprdwl_start_xmit(struct sk_buff *skb, struct net_device *nde
 
 	if (vif->priv->hw_type == SPRDWL_HW_SC2355_PCIE) {
 		dma_addr = PFN_PHYS(virt_to_pfn(skb->head)) + offset_in_page(skb->head);
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+		if (!dma_capable(wiphy_dev(vif->priv->wiphy), dma_addr, skb->len, true)) {
+#else
 		if (!dma_capable(wiphy_dev(vif->priv->wiphy), dma_addr, skb->len)) {
+#endif
 			/* current pa is lagrer than device dma mask
 			  * need to use dma buffer
 			  */
@@ -381,7 +385,11 @@ static struct net_device_stats *sprdwl_get_stats(struct net_device *ndev)
 	return &ndev->stats;
 }
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+static void sprdwl_tx_timeout(struct net_device *ndev, unsigned int txqueue)
+#else
 static void sprdwl_tx_timeout(struct net_device *ndev)
+#endif
 {
 	netdev_info(ndev, "%s\n", __func__);
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4, 14, 0)
@@ -405,7 +413,11 @@ static void sprdwl_tx_timeout(struct net_device *ndev)
 #define CMD_11V_WNM_SLEEP		"WNM_SLEEP"
 #define CMD_SET_MAX_CLIENTS		"MAX_STA"
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+static int sprdwl_priv_cmd(struct net_device *ndev, void __user *data)
+#else
 static int sprdwl_priv_cmd(struct net_device *ndev, struct ifreq *ifr)
+#endif
 {
 	int n_clients;
 	struct sprdwl_vif *vif = netdev_priv(ndev);
@@ -417,10 +429,17 @@ static int sprdwl_priv_cmd(struct net_device *ndev, struct ifreq *ifr)
 	u8 addr[ETH_ALEN] = {0}, *mac_addr = NULL, *tmp, *mac_list;
 	int ret = 0, skip, counter, index;
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+	if (!data)
+		return -EINVAL;
+	if (copy_from_user(&priv_cmd, data, sizeof(priv_cmd)))
+		return -EFAULT;
+#else
 	if (!ifr->ifr_data)
 		return -EINVAL;
 	if (copy_from_user(&priv_cmd, ifr->ifr_data, sizeof(priv_cmd)))
 		return -EFAULT;
+#endif
 
 	/*add length check to avoid invalid NULL ptr*/
 	if (!priv_cmd.total_len) {
@@ -607,7 +626,11 @@ out:
 	return ret;
 }
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+int sprdwl_set_miracast(struct net_device *ndev, void __user *data)
+#else
 int sprdwl_set_miracast(struct net_device *ndev, struct ifreq *ifr)
+#endif
 {
 	struct sprdwl_vif *vif = netdev_priv(ndev);
 	struct sprdwl_priv *priv = vif->priv;
@@ -616,10 +639,17 @@ int sprdwl_set_miracast(struct net_device *ndev, struct ifreq *ifr)
 	unsigned short subtype;
 	int ret = 0, value;
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+	if (!data)
+		return -EINVAL;
+	if (copy_from_user(&priv_cmd, data, sizeof(priv_cmd)))
+		return -EFAULT;
+#else
 	if (!ifr->ifr_data)
 		return -EINVAL;
 	if (copy_from_user(&priv_cmd, ifr->ifr_data, sizeof(priv_cmd)))
 		return -EINVAL;
+#endif
 
 	/*add length check to avoid invalid NULL ptr*/
 	if ((!priv_cmd.total_len) || (SPRDWL_MAX_CMD_TXLEN < priv_cmd.total_len)) {
@@ -646,8 +676,11 @@ out:
 	kfree(command);
 	return ret;
 }
-
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+static int sprdwl_set_power_save(struct net_device *ndev, void __user *data)
+#else
 static int sprdwl_set_power_save(struct net_device *ndev, struct ifreq *ifr)
+#endif
 {
 	struct sprdwl_vif *vif = netdev_priv(ndev);
 	struct sprdwl_priv *priv = vif->priv;
@@ -655,10 +688,17 @@ static int sprdwl_set_power_save(struct net_device *ndev, struct ifreq *ifr)
 	char *command = NULL;
 	int ret = 0, skip, value;
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+	if (!data)
+		return -EINVAL;
+	if (copy_from_user(&priv_cmd, data, sizeof(priv_cmd)))
+		return -EFAULT;
+#else
 	if (!ifr->ifr_data)
 		return -EINVAL;
 	if (copy_from_user(&priv_cmd, ifr->ifr_data, sizeof(priv_cmd)))
 		return -EFAULT;
+#endif
 
 	command = kmalloc(priv_cmd.total_len, GFP_KERNEL);
 	if (!command)
@@ -698,7 +738,11 @@ out:
 	return ret;
 }
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+static int sprdwl_set_tlv(struct net_device *ndev, void __user *data)
+#else
 static int sprdwl_set_tlv(struct net_device *ndev, struct ifreq *ifr)
+#endif
 {
 	struct sprdwl_vif *vif = netdev_priv(ndev);
 	struct sprdwl_priv *priv = vif->priv;
@@ -706,11 +750,17 @@ static int sprdwl_set_tlv(struct net_device *ndev, struct ifreq *ifr)
 	struct sprdwl_tlv_data *tlv;
 	int ret;
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+	if (!data)
+		return -EINVAL;
+	if (copy_from_user(&priv_cmd, data, sizeof(priv_cmd)))
+		return -EFAULT;
+#else
 	if (!ifr->ifr_data)
 		return -EINVAL;
-
 	if (copy_from_user(&priv_cmd, ifr->ifr_data, sizeof(priv_cmd)))
 		return -EFAULT;
+#endif
 
 	if (priv_cmd.total_len < sizeof(*tlv))
 		return -EINVAL;
@@ -762,7 +812,11 @@ out:
 	return ret;
 }
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+static int sprdwl_set_p2p_mac(struct net_device *ndev, void __user *data)
+#else
 static int sprdwl_set_p2p_mac(struct net_device *ndev, struct ifreq *ifr)
+#endif
 {
 	struct sprdwl_vif *vif = netdev_priv(ndev);
 	struct sprdwl_priv *priv = vif->priv;
@@ -771,10 +825,17 @@ static int sprdwl_set_p2p_mac(struct net_device *ndev, struct ifreq *ifr)
 	int ret = 0;
 	struct sprdwl_vif *tmp1, *tmp2;
 	u8 addr[ETH_ALEN] = {0};
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+	if (!data)
+			return -EINVAL;
+	if (copy_from_user(&priv_cmd, data, sizeof(priv_cmd)))
+			return -EFAULT;
+#else
 	if (!ifr->ifr_data)
 			return -EINVAL;
 	if (copy_from_user(&priv_cmd, ifr->ifr_data, sizeof(priv_cmd)))
 			return -EFAULT;
+#endif
 	command = kmalloc(priv_cmd.total_len, GFP_KERNEL);
 	if (!command)
 			return -ENOMEM;
@@ -816,7 +877,11 @@ static int sprdwl_set_p2p_mac(struct net_device *ndev, struct ifreq *ifr)
 		return ret;
 }
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+static int sprdwl_set_ndev_mac(struct net_device *ndev, void __user *data)
+#else
 static int sprdwl_set_ndev_mac(struct net_device *ndev, struct ifreq *ifr)
+#endif
 {
 	struct sprdwl_vif *vif = netdev_priv(ndev);
 	struct android_wifi_priv_cmd priv_cmd;
@@ -824,10 +889,17 @@ static int sprdwl_set_ndev_mac(struct net_device *ndev, struct ifreq *ifr)
 	int ret = 0;
 	u8 addr[ETH_ALEN] = { 0 };
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+	if (!data)
+		return -EINVAL;
+	if (copy_from_user(&priv_cmd, data, sizeof(priv_cmd)))
+		return -EFAULT;
+#else
 	if (!ifr->ifr_data)
 		return -EINVAL;
 	if (copy_from_user(&priv_cmd, ifr->ifr_data, sizeof(priv_cmd)))
 		return -EFAULT;
+#endif
 
 	/* add length check to avoid invalid NULL ptr */
 	if (!priv_cmd.total_len) {
@@ -872,6 +944,32 @@ out:
 #define SPRDWLSETTLV		(SIOCDEVPRIVATE + 7)
 #define SPRDWLSETNDEVMAC	(SIOCDEVPRIVATE + 8)
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+static int sprdwl_ioctl(struct net_device *ndev, struct ifreq *req, void __user *data,  int cmd)
+{
+	switch (cmd) {
+	case SPRDWLIOCTL:
+	case SPRDWLSETCOUNTRY:
+		return sprdwl_priv_cmd(ndev, data);
+	case SPRDWLSETMIRACAST:
+		netdev_err(ndev, "for vts test %d\n", cmd);
+		return sprdwl_set_miracast(ndev, data);
+	case SPRDWLSETFCC:
+	case SPRDWLSETSUSPEND:
+		return sprdwl_set_power_save(ndev, data);
+	case SPRDWLSETTLV:
+		return sprdwl_set_tlv(ndev, data);
+	case SPRDWLSETP2PMAC:
+		return sprdwl_set_p2p_mac(ndev, data);
+	case SPRDWLSETNDEVMAC:
+		return sprdwl_set_ndev_mac(ndev, data);
+	default:
+		netdev_err(ndev, "Unsupported IOCTL %d\n", cmd);
+		return -ENOTSUPP;
+	}
+	return 0;
+}
+#else
 static int sprdwl_ioctl(struct net_device *ndev, struct ifreq *req, int cmd)
 {
 	switch (cmd) {
@@ -897,6 +995,7 @@ static int sprdwl_ioctl(struct net_device *ndev, struct ifreq *req, int cmd)
 
 	return 0;
 }
+#endif
 
 static bool mc_address_changed(struct net_device *ndev)
 {
@@ -1058,7 +1157,11 @@ static struct net_device_ops sprdwl_netdev_ops = {
 	.ndo_start_xmit = sprdwl_start_xmit,
 	.ndo_get_stats = sprdwl_get_stats,
 	.ndo_tx_timeout = sprdwl_tx_timeout,
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+	.ndo_siocdevprivate = sprdwl_ioctl,
+#else
 	.ndo_do_ioctl = sprdwl_ioctl,
+#endif
 	.ndo_set_mac_address = sprdwl_set_mac,
 };
 
@@ -1402,7 +1505,11 @@ static void sprdwl_deinit_vif(struct sprdwl_vif *vif)
 		unsigned long timeout = jiffies + msecs_to_jiffies(1000);
 
 		do {
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+			usleep_range_state(2000, 2500, TASK_UNINTERRUPTIBLE);
+#else
 			usleep_range(2000, 2500);
+#endif
 			cnt++;
 			if (time_after(jiffies, timeout)) {
 				netdev_err(vif->ndev, "%s timeout cnt %d\n",
@@ -1516,7 +1623,11 @@ static struct sprdwl_vif *sprdwl_register_netdev(struct sprdwl_priv *priv,
 	sprdwl_set_mac_addr(vif, addr, ndev->dev_addr);
 
 	/* register new Ethernet interface */
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+	ret = cfg80211_register_netdevice(ndev);
+#else
 	ret = register_netdevice(ndev);
+#endif
 	if (ret) {
 		netdev_err(ndev, "failed to regitster netdev(%d)!\n", ret);
 		goto err;
@@ -1538,7 +1649,11 @@ static void sprdwl_unregister_netdev(struct sprdwl_vif *vif)
 	if (vif->priv->fw_capa & SPRDWL_CAPA_MC_FILTER)
 		kfree(vif->mc_filter);
 	sprdwl_deinit_vif(vif);
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+	cfg80211_unregister_netdevice(vif->ndev);
+#else
 	unregister_netdevice(vif->ndev);
+#endif
 }
 
 struct wireless_dev *sprdwl_add_iface(struct sprdwl_priv *priv,

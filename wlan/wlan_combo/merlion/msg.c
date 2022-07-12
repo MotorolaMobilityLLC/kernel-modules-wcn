@@ -63,13 +63,28 @@ void sprdwl_msg_deinit(struct sprdwl_msg_list *list)
 {
 	struct sprdwl_msg_buf *msg_buf;
 	struct sprdwl_msg_buf *pos;
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+	struct timespec64 txmsgftime1, txmsgftime2;
+#else
 	struct timespec txmsgftime1, txmsgftime2;
+#endif
 	unsigned long flags = 0;
 
 	atomic_add(SPRDWL_MSG_EXIT_VAL, &list->ref);
 	if (atomic_read(&list->ref) > SPRDWL_MSG_EXIT_VAL)
 		wl_err("%s ref not ok! wait for pop!\n", __func__);
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+	ktime_get_real_ts64(&txmsgftime1);
+while (atomic_read(&list->ref) > SPRDWL_MSG_EXIT_VAL) {
+		ktime_get_real_ts64(&txmsgftime2);
+		if (((unsigned long)(timespec64_to_ns(&txmsgftime2) -
+				     timespec64_to_ns(&txmsgftime1)) / 1000000) >
+		    3000)
+			break;
+		usleep_range_state(2000, 2500, TASK_UNINTERRUPTIBLE);
+	}
+#else
 	getnstimeofday(&txmsgftime1);
 	while (atomic_read(&list->ref) > SPRDWL_MSG_EXIT_VAL) {
 		getnstimeofday(&txmsgftime2);
@@ -79,6 +94,7 @@ void sprdwl_msg_deinit(struct sprdwl_msg_list *list)
 		usleep_range(2000, 2500);
 	}
 
+#endif
 	wl_info("%s list->ref ok!\n", __func__);
 
 	if (!list_empty(&list->busylist))

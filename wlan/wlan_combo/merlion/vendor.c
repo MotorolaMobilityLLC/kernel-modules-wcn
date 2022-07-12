@@ -3469,7 +3469,11 @@ static int sprdwl_parse_sae_entry(struct sprdwl_sae_entry *entry,
 			data_len = nla_len(pos);
 			entry->passwd_len = data_len;
 			if (entry->passwd_len <= MAX_PASSWORD_LEN) {
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+				nla_strscpy(entry->password, pos, data_len + 1);
+#else
 				nla_strlcpy(entry->password, pos, data_len + 1);
+#endif
 				wl_info("entry->passwd: %s, entry->len:%d\n", entry->password, entry->passwd_len);
 			} else {
 				wl_err("entry->passwd_len(%d) is more than expected\n", entry->passwd_len);
@@ -3479,7 +3483,11 @@ static int sprdwl_parse_sae_entry(struct sprdwl_sae_entry *entry,
 		case SPRDWL_VENDOR_SAE_IDENTIFIER:
 			data_len = nla_len(pos);
 			entry->id_len = data_len;
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+			nla_strscpy(entry->identifier, pos, data_len);
+#else
 			nla_strlcpy(entry->identifier, pos, data_len);
+#endif
 			break;
 		case SPRDWL_VENDOR_SAE_PEER_ADDR:
 			nla_memcpy(entry->peer_addr, pos, ETH_ALEN);
@@ -3663,8 +3671,13 @@ static int sprdwl_vendor_set_sae_password(struct wiphy *wiphy,
 
 		case SPRDWL_VENDOR_SAE_PWD:
 			passphrase_len = nla_len(pos);
-			nla_strlcpy(sae_para.passphrase, pos,
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+			nla_strscpy(sae_para.passphrase, pos,
 				    passphrase_len + 1);
+#else
+			nla_strlcpy(sae_para.passphrase, pos,
+                                    passphrase_len + 1);
+#endif
 			wl_info("pwd is :%s, len :%d\n", sae_para.passphrase,
 				passphrase_len);
 			break;

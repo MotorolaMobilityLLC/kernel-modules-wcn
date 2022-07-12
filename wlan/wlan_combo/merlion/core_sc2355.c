@@ -708,7 +708,11 @@ void sprdwl_debugfs_init(struct sprdwl_intf *intf)
 void sprdwl_debugfs_deinit(void)
 {
 	/* remove debugfs */
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+	debugfs_remove(sprdwl_debug_root);
+#else
 	debugfs_remove_recursive(sprdwl_debug_root);
+#endif
 }
 
 static int sprdwl_ini_download_status(void)
@@ -791,8 +795,11 @@ void config_wifi_ddr_priority(struct platform_device *pdev)
 		wl_err("wifi_ipaqos get_resource fail!\n");
 		return;
 	}
-
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+	ipa_qos_remap = (unsigned long long)ioremap(res->start, resource_size(res));
+#else
 	ipa_qos_remap = (unsigned long long)devm_ioremap_nocache(sprdwl_dev, res->start, resource_size(res));
+#endif
 	wl_debug("ipa_qos_remap=0x%llx\n", ipa_qos_remap);
 
 	/*IPA: 0x21040064*/

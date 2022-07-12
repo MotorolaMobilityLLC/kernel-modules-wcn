@@ -22,6 +22,7 @@
 #include <linux/list.h>
 #include <linux/spinlock.h>
 #include <asm/byteorder.h>
+#include <linux/version.h>
 
 /* 0 for cmd, 1 for event, 2 for data, 3 for mh data */
 enum sprdwl_head_type {

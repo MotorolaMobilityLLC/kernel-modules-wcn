@@ -46,6 +46,10 @@
 #include "qos.h"
 #endif
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+#include <linux/bitops.h>
+#endif
+
 #define RATETAB_ENT(_rate, _rateid, _flags)				\
 {									\
 	.bitrate	= (_rate),					\
@@ -1024,7 +1028,11 @@ static int sprdwl_cfg80211_change_beacon(struct wiphy *wiphy,
 	return sprdwl_change_beacon(vif, beacon);
 }
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+static int sprdwl_cfg80211_stop_ap(struct wiphy *wiphy, struct net_device *ndev, unsigned int link_id)
+#else
 static int sprdwl_cfg80211_stop_ap(struct wiphy *wiphy, struct net_device *ndev)
+#endif
 {
 #ifdef DFS_MASTER
 	struct sprdwl_vif *vif = netdev_priv(ndev);
@@ -2461,7 +2469,11 @@ void sprdwl_report_connection(struct sprdwl_vif *vif,
 		 conn_info->status == SPRDWL_ROAM_SUCCESS){
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0)
 		struct cfg80211_roam_info roam_info = {
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+			.links[0].bss = bss,
+#else
 			.bss = bss,
+#endif
 			.req_ie = conn_info->req_ie,
 			.req_ie_len = conn_info->req_ie_len,
 			.resp_ie = conn_info->resp_ie,
@@ -2774,6 +2786,56 @@ static int sprdwl_cfg80211_mgmt_tx(struct wiphy *wiphy,
 	return ret;
 }
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+static void sprdwl_cfg80211_mgmt_frame_register(struct wiphy *wiphy,
+				       struct wireless_dev *wdev,
+				       struct mgmt_frame_regs *upd)
+{
+	struct sprdwl_vif *vif = container_of(wdev, struct sprdwl_vif, wdev);
+	struct sprdwl_work *misc_work;
+	struct sprdwl_reg_mgmt *reg_mgmt;
+	unsigned long new_mask, old_mask, change_mask;
+	u16 frame_type;
+	bool reg;
+	int i = 0;
+
+	if (vif->mode == SPRDWL_MODE_NONE)
+		return;
+
+	new_mask = upd->interface_stypes;
+	old_mask = vif->mgmt_reg;
+	if (new_mask == old_mask)
+		return;
+	//to calculate register or unregister,and management type
+	//old_mask > new_mask:unregister;old_mask < new_mask:register
+
+	change_mask = new_mask ^ old_mask;
+	vif->mgmt_reg = new_mask;
+	for_each_set_bit(i, &change_mask, MGMT_REG_MASK_BIT)  {
+		if(test_bit(i, &old_mask))
+			reg = 0;
+		else
+			reg = 1;
+
+		frame_type = i << 4;
+		netdev_info(wdev->netdev, "frame_type %d, reg %d\n", frame_type, reg);
+		misc_work = sprdwl_alloc_work(sizeof(*reg_mgmt));
+		if (!misc_work) {
+			netdev_err(wdev->netdev, "%s out of memory\n", __func__);
+			return;
+		}
+
+		misc_work->vif = vif;
+		misc_work->id = SPRDWL_WORK_REG_MGMT;
+
+		reg_mgmt = (struct sprdwl_reg_mgmt *)misc_work->data;
+		reg_mgmt->type = frame_type;
+		reg_mgmt->reg = reg;
+
+		sprdwl_queue_work(vif->priv, misc_work);
+	}
+}
+#else
 static void sprdwl_cfg80211_mgmt_frame_register(struct wiphy *wiphy,
 						struct wireless_dev *wdev,
 						u16 frame_type, bool reg)
@@ -2811,6 +2873,7 @@ static void sprdwl_cfg80211_mgmt_frame_register(struct wiphy *wiphy,
 
 	sprdwl_queue_work(vif->priv, misc_work);
 }
+#endif
 
 void sprdwl_report_remain_on_channel_expired(struct sprdwl_vif *vif)
 {
@@ -2845,7 +2908,11 @@ void sprdwl_report_rx_mgmt(struct sprdwl_vif *vif, u8 chan, const u8 *buf,
 						IEEE80211_BAND_5GHZ);
 #endif
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+	ret = cfg80211_rx_mgmt_khz(&vif->wdev, MHZ_TO_KHZ(freq), 0, buf, len, GFP_ATOMIC);
+#else
 	ret = cfg80211_rx_mgmt(&vif->wdev, freq, 0, buf, len, GFP_ATOMIC);
+#endif
 	if (!ret)
 		netdev_err(vif->ndev, "%s unregistered frame!", __func__);
 }
@@ -3366,7 +3433,11 @@ static struct cfg80211_ops sprdwl_cfg80211_ops = {
 	.remain_on_channel = sprdwl_cfg80211_remain_on_channel,
 	.cancel_remain_on_channel = sprdwl_cfg80211_cancel_remain_on_channel,
 	.mgmt_tx = sprdwl_cfg80211_mgmt_tx,
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+	.update_mgmt_frame_registrations = sprdwl_cfg80211_mgmt_frame_register,
+#else
 	.mgmt_frame_register = sprdwl_cfg80211_mgmt_frame_register,
+#endif
 	.set_power_mgmt = sprdwl_cfg80211_set_power_mgmt,
 	.set_cqm_rssi_config = sprdwl_cfg80211_set_cqm_rssi_config,
 	.sched_scan_start = sprdwl_cfg80211_sched_scan_start,

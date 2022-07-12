@@ -306,7 +306,11 @@ static void sprdwl_flush_data_txlist(struct sprdwl_tx_msg *tx_msg)
 					       lockflag_txfree);
 			goto out;
 		}
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+		usleep_range_state(2500, 3000, TASK_UNINTERRUPTIBLE);
+#else
 		usleep_range(2500, 3000);
+#endif
 		cnt++;
 	}
 out:
@@ -503,7 +507,11 @@ static void sprdwl_sdio_flush_txlist(struct sprdwl_msg_list *list)
 	/*wait until cmd list sent completely and freed by HIF*/
 	while (!list_empty(&list->cmd_to_free) && (cnt < 1000)) {
 		wl_debug("%s cmd not yet transmited", __func__);
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+		usleep_range_state(2500, 3000, TASK_UNINTERRUPTIBLE);
+#else
 		usleep_range(2500, 3000);
+#endif
 		cnt++;
 	}
 	while ((msgbuf = sprdwl_peek_msg_buf(list))) {
@@ -900,10 +908,18 @@ void sprdwl_handle_tx_return(struct sprdwl_tx_msg *tx_msg,
 		//       __func__, ret);
 		atomic_sub(send_num, &list->ref);
 		wl_info("%s,%d,debug: %d\n", __func__, __LINE__, atomic_read(&list->ref));
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+		usleep_range_state(100, 200, TASK_UNINTERRUPTIBLE);
+#else
 		usleep_range(100, 200);
+#endif
 		return;
 	} else if (ret < 0) {
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+		usleep_range_state(100, 200, TASK_UNINTERRUPTIBLE);
+#else
 		usleep_range(100, 200);
+#endif
 		return;
 	} else {
 		//atomic_sub(send_num, &list->ref);
@@ -1318,7 +1334,11 @@ void prepare_addba(struct sprdwl_intf *intf, unsigned char lut_index,
 		peer_entry->ht_enable &&
 		peer_entry->vowifi_enabled != 1 &&
 		!test_bit(tid, &peer_entry->ba_tx_done_map)) {
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+		struct timespec64 time;
+#else
 		struct timespec time;
+#endif
 		struct sprdwl_vif *vif;
 
 		vif = ctx_id_to_vif(intf->priv, peer_entry->ctx_id);
@@ -1333,7 +1353,19 @@ void prepare_addba(struct sprdwl_intf *intf, unsigned char lut_index,
 			if (!peer_entry->ip_acquired)
 				return;
 		}
-
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+		ktime_get_real_ts64(&time);
+		/*need to delay 3s if priv addba failed */
+		if (((timespec64_to_ns(&time) -
+		      timespec64_to_ns(&peer_entry->time[tid])) / 1000000) > 3000 ||
+		      peer_entry->time[tid].tv_nsec == 0) {
+			wl_info("%s, %d, tx_addba, tid=%d\n", __func__,
+				__LINE__, tid);
+			ktime_get_real_ts64(&peer_entry->time[tid]);
+			test_and_set_bit(tid, &peer_entry->ba_tx_done_map);
+			sprdwl_tx_addba(intf, peer_entry, tid);
+		}
+#else
 		getnstimeofday(&time);
 		/*need to delay 3s if priv addba failed*/
 		if (((timespec_to_ns(&time) - timespec_to_ns(&peer_entry->time[tid]))/1000000) > 3000 ||
@@ -1344,6 +1376,7 @@ void prepare_addba(struct sprdwl_intf *intf, unsigned char lut_index,
 			test_and_set_bit(tid, &peer_entry->ba_tx_done_map);
 			sprdwl_tx_addba(intf, peer_entry, tid);
 		}
+#endif
 	}
 }
 
@@ -1502,7 +1535,11 @@ static int sprdwl_tx_work_queue(void *data)
 		if (intf->exit) {
 			if (kthread_should_stop())
 				return 0;
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+			usleep_range_state(50, 100, TASK_UNINTERRUPTIBLE);
+#else
 			usleep_range(50, 100);
+#endif
 			continue;
 		} else
 			tx_down(tx_msg);
@@ -1517,7 +1554,11 @@ static int sprdwl_tx_work_queue(void *data)
 			printk_ratelimited("sc2355, %s, hang happened\n", __func__);
 			if (sprdwl_msg_tx_pended(&tx_msg->tx_list_cmd))
 				sprdwl_tx_cmd(intf, &tx_msg->tx_list_cmd);
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+			usleep_range_state(50, 100, TASK_UNINTERRUPTIBLE);
+#else
 			usleep_range(50, 100);
+#endif
 			continue;
 		}
 
@@ -1525,14 +1566,22 @@ static int sprdwl_tx_work_queue(void *data)
 			printk_ratelimited("sc2355, %s, THERMAL_WIFI_DOWN\n", __func__);
 			if (sprdwl_msg_tx_pended(&tx_msg->tx_list_cmd))
 				sprdwl_tx_cmd(intf, &tx_msg->tx_list_cmd);
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+			usleep_range_state(50, 100, TASK_UNINTERRUPTIBLE);
+#else
 			usleep_range(50, 100);
+#endif
 			continue;
 		}
 		if (tx_msg->thermal_status == THERMAL_TX_STOP) {
 			printk_ratelimited("sc2355, %s, THERMAL_TX_STOP\n", __func__);
 			if (sprdwl_msg_tx_pended(&tx_msg->tx_list_cmd))
 				sprdwl_tx_cmd(intf, &tx_msg->tx_list_cmd);
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+			usleep_range_state(50, 100, TASK_UNINTERRUPTIBLE);
+#else
 			usleep_range(50, 100);
+#endif
 			continue;
 		}
 
@@ -1580,19 +1629,31 @@ static int sprdwl_tx_work_queue(void *data)
 
 		if (intf->fw_awake == 0) {
 			printk_ratelimited("sc2355, %s, fw_awake = 0\n", __func__);
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+			usleep_range_state(50, 100, TASK_UNINTERRUPTIBLE);
+#else
 			usleep_range(50, 100);
+#endif
 			continue;
 		}
 
 		if (intf->suspend_mode != SPRDWL_PS_RESUMED) {
 			printk_ratelimited("sc2355, %s, suspend_mode != RESUMED\n", __func__);
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+			usleep_range_state(50, 100, TASK_UNINTERRUPTIBLE);
+#else
 			usleep_range(50, 100);
+#endif
 			continue;
 		}
 
 		if (!list_empty(&tx_msg->xmit_msg_list.to_send_list)) {
 			if (sprdwl_handle_to_send_list(intf, tx_msg->xmit_msg_list.mode)) {
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+				usleep_range_state(590, 610, TASK_UNINTERRUPTIBLE);
+#else
 				usleep_range(590, 610);
+#endif
 				continue;
 			}
 		}
@@ -1620,17 +1681,29 @@ static int sprdwl_tx_work_queue(void *data)
 		if (priv->is_screen_off == 1 &&
 			(priv->hw_type == SPRDWL_HW_SC2355_PCIE ||
 			priv->hw_type == SPRDWL_HW_SIPC)) {
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+			usleep_range_state(590, 610, TASK_UNINTERRUPTIBLE);
+#else
 			usleep_range(590, 610);
+#endif
 			continue;
 		}
 		if (need_polling) {
 			/* retry to wait credit */
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+			usleep_range_state(10, 15, TASK_UNINTERRUPTIBLE);
+#else
 			usleep_range(10, 15);
+#endif
 			polling_times = 0;
 			while (polling_times < TX_MAX_POLLING) {
 				/* do not go to sleep immidiately */
 				polling_times++;
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+				usleep_range_state(30, 50, TASK_UNINTERRUPTIBLE);
+#else
 				usleep_range(30, 50);
+#endif
 			}
 		}
 	}

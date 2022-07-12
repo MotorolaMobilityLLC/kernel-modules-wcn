@@ -100,22 +100,41 @@ void sipc_buf_mm_deinit(struct sprdwl_msg_list *list)
 {
 	struct sipc_buf_node *node;
 	struct sipc_buf_node *pos;
-	struct timespec txmsgftime1, txmsgftime2;
-	memset(&txmsgftime1, 0, sizeof(struct timespec));
-	memset(&txmsgftime2, 0, sizeof(struct timespec));
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+	struct timespec64 txmsgftime1, txmsgftime2;
+
+	memset(&txmsgftime1, 0, sizeof(struct timespec64));
+	memset(&txmsgftime2, 0, sizeof(struct timespec64));
 	atomic_add(SPRDWL_NODE_EXIT_VAL, &list->ref);
 	if (atomic_read(&list->ref) > SPRDWL_NODE_EXIT_VAL)
 		wl_err("%s ref not ok! wait for pop!\n", __func__);
 
-	getnstimeofday(&txmsgftime1);
+	ktime_get_real_ts64(&txmsgftime1);
 	while (atomic_read(&list->ref) > SPRDWL_NODE_EXIT_VAL) {
-		getnstimeofday(&txmsgftime2);
-		if (((unsigned long)(timespec_to_ns(&txmsgftime2) -
-			timespec_to_ns(&txmsgftime1))/1000000) > 3000)
+		ktime_get_real_ts64(&txmsgftime2);
+		if (((unsigned long)(timespec64_to_ns(&txmsgftime2) -
+			timespec64_to_ns(&txmsgftime1))/1000000) > 3000)
 			break;
-		usleep_range(2000, 2500);
+		usleep_range_state(2000, 2500, TASK_UNINTERRUPTIBLE);
 	}
+#else
+	 struct timespec txmsgftime1, txmsgftime2;
 
+        memset(&txmsgftime1, 0, sizeof(struct timespec));
+        memset(&txmsgftime2, 0, sizeof(struct timespec));
+        atomic_add(SPRDWL_NODE_EXIT_VAL, &list->ref);
+        if (atomic_read(&list->ref) > SPRDWL_NODE_EXIT_VAL)
+                wl_err("%s ref not ok! wait for pop!\n", __func__);
+
+        getnstimeofday(&txmsgftime1);
+        while (atomic_read(&list->ref) > SPRDWL_NODE_EXIT_VAL) {
+                getnstimeofday(&txmsgftime2);
+                if (((unsigned long)(timespec_to_ns(&txmsgftime2) -
+                        timespec_to_ns(&txmsgftime1))/1000000) > 3000)
+                        break;
+                usleep_range(2000, 2500);
+        }
+#endif
 	wl_info("%s list->ref ok!\n", __func__);
 
 	list_for_each_entry_safe(node, pos, &list->busylist, list) {
@@ -270,8 +289,11 @@ void *sipc_pkt_txrx_mm(phys_addr_t start, size_t size)
 		addr = page_start + i * PAGE_SIZE;
 		pages[i] = pfn_to_page(addr >> PAGE_SHIFT);
 	}
-
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+	vaddr = vmap(pages, page_count, VM_MAP, prot) + offset_in_page(start);
+#else
 	vaddr = vm_map_ram(pages, page_count, -1, prot) + offset_in_page(start);
+#endif
 	kfree(pages);
 	return vaddr;
 }

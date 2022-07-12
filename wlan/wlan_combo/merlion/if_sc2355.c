@@ -160,11 +160,18 @@ void sprdwl_clear_stats(struct sprdwl_intf *intf)
 void sprdwl_get_tx_avg_time(struct sprdwl_intf *intf,
 			    unsigned long tx_start_time)
 {
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+	struct timespec64 tx_end;
+
+	ktime_get_real_ts64(&tx_end);
+	intf->stats.tx_cost_time += timespec64_to_ns(&tx_end) - tx_start_time;
+#else
 	struct timespec tx_end;
 
 	getnstimeofday(&tx_end);
 	intf->stats.tx_cost_time +=
 	timespec_to_ns(&tx_end) - tx_start_time;
+#endif
 	if (intf->stats.gap_num >= STATS_COUNT) {
 		intf->stats.tx_avg_time =
 		intf->stats.tx_cost_time / intf->stats.gap_num;
@@ -1837,7 +1844,11 @@ int sprdwl_suspend_resume_handle(int chn, int mode)
 	struct sprdwl_tx_msg *tx_msg = (struct sprdwl_tx_msg *)intf->sprdwl_tx;
 	int ret;
 	struct sprdwl_vif *vif;
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+	struct timespec64 time;
+#else
 	struct timespec time;
+#endif
 	enum sprdwl_mode sprdwl_mode = SPRDWL_MODE_STATION;
 	u8 mode_found = 0;
 
@@ -1873,8 +1884,13 @@ int sprdwl_suspend_resume_handle(int chn, int mode)
 		}
 		priv->wakeup_tracer.resume_flag = 0;
 		intf->suspend_mode = SPRDWL_PS_SUSPENDING;
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+		ktime_get_real_ts64(&time);
+		intf->sleep_time = timespec64_to_ns(&time);
+#else
 		getnstimeofday(&time);
 		intf->sleep_time = timespec_to_ns(&time);
+#endif
 		priv->is_suspending = 1;
 		ret = sprdwl_power_save(priv,
 					vif->ctx_id,
@@ -1889,8 +1905,13 @@ int sprdwl_suspend_resume_handle(int chn, int mode)
 	} else if (mode == 1) {
 		intf->suspend_mode = SPRDWL_PS_RESUMING;
 		priv->wakeup_tracer.resume_flag = 1;
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+		ktime_get_real_ts64(&time);
+		intf->sleep_time = timespec64_to_ns(&time) - intf->sleep_time;
+#else
 		getnstimeofday(&time);
 		intf->sleep_time = timespec_to_ns(&time) - intf->sleep_time;
+#endif
 		ret = sprdwl_power_save(priv,
 					vif->ctx_id,
 					SPRDWL_SUSPEND_RESUME,
