@@ -86,19 +86,27 @@ static int npi_nl_handler(struct sk_buff *skb_2, struct genl_info *info)
 		pr_err("%s: invalid content\n", __func__);
 		return -EPERM;
 	}
-	r_buf = kmalloc(1024, GFP_KERNEL);
-	if (!r_buf)
-		return -ENOMEM;
 
 	s_buf = nla_data(info->attrs[SPRD_NL_ATTR_AP2CP]);
 	s_len = nla_len(info->attrs[SPRD_NL_ATTR_AP2CP]);
+	if (s_len < sizeof(struct sprd_npi_cmd_hdr)) {
+		pr_err("%s: invalid hdr\n", __func__);
+		return -EPERM;
+	}
+
+	r_buf = kmalloc(1024, GFP_KERNEL);
+	if (!r_buf)
+		return -ENOMEM;
 
 	sprintf(dbgstr, "[iwnpi][SEND][%d]:", s_len);
 	hdr = (struct sprd_npi_cmd_hdr *)s_buf;
 	pr_err("%s type is %d, subtype %d\n", dbgstr, hdr->type, hdr->subtype);
 
 	if (hdr->subtype == SPRD_NPI_CMD_SET_COUNTRY) {
-		char *country = s_buf + sizeof(struct sprd_npi_cmd_hdr);
+		char *country;
+		if (s_len < (sizeof(struct sprd_npi_cmd_hdr) + 2 * sizeof(char)))
+			goto out;
+		country = s_buf + sizeof(struct sprd_npi_cmd_hdr);
 		/*no need send npi command to firmware*/
 		pr_err("%s show country code : %c%c\n", __func__, country[0], country[1]);
 		err = regulatory_hint(priv->wiphy, country);
@@ -115,7 +123,10 @@ static int npi_nl_handler(struct sk_buff *skb_2, struct genl_info *info)
 		r_len = strlen(r_buf);
 		pr_err("r_len = %d, %s\n", r_len, __func__);
 	} else if (hdr->subtype == SPRD_NPI_CMD_SET_RANDOM_MAC) {
-		char *rand_mac = s_buf + sizeof(struct sprd_npi_cmd_hdr);
+		char *rand_mac;
+		if (s_len < (sizeof(struct sprd_npi_cmd_hdr) + sizeof(char)))
+			goto out;
+		rand_mac = s_buf + sizeof(struct sprd_npi_cmd_hdr);
 		priv->rand_mac_flag = *((unsigned int *)rand_mac);
 		pr_err("%s NPI random mac flag%d\n", dbgstr, priv->rand_mac_flag);
 		hdr->len = sizeof(int);
@@ -135,6 +146,7 @@ static int npi_nl_handler(struct sk_buff *skb_2, struct genl_info *info)
 	ret = npi_nl_send_generic(info, SPRD_NL_ATTR_CP2AP,
 				  SPRD_NL_CMD_NPI, r_len, r_buf);
 
+out:
 	kfree(r_buf);
 	return ret;
 }

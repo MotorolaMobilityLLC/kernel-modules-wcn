@@ -1682,9 +1682,16 @@ static int vendor_set_bssid_hotlist(struct wiphy *wiphy,
 					type = nla_type(inner_iter);
 					switch (type) {
 					case GSCAN_ATTR_CONFIG_AP_THR_BSSID:
-					    memcpy(bssid_hotlist_params->ap[i].bssid,
-						   nla_data(inner_iter),
-						   6 * sizeof(unsigned char));
+						if (nla_len(inner_iter) < 6 * sizeof(unsigned char)) {
+							netdev_err(vif->ndev,
+								"nla_data for networks nla type 0x%x not support\n",
+								type);
+							ret = -EINVAL;
+						} else {
+							memcpy(bssid_hotlist_params->ap[i].bssid,
+								nla_data(inner_iter),
+								6 * sizeof(unsigned char));
+						}
 					break;
 
 					case GSCAN_ATTR_CONFIG_AP_THR_RSSI_LOW:
@@ -1836,9 +1843,16 @@ static int vendor_set_significant_change(struct wiphy *wiphy,
 				type = nla_type(inner_iter);
 				switch (type) {
 				case GSCAN_ATTR_CONFIG_AP_THR_BSSID:
-					memcpy(significant_change_params->ap[i].bssid,
-					       nla_data(inner_iter),
-					       6 * sizeof(unsigned char));
+					if (nla_len(inner_iter) < 6 * sizeof(unsigned char)) {
+						netdev_err(vif->ndev,
+							"nla_data for networks nla type 0x%x not support\n",
+							type);
+						ret = -EINVAL;
+					} else {
+						memcpy(significant_change_params->ap[i].bssid,
+							nla_data(inner_iter),
+							6 * sizeof(unsigned char));
+					}
 				break;
 
 				case GSCAN_ATTR_CONFIG_AP_THR_RSSI_LOW:
@@ -2104,6 +2118,12 @@ static int vendor_set_mac_oui(struct wiphy *wiphy,
 		type = nla_type(pos);
 		switch (type) {
 		case ATTR_SET_SCANNING_MAC_OUI:
+			if (nla_len(pos) < sizeof(struct v_MACADDR_t)) {
+				netdev_err(vif->ndev, "nla_data for nla type 0x%x not support\n",
+					type);
+				ret = -EINVAL;
+				goto out;
+			}
 			memcpy(rand_mac, nla_data(pos), 3);
 			break;
 
@@ -2462,6 +2482,8 @@ static int vendor_set_roam_params(struct wiphy *wiphy,
 			pr_info("black list mac addr:%pM\n",
 				black_params.black_list[i].MAC_addr);
 			i++;
+			if (i >= MAX_BLACK_BSSID)
+				goto fail;
 		}
 		black_params.num_black_bssid = i;
 		/* send black list with roam_params CMD */

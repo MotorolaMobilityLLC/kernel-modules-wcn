@@ -587,6 +587,7 @@ static int iface_priv_cmd(struct net_device *ndev, struct ifreq *ifr)
 	u8 feat = 0, status = 0;
 	u8 addr[ETH_ALEN] = { 0 }, *mac_addr = NULL, *tmp, *mac_list;
 	int ret = 0, skip, counter, index;
+	#define MAC_ADDR_STR_LEN strlen("00:11:22:33:44:55")
 
 	if (!ifr->ifr_data)
 		return -EINVAL;
@@ -611,6 +612,8 @@ static int iface_priv_cmd(struct net_device *ndev, struct ifreq *ifr)
 	if (!strncasecmp(command, CMD_BLACKLIST_ENABLE,
 			 strlen(CMD_BLACKLIST_ENABLE))) {
 		skip = strlen(CMD_BLACKLIST_ENABLE) + 1;
+		if (priv_cmd.total_len < skip + MAC_ADDR_STR_LEN)
+			goto out;
 		iface_str2mac(command + skip, addr);
 		if (!is_valid_ether_addr(addr))
 			goto out;
@@ -815,6 +818,8 @@ static int iface_set_power_save(struct net_device *ndev, struct ifreq *ifr)
 	if (!strncasecmp(command, CMD_SETSUSPENDMODE,
 			 strlen(CMD_SETSUSPENDMODE))) {
 		skip = strlen(CMD_SETSUSPENDMODE) + 1;
+		if (priv_cmd.total_len <= skip)
+			goto out;
 		ret = kstrtoint(command + skip, 0, &value);
 		if (ret)
 			goto out;
