@@ -581,9 +581,15 @@ void sprdwl_sipc_txrx_buf_deinit(struct sprdwl_intf *intf)
 
 void *sipc_fill_mbuf(void *data, unsigned int len)
 {
-	void *buf = kmalloc(len, GFP_KERNEL);
-	if (buf)
-		memcpy(buf, data, len);
+	void *buf = NULL;
+	buf = kmalloc(len, GFP_KERNEL);
+
+	if (buf == NULL) {
+		wl_err("%s:buf is NULL.\n", __func__);
+		return NULL;
+	}
+
+	memcpy(buf, data, len);
 
 	return buf;
 }

@@ -1322,15 +1322,6 @@ static int sprdwl_sc2355_rx_handle(int chn, struct mbuf_t *head, struct mbuf_t *
 		msg->data = msg->tran_data + intf->hif_offset;
 		//pos->buf = NULL;
 
-		if (intf->priv->hw_type == SPRDWL_HW_SIPC) {
-#ifdef SIPC_SUPPORT
-			msg->buffer_type = SPRDWL_RSERVE_MEM;
-			msg->tran_data = sipc_fill_mbuf(pos->buf, pos->len);
-			msg->data = msg->tran_data;
-#endif
-		}
-		sprdwl_queue_msg_buf(msg, &rx_if->rx_list);
-
 		/*add this for debugging cmd timeout*/
 #ifdef SIPC_SUPPORT
 		if (SIPC_WIFI_CMD_RX == chn &&
@@ -1340,7 +1331,22 @@ static int sprdwl_sc2355_rx_handle(int chn, struct mbuf_t *head, struct mbuf_t *
 			sprdwl_hex_dump("CMD", (unsigned char *)(msg->data), 12);
 			wl_info("%s rsp_event_cnt %d\n", __func__, rx_if->rsp_event_cnt);
 		}
+
+		if (intf->priv->hw_type == SPRDWL_HW_SIPC) {
+
+			msg->buffer_type = SPRDWL_RSERVE_MEM;
+			msg->tran_data = sipc_fill_mbuf(pos->buf, pos->len);
+			msg->data = msg->tran_data;
+		}
+
+		if (msg->tran_data == NULL) {
+			wl_err("%s tran_data is NULL!\n", __func__);
+			sprdwl_dequeue_msg_buf(msg, &rx_if->rx_list);
+			continue;
+		}
 #endif
+		sprdwl_queue_msg_buf(msg, &rx_if->rx_list);
+
 	}
 
 #if 0
