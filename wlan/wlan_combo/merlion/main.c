@@ -412,6 +412,8 @@ static void sprdwl_tx_timeout(struct net_device *ndev)
 #define CMD_11V_SET_CFG			"11VCFG_SET"
 #define CMD_11V_WNM_SLEEP		"WNM_SLEEP"
 #define CMD_SET_MAX_CLIENTS		"MAX_STA"
+#define CMD_BT_COEX_MODE		"BTCOEXMODE"
+#define CMD_BT_COEX_SCAN		"BTCOEXSCAN"
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
 static int sprdwl_priv_cmd(struct net_device *ndev, void __user *data)
@@ -617,6 +619,14 @@ static int sprdwl_priv_cmd(struct net_device *ndev, struct ifreq *ifr)
 		}
 		ret = sprdwl_set_max_clients_allowed(priv, vif->ctx_id,
 						     n_clients);
+	} else if (!strncasecmp(command, CMD_BT_COEX_MODE,
+			strlen(CMD_BT_COEX_MODE))) {
+		netdev_info(ndev, "%s recieved command BTCOEXMODE", __func__);
+		ret = 0;
+	} else if (!strncasecmp(command, CMD_BT_COEX_SCAN,
+			strlen(CMD_BT_COEX_SCAN))) {
+		netdev_info(ndev, "%s recieved command BTCOEXSCAN", __func__);
+		ret = 0;
 	} else {
 		netdev_err(ndev, "%s command not support\n", __func__);
 		ret = -ENOTSUPP;
