@@ -170,6 +170,7 @@ static netdev_tx_t sprdwl_start_xmit(struct sk_buff *skb, struct net_device *nde
 	struct sprdwl_intf *intf = (struct sprdwl_intf *)vif->priv->hw_priv;
 	u8 *data_temp;
 	struct sprdwl_eap_hdr *eap_temp;
+	unsigned int skb_len = 0;
 
 	if (intf->suspend_mode != SPRDWL_PS_RESUMED) {
 		wl_err("not resumed, drop skb\n");
@@ -298,7 +299,7 @@ static netdev_tx_t sprdwl_start_xmit(struct sk_buff *skb, struct net_device *nde
 	 * sockets.
 	 */
 	sk_pacing_shift_update(skb->sk, intf->tsq_shift);
-
+	skb_len = skb->len;
 #if !defined(SC2355_FTR)
 	/* sprdwl_send_data: offset use 2 for cp bytes align */
 	ret = sprdwl_send_data(vif, msg, skb, 2);
@@ -315,13 +316,15 @@ static netdev_tx_t sprdwl_start_xmit(struct sk_buff *skb, struct net_device *nde
 		return NETDEV_TX_OK;
 	}
 
-	vif->ndev->stats.tx_bytes += skb->len;
+	vif->ndev->stats.tx_bytes += skb_len;
 	vif->ndev->stats.tx_packets++;
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4, 14, 0)
 	ndev->trans_start = jiffies;
 #endif
+#if 0
 	print_hex_dump_debug("TX packet: ", DUMP_PREFIX_OFFSET,
 			     16, 1, skb->data, skb->len, 0);
+#endif
 out:
 	return NETDEV_TX_OK;
 }
