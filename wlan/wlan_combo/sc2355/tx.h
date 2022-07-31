@@ -285,6 +285,9 @@ int sc2355_reset_self(struct sprd_priv *priv);
 #endif
 void sc2355_tx_drop_tcp_msg(struct sprd_chip *chip, struct sprd_msg *msg);
 int sc2355_sdio_process_credit(struct sprd_hif *hif, void *data);
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 15, 0))
+int sc2355_set_thread_uclamp(struct task_struct *thread, int sched_util_min);
+#endif
 int sc2355_tx_init(struct sprd_hif *hif);
 void sc2355_tx_deinit(struct sprd_hif *hif);
 int sprd_tx_filter_packet(struct sk_buff *skb, struct net_device *ndev);

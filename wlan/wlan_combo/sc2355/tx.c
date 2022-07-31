@@ -784,7 +784,15 @@ static int sc2355_tx_thread(void *data)
 		sc2355_tx_down(tx_mgmt);
 		if (unlikely(tx_mgmt->tx_thread_exit))
 			goto exit;
-
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 15, 0))
+                if (throughput_static.uclamp_set_flag && throughput_static.throughput_curent >= DISABLE_PD_THRESHOLD) {
+                        sc2355_set_thread_uclamp(tx_mgmt->tx_thread, 400);
+                        throughput_static.uclamp_set_flag = false;
+                } else if (!throughput_static.uclamp_set_flag && throughput_static.throughput_curent < DISABLE_PD_THRESHOLD) {
+                        sc2355_set_thread_uclamp(tx_mgmt->tx_thread, 0);
+                        throughput_static.uclamp_set_flag = true;
+                }
+#endif
 		tx_work_queue(tx_mgmt);
 	}
 
@@ -1929,7 +1937,27 @@ void sc2355_tx_up(struct tx_mgmt *tx_mgmt)
 {
 	complete(&tx_mgmt->tx_completed);
 }
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 15, 0)
+//set uclamp params for bug 1959864
+int sc2355_set_thread_uclamp(struct task_struct *thread, int sched_util_min)
+{
+	struct sched_attr attr = {};
+	int ret = 0;
 
+	if (!thread) {
+		pr_err("%s: failed to set sched attr point thread null\n",__func__);
+		return -1;
+	}
+	attr.sched_policy = thread->policy;
+	if (thread->sched_reset_on_fork)
+		attr.sched_flags |= SCHED_FLAG_RESET_ON_FORK;
+	attr.sched_flags |= (SCHED_FLAG_KEEP_ALL | SCHED_FLAG_UTIL_CLAMP_MIN);
+	attr.sched_util_min = sched_util_min;
+	ret = sched_setattr(thread,&attr);
+
+	return ret;
+}
+#endif
 int sc2355_tx_init(struct sprd_hif *hif)
 {
 	int ret = 0;

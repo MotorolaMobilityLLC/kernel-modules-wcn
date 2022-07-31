@@ -38,7 +38,9 @@
 struct throughput_sta {
 	unsigned long tx_bytes;
 	unsigned long last_time;
+	unsigned long throughput_curent;
 	bool disable_pd_flag;
+	bool uclamp_set_flag;
 	struct  pm_qos_request pm_qos_request_idle;
 };
 
@@ -50,5 +52,5 @@ struct sc2355_sdiohal_puh {
 	unsigned int subtype:4;
 	unsigned int type:4;
 };/* 32bits public header */
-
+extern struct throughput_sta throughput_static;
 #endif /* __SDIO_H__ */

@@ -1586,6 +1586,7 @@ void sc2355_sdio_throughput_ctl_core_pd(unsigned int len)
 #endif
 			}
 		}
+		throughput_static.throughput_curent = throughput_static.tx_bytes;
 		throughput_static.tx_bytes = 0;
 	}
 }
