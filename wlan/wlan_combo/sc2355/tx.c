@@ -176,6 +176,8 @@ static int tx_cmd(struct sprd_hif *hif, struct sprd_msg_list *list)
 	struct sprd_msg *msg;
 	struct tx_mgmt *tx_mgmt;
 	struct sprd_cmd_hdr *hdr;
+	u8 cmd_id, mode;
+	__le32 mstime;
 
 	tx_mgmt = (struct tx_mgmt *)hif->tx_mgmt;
 	while ((msg = sprd_peek_msg(list))) {
@@ -198,17 +200,17 @@ static int tx_cmd(struct sprd_hif *hif, struct sprd_msg_list *list)
 		}
 		tx_dequeue_cmd_buf(msg, list);
 		tx_mgmt->cmd_send++;
+		hdr = (struct sprd_cmd_hdr *)(msg->tran_data + hif->hif_offset);
+		cmd_id = hdr->cmd_id;
+		mode = hdr->common.mode;
+		mstime = hdr->mstime;
 
 		ret = sc2355_tx_cmd(hif, (unsigned char *)msg->tran_data,
 				    msg->len);
 		if (ret) {
-			pr_err("%s err:%d\n", __func__, ret);
-			if (msg->tran_data) {
-				hdr = (struct sprd_cmd_hdr *)(msg->tran_data + hif->hif_offset);
-				pr_err("%s [%u]ctx_id %d send[%s] err.\n", __func__,
-					le32_to_cpu(hdr->mstime),
-					hdr->common.mode, sc2355_cmdevt_cmd2str(hdr->cmd_id));
-			}
+			pr_err("%s [%u]ctx_id %d send[%s] err:%d.\n", __func__,
+				le32_to_cpu(mstime), mode,
+				sc2355_cmdevt_cmd2str(cmd_id), ret);
 			msg->tran_data = NULL;
 			sc2355_free_cmd_buf(msg, list);
 		}
