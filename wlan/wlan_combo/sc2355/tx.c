@@ -1872,8 +1872,10 @@ void sc2355_tx_drop_tcp_msg(struct sprd_chip *chip, struct sprd_msg *msg)
 	struct sprd_priv *priv = chip->priv;
 	struct sprd_hif *hif = &priv->hif;
 
-	if (msg->skb)
+	if (msg->skb) {
 		dev_kfree_skb(msg->skb);
+		msg->skb = NULL;
+	}
 	mode = msg->mode;
 	list = msg->msglist;
 	sprd_free_msg(msg, list);

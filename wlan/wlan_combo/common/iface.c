@@ -486,6 +486,7 @@ static netdev_tx_t iface_start_xmit(struct sk_buff *skb, struct net_device *ndev
 	struct sprd_msg *msg = NULL;
 	struct sprd_eap_hdr *eap_temp;
 	struct sk_buff *tmp_skb = skb;
+	unsigned int skb_len;
 
 	ret = iface_prepare_xmit(vif, ndev, skb);
 	if (-1 == ret)
@@ -544,6 +545,11 @@ static netdev_tx_t iface_start_xmit(struct sk_buff *skb, struct net_device *ndev
 
 	offset = sprd_send_data_offset(vif->priv);
 	sprd_hif_throughput_ctl_pd(hif, skb->len);
+	skb_len = skb->len;
+#ifdef CONFIG_SPRD_WLAN_DEBUG
+	print_hex_dump_debug("TX packet: ", DUMP_PREFIX_OFFSET,
+				 16, 1, skb->data, skb_len, 0);
+#endif
 	ret = sprd_send_data(vif->priv, vif, msg, skb, SPRD_DATA_TYPE_NORMAL,
 			     offset, true);
 	if (ret) {
@@ -557,10 +563,8 @@ static netdev_tx_t iface_start_xmit(struct sk_buff *skb, struct net_device *ndev
 		return NETDEV_TX_OK;
 	}
 
-	vif->ndev->stats.tx_bytes += skb->len;
+	vif->ndev->stats.tx_bytes += skb_len;
 	vif->ndev->stats.tx_packets++;
-	print_hex_dump_debug("TX packet: ", DUMP_PREFIX_OFFSET,
-			     16, 1, skb->data, skb->len, 0);
 out:
 	return NETDEV_TX_OK;
 }
