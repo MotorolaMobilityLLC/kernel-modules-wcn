@@ -1959,6 +1959,8 @@ static int vendor_set_sae_password(struct wiphy *wiphy,
 		netdev_info(vif->ndev, "type is : %d\n", type);
 		switch (type) {
 		case VENDOR_SAE_ENTRY:
+			if (sae_entry_index >= SPRD_SAE_MAX_NUM)
+				return -EINVAL;
 			sae_para.entry[sae_entry_index].vlan_id =
 			    SPRD_SAE_NOT_SET;
 			sae_para.entry[sae_entry_index].used = 1;
@@ -1966,9 +1968,8 @@ static int vendor_set_sae_password(struct wiphy *wiphy,
 					       &sae_para.entry[sae_entry_index],
 					       nla_data(pos), nla_len(pos));
 			sae_entry_index++;
-			if (sae_entry_index >= SPRD_SAE_MAX_NUM)
-				return -EINVAL;
 			break;
+
 		case VENDOR_SAE_GROUP_ID:
 			if (sae_para.group_count >= 31)
 				return 0;

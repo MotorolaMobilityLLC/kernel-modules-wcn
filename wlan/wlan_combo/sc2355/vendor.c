@@ -3186,14 +3186,14 @@ static int vendor_set_sae_password(struct wiphy *wiphy,
 
 		switch (type) {
 		case VENDOR_SAE_ENTRY:
+			if (sae_entry_index >= SPRD_SAE_MAX_NUM)
+				return -EINVAL;
 			sae_para.entry[sae_entry_index].vlan_id =
 			    SPRD_SAE_NOT_SET;
 			sae_para.entry[sae_entry_index].used = 1;
 			vendor_parse_sae_entry(&sae_para.entry[sae_entry_index],
 					       nla_data(pos), nla_len(pos));
 			sae_entry_index++;
-			if (sae_entry_index >= SPRD_SAE_MAX_NUM)
-				return -EINVAL;
 			break;
 
 		case VENDOR_SAE_GROUP_ID:
