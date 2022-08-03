@@ -3656,6 +3656,8 @@ static int sprdwl_vendor_set_sae_password(struct wiphy *wiphy,
 			sprdwl_parse_sae_entry(&sae_para.entry[sea_entry_index],
 					       nla_data(pos), nla_len(pos));
 			sea_entry_index++;
+			if (sea_entry_index >= SPRDWl_SAE_ENTRY_NUM)
+				return -EINVAL;
 			break;
 
 		case SPRDWL_VENDOR_SAE_GROUP_ID:
