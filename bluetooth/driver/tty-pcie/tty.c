@@ -32,7 +32,7 @@
 #include <linux/interrupt.h>
 #include <linux/workqueue.h>
 
-//#include <linux/marlin_platform.h>
+#include <misc/marlin_platform.h>
 #include <linux/notifier.h>
 #include <misc/wcn_bus.h>
 #include "tty.h"
@@ -404,6 +404,7 @@ static int mtty_open(struct tty_struct *tty, struct file *filp)
 {
     struct mtty_device *mtty = NULL;
     struct tty_driver *driver = NULL;
+    int ret = -1;
     if (set_power_ret != 0) {
         pr_err("mtty_open : set power failed , return!\n");
         return -1;
@@ -430,6 +431,8 @@ static int mtty_open(struct tty_struct *tty, struct file *filp)
     que_task = 0;
     que_sche = 0;
     sitm_ini();
+    ret = start_marlin(MARLIN_BLUETOOTH);
+    pr_info("mtty_open power on state ret = %d!\n", ret);
     sprdwcn_bus_chn_init(&bt_rx_ops);
     sprdwcn_bus_chn_init(&bt_tx_ops0);
     mtty_dma_buf_alloc(BT_RX_CHANNEL, BT_RX_DMA_SIZE, BT_RX_MAX_NUM);
@@ -747,7 +750,7 @@ static int mtty_probe(struct platform_device *pdev)
     rfkill_bluetooth_init(pdev);
     bluesleep_init();
     atomic_notifier_chain_register(&wcn_reset_notifier_list,&bluetooth_reset_block);
-
+    
     return 0;
 }
 

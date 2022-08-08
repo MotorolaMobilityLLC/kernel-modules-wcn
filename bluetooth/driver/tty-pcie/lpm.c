@@ -13,7 +13,7 @@
 #include <linux/export.h>
 #include <linux/version.h>
 #include <linux/pm_wakeup.h>
-#endif
+
 
 #define VERSION         "marlin2 V0.1"
 #define PROC_DIR        "bluetooth/sleep"

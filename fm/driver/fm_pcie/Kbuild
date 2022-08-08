@@ -1,5 +1,5 @@
 #
-# sprdbt_tty.ko
+# sprd_pcie_fm.ko
 #
 # Kbuild: for kernel building external module
 #
@@ -12,18 +12,17 @@ ifeq ($(filter $(strip $(BSP_BOARD_UNISOC_WCN_SOCKET)),sipc sdio pcie sipc2),)
 $(error no BSP_BOARD_UNISOC_WCN_SOCKET, pls fix it !!!)
 endif
 
-TTY_DEVICE := tty-$(strip $(BSP_BOARD_UNISOC_WCN_SOCKET))
+#TTY_DEVICE := tty-$(strip $(BSP_BOARD_UNISOC_WCN_SOCKET))
 
 #
 # Source List
 #
-KO_MODULE_NAME := sprdbt_tty
-KO_MODULE_PATH := $(src)/$(TTY_DEVICE)
+KO_MODULE_NAME := sprd_pcie_fm
+KO_MODULE_PATH := $(src)
 KO_MODULE_SRC  :=
 
 KO_MODULE_SRC += \
-	$(wildcard $(KO_MODULE_PATH)/*.c) \
-	$(wildcard $(KO_MODULE_PATH)/alignment/*.c)
+	$(wildcard $(KO_MODULE_PATH)/*.c)
 
 #
 # Build Options
