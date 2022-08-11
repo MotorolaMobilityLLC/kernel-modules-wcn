@@ -47,8 +47,8 @@ static int sprdwl_npi_pre_doit(const struct genl_ops *ops,
 	if (info->attrs[SPRDWL_NL_ATTR_IFINDEX]) {
 		ifindex = nla_get_u32(info->attrs[SPRDWL_NL_ATTR_IFINDEX]);
 		ndev = dev_get_by_index(genl_info_net(info), ifindex);
-		if (!ndev) {
-			wl_err("NPI: Could not find ndev\n");
+		if (!(ndev && (ndev->flags & IFF_UP))) {
+			wl_err("%s NPI: net device is not ready yet\n", __func__);
 			return -EFAULT;
 		}
 		vif = netdev_priv(ndev);
