@@ -172,11 +172,13 @@ static netdev_tx_t sprdwl_start_xmit(struct sk_buff *skb, struct net_device *nde
 	struct sprdwl_eap_hdr *eap_temp;
 	unsigned int skb_len = 0;
 
+#if 0
 	if (intf->suspend_mode != SPRDWL_PS_RESUMED) {
 		wl_err("not resumed, drop skb\n");
 		dev_kfree_skb(skb);
 		return NETDEV_TX_OK;
 	}
+#endif
 
 	/* drop nonlinearize skb */
 	if (skb_linearize(skb)) {
