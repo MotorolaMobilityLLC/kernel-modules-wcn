@@ -273,7 +273,10 @@ void sc2355_defrag_recover(struct sprd_vif *vif)
 	rx_mgmt = (struct rx_mgmt *)hif->rx_mgmt;
 	defrag_entry = &rx_mgmt->defrag_entry;
 
-	lut_index = sc2355_find_lut_index(hif, vif);
+	if (hif->hw_type == SPRD_HW_SC2355_PCIE)
+		lut_index = sc2355_pcie_find_lut_index(hif, vif);
+	else
+		lut_index = sc2355_find_lut_index(hif, vif);
 
 	list_for_each_entry_safe(node, pos_node, &defrag_entry->list, list) {
 		if ((lut_index == node->desc.sta_lut_index) &&

@@ -32,7 +32,6 @@
 #define SDIO_TX_DATA_PORT	10
 
 
-#define SDIO_HEX_DUMP_BUF_SIZE	255
 
 #define DISABLE_PD_THRESHOLD (25 * 0x100000)  //200Mbit/s  or 25Mbyte/s
 

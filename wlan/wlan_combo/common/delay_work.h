@@ -18,6 +18,7 @@
 #include <linux/types.h>
 
 #include "iface.h"
+#include "hif.h"
 
 #define SPRD_WORK_NONE				0
 #define SPRD_WORK_REG_MGMT			1
@@ -47,6 +48,7 @@
 struct sprd_work {
 	struct list_head list;
 	struct sprd_vif *vif;
+	enum sprd_hif_type hw_type;
 	u8 id;
 	u32 len;
 	u8 data[0];

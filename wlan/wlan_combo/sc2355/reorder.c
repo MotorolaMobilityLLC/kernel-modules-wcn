@@ -628,7 +628,10 @@ static void reorder_send_addba_rsp(struct rx_ba_entry *ba_entry,
 					       ba_entry);
 
 	hif = rx_mgmt->hif;
-	peer_entry = sc2355_find_peer_entry_using_lut_index(hif, sta_lut_index);
+	if (hif->hw_type == SPRD_HW_SC2355_PCIE)
+		peer_entry = sc2355_pcie_find_peer_entry_using_lut_index(hif, sta_lut_index);
+	else
+		peer_entry = sc2355_find_peer_entry_using_lut_index(hif, sta_lut_index);
 	if (!peer_entry) {
 		pr_err("%s, peer not found\n", __func__);
 		return;

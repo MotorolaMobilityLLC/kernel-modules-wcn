@@ -409,9 +409,8 @@ static void cmdevt_clean_cmd(struct sprd_cmd *cmd)
 	spin_unlock_bh(&cmd->lock);
 }
 
-static int cmdevt_lock_cmd(struct sprd_cmd *cmd)
+static int cmdevt_lock_cmd(struct sprd_cmd *cmd, struct sprd_hif *hif)
 {
-	struct sprd_hif *hif = sc2355_get_hif();
 
 	if (atomic_inc_return(&cmd->refcnt) >= SPRD_CMD_EXIT_VAL) {
 		atomic_dec(&cmd->refcnt);
@@ -434,9 +433,8 @@ static int cmdevt_lock_cmd(struct sprd_cmd *cmd)
 	return 0;
 }
 
-static void cmdevt_unlock_cmd(struct sprd_cmd *cmd)
+static void cmdevt_unlock_cmd(struct sprd_cmd *cmd, struct sprd_hif *hif)
 {
-	struct sprd_hif *hif = sc2355_get_hif();
 
 	mutex_unlock(&cmd->cmd_lock);
 	atomic_dec(&cmd->refcnt);
@@ -683,7 +681,7 @@ int sc2355_send_cmd_recv_rsp(struct sprd_priv *priv, struct sprd_msg *msg, u8 *r
 	}
 
 	ret = sc2355_api_version_available_check(priv, msg);
-	if (ret || cmdevt_lock_cmd(cmd)) {
+	if (ret || cmdevt_lock_cmd(cmd, hif)) {
 		sprd_chip_free_msg(&priv->chip, msg);
 		kfree(msg->tran_data);
 		if (rlen)
@@ -702,7 +700,7 @@ int sc2355_send_cmd_recv_rsp(struct sprd_priv *priv, struct sprd_msg *msg, u8 *r
 				__func__, cmdevt_cmd2str(cmd_id));
 			sprd_chip_free_msg(&priv->chip, msg);
 			kfree(msg->tran_data);
-			cmdevt_unlock_cmd(cmd);
+			cmdevt_unlock_cmd(cmd, hif);
 			goto out;
 		}
 	}
@@ -713,7 +711,7 @@ int sc2355_send_cmd_recv_rsp(struct sprd_priv *priv, struct sprd_msg *msg, u8 *r
 				__func__, cmdevt_cmd2str(cmd_id));
 			sprd_chip_free_msg(&priv->chip, msg);
 			kfree(msg->tran_data);
-			cmdevt_unlock_cmd(cmd);
+			cmdevt_unlock_cmd(cmd, hif);
 			goto out;
 		}
 	}
@@ -722,7 +720,7 @@ int sc2355_send_cmd_recv_rsp(struct sprd_priv *priv, struct sprd_msg *msg, u8 *r
 
 	ret = cmdevt_send_cmd(priv, msg);
 	if (ret) {
-		cmdevt_unlock_cmd(cmd);
+		cmdevt_unlock_cmd(cmd, hif);
 		return -1;
 	}
 
@@ -756,7 +754,7 @@ int sc2355_send_cmd_recv_rsp(struct sprd_priv *priv, struct sprd_msg *msg, u8 *r
 		vif = sc2355_ctxid_to_vif(priv, ctx_id);
 		if (cmd_id == CMD_CLOSE) {
 			sc2355_assert_cmd(priv, vif, cmd_id, CMD_RSP_TIMEOUT_ERROR);
-			cmdevt_unlock_cmd(cmd);
+			cmdevt_unlock_cmd(cmd, hif);
 			return ret;
 		}
 		if (vif) {
@@ -769,7 +767,7 @@ int sc2355_send_cmd_recv_rsp(struct sprd_priv *priv, struct sprd_msg *msg, u8 *r
 			sprd_put_vif(vif);
 		}
 	}
-	cmdevt_unlock_cmd(cmd);
+	cmdevt_unlock_cmd(cmd, hif);
 out:
 	return ret;
 }
@@ -1310,10 +1308,13 @@ void sc2355_download_hw_param(struct sprd_priv *priv)
 	struct wifi_conf_sec1_t *sec1;
 	struct wifi_conf_sec2_t *sec2;
 	struct wifi_config_param_t *wifi_param;
+	struct sprd_hif *hif = &priv->hif;
 
-	if (!cali_ini_need_download(MARLIN_WIFI)) {
-		pr_err("RF ini download already, skip!\n");
-		return;
+	if (hif->hw_type != SPRD_HW_SC2355_PCIE) {
+		if (!cali_ini_need_download(MARLIN_WIFI)) {
+			pr_err("RF ini download already, skip!\n");
+			return;
+		}
 	}
 
 	wifi_data = kzalloc(sizeof(*wifi_data), GFP_KERNEL);
@@ -2428,11 +2429,15 @@ int sc2355_notify_ip(struct sprd_priv *priv, struct sprd_vif *vif, u8 ip_type,
 	struct sprd_peer_entry *entry;
 	u8 *ip_value;
 	u8 ip_len;
+	struct sprd_hif *hif = &priv->hif;
 
 	if (ip_type != SPRD_IPV4 && ip_type != SPRD_IPV6)
 		return -EINVAL;
 
-	entry = sc2355_find_peer_entry_using_addr(vif, vif->bssid);
+	if (hif->hw_type == SPRD_HW_SC2355_PCIE)
+		entry = sc2355_pcie_find_peer_entry_using_addr(vif, vif->bssid);
+	else
+		entry = sc2355_find_peer_entry_using_addr(vif, vif->bssid);
 	if (entry && ip_type == SPRD_IPV4) {
 		if (entry->ctx_id == vif->ctx_id)
 			entry->ip_acquired = 1;
@@ -2612,6 +2617,7 @@ int sc2355_xmit_data2cmd(struct sk_buff *skb, struct net_device *ndev)
 	u8 *temp_flag = "01234";
 	struct tx_msdu_dscr *dscr;
 	struct sprd_cmd *cmd = &vif->priv->cmd;
+	struct sprd_hif *hif = &vif->priv->hif;
 
 	if (unlikely(atomic_read(&cmd->refcnt) > 0)) {
 		pr_err("%s, cmd->refcnt = %d, Try later again\n",
@@ -2630,9 +2636,16 @@ int sc2355_xmit_data2cmd(struct sk_buff *skb, struct net_device *ndev)
 	}
 
 	/*fill dscr header first*/
-	if (sc2355_hif_fill_msdu_dscr(vif, skb, SPRD_TYPE_CMD, 0)) {
-		dev_kfree_skb(skb);
-		return -EPERM;
+	if (hif->hw_type == SPRD_HW_SC2355_PCIE) {
+		if (sc2355_pcie_hif_fill_msdu_dscr(vif, skb, SPRD_TYPE_CMD, 0)) {
+			dev_kfree_skb(skb);
+			return -EPERM;
+		}
+	} else {
+		if (sc2355_hif_fill_msdu_dscr(vif, skb, SPRD_TYPE_CMD, 0)) {
+			dev_kfree_skb(skb);
+			return -EPERM;
+		}
 	}
 	/*alloc five byte for fw 16 byte need
 	 *dscr:11+flag:5 =16
@@ -2669,11 +2682,19 @@ int sprd_xmit_data2cmd_wq(struct sk_buff *skb, struct net_device *ndev)
 	u8 *temp_flag = "01234";
 	struct tx_msdu_dscr *dscr;
 	struct sprd_work *misc_work = NULL;
+	struct sprd_hif *hif = &vif->priv->hif;
 
 	/*fill dscr header first*/
-	if (sc2355_hif_fill_msdu_dscr(vif, skb, SPRD_TYPE_CMD, 0)) {
-		dev_kfree_skb(skb);
-		return -EPERM;
+	if (hif->hw_type == SPRD_HW_SC2355_PCIE) {
+		if (sc2355_pcie_hif_fill_msdu_dscr(vif, skb, SPRD_TYPE_CMD, 0)) {
+			dev_kfree_skb(skb);
+			return -EPERM;
+		}
+	} else {
+		if (sc2355_hif_fill_msdu_dscr(vif, skb, SPRD_TYPE_CMD, 0)) {
+			dev_kfree_skb(skb);
+			return -EPERM;
+		}
 	}
 	/*alloc five byte for fw 16 byte need
 	 *dscr:11+flag:5 =16
@@ -2789,9 +2810,14 @@ int sc2355_set_vowifi(struct net_device *ndev, struct ifreq *ifr)
 		struct sprd_hif *hif = NULL;
 		struct sprd_peer_entry *peer_entry = NULL;
 		struct vowifi_info *info = (struct vowifi_info *)(tlv->data);
-
-		peer_entry = sc2355_find_peer_entry_using_addr(vif, vif->bssid);
 		hif = &vif->priv->hif;
+		if (hif == NULL)
+			return -EINVAL;
+
+		if (hif->hw_type == SPRD_HW_SC2355_PCIE)
+			peer_entry = sc2355_pcie_find_peer_entry_using_addr(vif, vif->bssid);
+		else
+			peer_entry = sc2355_find_peer_entry_using_addr(vif, vif->bssid);
 		if (hif && peer_entry) {
 			pr_info("lut:%d, vowifi_enabled, txba_map:%lu\n",
 				peer_entry->lut_index,
@@ -3145,27 +3171,38 @@ bool sc2355_do_delay_work(struct sprd_work *work)
 	u8 mac_addr[ETH_ALEN];
 	u16 reason_code;
 	struct sprd_vif *vif;
+	enum sprd_hif_type hw_type;
 
 	if (!work)
 		return false;
 
 	vif = work->vif;
+	hw_type = work->hw_type;
 
 	switch (work->id) {
 	case SPRD_WORK_BA_MGMT:
 		cmdevt_send_ba_mgmt(vif->priv, vif, work->data, work->len);
 		break;
 	case SPRD_WORK_ADDBA:
-		sc2355_tx_send_addba(vif, work->data, work->len);
+		if (hw_type == SPRD_HW_SC2355_PCIE)
+			sc2355_pcie_tx_send_addba(vif, work->data, work->len);
+		else
+			sc2355_tx_send_addba(vif, work->data, work->len);
 		break;
 	case SPRD_WORK_DELBA:
-		sc2355_tx_send_delba(vif, work->data, work->len);
+		if (hw_type == SPRD_HW_SC2355_PCIE)
+			sc2355_pcie_tx_send_delba(vif, work->data, work->len);
+		else
+			sc2355_tx_send_delba(vif, work->data, work->len);
 		break;
 	case SPRD_HANG_RECEIVED:
 		cmdevt_send_hang_received_cmd(vif->priv, vif);
 		break;
 	case SPRD_POP_MBUF:
-		sc2355_handle_pop_list(work->data);
+		if (hw_type == SPRD_HW_SC2355_PCIE)
+			sc2355_pcie_handle_pop_list(work->data);
+		else
+			sc2355_handle_pop_list(work->data);
 		break;
 	case SPRD_TDLS_CMD:
 		tdls = (struct sprd_tdls_work *)work->data;
@@ -3181,15 +3218,19 @@ bool sc2355_do_delay_work(struct sprd_work *work)
 		sc2355_rx_flush_buffer(&vif->priv->hif);
 		break;
 	case SPRD_PCIE_TX_MOVE_BUF:
-		sc2355_add_to_free_list(vif->priv,
+		if (hw_type == SPRD_HW_SC2355_PCIE)
+			sc2355_pcie_add_to_free_list(vif->priv,
+					(struct list_head *)work->data,
+					work->len);
+		else
+			sc2355_add_to_free_list(vif->priv,
 					(struct list_head *)work->data,
 					work->len);
 		break;
 	case SPRD_PCIE_TX_FREE_BUF:
 		memcpy((unsigned char *)&data, work->data,
 		       sizeof(unsigned char *));
-		if (vif->priv->hif.ops->tx_free_data)
-			vif->priv->hif.ops->tx_free_data(vif->priv, data);
+		sc2355_tx_free_pcie_data(NULL, data);
 		sc2355_free_data(data, work->len);
 		break;
 	case SPRD_CMD_TX_DATA:
@@ -3805,14 +3846,17 @@ static void cmdevt_report_chan_changed_evt(struct sprd_vif *vif, u8 *data, u16 l
 	}
 }
 
-static void cmdevt_report_coex_bt_on_off_evt(u8 *data, u16 len)
+static void cmdevt_report_coex_bt_on_off_evt(u8 *data, u16 len, enum sprd_hif_type hw_type)
 {
 	struct evt_coex_mode_changed *coex_bt_on_off =
 	    (struct evt_coex_mode_changed *)data;
 
 	pr_info("%s, %d, action=%d\n",
 		__func__, __LINE__, coex_bt_on_off->action);
-	sc2355_set_coex_bt_on_off(coex_bt_on_off->action);
+	if (hw_type == SPRD_HW_SC2355_PCIE)
+		sc2355_pcie_set_coex_bt_on_off(coex_bt_on_off->action);
+	else
+		sc2355_set_coex_bt_on_off(coex_bt_on_off->action);
 }
 
 static int cmdevt_report_acs_done_evt(struct sprd_vif *vif, u8 *data, u16 len)
@@ -3891,6 +3935,7 @@ unsigned short sc2355_rx_evt_process(struct sprd_priv *priv, u8 *msg)
 	u8 ctx_id;
 	u16 len, plen;
 	u8 *data;
+	struct sprd_hif *hif;
 
 	ctx_id = hdr->common.mode;
 	/*TODO ctx_id range*/
@@ -3922,6 +3967,7 @@ unsigned short sc2355_rx_evt_process(struct sprd_priv *priv, u8 *msg)
 		if (hdr->cmd_id != EVT_COEX_BT_ON_OFF)
 			return plen;
 	}
+	hif = &priv->hif;
 
 	if (!((long)msg & 0x3)) {
 		data = (u8 *)msg;
@@ -3989,7 +4035,10 @@ unsigned short sc2355_rx_evt_process(struct sprd_priv *priv, u8 *msg)
 		break;
 #endif /* CONFIG_SC2355_WLAN_NAN */
 	case EVT_STA_LUT_INDEX:
-		sc2355_event_sta_lut(vif, data, len);
+		if (hif->hw_type == SPRD_HW_SC2355_PCIE)
+			sc2355_pcie_event_sta_lut(vif, data, len);
+		else
+			sc2355_event_sta_lut(vif, data, len);
 		break;
 	case EVT_BA:
 		cmdevt_report_ba_mgmt_evt(vif, data, len);
@@ -4017,7 +4066,7 @@ unsigned short sc2355_rx_evt_process(struct sprd_priv *priv, u8 *msg)
 		cmdevt_report_chan_changed_evt(vif, data, len);
 		break;
 	case EVT_COEX_BT_ON_OFF:
-		cmdevt_report_coex_bt_on_off_evt(data, len);
+		cmdevt_report_coex_bt_on_off_evt(data, len, hif->hw_type);
 		break;
 	case EVT_ACS_DONE:
 		cmdevt_report_acs_done_evt(vif, data, len);

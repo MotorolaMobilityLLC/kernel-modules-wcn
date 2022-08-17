@@ -144,7 +144,7 @@ static void cfg80211_do_work(struct work_struct *work)
 
 		vif = sprd_work->vif;
 		netdev_dbg(vif->ndev, "process delayed work: %d\n",
-			   sprd_work->id);
+				sprd_work->id);
 
 		switch (sprd_work->id) {
 		case SPRD_WORK_REG_MGMT:
@@ -1471,10 +1471,12 @@ int sprd_init_fw(struct sprd_vif *vif)
 #ifdef DRV_RESET_SELF
 EXPORT_SYMBOL(sprd_init_fw);
 #endif
-
+extern void sc2355_tx_flush(struct sprd_hif *hif, struct sprd_vif *vif);
+extern void sc2355_handle_tx_status_after_close(struct sprd_vif *vif);
 int sprd_uninit_fw(struct sprd_vif *vif)
 {
 	struct sprd_priv *priv = vif->priv;
+	struct sprd_hif *hif = &priv->hif;
 
 	if (vif->mode <= SPRD_MODE_NONE || vif->mode >= SPRD_MODE_MAX) {
 		netdev_err(vif->ndev, "%s invalid operation mode: %d\n",
@@ -1488,12 +1490,18 @@ int sprd_uninit_fw(struct sprd_vif *vif)
 		return -EBUSY;
 	}
 
+	if (hif->hw_type == SPRD_HW_SC2355_PCIE)
+		sc2355_tx_flush(hif, vif);
+
 	if (sprd_close_fw(priv, vif)) {
 		netdev_err(vif->ndev, "%s failed!\n", __func__);
 		return -EIO;
 	}
 
 	vif->state &= ~VIF_STATE_OPEN;
+
+	if (hif->hw_type == SPRD_HW_SC2355_PCIE)
+		sc2355_handle_tx_status_after_close(vif);
 
 	netdev_info(vif->ndev, "%s type %d, mode %d\n", __func__,
 		    vif->wdev.iftype, vif->mode);

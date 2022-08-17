@@ -510,35 +510,6 @@ struct sprd_hif *sc2355_get_hif(void)
 	return (struct sprd_hif *)sc2355_hif.hif;
 }
 
-void sc2355_hex_dump(unsigned char *name,
-		     unsigned char *data, unsigned short len)
-{
-	int i, p = 0, ret;
-	unsigned char buf[SDIO_HEX_DUMP_BUF_SIZE] = { 0 };
-
-	if (!data || !len || !name)
-		return;
-
-	sprintf(buf, "sc2355 wlan %s hex dump(len = %d)", name, len);
-	pr_info("%s\n", buf);
-
-	if (len > 1024)
-		len = 1024;
-	memset(buf, 0x00, SDIO_HEX_DUMP_BUF_SIZE);
-	for (i = 0; i < len; i++) {
-		ret = sprintf((buf + p), "%02x ", *(data + i));
-		if (i != 0 && ((i + 1) % 16 == 0)) {
-			pr_info("%s\n", buf);
-			p = 0;
-			memset(buf, 0x00, SDIO_HEX_DUMP_BUF_SIZE);
-		} else {
-			p = p + ret;
-		}
-	}
-	if (p != 0)
-		pr_info("%s\n", buf);
-}
-
 void sc2355_set_coex_bt_on_off(u8 action)
 {
 	struct sprd_hif *hif = sc2355_get_hif();

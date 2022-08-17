@@ -99,8 +99,8 @@ static void pcie_get_tx_avg_time(struct sprd_hif *hif,
 }
 #endif
 
-unsigned long mbufalloc;
-unsigned long mbufpop;
+unsigned long pcie_mbufalloc;
+unsigned long pcie_mbufpop;
 static int pcie_tx_one(struct sprd_hif *hif, unsigned char *data,
 		       int len, int chn)
 {
@@ -116,7 +116,7 @@ static int pcie_tx_one(struct sprd_hif *hif, unsigned char *data,
 		return -1;
 	}
 
-	mbufalloc += num;
+	pcie_mbufalloc += num;
 	mbuf = head;
 	mbuf->buf = data;
 	mbuf->len = len;
@@ -126,8 +126,8 @@ static int pcie_tx_one(struct sprd_hif *hif, unsigned char *data,
 	if (hif->hw_type == SPRD_HW_SC2355_PCIE) {
 		mbuf->phy = sc2355_mm_virt_to_phys(&hif->pdev->dev, mbuf->buf,
 						   mbuf->len, DMA_TO_DEVICE);
-		ret = sc2355_push_link(hif, chn, head, tail, num,
-				       sc2355_tx_cmd_pop_list);
+		ret = sc2355_pcie_push_link(hif, chn, head, tail, num,
+				       sc2355_pcie_tx_cmd_pop_list);
 	} else {
 		ret = sprdwcn_bus_push_list(chn, head, tail, num);
 	}
@@ -143,7 +143,7 @@ static int pcie_tx_one(struct sprd_hif *hif, unsigned char *data,
 		mbuf->buf = NULL;
 
 		sprdwcn_bus_list_free(chn, head, tail, num);
-		mbufalloc -= num;
+		pcie_mbufalloc -= num;
 	}
 
 	return ret;
@@ -220,7 +220,7 @@ sprdwl_list_cut_to_send_list(struct list_head *head_entry,
 			     struct list_head *tail_entry,
 			     int count)
 {
-	struct sprd_hif *hif = sc2355_get_hif();
+	struct sprd_hif *hif = sc2355_pcie_get_hif();
 	struct tx_mgmt *tx_msg = (struct tx_mgmt *)hif->tx_mgmt;
 	struct list_head list_tmp;
 	struct list_head *head;
@@ -240,7 +240,7 @@ sprdwl_list_cut_to_free_list(struct list_head *tx_list_head,
 		struct list_head *tx_list, struct list_head *tail_entry,
 		int tx_count)
 {
-	struct sprd_hif *hif = sc2355_get_hif();
+	struct sprd_hif *hif = sc2355_pcie_get_hif();
 	struct tx_mgmt *tx_msg = (struct tx_mgmt *)hif->tx_mgmt;
 	int ret = 0;
 	struct list_head tx_list_tmp;
@@ -265,7 +265,7 @@ pcie_list_cut_to_free_list(struct list_head *tx_list_head,
 			   struct list_head *tx_list,
 			   struct list_head *tail_entry, int tx_count)
 {
-	struct sprd_hif *hif = sc2355_get_hif();
+	struct sprd_hif *hif = sc2355_pcie_get_hif();
 	struct tx_mgmt *tx_mgmt = (struct tx_mgmt *)hif->tx_mgmt;
 	struct sprd_work *misc_work = NULL;
 	int ret = 0;
@@ -281,6 +281,7 @@ pcie_list_cut_to_free_list(struct list_head *tx_list_head,
 		if (hif->hw_type == SPRD_HW_SC2355_PCIE)
 			misc_work->id = SPRD_PCIE_TX_MOVE_BUF;
 		misc_work->len = tx_count;
+		misc_work->hw_type = SPRD_HW_SC2355_PCIE;
 		INIT_LIST_HEAD((struct list_head *)misc_work->data);
 		list_cut_position((struct list_head *)misc_work->data,
 				  tx_list, tail_entry);
@@ -298,7 +299,7 @@ pcie_list_cut_to_free_list(struct list_head *tx_list_head,
 static int pcie_rx_fill_mbuf(struct mbuf_t *head, struct mbuf_t *tail, int num,
 			     int len)
 {
-	struct sprd_hif *hif = sc2355_get_hif();
+	struct sprd_hif *hif = sc2355_pcie_get_hif();
 	int ret = 0, count = 0;
 	struct mbuf_t *pos = NULL;
 
@@ -370,7 +371,7 @@ static int pcie_rx_common_push(int chn, struct mbuf_t **head,
 static int pcie_rx_handle(int chn, struct mbuf_t *head,
 			  struct mbuf_t *tail, int num)
 {
-	struct sprd_hif *hif = sc2355_get_hif();
+	struct sprd_hif *hif = sc2355_pcie_get_hif();
 	struct rx_mgmt *rx_mgmt = (struct rx_mgmt *)hif->rx_mgmt;
 	struct sprd_msg *msg = NULL;
 	int buf_num = 0, len = 0, ret = 0;
@@ -435,7 +436,7 @@ static int pcie_rx_handle(int chn, struct mbuf_t *head,
 static int pcie_data_rx_handle(int chn, struct mbuf_t *head,
 			       struct mbuf_t *tail, int num)
 {
-	struct sprd_hif *hif = sc2355_get_hif();
+	struct sprd_hif *hif = sc2355_pcie_get_hif();
 	struct rx_mgmt *rx_mgmt = (struct rx_mgmt *)hif->rx_mgmt;
 	struct sprd_msg *msg = NULL;
 
@@ -481,7 +482,7 @@ static int pcie_rx_data_push(int chn, struct mbuf_t **head,
  */
 static int pcie_suspend_resume_handle(int chn, int mode)
 {
-	struct sprd_hif *hif = sc2355_get_hif();
+	struct sprd_hif *hif = sc2355_pcie_get_hif();
 	struct sprd_priv *priv = hif->priv;
 	struct tx_mgmt *tx_mgmt = (struct tx_mgmt *)hif->tx_mgmt;
 	int ret;
@@ -553,7 +554,7 @@ static int pcie_suspend_resume_handle(int chn, int mode)
 	return -EBUSY;
 }
 
-struct mchn_ops_t pcie_hif_ops[] = {
+struct mchn_ops_t sc2355_pcie_hif_ops[] = {
 	/* ADD HIF ops config here */
 	/* NOTE: Requested by SDIO team, pool_size MUST be 1 in RX */
 	/* RX channels 1 3 5 7 9 11 13 15 */
@@ -586,13 +587,13 @@ struct mchn_ops_t pcie_hif_ops[] = {
 #endif
 	/* TX channels 0 2 4 6 8 10 12 14 */
 	INIT_INTF_SC2355(PCIE_TX_CMD_PORT, 1, 1, 0, SPRD_MAX_CMD_TXLEN,
-			10, 0, 0, 0, 1, 32, sc2355_tx_cmd_pop_list,
+			10, 0, 0, 0, 1, 32, sc2355_pcie_tx_cmd_pop_list,
 			NULL, NULL, pcie_suspend_resume_handle),
 	INIT_INTF_SC2355(PCIE_TX_DATA_PORT, 1, 1, 0, SPRD_MAX_CMD_TXLEN,
-			300, 0, 0, 0, 1, 32, sc2355_tx_data_pop_list,
+			300, 0, 0, 0, 1, 32, sc2355_pcie_tx_data_pop_list,
 			NULL, NULL, NULL),
 	INIT_INTF_SC2355(PCIE_TX_ADDR_DATA_PORT, 1, 1, 0, SPRD_MAX_CMD_TXLEN,
-			300, 0, 0, 0, 1, 4, sc2355_tx_data_pop_list,
+			300, 0, 0, 0, 1, 4, sc2355_pcie_tx_data_pop_list,
 			NULL, NULL, NULL),
 };
 
@@ -626,7 +627,7 @@ static void pcie_tx_ba_mgmt(struct sprd_priv *priv, struct sprd_vif *vif,
 	if (cmd_id == CMD_ADDBA_REQ && rbuf[0] != ADDBA_REQ_RESULT_SUCCESS) {
 		struct host_addba_param *addba;
 		struct sprd_peer_entry *peer_entry = NULL;
-		struct sprd_hif *hif = sc2355_get_hif();
+		struct sprd_hif *hif = sc2355_pcie_get_hif();
 		u16 tid = 0;
 
 		addba = (struct host_addba_param *)(rbuf + 1);
@@ -643,51 +644,22 @@ out:
 	kfree(rbuf);
 }
 
-struct sprd_hif *sc2355_get_hif(void)
+struct sprd_hif *sc2355_pcie_get_hif(void)
 {
 	return (struct sprd_hif *)sc2355_hif.hif;
 }
 
 #define INTF_IS_PCIE \
-	(sc2355_get_hif()->hw_type == SPRD_HW_SC2355_PCIE)
+	(sc2355_pcie_get_hif()->hw_type == SPRD_HW_SC2355_PCIE)
 
-void sc2355_hex_dump(unsigned char *name,
-		     unsigned char *data, unsigned short len)
+void sc2355_pcie_set_coex_bt_on_off(u8 action)
 {
-	int i, p = 0, ret;
-	unsigned char buf[255] = { 0 };
-
-	if (!data || !len || !name)
-		return;
-
-	sprintf(buf, "sc2355 wlan %s hex dump(len = %d)", name, len);
-	pr_info("%s\n", buf);
-
-	if (len > 1024)
-		len = 1024;
-	memset(buf, 0x00, 255);
-	for (i = 0; i < len; i++) {
-		ret = sprintf((buf + p), "%02x ", *(data + i));
-		if (i != 0 && ((i + 1) % 16 == 0)) {
-			pr_info("%s\n", buf);
-			p = 0;
-			memset(buf, 0x00, 255);
-		} else {
-			p = p + ret;
-		}
-	}
-	if (p != 0)
-		pr_info("%s\n", buf);
-}
-
-void sc2355_set_coex_bt_on_off(u8 action)
-{
-	struct sprd_hif *hif = sc2355_get_hif();
+	struct sprd_hif *hif = sc2355_pcie_get_hif();
 
 	hif->coex_bt_on = action;
 }
 
-inline int sc2355_tx_cmd(struct sprd_hif *hif, unsigned char *data, int len)
+inline int sc2355_pcie_tx_cmd(struct sprd_hif *hif, unsigned char *data, int len)
 {
 	return pcie_tx_one(hif, data, len, hif->tx_cmd_port);
 }
@@ -733,11 +705,11 @@ inline int sc2355_tx_addr_trans_pcie(struct sprd_hif *hif,
 	}
 
 	if (!ret && send_now && rx_mgmt->addr_trans_head) {
-		ret = sc2355_push_link(hif, hif->tx_data_port,
+		ret = sc2355_pcie_push_link(hif, hif->tx_data_port,
 				       (struct mbuf_t *)rx_mgmt->addr_trans_head,
 				       (struct mbuf_t *)rx_mgmt->addr_trans_tail,
 				       rx_mgmt->addr_trans_num,
-				       sc2355_tx_cmd_pop_list);
+				       sc2355_pcie_tx_cmd_pop_list);
 		if (!ret) {
 			rx_mgmt->addr_trans_head = NULL;
 			rx_mgmt->addr_trans_tail = NULL;
@@ -749,11 +721,11 @@ inline int sc2355_tx_addr_trans_pcie(struct sprd_hif *hif,
 	return ret;
 }
 
-inline void sc2355_tx_addr_trans_free(struct sprd_hif *hif)
+inline void sc2355_pcie_tx_addr_trans_free(struct sprd_hif *hif)
 {
 	struct rx_mgmt *rx_mgmt = (struct rx_mgmt *)hif->rx_mgmt;
 
-	sc2355_tx_cmd_pop_list(hif->tx_data_port,
+	sc2355_pcie_tx_cmd_pop_list(hif->tx_data_port,
 			       (struct mbuf_t *)rx_mgmt->addr_trans_head,
 			       (struct mbuf_t *)rx_mgmt->addr_trans_tail,
 			       rx_mgmt->addr_trans_num);
@@ -785,7 +757,7 @@ static inline void sprdwl_mbuf_list_free(struct sprd_hif *hif,
 	sprdwcn_bus_list_free(hif->tx_data_port, head, tail, count);
 }
 
-void sc2355_add_to_free_list(struct sprd_priv *priv,
+void sc2355_pcie_add_to_free_list(struct sprd_priv *priv,
 			     struct list_head *tx_list_head, int tx_count)
 {
 	struct sprd_hif *hif = &priv->hif;
@@ -796,8 +768,7 @@ void sc2355_add_to_free_list(struct sprd_priv *priv,
 	spin_unlock_bh(&tx_mgmt->xmit_msg_list.free_lock);
 }
 
-unsigned long tx_packets;
-int sc2355_hif_tx_list(struct sprd_hif *hif,
+int sc2355_pcie_hif_tx_list(struct sprd_hif *hif,
 		       struct list_head *tx_list,
 		       struct list_head *tx_list_head,
 		       int tx_count, int ac_index, u8 coex_bt_on)
@@ -972,11 +943,11 @@ int sc2355_hif_tx_list(struct sprd_hif *hif,
 		if (hif->mbuf_head) {
 			/*ret = mchn_push_link(9, head, tail, pcie_count);*/
 			/*edma sync function*/
-			ret = sc2355_push_link(hif, hif->tx_data_port,
+			ret = sc2355_pcie_push_link(hif, hif->tx_data_port,
 					       (struct mbuf_t *)hif->mbuf_head,
 					       (struct mbuf_t *)hif->mbuf_tail,
 					       hif->mbuf_num,
-					       sc2355_tx_data_pop_list);
+					       sc2355_pcie_tx_data_pop_list);
 			if (ret != 0) {
 				/*pr_err("%s: push link fail\n", __func__); */
 				hif->pushfail_count++;
@@ -1005,7 +976,7 @@ int sc2355_hif_tx_list(struct sprd_hif *hif,
 }
 
 struct sprd_peer_entry
-*sc2355_find_peer_entry_using_addr(struct sprd_vif *vif, u8 *addr)
+*sc2355_pcie_find_peer_entry_using_addr(struct sprd_vif *vif, u8 *addr)
 {
 	struct sprd_hif *hif;
 	struct sprd_peer_entry *peer_entry = NULL;
@@ -1025,11 +996,11 @@ struct sprd_peer_entry
 }
 
 /* It is tx private function, just use in sc2355_hif_fill_msdu_dscr()  */
-unsigned char sc2355_find_lut_index(struct sprd_hif *hif, struct sprd_vif *vif)
+unsigned char sc2355_pcie_find_lut_index(struct sprd_hif *hif, struct sprd_vif *vif)
 {
 	unsigned char i;
 
-	if (!hif->skb_da)/*TODO*/
+	if (is_zero_ether_addr(hif->skb_da))/*TODO*/
 		goto out;
 
 	pr_debug("%s,bssid: %02x:%02x:%02x:%02x:%02x:%02x\n", __func__,
@@ -1102,7 +1073,7 @@ out:
 	return 0;
 }
 
-int sc2355_hif_fill_msdu_dscr(struct sprd_vif *vif,
+int sc2355_pcie_hif_fill_msdu_dscr(struct sprd_vif *vif,
 			      struct sk_buff *skb, u8 type, u8 offset)
 {
 	u8 protocol;
@@ -1145,9 +1116,9 @@ int sc2355_hif_fill_msdu_dscr(struct sprd_vif *vif,
 #endif
 	}
 
-	hif->skb_da = skb->data;
+	memcpy(hif->skb_da, skb->data, ETH_ALEN);
 
-	lut_index = sc2355_find_lut_index(hif, vif);
+	lut_index = sc2355_pcie_find_lut_index(hif, vif);
 	if (lut_index < 6 && (!sc2355_is_group(hif->skb_da))) {
 		pr_err("%s, %d, sta disconn, no data tx!", __func__, __LINE__);
 		return -EPERM;
@@ -1199,7 +1170,7 @@ int sc2355_hif_fill_msdu_dscr(struct sprd_vif *vif,
 
 	return 0;
 }
-
+#if 0
 inline void *sc2355_get_rx_data(struct sprd_hif *hif,
 				void *pos, void **data,
 				void **tran_data, int *len, int offset)
@@ -1247,15 +1218,16 @@ inline void sc2355_free_rx_data(struct sprd_hif *hif,
 		sprdwcn_bus_push_list(chn, (struct mbuf_t *)head,
 				      (struct mbuf_t *)tail, num);
 }
+#endif
 
-void sc2355_handle_pop_list(void *data)
+void sc2355_pcie_handle_pop_list(void *data)
 {
 	int i;
 	struct sprd_msg *msg_pos;
 	struct mbuf_t *mbuf_pos = NULL;
 	struct pop_work *pop = (struct pop_work *)data;
 	struct tx_mgmt *tx_mgmt;
-	struct sprd_hif *hif = sc2355_get_hif();
+	struct sprd_hif *hif = sc2355_pcie_get_hif();
 	struct list_head tmp_list;
 	struct sprd_msg *msg_head, *msg_tail;
 
@@ -1280,13 +1252,13 @@ void sc2355_handle_pop_list(void *data)
 	list_splice_tail(&tmp_list, &msg_pos->msglist->freelist);
 	spin_unlock_bh(&tx_mgmt->tx_list_qos_pool.freelock);
 	sprdwcn_bus_list_free(pop->chn, pop->head, pop->tail, pop->num);
-	mbufpop += pop->num;
+	pcie_mbufpop += pop->num;
 }
 
-int sc2355_add_topop_list(int chn, struct mbuf_t *head,
+int sc2355_pcie_add_topop_list(int chn, struct mbuf_t *head,
 			  struct mbuf_t *tail, int num)
 {
-	struct sprd_hif *hif = sc2355_get_hif();
+	struct sprd_hif *hif = sc2355_pcie_get_hif();
 	struct sprd_work *misc_work;
 	struct pop_work pop_work;
 
@@ -1302,6 +1274,7 @@ int sc2355_add_topop_list(int chn, struct mbuf_t *head,
 	}
 	misc_work->vif = NULL;
 	misc_work->id = SPRD_POP_MBUF;
+	misc_work->hw_type = SPRD_HW_SC2355_PCIE;
 	memcpy(misc_work->data, &pop_work, sizeof(struct pop_work));
 
 	sprd_queue_work(hif->priv, misc_work);
@@ -1309,14 +1282,14 @@ int sc2355_add_topop_list(int chn, struct mbuf_t *head,
 }
 
 /*call back func for HIF pop_link*/
-int sc2355_tx_data_pop_list(int channel, struct mbuf_t *head,
+int sc2355_pcie_tx_data_pop_list(int channel, struct mbuf_t *head,
 			    struct mbuf_t *tail, int num)
 {
 	struct mbuf_t *mbuf_pos = NULL;
 #if defined(MORE_DEBUG)
 	struct sprd_msg *msg_head;
 #endif
-	struct sprd_hif *hif = sc2355_get_hif();
+	struct sprd_hif *hif = sc2355_pcie_get_hif();
 
 	pr_info("%s channel: %d, head: %p, tail: %p num: %d\n",
 		__func__, channel, head, tail, num);
@@ -1399,7 +1372,7 @@ static inline int sprd_tx_free_txc_msg(struct tx_mgmt *tx_msg,
 int sc2355_tx_free_pcie_data(struct sprd_priv *priv, unsigned char *data)
 {
 	int i;
-	struct sprd_hif *hif = &priv->hif;
+	struct sprd_hif *hif = sc2355_pcie_get_hif();
 	struct tx_mgmt *tx_mgmt = (struct tx_mgmt *)hif->tx_mgmt;
 	void *data_addr_ptr;
 	unsigned long pcie_addr;
@@ -1471,12 +1444,12 @@ int sc2355_tx_free_pcie_data(struct sprd_priv *priv, unsigned char *data)
 	return 0;
 }
 
-int sc2355_tx_cmd_pop_list(int channel, struct mbuf_t *head,
+int sc2355_pcie_tx_cmd_pop_list(int channel, struct mbuf_t *head,
 			   struct mbuf_t *tail, int num)
 {
 	int count = 0;
 	struct mbuf_t *pos = NULL;
-	struct sprd_hif *hif = sc2355_get_hif();
+	struct sprd_hif *hif = sc2355_pcie_get_hif();
 	struct tx_mgmt *tx_mgmt;
 	struct sprd_msg *pos_buf, *temp_buf;
 
@@ -1520,7 +1493,7 @@ int sc2355_tx_cmd_pop_list(int channel, struct mbuf_t *head,
 	return 0;
 }
 
-int sc2355_push_link(struct sprd_hif *hif, int chn,
+int sc2355_pcie_push_link(struct sprd_hif *hif, int chn,
 		     struct mbuf_t *head, struct mbuf_t *tail, int num,
 		     int (*pop)(int, struct mbuf_t *, struct mbuf_t *, int))
 {
@@ -1556,7 +1529,7 @@ int sc2355_push_link(struct sprd_hif *hif, int chn,
 }
 
 struct sprd_peer_entry
-*sc2355_find_peer_entry_using_lut_index(struct sprd_hif *hif,
+*sc2355_pcie_find_peer_entry_using_lut_index(struct sprd_hif *hif,
 					unsigned char sta_lut_index)
 {
 	int i = 0;
@@ -1577,7 +1550,7 @@ struct sprd_peer_entry
  * but 0-3 were used to send non-assoc frame(only used by CP)
  * so for Ap-CP interface, there is only 4-31
  */
-void sc2355_event_sta_lut(struct sprd_vif *vif, u8 *data, u16 len)
+void sc2355_pcie_event_sta_lut(struct sprd_vif *vif, u8 *data, u16 len)
 {
 	struct sprd_hif *hif;
 	struct evt_sta_lut_ind *sta_lut = NULL;
@@ -1589,7 +1562,7 @@ void sc2355_event_sta_lut(struct sprd_vif *vif, u8 *data, u16 len)
 	}
 	hif = &vif->priv->hif;
 	sta_lut = (struct evt_sta_lut_ind *)data;
-	if (hif != sc2355_get_hif()) {
+	if (hif != sc2355_pcie_get_hif()) {
 		pr_err("%s, wrong hif!\n", __func__);
 		return;
 	}
@@ -1615,11 +1588,11 @@ void sc2355_event_sta_lut(struct sprd_vif *vif, u8 *data, u16 len)
 		       sizeof(struct sprd_peer_entry));
 		hif->peer_entry[i].ctx_id = 0xFF;
 		hif->tx_num[i] = 0;
-		sc2355_dis_flush_txlist(hif, i);
+		sc2355_pcie_dis_flush_txlist(hif, i);
 		break;
 	case UPD_LUT_INDEX:
 		sc2355_peer_entry_delba(hif, i);
-		sc2355_dis_flush_txlist(hif, i);
+		sc2355_pcie_dis_flush_txlist(hif, i);
 	case ADD_LUT_INDEX:
 		hif->peer_entry[i].lut_index = i;
 		hif->peer_entry[i].ctx_id = sta_lut->ctx_id;
@@ -1640,12 +1613,12 @@ void sc2355_event_sta_lut(struct sprd_vif *vif, u8 *data, u16 len)
 	}
 }
 
-void sc2355_tx_send_addba(struct sprd_vif *vif, void *data, int len)
+void sc2355_pcie_tx_send_addba(struct sprd_vif *vif, void *data, int len)
 {
 	pcie_tx_ba_mgmt(vif->priv, vif, data, len, CMD_ADDBA_REQ);
 }
 
-void sc2355_tx_send_delba(struct sprd_vif *vif, void *data, int len)
+void sc2355_pcie_tx_send_delba(struct sprd_vif *vif, void *data, int len)
 {
 	struct host_delba_param *delba;
 
@@ -1654,7 +1627,7 @@ void sc2355_tx_send_delba(struct sprd_vif *vif, void *data, int len)
 			sizeof(struct host_delba_param), CMD_DELBA_REQ);
 }
 
-void sc2355_tx_addba(struct sprd_hif *hif,
+void sc2355_pcie_tx_addba(struct sprd_hif *hif,
 		     struct sprd_peer_entry *peer_entry, unsigned char tid)
 {
 #define WIN_SIZE 64
@@ -1683,13 +1656,14 @@ void sc2355_tx_addba(struct sprd_hif *hif,
 	}
 	misc_work->vif = vif;
 	misc_work->id = SPRD_WORK_ADDBA;
+	misc_work->id = SPRD_HW_SC2355_PCIE;
 	memcpy(misc_work->data, &addba, sizeof(struct host_addba_param));
 
 	sprd_queue_work(vif->priv, misc_work);
 	sprd_put_vif(vif);
 }
 
-void sc2355_tx_delba(struct sprd_hif *hif,
+void sc2355_pcie_tx_delba(struct sprd_hif *hif,
 		     struct sprd_peer_entry *peer_entry, unsigned int ac_index)
 {
 	struct host_delba_param delba;
@@ -1716,6 +1690,7 @@ void sc2355_tx_delba(struct sprd_hif *hif,
 	}
 	misc_work->vif = vif;
 	misc_work->id = SPRD_WORK_DELBA;
+	misc_work->hw_type = SPRD_HW_SC2355_PCIE;
 	memcpy(misc_work->data, &delba, sizeof(struct host_delba_param));
 	clear_bit(qos_index_2_tid(ac_index), &peer_entry->ba_tx_done_map);
 
@@ -1723,7 +1698,7 @@ void sc2355_tx_delba(struct sprd_hif *hif,
 	sprd_put_vif(vif);
 }
 
-int sc2355_dis_flush_txlist(struct sprd_hif *hif, u8 lut_index)
+int sc2355_pcie_dis_flush_txlist(struct sprd_hif *hif, u8 lut_index)
 {
 	struct tx_mgmt *tx_mgmt;
 	int i, j;
@@ -1741,7 +1716,7 @@ int sc2355_dis_flush_txlist(struct sprd_hif *hif, u8 lut_index)
 	return 0;
 }
 
-unsigned short sc2355_get_data_csum(void *entry, void *data)
+unsigned short sc2355_pcie_get_data_csum(void *entry, void *data)
 {
 	unsigned short csum = 0;
 	struct rx_mh_desc *mh_desc = (struct rx_mh_desc *)data;
@@ -1784,7 +1759,7 @@ void pcie_mm_fill_all_buffer(struct sprd_hif *hif)
 	}
 }
 
-void sc2355_handle_tx_return(struct sprd_hif *hif,
+void sc2355_pcie_handle_tx_return(struct sprd_hif *hif,
 				  struct sprd_msg_list *list,
 				  int send_num, int ret)
 {
@@ -1809,7 +1784,7 @@ void sc2355_handle_tx_return(struct sprd_hif *hif,
 	}
 }
 
-void sc2355_rx_work_queue(struct work_struct *work)
+void sc2355_pcie_rx_work_queue(struct work_struct *work)
 {
 	struct sprd_msg *msg;
 	struct sprd_priv *priv;
@@ -1895,7 +1870,7 @@ next:
 	}
 }
 
-int sc2355_fc_get_send_num(struct sprd_hif *hif,
+int sc2355_pcie_fc_get_send_num(struct sprd_hif *hif,
 			   enum sprd_mode mode, int data_num)
 {
 	int free_num = 0;
@@ -1928,7 +1903,7 @@ int sc2355_fc_get_send_num(struct sprd_hif *hif,
 
 }
 
-int sc2355_fc_test_send_num(struct sprd_hif *hif,
+int sc2355_pcie_fc_test_send_num(struct sprd_hif *hif,
 			    enum sprd_mode mode, int data_num)
 {
 	int free_num = 0;
@@ -1999,9 +1974,9 @@ int pcie_init(struct sprd_hif *hif)
 	}
 
 	if (hif->hw_type == SPRD_HW_SC2355_PCIE) {
-		sc2355_hif.mchn_ops = pcie_hif_ops;
+		sc2355_hif.mchn_ops = sc2355_pcie_hif_ops;
 		sc2355_hif.max_num =
-		    sizeof(pcie_hif_ops) / sizeof(struct mchn_ops_t);
+		    sizeof(sc2355_pcie_hif_ops) / sizeof(struct mchn_ops_t);
 	}
 	if (hif->hw_type == SPRD_HW_SC2355_PCIE)
 		hif->feature = NETIF_F_SG;
@@ -2024,7 +1999,7 @@ int pcie_post_init(struct sprd_hif *hif)
 
 	sc2355_hif.hif = (void *)hif;
 	sc2355_hif.max_num =
-		sizeof(pcie_hif_ops) / sizeof(struct mchn_ops_t);
+		sizeof(sc2355_pcie_hif_ops) / sizeof(struct mchn_ops_t);
 
 	if (sc2355_hif.max_num < MAX_CHN_NUM) {
 		pr_info("%s: register %d ops\n", __func__, sc2355_hif.max_num);
@@ -2084,11 +2059,11 @@ static struct sprd_hif_ops sc2355_pcie_ops = {
 };
 
 extern struct sprd_chip_ops sc2355_chip_ops;
-static int pcie_probe(struct platform_device *pdev)
+int pcie_probe(struct platform_device *pdev)
 {
 	return sprd_iface_probe(pdev, &sc2355_pcie_ops, &sc2355_chip_ops);
 }
-
+#if 0
 static int pcie_remove(struct platform_device *pdev)
 {
 	return sprd_iface_remove(pdev);
@@ -2116,3 +2091,4 @@ module_platform_driver(sc2355_pcie_driver);
 MODULE_DESCRIPTION("Spreadtrum SC2355 PCIE Initialization");
 MODULE_AUTHOR("Spreadtrum WCN Division");
 MODULE_LICENSE("GPL");
+#endif

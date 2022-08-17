@@ -27,7 +27,7 @@
 
 #define SPRD_MAX_MH_BUF 500
 #define SPRD_ADD_MH_BUF_THRESHOLD 300
-#define SPRD_MAX_ADD_MH_BUF_ONCE 200
+#define SPRD_MAX_ADD_MH_BUF_ONCE 100
 #define SPRD_ADDR_BUF_LEN (sizeof(struct sprd_addr_hdr) +\
 			     sizeof(struct addr_trans_value) +\
 			     (SPRD_MAX_ADD_MH_BUF_ONCE * SPRD_PHYS_LEN))

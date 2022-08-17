@@ -319,6 +319,7 @@ static int mm_buffer_unlink(struct mem_mgmt *mm_entry,
 	unsigned short csum = 0;
 	struct rx_mgmt *rx_mgmt =
 	    container_of(mm_entry, struct rx_mgmt, mm_entry);
+	struct sprd_hif *hif = rx_mgmt->hif;
 
 	if (atomic_add_return(value->num, &mm_entry->alloc_num) >=
 	    SPRD_MAX_ADD_MH_BUF_ONCE) {
@@ -346,8 +347,13 @@ static int mm_buffer_unlink(struct mem_mgmt *mm_entry,
 			if (sprd_get_debug_level() >= L_DBG)
 				sc2355_hex_dump("sc2355_rx_mh_desc rx:",
 						skb->data, 500);
-			csum = sc2355_get_data_csum((void *)rx_mgmt->hif,
-						    skb->data);
+			if (hif->hw_type == SPRD_HW_SC2355_PCIE) {
+				csum = sc2355_pcie_get_data_csum((void *)rx_mgmt->hif,
+								skb->data);
+			 } else {
+				csum = sc2355_get_data_csum((void *)rx_mgmt->hif,
+								skb->data);
+			}
 			skb_reserve(skb, sizeof(struct rx_mh_desc));
 			/* TODO: Would CP do this? */
 			msdu_desc = (struct rx_msdu_desc *)skb->data;
@@ -427,12 +433,16 @@ static void mm_normal_data_process(struct mem_mgmt *mm_entry,
 	    (struct rx_msdu_desc *)(data + mm_entry->hif_offset);
 	struct rx_mgmt *rx_mgmt =
 	    container_of(mm_entry, struct rx_mgmt, mm_entry);
+	struct sprd_hif *hif = rx_mgmt->hif;
 
 	if (unlikely(len < sizeof(struct rx_msdu_desc))) {
 		pr_err("%s: data len is %d, too short\n", __func__, len);
 		free_data = true;
 	} else {
-		csum = sc2355_get_data_csum((void *)rx_mgmt->hif, data);
+		if (hif->hw_type == SPRD_HW_SC2355_PCIE)
+			csum = sc2355_pcie_get_data_csum((void *)rx_mgmt->hif, data);
+		else
+			csum = sc2355_get_data_csum((void *)rx_mgmt->hif, data);
 		skb_len = SKB_DATA_ALIGN(sizeof(struct skb_shared_info)) +
 		    SKB_DATA_ALIGN(msdu_total_len(msdu_desc) +
 				   mm_entry->hif_offset);

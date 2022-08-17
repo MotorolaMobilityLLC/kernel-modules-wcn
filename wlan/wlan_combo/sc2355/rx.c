@@ -470,9 +470,16 @@ void sc2355_rx_flush_buffer(void *hif)
 	struct rx_mgmt *rx_mgmt =
 	    (struct rx_mgmt *)((struct sprd_hif *)hif)->rx_mgmt;
 	struct mem_mgmt *mm_entry = &rx_mgmt->mm_entry;
+	enum sprd_hif_type hw_type =
+		((struct sprd_hif *)hif)->hw_type;
 
-	if (rx_mgmt->addr_trans_head)
-		sc2355_tx_addr_trans_free(hif);
+	if (rx_mgmt->addr_trans_head) {
+		if (hw_type == SPRD_HW_SC2355_PCIE) {
+			sc2355_pcie_tx_addr_trans_free(hif);
+		} else {
+			sc2355_tx_addr_trans_free(hif);
+		}
+	}
 
 	sc2355_mm_flush_buffer(mm_entry);
 }
@@ -506,7 +513,11 @@ int sc2355_rx_init(struct sprd_hif *hif)
 	}
 
 	/*init rx_queue*/
-	INIT_WORK(&rx_mgmt->rx_work, sc2355_rx_work_queue);
+	if (hif->hw_type == SPRD_HW_SC2355_PCIE) {
+		INIT_WORK(&rx_mgmt->rx_work, sc2355_pcie_rx_work_queue);
+	} else {
+		INIT_WORK(&rx_mgmt->rx_work, sc2355_rx_work_queue);
+	}
 
 	rx_mgmt->rx_net_workq = alloc_ordered_workqueue("SPRD_RX_NET_QUEUE",
 							WQ_HIGHPRI |
