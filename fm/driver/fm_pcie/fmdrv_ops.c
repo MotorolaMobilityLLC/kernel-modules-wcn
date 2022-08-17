@@ -329,7 +329,7 @@ long fm_ioctl(struct file *filep, unsigned int cmd, unsigned long arg) {
 	return ret;
 }
 
-static int fm_rx_cback(int chn, mbuf_t *head,mbuf_t *tail, int num)
+int fm_rx_cback(int chn, mbuf_t *head,mbuf_t *tail, int num)
 {
     //wake_lock_timeout(&fm_wakelock, HZ*1);
     pr_info("%s: channel:%d head:%p tail:%p num:%d\n",__func__, chn, head, tail, num);

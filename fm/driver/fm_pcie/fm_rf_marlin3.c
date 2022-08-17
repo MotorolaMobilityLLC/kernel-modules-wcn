@@ -11,6 +11,7 @@
 #include <linux/vmalloc.h>
 #include <linux/kdev_t.h>
 #include <linux/proc_fs.h>
+#include <linux/version.h>
 #include "fm_rf_marlin3.h"
 
 #define SYSTEM_FM_CONFIG_FILE "/vendor/etc/fm_board_config.ini"
@@ -166,7 +167,11 @@ static struct nvm_name_table *cf_table_match(struct nvm_cali_cmd *cmd)
 	struct nvm_name_table *pTable = NULL;
 	int len = sizeof(g_config_table) / sizeof(struct nvm_name_table);
 
+	#if(LINUX_VERSION_CODE >= KERNEL_VERSION(5,15,0))
+	if (NULL == cmd)
+	#else
 	if ((NULL == cmd) || (NULL == cmd->itm))
+	#endif
 		return NULL;
 	for (i = 0; i < len; i++) {
 		if (NULL == g_config_table[i].itm)
