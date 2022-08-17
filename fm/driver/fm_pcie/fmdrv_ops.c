@@ -53,7 +53,7 @@
 #include "fm_rf_marlin3.h"
 struct platform_device *g_fm_pdev = 0;
 //struct wake_lock fm_wakelock;
-
+struct device *fm_miscdev = NULL;
 #define FM_DUMP_DATA
 
 static struct device *dm_rx_t = NULL;
@@ -592,6 +592,7 @@ static int fm_probe(struct platform_device *pdev) {
         return ret;
     }
     g_fm_pdev = pdev;
+    fm_miscdev = &pdev->dev;
     pr_info("fm_init success.\n");
     return 0;
 }

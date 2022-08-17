@@ -15,7 +15,7 @@ struct nvm_name_table {
 /*fm config struct*/
 struct fm_config_t{
 	uint16_t	fm_modem_work_freq;
-	uint16_t    	stra_sel;
+	uint16_t	stra_sel;
 	uint16_t	seek_ch_th;
 	uint16_t	mono_pwr_th1;
 	uint16_t	mono_pwr_th2;

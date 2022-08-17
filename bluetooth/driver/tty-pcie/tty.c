@@ -31,6 +31,7 @@
 #include <linux/kthread.h>
 #include <linux/interrupt.h>
 #include <linux/workqueue.h>
+#include <linux/version.h>
 
 #include <misc/marlin_platform.h>
 #include <linux/notifier.h>
@@ -537,10 +538,17 @@ static void mtty_flush_chars(struct tty_struct *tty)
 {
 }
 
+#if(LINUX_VERSION_CODE >= KERNEL_VERSION(5,15,0))
+static unsigned int mtty_write_room(struct tty_struct *tty)
+{
+	return INT_MAX;
+}
+#else
 static int mtty_write_room(struct tty_struct *tty)
 {
 	return INT_MAX;
 }
+#endif
 
 static const struct tty_operations mtty_ops = {
     .open  = mtty_open,
@@ -575,7 +583,11 @@ static int mtty_tty_driver_init(struct mtty_device *device)
     if (!device->port1)
         return -ENOMEM;
 
+    #if(LINUX_VERSION_CODE >= KERNEL_VERSION(5,15,0))
+    driver = tty_alloc_driver(MTTY_DEV_MAX_NR,0);
+    #else
     driver = alloc_tty_driver(MTTY_DEV_MAX_NR);
+    #endif
     if (!driver)
         return -ENOMEM;
 
@@ -600,7 +612,11 @@ static int mtty_tty_driver_init(struct mtty_device *device)
     tty_port_link_device(device->port1, driver, 1);
     ret = tty_register_driver(driver);
     if (ret) {
+        #if(LINUX_VERSION_CODE >= KERNEL_VERSION(5,15,0))
+        tty_driver_kref_put(driver);
+        #else
         put_tty_driver(driver);
+        #endif
         tty_port_destroy(device->port0);
         tty_port_destroy(device->port1);
         return ret;
@@ -613,7 +629,11 @@ static void mtty_tty_driver_exit(struct mtty_device *device)
     struct tty_driver *driver = device->driver;
 
     tty_unregister_driver(driver);
+    #if(LINUX_VERSION_CODE >= KERNEL_VERSION(5,15,0))
+    tty_driver_kref_put(driver);
+    #else
     put_tty_driver(driver);
+    #endif
     tty_port_destroy(device->port0);
     tty_port_destroy(device->port1);
 }
