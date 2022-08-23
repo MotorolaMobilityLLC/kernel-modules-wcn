@@ -543,11 +543,13 @@ static void tx_prepare_addba(struct sprd_hif *hif, unsigned char lut_index,
 			pr_info("%s, %d, tx_addba, tid=%d\n", __func__,
 				__LINE__, tid);
 			ktime_get_real_ts64(&peer_entry->time[tid]);
-			if (!test_and_set_bit(tid, &peer_entry->ba_tx_done_map))
-				if (hif->hw_type == SPRD_HW_SC2355_PCIE)
+			if (!test_and_set_bit(tid, &peer_entry->ba_tx_done_map)) {
+				if (hif->hw_type == SPRD_HW_SC2355_PCIE) {
 					sc2355_pcie_tx_addba(hif, peer_entry, tid);
-				else
+				} else {
 					sc2355_tx_addba(hif, peer_entry, tid);
+				}
+			}
 		}
 #else
 		getnstimeofday(&time);
