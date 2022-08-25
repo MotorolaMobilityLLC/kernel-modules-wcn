@@ -984,6 +984,7 @@ static int iface_set_ndev_mac(struct net_device *ndev, struct ifreq *ifr)
 #endif
 {
 	struct sprd_vif *vif = netdev_priv(ndev);
+	struct sprd_hif *hif = &vif->priv->hif;
 	struct android_wifi_priv_cmd priv_cmd;
 	char *command = NULL;
 	int ret = 0;
@@ -1030,6 +1031,23 @@ static int iface_set_ndev_mac(struct net_device *ndev, struct ifreq *ifr)
 	ether_addr_copy(vif->wdev.address, addr);
 	ether_addr_copy(vif->priv->default_mac, addr);
 	ether_addr_copy(vif->mac, addr);
+
+	/* iface_register_netdev has generated an invalid address, and sent to
+	 * cp2 by CMD_OPEN command, so it is necessary to update a
+	 * correct
+	 * netdevice address to cp2
+	 */
+	if (atomic_read(&hif->power_cnt) != 0) {
+		netdev_info(ndev, "set nedv mac to cp2: %pM\n", addr);
+		ret = sprd_set_random_mac(vif->priv, vif,
+					  SPRD_CONNECT_RANDOM_ADDR,
+					  addr);
+		if (ret) {
+			netdev_err(ndev, "%s set ndev mac error\n", __func__);
+			ret = -EFAULT;
+			goto out;
+		}
+	}
 
 out:
 	kfree(command);
