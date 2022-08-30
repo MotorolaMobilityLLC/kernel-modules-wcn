@@ -2650,8 +2650,10 @@ int sc2355_xmit_data2cmd(struct sk_buff *skb, struct net_device *ndev)
 	/*alloc five byte for fw 16 byte need
 	 *dscr:11+flag:5 =16
 	 */
-	skb_push(skb, FLAG_SIZE);
-	memcpy(skb->data, temp_flag, FLAG_SIZE);
+	if (hif->hw_type != SPRD_HW_SC2355_PCIE) {
+		skb_push(skb, FLAG_SIZE);
+		memcpy(skb->data, temp_flag, FLAG_SIZE);
+	}
 	/*malloc msg buffer*/
 	msg = get_databuf(vif->priv, vif, skb->len, CMD_TX_DATA);
 	if (!msg) {
@@ -2699,8 +2701,10 @@ int sprd_xmit_data2cmd_wq(struct sk_buff *skb, struct net_device *ndev)
 	/*alloc five byte for fw 16 byte need
 	 *dscr:11+flag:5 =16
 	 */
-	skb_push(skb,FLAG_SIZE);
-	memcpy(skb->data,temp_flag,FLAG_SIZE);
+	if (hif->hw_type != SPRD_HW_SC2355_PCIE) {
+		skb_push(skb,FLAG_SIZE);
+		memcpy(skb->data,temp_flag,FLAG_SIZE);
+	}
 	    /*send group in BK to avoid FW hang*/
 	    dscr = (struct tx_msdu_dscr *)skb->data;
 	if ((vif->mode == SPRD_MODE_AP ||
