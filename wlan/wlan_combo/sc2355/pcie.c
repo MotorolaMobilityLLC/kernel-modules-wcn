@@ -1369,7 +1369,7 @@ static inline int sprd_tx_free_txc_msg(struct tx_mgmt *tx_msg,
 }
 
 /*free PCIe data when receive txc event from cp*/
-int sc2355_tx_free_pcie_data(struct sprd_priv *priv, unsigned char *data)
+int sc2355_tx_free_pcie_data(unsigned char *data)
 {
 	int i;
 	struct sprd_hif *hif = sc2355_pcie_get_hif();
@@ -1385,6 +1385,7 @@ int sc2355_tx_free_pcie_data(struct sprd_priv *priv, unsigned char *data)
 #endif
 	unsigned char *tmp;
 	static unsigned long caller_jiffies;
+	struct sprd_priv *priv = hif->priv;
 
 	pr_info("%s:=0x%x %p %p\n", __func__, data, tx_mgmt, hif);
 
@@ -1656,7 +1657,7 @@ void sc2355_pcie_tx_addba(struct sprd_hif *hif,
 	}
 	misc_work->vif = vif;
 	misc_work->id = SPRD_WORK_ADDBA;
-	misc_work->id = SPRD_HW_SC2355_PCIE;
+	misc_work->hw_type = SPRD_HW_SC2355_PCIE;
 	memcpy(misc_work->data, &addba, sizeof(struct host_addba_param));
 
 	sprd_queue_work(vif->priv, misc_work);
@@ -2055,7 +2056,6 @@ static struct sprd_hif_ops sc2355_pcie_ops = {
 	.tx_special_data = sprd_tx_special_data,
 	.free_msg_content = pcie_free_msg_content,
 	.tx_addr_trans = sc2355_tx_addr_trans_pcie,
-	.tx_free_data = sc2355_tx_free_pcie_data,
 };
 
 extern struct sprd_chip_ops sc2355_chip_ops;

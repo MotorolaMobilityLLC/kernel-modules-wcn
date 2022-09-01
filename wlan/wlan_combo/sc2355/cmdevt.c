@@ -3234,7 +3234,7 @@ bool sc2355_do_delay_work(struct sprd_work *work)
 	case SPRD_PCIE_TX_FREE_BUF:
 		memcpy((unsigned char *)&data, work->data,
 		       sizeof(unsigned char *));
-		sc2355_tx_free_pcie_data(NULL, data);
+		sc2355_tx_free_pcie_data(data);
 		sc2355_free_data(data, work->len);
 		break;
 	case SPRD_CMD_TX_DATA:
