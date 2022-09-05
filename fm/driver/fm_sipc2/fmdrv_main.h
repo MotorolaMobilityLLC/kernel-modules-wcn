@@ -101,7 +101,7 @@ ssize_t fm_read_rds_data(struct file *filp, char __user *buf,
 int fm_sdio_write(unsigned char *, unsigned int);
 void fm_handler (int event, void *data);
 struct fm_rds_data *get_rds_data(void);
-
+void fm_reset_judge(void);
 int fm_ana_switch_inner(void *);
 
 

@@ -363,6 +363,35 @@ static void receive_tasklet(unsigned long arg)
     }
 }
 
+/******************************************************************************
+ * 
+ * Function      fm_reset_judge
+ * 
+ * Description   This function judges the fmdev->fm_invalid flag and performs the
+ *               performs the FM power up action when it is detected(WCN ASSERT).
+ * 
+ * Return        void
+ * 
+******************************************************************************/
+void fm_reset_judge(void){
+    struct fm_tune_parm powerup_parm;
+    int status = 0;
+
+    if (fmdev->fm_invalid == 1 ){
+        powerup_parm.err = 0;
+        powerup_parm.freq = 875;
+        status = fm_powerup(&powerup_parm);
+        if(status != 0){
+            pr_info("fm wcnd reset - invalid status!\n");
+        } else {
+            fmdev->fm_invalid = 0;
+            pr_info("fm wcnd reset - valid status\n");
+        }
+    }
+}
+
+
+
 ssize_t fm_read_rds_data(struct file *filp, char __user *buf,
 	size_t count, loff_t *pos)
 {
@@ -390,6 +419,7 @@ ssize_t fm_read_rds_data(struct file *filp, char __user *buf,
 	return sizeof(rds_debug_data);
 #endif
 
+	fm_reset_judge();
 	if (filp->f_flags & O_NONBLOCK) {
 		timeout = 0;
 		dev_unisoc_fm_err(fm_miscdev,"fm_read_rds_data NON BLOCK!!!\n");
