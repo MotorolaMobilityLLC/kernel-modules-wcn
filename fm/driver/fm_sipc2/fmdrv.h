@@ -38,7 +38,7 @@
 #define FM_TX_INOUT    1
 #define FM_RX_INOUT     0
 #define FM_TX_POOL_SIZE   5
-#define FM_RX_POOL_SIZE   1
+#define FM_RX_POOL_SIZE   5
 #define FM_SIPC_HEAD_LEN   0
 
 #define reset_open_state 2
