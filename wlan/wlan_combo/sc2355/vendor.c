@@ -2701,7 +2701,9 @@ static int vendor_set_passpoint_list(struct wiphy *wiphy,
 
 		HS_list_params->id = nla_get_u32(tb[GSCAN_ATTR_ANQPO_HS_NETWORK_ID]);
 
-		if (!tb2[GSCAN_ATTR_ANQPO_HS_NAI_REALM]) {
+		if (!tb2[GSCAN_ATTR_ANQPO_HS_NAI_REALM] ||
+		    (nla_len(tb2[GSCAN_ATTR_ANQPO_HS_NAI_REALM]) >
+		    sizeof(HS_list_params->realm))) {
 			netdev_info(vif->ndev,
 				    "%s :Fail to parse GSCAN_ATTR_ANQPO_HS_NAI_REALM\n",
 				    __func__);
@@ -2709,9 +2711,12 @@ static int vendor_set_passpoint_list(struct wiphy *wiphy,
 			goto out;
 		}
 		memcpy(HS_list_params->realm,
-		       nla_data(tb2[GSCAN_ATTR_ANQPO_HS_NAI_REALM]), 256);
+		       nla_data(tb2[GSCAN_ATTR_ANQPO_HS_NAI_REALM]),
+		       nla_len(tb2[GSCAN_ATTR_ANQPO_HS_NAI_REALM]));
 
-		if (!tb2[GSCAN_ATTR_ANQPO_HS_ROAM_CONSORTIUM_ID]) {
+		if (!tb2[GSCAN_ATTR_ANQPO_HS_ROAM_CONSORTIUM_ID] ||
+		    (nla_len(tb2[GSCAN_ATTR_ANQPO_HS_ROAM_CONSORTIUM_ID]) >
+		    sizeof(HS_list_params->roaming_ids))) {
 			netdev_info(vif->ndev,
 				    "%s :Fail to parse GSCAN_ATTR_ANQPO_HS_ROAM_CONSORTIUM_ID\n",
 				    __func__);
@@ -2720,9 +2725,12 @@ static int vendor_set_passpoint_list(struct wiphy *wiphy,
 		}
 
 		memcpy(HS_list_params->roaming_ids,
-		       nla_data(tb2[GSCAN_ATTR_ANQPO_HS_ROAM_CONSORTIUM_ID]), 128);
+		       nla_data(tb2[GSCAN_ATTR_ANQPO_HS_ROAM_CONSORTIUM_ID]),
+		       nla_len(tb2[GSCAN_ATTR_ANQPO_HS_ROAM_CONSORTIUM_ID]));
 
-		if (!tb2[GSCAN_ATTR_ANQPO_HS_PLMN]) {
+		if (!tb2[GSCAN_ATTR_ANQPO_HS_PLMN] ||
+		    (nla_len(tb2[GSCAN_ATTR_ANQPO_HS_PLMN]) >
+		    sizeof(HS_list_params->plmn))) {
 			netdev_info(vif->ndev,
 				    "%s :Fail to parse GSCAN_ATTR_ANQPO_HS_PLMN\n",
 				    __func__);
@@ -2730,8 +2738,9 @@ static int vendor_set_passpoint_list(struct wiphy *wiphy,
 			goto out;
 		}
 
-		memcpy(HS_list_params->plmn, nla_data(tb2[GSCAN_ATTR_ANQPO_HS_PLMN]),
-		       3);
+		memcpy(HS_list_params->plmn,
+		       nla_data(tb2[GSCAN_ATTR_ANQPO_HS_PLMN]),
+		       nla_len(tb2[GSCAN_ATTR_ANQPO_HS_PLMN]));
 		i++;
 	}
 

@@ -666,6 +666,11 @@ static int iface_priv_cmd(struct net_device *ndev, struct ifreq *ifr)
 				strlen(CMD_ENABLE_WHITELIST))) {
 		skip = strlen(CMD_ENABLE_WHITELIST) + 1;
 		counter = command[skip];
+		if (counter < 0 || counter > 10) {
+			netdev_err(ndev, "%s: enable whitelist counter is invalid: %d\n",
+				   __func__, counter);
+			goto out;
+		}
 		netdev_info(ndev, "%s: enable whitelist counter : %d\n",
 			    __func__, counter);
 		if (!counter) {
@@ -673,6 +678,9 @@ static int iface_priv_cmd(struct net_device *ndev, struct ifreq *ifr)
 						 SUBCMD_ENABLE, 0, NULL);
 			goto out;
 		}
+		if (priv_cmd.total_len < skip + counter * (MAC_ADDR_STR_LEN + 1))
+			goto out;
+
 		mac_addr = kmalloc(ETH_ALEN * counter, GFP_KERNEL);
 		if (!mac_addr) {
 			ret = -ENOMEM;
@@ -699,6 +707,11 @@ static int iface_priv_cmd(struct net_device *ndev, struct ifreq *ifr)
 				strlen(CMD_DISABLE_WHITELIST))) {
 		skip = strlen(CMD_DISABLE_WHITELIST) + 1;
 		counter = command[skip];
+		if (counter < 0 || counter > 10) {
+			netdev_err(ndev, "%s: disable whitelist counter is invalid: %d\n",
+				   __func__, counter);
+			goto out;
+		}
 		netdev_info(ndev, "%s: disable whitelist counter : %d\n",
 			    __func__, counter);
 		if (!counter) {
@@ -706,6 +719,9 @@ static int iface_priv_cmd(struct net_device *ndev, struct ifreq *ifr)
 						 SUBCMD_DISABLE, 0, NULL);
 			goto out;
 		}
+		if (priv_cmd.total_len < skip + counter * (MAC_ADDR_STR_LEN + 1))
+			goto out;
+
 		mac_addr = kmalloc(ETH_ALEN * counter, GFP_KERNEL);
 		if (!mac_addr) {
 			ret = -ENOMEM;
