@@ -70,7 +70,7 @@ enum wcn_sipc_chn_index {
 #define UPD_LUT_INDEX 2
 
 /*will not drop TCP ACK if TCPRX tp under this Mb level*/
-#define DROPACK_TP_TH_IN_M	40
+#define DROPACK_TP_TH_IN_M	20
 /*count RX TP timer in ms*/
 #define RX_TP_COUNT_IN_MS	500
 
