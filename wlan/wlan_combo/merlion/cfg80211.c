@@ -773,10 +773,16 @@ static int sprdwl_add_cipher_key(struct sprdwl_vif *vif, bool pairwise,
 	return ret;
 }
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+static int sprdwl_cfg80211_add_key(struct wiphy *wiphy, struct net_device *ndev,
+			  int link_id, u8 key_index, bool pairwise, const u8 *mac_addr,
+			  struct key_params *params)
+#else
 static int sprdwl_cfg80211_add_key(struct wiphy *wiphy, struct net_device *ndev,
 				   u8 key_index, bool pairwise,
 				   const u8 *mac_addr,
 				   struct key_params *params)
+#endif
 {
 	struct sprdwl_vif *vif = netdev_priv(ndev);
 
@@ -795,9 +801,15 @@ static int sprdwl_cfg80211_add_key(struct wiphy *wiphy, struct net_device *ndev,
 					     mac_addr);
 }
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+static int sprdwl_cfg80211_del_key(struct wiphy *wiphy, struct net_device *ndev,
+				   int link_id, u8 key_index, bool pairwise,
+				   const u8 *mac_addr)
+#else
 static int sprdwl_cfg80211_del_key(struct wiphy *wiphy, struct net_device *ndev,
 				   u8 key_index, bool pairwise,
 				   const u8 *mac_addr)
+#endif
 {
 	struct sprdwl_vif *vif = netdev_priv(ndev);
 
@@ -824,10 +836,17 @@ static int sprdwl_cfg80211_del_key(struct wiphy *wiphy, struct net_device *ndev,
 			      pairwise, mac_addr);
 }
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+static int sprdwl_cfg80211_set_default_key(struct wiphy *wiphy,
+					   struct net_device *ndev,
+					   int link_id, u8 key_index, bool unicast,
+					   bool multicast)
+#else
 static int sprdwl_cfg80211_set_default_key(struct wiphy *wiphy,
 					   struct net_device *ndev,
 					   u8 key_index, bool unicast,
 					   bool multicast)
+#endif
 {
 	struct sprdwl_vif *vif = netdev_priv(ndev);
 
@@ -3285,9 +3304,15 @@ int sprdwl_cfg80211_set_power_mgmt(struct wiphy *wiphy, struct net_device *ndev,
 				 SPRDWL_SET_PS_STATE, enabled);
 }
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+static int sprdwl_cfg80211_set_default_mgmt_key(struct wiphy *wiphy,
+						struct net_device *netdev,
+						int link_id, u8 key_index)
+#else
 static int sprdwl_cfg80211_set_default_mgmt_key(struct wiphy *wiphy,
 						struct net_device *netdev,
 						u8 key_index)
+#endif
 {
 	return 0;
 }
