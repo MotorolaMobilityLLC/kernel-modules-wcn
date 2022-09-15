@@ -1482,7 +1482,8 @@ int sprd_init_fw(struct sprd_vif *vif)
 	vif->state |= VIF_STATE_OPEN;
 	sprd_hif_fill_all_buffer(&priv->hif);
 
-	if ((priv->hif.hw_type == SPRD_HW_SC2355_SDIO) &&
+	if ((priv->hif.hw_type == SPRD_HW_SC2355_SDIO ||
+		priv->hif.hw_type == SPRD_HW_SC2332_SIPC) &&
 		(vif->mode == SPRD_MODE_AP || vif->mode == SPRD_MODE_STATION)) {
 		ret = regulatory_hint(priv->wiphy, country_alpha);
 		netdev_info(vif->ndev, "%s type %d, mode %d, name %s, regulatory_hint ret = %d.\n",

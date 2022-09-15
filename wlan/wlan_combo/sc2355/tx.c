@@ -1776,6 +1776,10 @@ int sc2355_reset(struct sprd_hif *hif)
 	pr_info("%s set hang recovery status to END, %d\n", __func__, __LINE__);
 	tx_mgmt->hang_recovery_status = HANG_RECOVERY_END;
 
+	/* bug 1985177, initial suspend mode, set to SPRD_PS_RESUMED */
+	pr_info("%s set suspend_mode to RESUMED, %d\n", __func__, __LINE__);
+	hif->suspend_mode = SPRD_PS_RESUMED;
+
 	return 0;
 }
 

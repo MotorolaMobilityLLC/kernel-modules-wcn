@@ -422,30 +422,25 @@ static void vendor_calc_radio_dif(struct sprd_llstat_radio *dif_radio,
 	for (i = 0; i < WIFI_AC_MAX; i++) {
 		dif_radio->ac[i].tx_mpdu = (llst->ac[i].tx_mpdu >=
 					    pre_radio->ac[i].tx_mpdu) ?
-		    (llst->ac[i].tx_mpdu - pre_radio->ac[i].tx_mpdu) :
-		    llst->ac[i].tx_mpdu;
+		    llst->ac[i].tx_mpdu : pre_radio->ac[i].tx_mpdu;
 		/* save lastest tx mpdu */
 		pre_radio->ac[i].tx_mpdu = llst->ac[i].tx_mpdu;
 
 		dif_radio->ac[i].rx_mpdu = (llst->ac[i].rx_mpdu >=
 					    pre_radio->ac[i].rx_mpdu) ?
-		    (llst->ac[i].rx_mpdu - pre_radio->ac[i].rx_mpdu) :
-		    llst->ac[i].rx_mpdu;
+		    llst->ac[i].rx_mpdu : pre_radio->ac[i].rx_mpdu;
 		/* save lastest rx mpdu */
 		pre_radio->ac[i].rx_mpdu = llst->ac[i].rx_mpdu;
 
 		dif_radio->ac[i].mpdu_lost = (llst->ac[i].mpdu_lost >=
 			pre_radio->ac[i].mpdu_lost) ?
-			(llst->ac[i].mpdu_lost -
-			 pre_radio->ac[i].mpdu_lost) :
-			llst->ac[i].mpdu_lost;
+		    llst->ac[i].mpdu_lost : pre_radio->ac[i].mpdu_lost;
 		/* save mpdu lost value */
 		pre_radio->ac[i].mpdu_lost = llst->ac[i].mpdu_lost;
 
 		dif_radio->ac[i].retries = (llst->ac[i].retries >=
 			pre_radio->ac[i].retries) ?
-			(llst->ac[i].retries - pre_radio->ac[i].retries) :
-			llst->ac[i].retries;
+		    llst->ac[i].retries : pre_radio->ac[i].retries;
 		/* save retries value */
 		pre_radio->ac[i].retries = llst->ac[i].retries;
 	}
