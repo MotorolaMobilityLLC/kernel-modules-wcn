@@ -39,24 +39,7 @@
 #include "qos.h"
 #endif
 
-struct sprdwl_cmd {
-	u8 cmd_id;
-	int init_ok;
-	u32 mstime;
-	void *data;
-	atomic_t refcnt;
-	/* spin lock for command */
-	spinlock_t lock;
-	/* mutex for command */
-	struct mutex cmd_lock;
-	/* wake_lock for command */
-	struct wakeup_source *wake_lock;
-	/*complettion for command*/
-	struct completion	completed;
-	atomic_t ignore_resp;
-};
-
-static struct sprdwl_cmd g_sprdwl_cmd;
+struct sprdwl_cmd g_sprdwl_cmd;
 
 const uint16_t CRC_table[] = {
 	0x0000, 0xCC01, 0xD801, 0x1400, 0xF001, 0x3C00,

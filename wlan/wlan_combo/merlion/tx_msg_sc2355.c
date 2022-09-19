@@ -672,6 +672,12 @@ int sprdwl_fc_get_send_num(struct sprdwl_tx_msg *tx_msg,
 	struct sprdwl_priv *priv = tx_msg->intf->priv;
 	static unsigned long caller_jiffies;
 	unsigned int tx_buf_max;
+	struct sprdwl_intf *intf = (struct sprdwl_intf *)tx_msg->intf;
+
+	if (unlikely(intf->exit) || unlikely(intf->cp_asserted)) {
+		wl_err("%s cp2 exit or assert!\n", __func__);
+		return 0;
+	}
 
 	if (data_num <= 0)
 		return 0;
@@ -796,6 +802,13 @@ int sprdwl_fc_test_send_num(struct sprdwl_tx_msg *tx_msg,
 	struct sprdwl_priv *priv = tx_msg->intf->priv;
 	static unsigned long caller_jiffies;
 	unsigned int tx_buf_max;
+	struct sprdwl_intf *intf = (struct sprdwl_intf *)tx_msg->intf;
+
+        if (unlikely(intf->exit) || unlikely(intf->cp_asserted)) {
+                wl_err("%s cp2 exit or assert!\n", __func__);
+                return 0;
+        }
+
 
 	if (data_num <= 0 || mode == SPRDWL_MODE_NONE)
 		return 0;
@@ -1734,23 +1747,6 @@ int sprdwl_sc2355_reset(struct sprdwl_intf *intf)
 		return -1;
 	}
 
-	/* need rest intf->exit flag, if wcn reset happened */
-	if (unlikely(intf->exit)) {
-		intf->exit = 0;
-		wl_info("%s reset intf->exit flag: %d!\n",
-			__func__, intf->exit);
-	}
-
-	/* need reset intf->cp_asserted flag */
-	if (unlikely(intf->cp_asserted)) {
-		intf->cp_asserted = 0;
-		wl_info("%s reset intf->cp_asserted flag: %d!\n",
-			__func__, intf->cp_asserted);
-	}
-
-	intf->fw_awake = 1;
-	intf->fw_power_down = 0;
-
 	list_for_each_entry_safe(vif, tmp, &priv->vif_list, vif_node) {
 		int ciphyr_type, key_index;
 		int ciphyr_type_max = 2, key_index_max = 6;
@@ -1817,6 +1813,23 @@ int sprdwl_sc2355_reset(struct sprdwl_intf *intf)
 	wl_info("%s flush all tx list\n", __func__);
 	sprdwl_flush_all_txlist(tx_msg);
 	sprdwl_rx_flush_buffer((void *)intf);
+	/* need rest intf->exit flag, if wcn reset happened */
+        if (unlikely(intf->exit)) {
+                intf->exit = 0;
+                wl_info("%s reset intf->exit flag: %d!\n",
+                        __func__, intf->exit);
+        }
+
+        /* need reset intf->cp_asserted flag */
+        if (unlikely(intf->cp_asserted)) {
+                intf->cp_asserted = 0;
+                wl_info("%s reset intf->cp_asserted flag: %d!\n",
+                        __func__, intf->cp_asserted);
+        }
+
+        intf->fw_awake = 1;
+        intf->fw_power_down = 0;
+
 
 	/* when cp2 hang and reset, claer hang_recvery_status */
 	wl_info("%s set hang recovery status to END, %d\n", __func__, __LINE__);

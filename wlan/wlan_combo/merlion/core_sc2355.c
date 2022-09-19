@@ -76,11 +76,16 @@ int sprdwl_chip_power_on(struct sprdwl_intf *intf)
 		return -ENODEV;
 	}
 
+	if (unlikely(intf->exit) || unlikely(intf->cp_asserted)) {
+		wl_err("%s assert or exit!", __func__);
+		goto out;
+	}
+
 	if (sprdwl_intf_init(intf)) {
 		atomic_sub(1, &intf->power_cnt);
 		return -ENODEV;
 	}
-
+out:
 	/* need reset intf->exit falg, if wcn reset happened */
 	if (unlikely(intf->exit) || unlikely(intf->cp_asserted)) {
 		wl_info("assert happened!, need reset paras!\n");
@@ -104,8 +109,14 @@ void sprdwl_chip_power_off(struct sprdwl_intf *intf)
 		return;
 
 	sprdwl_clean_work(intf->priv);
-	sprdwl_intf_deinit();
 
+	if (unlikely(intf->exit) || unlikely(intf->cp_asserted)) {
+		wl_err("%s assert or exit!", __func__);
+		goto out;
+	}
+
+	sprdwl_intf_deinit();
+out:
 	if (stop_marlin(MARLIN_WIFI))
 		wl_err("stop marlin failed!!!\n");
 }

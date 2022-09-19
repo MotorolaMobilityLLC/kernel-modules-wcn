@@ -85,6 +85,23 @@
 #define SPRDWL_11V_ALL_FEATURE          0xFFFF
 
 extern unsigned int wfa_cap;
+struct sprdwl_cmd {
+        u8 cmd_id;
+        int init_ok;
+        u32 mstime;
+        void *data;
+        atomic_t refcnt;
+        /* spin lock for command */
+        spinlock_t lock;
+        /* mutex for command */
+        struct mutex cmd_lock;
+        /* wake_lock for command */
+        struct wakeup_source *wake_lock;
+        /*complettion for command*/
+        struct completion       completed;
+        atomic_t ignore_resp;
+};
+
 enum SPRDWL_CMD_LIST {
 	WIFI_CMD_MIN = 0,
 	WIFI_CMD_ERR = WIFI_CMD_MIN,

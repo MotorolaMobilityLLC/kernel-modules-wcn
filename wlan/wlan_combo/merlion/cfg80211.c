@@ -2984,7 +2984,13 @@ static int sprdwl_cfg80211_start_p2p_device(struct wiphy *wiphy,
 	ret = sprdwl_chip_set_power(intf, true);
 	if (ret)
 		return ret;
-	return sprdwl_init_fw(vif);
+	ret = sprdwl_init_fw(vif);
+	if (ret) {
+		wl_err("%s init fw fail!\n", __func__);
+		atomic_sub(1, &intf->power_cnt);
+	}
+
+	return ret;
 }
 
 static void sprdwl_cfg80211_stop_p2p_device(struct wiphy *wiphy,

@@ -1739,12 +1739,16 @@ static void sprdwl_init_debugfs(struct sprdwl_priv *priv)
 		return;
 	sprdwl_intf_debugfs(priv, priv->debugfs);
 }
-
+extern struct sprdwl_cmd g_sprdwl_cmd;
 static int sprdwl_host_reset(struct notifier_block *nb,
 			      unsigned long data, void *ptr)
 {
 	struct sprdwl_vif *vif;
 	struct sprdwl_intf *intf;
+	struct sprdwl_cmd *cmd = &g_sprdwl_cmd;
+	struct sprdwl_priv *priv;
+	enum sprdwl_mode sprdwl_mode = SPRDWL_MODE_STATION;
+	u8 mode_found = 0;
 
 	char *envp[3] = {
 		[0] = "SOURCE=unisocwl",
@@ -1765,11 +1769,20 @@ static int sprdwl_host_reset(struct notifier_block *nb,
 			       struct sprdwl_vif, vif_node);
 
 	intf = (struct sprdwl_intf *)(vif->priv->hw_priv);
+	priv = vif->priv;
+	for (sprdwl_mode = SPRDWL_MODE_STATION; sprdwl_mode < SPRDWL_MODE_MAX; sprdwl_mode++) {
+		if (priv->fw_stat[sprdwl_mode] == SPRDWL_INTF_OPEN) {
+			mode_found = 1;
+			break;
+		}
+	}
+	if (mode_found <= 0)
+		return NOTIFY_OK;
 	intf->cp_asserted = 1;
 	wl_err("%s() dev_path: %s\n", __func__,
 		kobject_get_path(&intf->pdev->dev.kobj, GFP_KERNEL));
 	sprdwl_intf_force_exit(vif->priv);
-
+	complete(&cmd->completed);
 	return NOTIFY_OK;
 }
 
