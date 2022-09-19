@@ -2883,7 +2883,7 @@ int sc2355_set_sniffer(struct net_device *ndev, struct ifreq *ifr)
 		return -EFAULT;
 
 	/* add length check to avoid invalid NULL ptr */
-	if (!priv_cmd.total_len) {
+	if (priv_cmd.total_len <= 0) {
 		netdev_err(ndev, "%s: priv cmd total len is invalid\n",
 			   __func__);
 		return -EINVAL;
@@ -3020,7 +3020,7 @@ int sc2355_set_miracast(struct net_device *ndev, struct ifreq *ifr)
 #endif
 
 	/*add length check to avoid invalid NULL ptr*/
-	if (priv_cmd.total_len == 0) {
+	if (priv_cmd.total_len <= 0) {
 		pr_err("%s: priv cmd total len is invalid", __func__);
 		return -EINVAL;
 	}

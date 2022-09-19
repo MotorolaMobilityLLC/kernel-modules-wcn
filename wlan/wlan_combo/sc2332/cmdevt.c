@@ -1877,7 +1877,7 @@ int sc2332_set_sniffer(struct net_device *ndev, struct ifreq *ifr)
 		return -EFAULT;
 
 	/* add length check to avoid invalid NULL ptr */
-	if (!priv_cmd.total_len) {
+	if (priv_cmd.total_len <= 0) {
 		netdev_err(ndev, "%s: priv cmd total len is invalid\n",
 			   __func__);
 		return -EINVAL;
