@@ -647,17 +647,26 @@ static int vendor_parse_sae_entry(struct net_device *ndev,
 		case VENDOR_SAE_PASSWORD:
 			data_len = nla_len(pos);
 			entry->passwd_len = data_len;
+			if (data_len < sizeof(entry->password)) {
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
-			nla_strscpy(entry->password, pos, data_len + 1);
+				nla_strscpy(entry->password, pos, data_len + 1);
 #else
-			nla_strlcpy(entry->password, pos, data_len + 1);
+				nla_strlcpy(entry->password, pos, data_len + 1);
 #endif
-			netdev_info(ndev, "entry->passwd: %s, entry->len:%d\n",
-				    entry->password, entry->passwd_len);
+				netdev_info(ndev, "entry->passwd: %s, entry->len:%d\n",
+					    entry->password, entry->passwd_len);
+			} else {
+				netdev_err(ndev, "entry->passwd_len(%d) is more than expected\n", data_len);
+				return -ENOEXEC;
+			}
 			break;
 		case VENDOR_SAE_IDENTIFIER:
 			data_len = nla_len(pos);
 			entry->id_len = data_len;
+			if (entry->id_len > sizeof(entry->identifier)) {
+				netdev_err(ndev, "invalid id_len %d\n", entry->id_len);
+				return -EINVAL;
+			}
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
 			nla_strscpy(entry->identifier, pos, data_len);
 #else
@@ -665,6 +674,11 @@ static int vendor_parse_sae_entry(struct net_device *ndev,
 #endif
 			break;
 		case VENDOR_SAE_PEER_ADDR:
+			data_len = nla_len(pos);
+			if (data_len != ETH_ALEN) {
+				netdev_err(ndev, "invalid peer_addr len %d\n", data_len);
+				return -EINVAL;
+			}
 			nla_memcpy(entry->peer_addr, pos, ETH_ALEN);
 			break;
 		case VENDOR_SAE_VLAN_ID:
@@ -1964,9 +1978,12 @@ static int vendor_set_sae_password(struct wiphy *wiphy,
 			sae_para.entry[sae_entry_index].vlan_id =
 			    SPRD_SAE_NOT_SET;
 			sae_para.entry[sae_entry_index].used = 1;
-			vendor_parse_sae_entry(vif->ndev,
+			if (vendor_parse_sae_entry(vif->ndev,
 					       &sae_para.entry[sae_entry_index],
-					       nla_data(pos), nla_len(pos));
+					       nla_data(pos), nla_len(pos)) != 0) {
+				netdev_info(vif->ndev, "%s %d error.\n", __func__, __LINE__);
+				return -EINVAL;
+			}
 			sae_entry_index++;
 			break;
 
@@ -1983,15 +2000,20 @@ static int vendor_set_sae_password(struct wiphy *wiphy,
 
 		case VENDOR_SAE_PWD:
 			sae_para.passphrase_len = nla_len(pos);
+			if (sae_para.passphrase_len < sizeof(sae_para.passphrase)) {
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
-			nla_strscpy(sae_para.passphrase, pos,
-				    sae_para.passphrase_len + 1);
+				nla_strscpy(sae_para.passphrase, pos,
+					    sae_para.passphrase_len + 1);
 #else
-			nla_strlcpy(sae_para.passphrase, pos,
-				    sae_para.passphrase_len + 1);
+				nla_strlcpy(sae_para.passphrase, pos,
+					    sae_para.passphrase_len + 1);
 #endif
-			netdev_info(vif->ndev, "pwd is :%s, len :%d\n",
-				    sae_para.passphrase, sae_para.passphrase_len);
+				netdev_info(vif->ndev, "pwd is :%s, len :%d\n",
+					    sae_para.passphrase, sae_para.passphrase_len);
+			} else {
+				netdev_info(vif->ndev, "%s %d error.\n", __func__, __LINE__);
+				return -EINVAL;
+			}
 			break;
 		default:
 			break;
