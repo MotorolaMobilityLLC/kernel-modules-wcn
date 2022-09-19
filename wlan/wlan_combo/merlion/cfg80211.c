@@ -2579,8 +2579,7 @@ void sprdwl_report_disconnection(struct sprdwl_vif *vif, u16 reason_code)
 		cfg80211_connect_result(vif->ndev, vif->bssid, NULL, 0, NULL, 0,
 					WLAN_STATUS_UNSPECIFIED_FAILURE,
 					GFP_KERNEL);
-	} else if ((vif->sm_state == SPRDWL_CONNECTED) ||
-			(vif->sm_state == SPRDWL_DISCONNECTING)) {
+	} else if (vif->sm_state == SPRDWL_CONNECTED) {
 		cfg80211_disconnected(vif->ndev, reason_code,
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 4, 83)
 				NULL, 0, false, GFP_KERNEL);
@@ -2588,7 +2587,17 @@ void sprdwl_report_disconnection(struct sprdwl_vif *vif, u16 reason_code)
 				      NULL, 0, GFP_KERNEL);
 #endif
 		netdev_info(vif->ndev,
-			    "%s %s, reason_code %d\n", __func__,
+			    "%s %s, passive disconnection, reason_code %d\n", __func__,
+			    vif->ssid, reason_code);
+	} else if (vif->sm_state == SPRDWL_DISCONNECTING) {
+		cfg80211_disconnected(vif->ndev, reason_code,
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 4, 83)
+				NULL, 0, true, GFP_KERNEL);
+#else
+				      NULL, 0, GFP_KERNEL);
+#endif
+		netdev_info(vif->ndev,
+			    "%s %s, active disconnection, reason_code %d\n", __func__,
 			    vif->ssid, reason_code);
 	} else {
 		netdev_err(vif->ndev, "%s Unexpected event!\n", __func__);
