@@ -9,6 +9,7 @@
 * as published by the Free Software Foundation.
 */
 
+#include <linux/limits.h>
 #include "common/common.h"
 #include "common/iface.h"
 #include "rtt.h"
@@ -900,6 +901,14 @@ int sc2355_rtt_abort_session(struct wiphy *wiphy, struct wireless_dev *wdev,
 			   "%s: FTM session not started\n", __func__);
 		return -EAGAIN;
 	}
+
+	/* bug 2028856, hackerone 1701183 */
+	if (U16_MAX < (sizeof(struct cmd_rtt) + len) || len <= 0) {
+		netdev_err(vif->ndev,
+			   "%s: param data len is invalid\n", __func__);
+		return -EINVAL;
+	}
+
 	/* send cancel range request */
 	msg = sc2355_get_cmdbuf(priv, vif, sizeof(struct cmd_rtt) + len,
 				CMD_RTT, SPRD_HEAD_NORSP, GFP_KERNEL);
