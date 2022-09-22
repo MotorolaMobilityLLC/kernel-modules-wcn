@@ -9,6 +9,7 @@
 * as published by the Free Software Foundation.
 */
 
+#include <linux/limits.h>
 #include "common/cfg80211.h"
 #include "common/cmd.h"
 #include "common/common.h"
@@ -27,6 +28,13 @@ int sc2355_nan_vendor_cmds(struct wiphy *wiphy, struct wireless_dev *wdev,
 	u8 rsp[NAN_RSP_LEN] = { 0x0 };
 	u16 rsp_len = NAN_RSP_LEN;
 	int ret = 0;
+
+	/* bug 2028856, hackerone 1701201 */
+	if (U16_MAX < len || len <= 0) {
+		netdev_err(vif->ndev,
+			   "%s: param data len is invalid\n", __func__);
+		return -EINVAL;
+	}
 
 	msg = get_cmdbuf(vif->priv, vif, len, CMD_NAN);
 	if (!msg)
