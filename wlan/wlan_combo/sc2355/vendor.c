@@ -2547,10 +2547,17 @@ static int vendor_set_ssid_hotlist(struct wiphy *wiphy,
 					type = nla_type(inner_iter);
 				switch (type) {
 				case GSCAN_ATTR_CONFIG_SSID_THR_SSID:
-				memcpy(
-				ssid_hotlist_params->ssid[i].ssid,
-				nla_data(inner_iter),
-				IEEE80211_MAX_SSID_LEN * sizeof(unsigned char));
+					if (nla_len(inner_iter) >
+					    IEEE80211_MAX_SSID_LEN * sizeof(unsigned char)) {
+						netdev_err(vif->ndev,
+							   "nla_data for networks \
+							   nla_type 0x%x is invalid\n", type);
+							ret = -EINVAL;
+					} else {
+						memcpy(ssid_hotlist_params->ssid[i].ssid,
+						       nla_data(inner_iter),
+						       nla_len(inner_iter));
+					}
 				break;
 
 				case GSCAN_ATTR_CONFIG_SSID_THR_RSSI_LOW:
