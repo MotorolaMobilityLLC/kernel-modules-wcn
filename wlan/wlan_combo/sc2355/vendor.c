@@ -2939,9 +2939,16 @@ static int vendor_set_epno_list(struct wiphy *wiphy,
 					type = nla_type(inner_iter);
 					switch (type) {
 					case ATTR_PNO_SET_LIST_PARAM_EPNO_NETWORK_SSID:
-						memcpy(epno_network->ssid,
-						       nla_data(inner_iter),
-						       IEEE80211_MAX_SSID_LEN);
+						if (nla_len(inner_iter) > IEEE80211_MAX_SSID_LEN) {
+							netdev_err(vif->ndev,
+								   "nla_data for networks \
+								   nla_type 0x%x is invalid\n", type);
+								ret = -EINVAL;
+						} else {
+							memcpy(epno_network->ssid,
+							       nla_data(inner_iter),
+							       nla_len(inner_iter));
+						}
 						break;
 
 					case ATTR_PNO_SET_LIST_PARAM_EPNO_NETWORK_FLAGS:
