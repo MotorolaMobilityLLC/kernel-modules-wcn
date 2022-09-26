@@ -299,6 +299,14 @@ static int sdio_suspend_resume_handle(int chn, int mode)
 #endif
 	}
 
+	if (throughput_static.uclamp_set_flag) {
+          //reset thread uclamp param
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 15, 0))
+          sc2355_set_thread_uclamp(tx_mgmt->tx_thread, 0);
+          throughput_static.uclamp_set_flag = false;
+#endif
+	}
+
 	if (mode == 0) {
 		if (atomic_read(&tx_mgmt->tx_list_qos_pool.ref) > 0 ||
 		    atomic_read(&tx_mgmt->tx_list_cmd.ref) > 0 ||
@@ -1535,7 +1543,12 @@ void sc2355_sdio_throughput_static_init(void)
 {
 	throughput_static.tx_bytes = 0;
 	throughput_static.last_time = jiffies;
+	throughput_static.rx_bytes = 0;
+	throughput_static.rx_last_time = jiffies;
 	throughput_static.disable_pd_flag = false;
+	throughput_static.uclamp_set_flag = false;
+	throughput_static.throughput_tx = 0;
+	throughput_static.throughput_rx = 0;
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
 	cpu_latency_qos_add_request(&throughput_static.pm_qos_request_idle,
 			   PM_QOS_CPU_LATENCY_DEFAULT_VALUE);
@@ -1559,7 +1572,8 @@ void sc2355_sdio_throughput_ctl_core_pd(unsigned int len)
 	throughput_static.tx_bytes += len;
 	if (time_after(jiffies, throughput_static.last_time +  msecs_to_jiffies(1000))) {
 		throughput_static.last_time = jiffies;
-		if (throughput_static.tx_bytes >= DISABLE_PD_THRESHOLD) {
+		if ((throughput_static.tx_bytes >= DISABLE_PD_THRESHOLD) ||
+			(throughput_static.throughput_rx >= DISABLE_PD_THRESHOLD)) {
 			if (!throughput_static.disable_pd_flag)	{
 				throughput_static.disable_pd_flag = true;
 				// forbid core powerdown
@@ -1586,8 +1600,18 @@ void sc2355_sdio_throughput_ctl_core_pd(unsigned int len)
 #endif
 			}
 		}
-		throughput_static.throughput_curent = throughput_static.tx_bytes;
+		throughput_static.throughput_tx = throughput_static.tx_bytes;
 		throughput_static.tx_bytes = 0;
+	}
+}
+
+void sc2355_sdio_rx_throughput_statistic(unsigned int len)
+{
+	throughput_static.rx_bytes += len;
+	if (time_after(jiffies, throughput_static.rx_last_time +  msecs_to_jiffies(1000))) {
+		throughput_static.rx_last_time = jiffies;
+		throughput_static.throughput_rx = throughput_static.rx_bytes;
+		throughput_static.rx_bytes = 0;
 	}
 }
 
@@ -1595,6 +1619,7 @@ int sc2355_sdio_init(struct sprd_hif *hif)
 {
 	u8 i;
 	int ret = -EINVAL, chn = 0;
+	struct tx_mgmt *tx_mgmt = NULL;
 
 	hif->hw_type = SPRD_HW_SC2355_SDIO;
 
@@ -1620,6 +1645,11 @@ int sc2355_sdio_init(struct sprd_hif *hif)
 	}
 
 	sc2355_sdio_throughput_static_init();
+	tx_mgmt = (struct tx_mgmt *)hif->tx_mgmt;
+	//reset thread uclamp param
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 15, 0))
+	sc2355_set_thread_uclamp(tx_mgmt->tx_thread, 0);
+#endif
 
 	if (hif->hw_type == SPRD_HW_SC2355_SDIO) {
 		sc2355_hif.mchn_ops = sdio_hif_ops;

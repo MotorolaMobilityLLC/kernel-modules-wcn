@@ -205,6 +205,7 @@ static void rx_skb_process(struct sprd_priv *priv, struct sk_buff *skb)
 	if (hif->tdls_flow_count_enable == 1)
 		sc2355_tdls_count_flow(vif, skb->data + ETH_ALEN,
 				       skb->len - ETH_ALEN);
+	sc2355_sdio_rx_throughput_statistic(skb->len);
 
 	if ((vif->mode == SPRD_MODE_AP ||
 	     vif->mode == SPRD_MODE_P2P_GO) && msdu_desc->uc_w2w_flag) {

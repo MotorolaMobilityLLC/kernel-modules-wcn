@@ -787,12 +787,16 @@ static int sc2355_tx_thread(void *data)
 		if (unlikely(tx_mgmt->tx_thread_exit))
 			goto exit;
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 15, 0))
-                if (throughput_static.uclamp_set_flag && throughput_static.throughput_curent >= DISABLE_PD_THRESHOLD) {
+                if (!throughput_static.uclamp_set_flag &&
+                   (throughput_static.throughput_tx >= SET_UCLAMP_THRESHOLD ||
+                    throughput_static.throughput_rx >= SET_UCLAMP_THRESHOLD)) {
                         sc2355_set_thread_uclamp(tx_mgmt->tx_thread, 400);
-                        throughput_static.uclamp_set_flag = false;
-                } else if (!throughput_static.uclamp_set_flag && throughput_static.throughput_curent < DISABLE_PD_THRESHOLD) {
-                        sc2355_set_thread_uclamp(tx_mgmt->tx_thread, 0);
                         throughput_static.uclamp_set_flag = true;
+                } else if (throughput_static.uclamp_set_flag &&
+                           (throughput_static.throughput_tx < SET_UCLAMP_THRESHOLD &&
+                            throughput_static.throughput_rx < SET_UCLAMP_THRESHOLD)) {
+                        sc2355_set_thread_uclamp(tx_mgmt->tx_thread, 0);
+                        throughput_static.uclamp_set_flag = false;
                 }
 #endif
 		tx_work_queue(tx_mgmt);
