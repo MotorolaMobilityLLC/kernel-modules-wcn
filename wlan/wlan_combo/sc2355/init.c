@@ -417,8 +417,7 @@ void sc2355_setup_wiphy(struct wiphy *wiphy, struct sprd_priv *priv)
 	wiphy->max_sched_scan_reqs = 1;
 	wiphy_ext_feature_set(wiphy,
 			      NL80211_EXT_FEATURE_SCHED_SCAN_RELATIVE_RSSI);
-	if (priv->hif.hw_type != SPRD_HW_SC2355_PCIE)
-		wiphy->features |= NL80211_FEATURE_SAE;
+	wiphy->features |= NL80211_FEATURE_SAE;
 
 	if (priv->extend_feature & SPRD_EXTEND_FEATURE_OCE) {
                 pr_info("\tOCE supported\n");
