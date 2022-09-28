@@ -320,6 +320,8 @@ sc2355_rx_mh_addr_process(struct rx_mgmt *rx_mgmt, void *data,
 		pr_debug("%s: Add RX code here\n", __func__);
 		sc2355_mm_mh_data_event_process(&rx_mgmt->mm_entry, data,
 						len, buffer_type);
+		sc2355_free_data(data, buffer_type);
+
 	} else {
 		pr_debug("%s: Add TX complete code here\n", __func__);
 
