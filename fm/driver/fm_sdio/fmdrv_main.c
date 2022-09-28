@@ -349,9 +349,9 @@ ssize_t fm_read_rds_data(struct file *filp, char __user *buf, size_t count, loff
     }
 	dev_unisoc_fm_info(fm_miscdev,"(fm drs) fm event is %x\n", fmdev->rds_data.event_status);
 	#if(LINUX_VERSION_CODE >= KERNEL_VERSION(5,15,0))
-	fmdev->rds_han.rds_parse_start_time = ktime_get_real_seconds();
+	fmdev->rds_han.rds_parse_stop_time = ktime_get_real_seconds();
 	#else
-	fmdev->rds_han.rds_parse_start_time = get_seconds();
+	fmdev->rds_han.rds_parse_stop_time = get_seconds();
 	#endif
     if ((fmdev->rds_han.rds_parse_stop_time -
         fmdev->rds_han.rds_parse_start_time) >
