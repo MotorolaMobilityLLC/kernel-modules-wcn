@@ -256,13 +256,23 @@ static void cmdevt_clean_cmd(struct sprd_cmd *cmd)
 
 static int cmdevt_lock_cmd(struct sprd_cmd *cmd)
 {
+#ifdef DRV_RESET_SELF
+	struct sprd_hif *hif;
+#endif
 	if (atomic_inc_return(&cmd->refcnt) >= SPRD_CMD_EXIT_VAL) {
 		atomic_dec(&cmd->refcnt);
 		pr_err("%s failed\n", __func__);
 		return -1;
 	}
 	mutex_lock(&cmd->cmd_lock);
-
+#ifdef DRV_RESET_SELF
+	hif = sc2332_get_hif();
+	if (hif->cp_asserted == 1) {
+		mutex_unlock(&cmd->cmd_lock);
+		pr_err("%s failed, cp_asserted unlock cmd_lock\n", __func__);
+		return -1;
+	}
+#endif
 	return 0;
 }
 
@@ -347,7 +357,15 @@ struct sprd_msg *sc2332_get_cmdbuf(struct sprd_priv *priv, struct sprd_vif *vif,
 
 	if (vif)
 		mode = vif->mode;
-
+#ifdef DRV_RESET_SELF
+	if (priv->hif.drv_resetting == 1 &&
+	   !(cmd_id == CMD_GET_INFO ||
+	    cmd_id == CMD_OPEN)) {
+		pr_err("%s:wifi resetting, cannot send [%s]",
+			__func__, cmdevt_cmd2str(cmd_id));
+		return NULL;
+	}
+#endif
 	msg = sprd_chip_get_msg(&priv->chip, SPRD_TYPE_CMD, mode);
 	if (!msg)
 		return NULL;
@@ -392,6 +410,10 @@ int sc2332_send_cmd_recv_rsp(struct sprd_priv *priv, struct sprd_msg *msg,
 	if (hif->cp_asserted == 1) {
 		pr_info("%s CP2 assert\n", __func__);
 		sprd_chip_free_msg(&priv->chip, msg);
+		if (msg->skb) {
+			dev_kfree_skb(msg->skb);
+			msg->skb = NULL;
+		}
 		return -EIO;
 	}
 
@@ -440,7 +462,11 @@ int sc2332_send_cmd_recv_rsp(struct sprd_priv *priv, struct sprd_msg *msg,
 
 	ret = cmdevt_recv_rsp_timeout(priv, timeout);
 	if (ret != -1) {
+#ifndef DRV_RESET_SELF
 		if (rbuf && rlen && *rlen) {
+#else
+		if (rbuf && rlen && *rlen && !hif->cp_asserted) {
+#endif
 			hdr = (struct sprd_cmd_hdr *)cmd->data;
 			plen = le16_to_cpu(hdr->plen) - sizeof(*hdr);
 			*rlen = min(*rlen, plen);

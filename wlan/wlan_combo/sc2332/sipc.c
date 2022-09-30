@@ -63,6 +63,13 @@ static const char *sipc_channel_tostr(int channel)
 	}
 }
 
+#ifdef DRV_RESET_SELF
+struct sprd_hif *sc2332_get_hif(void)
+{
+	return (struct sprd_hif *)sc2332_hif;
+}
+#endif
+
 static int sc2332_reset(struct sprd_hif *hif)
 {
 	struct sprd_priv *priv = NULL;
@@ -145,6 +152,109 @@ static int sc2332_reset(struct sprd_hif *hif)
 
 	return 0;
 }
+
+#ifdef DRV_RESET_SELF
+int sc2332_reset_self(struct sprd_priv *priv)
+{
+	struct sprd_vif *vif, *tmp;
+	struct sprd_hif *hif;
+
+	if (!priv) {
+		pr_err("%s can not get priv!\n", __func__);
+		return -EINVAL;
+	}
+	hif = (struct sprd_hif *)(&priv->hif);
+	if (!hif) {
+		pr_err("%s can not get intf!\n", __func__);
+		return -EINVAL;
+	}
+
+	hif->drv_resetting = 1;
+	pr_info("enter %s\n", __func__);
+
+	list_for_each_entry_safe(vif, tmp, &priv->vif_list, vif_node) {
+		pr_info("%s handle vif : name %s, mode %d, sm_state %d\n", __func__,
+			vif->name, vif->mode, vif->sm_state);
+		if (vif->mode == SPRD_MODE_STATION ||
+		    vif->mode == SPRD_MODE_P2P_CLIENT) {
+			if (vif->sm_state == SPRD_DISCONNECTING ||
+			    vif->sm_state == SPRD_CONNECTING ||
+			    vif->sm_state == SPRD_CONNECTED) {
+				pr_info("%s check connection state for sta or p2p gc\n", __func__);
+				pr_info("vif->mode : %d, vif->sm_state : %d\n",
+					vif->mode, vif->sm_state);
+				cfg80211_disconnected(vif->ndev, 0, NULL, 0,
+					false, GFP_KERNEL);
+					vif->sm_state = SPRD_DISCONNECTED;
+			}
+		}
+
+		if (vif->ndev) {
+			rtnl_lock();
+			dev_close(vif->ndev);
+			rtnl_unlock();
+			pr_info("%s dev_close %s!\n", __func__, vif->name);
+		}
+
+		if (vif->mode == SPRD_MODE_AP) {
+			pr_info("softap mode, reset iftype to station, before reset:%d\n",
+				vif->wdev.iftype);
+			//vif->wdev.iftype = NL80211_IFTYPE_STATION;
+			pr_info("after reset iftype:%d\n", vif->wdev.iftype);
+			hif->drv_resetting = 0;
+			return 0;
+		}
+
+		if (vif->mode != SPRD_MODE_NONE) {
+			pr_debug("need reset mode to none: %d\n", vif->mode);
+			vif->state &= ~VIF_STATE_OPEN;
+			vif->mode = SPRD_MODE_NONE;
+		}
+		/* reset ssid & bssid */
+		memset(vif->bssid, 0, sizeof(vif->bssid));
+		memset(vif->ssid, 0, sizeof(vif->ssid));
+		vif->ssid_len = 0;
+		vif->prwise_crypto = SPRD_CIPHER_NONE;
+		vif->grp_crypto = SPRD_CIPHER_NONE;
+		memset(vif->key_index, 0, sizeof(vif->key_index));
+		memset(vif->key_len, 0, sizeof(vif->key_len));
+		memset(vif->key, 0, sizeof(vif->key));
+	}
+
+	pr_info("%s flust all tx list\n", __func__);
+	sc2332_flush_all_txlist(hif);
+
+	/* reset exit and cp_asserted flag */
+	if (unlikely(hif->exit)) {
+		hif->exit = 0;
+		pr_info("%s reset hif->exit flag:%d!\n", __func__, hif->exit);
+	}
+
+	if (unlikely(hif->cp_asserted)) {
+		hif->cp_asserted = 0;
+		pr_info("%s reset hif->cp_asserted flag:%d!\n", __func__,
+			hif->cp_asserted);
+	}
+
+	atomic_set(&hif->power_cnt, 0);
+
+	list_for_each_entry_safe(vif, tmp, &priv->vif_list, vif_node) {
+		if (vif->ndev) {
+			rtnl_lock();
+			dev_open(vif->ndev, NULL);
+			rtnl_unlock();
+			pr_info("%s open netdevice %s!\n", __func__, vif->name);
+		} else {
+			if (!sprd_iface_set_power(hif, true))
+				sprd_init_fw(vif);
+		}
+	}
+	pr_info("exit %s\n", __func__);
+	hif->drv_resetting = 0;
+
+	return 0;
+}
+#endif
 
 static int sipc_reserv_len(struct sprd_hif *hif)
 {
@@ -782,6 +892,9 @@ struct sprd_hif_ops sc2332_sipc_ops = {
 	.deinit = sipc_deinit,
 	.reserv_len = sipc_reserv_len,
 	.reset = sc2332_reset,
+#ifdef DRV_RESET_SELF
+	.reset_self = sc2332_reset_self,
+#endif
 };
 
 extern struct sprd_chip_ops sc2332_chip_ops;
