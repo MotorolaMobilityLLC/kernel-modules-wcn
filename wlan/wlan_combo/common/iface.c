@@ -237,8 +237,10 @@ int sprd_iface_set_power(struct sprd_hif *hif, int val)
 	int ret = 0;
 
 	if (val) {
+		sprd_wlan_power_status_sync(1, 1);
 		ret = sprd_hif_power_on(hif);
 		if (ret) {
+			sprd_wlan_power_status_sync(1, 0);
 			if (ret == -ENODEV)
 				pr_err("failed to power on WCN!\n");
 			else if (ret == -EIO)
