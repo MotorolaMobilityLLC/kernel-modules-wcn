@@ -1717,6 +1717,7 @@ static struct sprd_hif_ops sc2355_sdio_ops = {
 	.reset_self = sc2355_reset_self,
 #endif
 	.throughput_ctl_pd = sc2355_sdio_throughput_ctl_core_pd,
+	.tx_flush = sc2355_tx_flush,
 };
 
 extern struct sprd_chip_ops sc2355_chip_ops;

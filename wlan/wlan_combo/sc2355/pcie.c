@@ -2056,6 +2056,7 @@ static struct sprd_hif_ops sc2355_pcie_ops = {
 	.tx_special_data = sprd_tx_special_data,
 	.free_msg_content = pcie_free_msg_content,
 	.tx_addr_trans = sc2355_tx_addr_trans_pcie,
+	.tx_flush = sc2355_tx_flush,
 };
 
 extern struct sprd_chip_ops sc2355_chip_ops;

@@ -239,6 +239,7 @@ struct sprd_hif_ops {
 #ifdef DRV_RESET_SELF
 	int (*reset_self)(struct sprd_priv *priv);
 #endif
+	void (*tx_flush)(struct sprd_hif *hif, struct sprd_vif *vif);
 };
 
 void sprd_clean_work(struct sprd_priv *priv);
@@ -362,4 +363,9 @@ static inline void sprd_hif_throughput_ctl_pd(struct sprd_hif *hif, unsigned int
 		hif->ops->throughput_ctl_pd(len);
 }
 
+static inline void sprd_hif_tx_flush(struct sprd_hif *hif, struct sprd_vif *vif)
+{
+	if (hif->ops->tx_flush)
+		hif->ops->tx_flush(hif, vif);
+}
 #endif

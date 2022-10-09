@@ -3187,6 +3187,7 @@ bool sc2355_do_delay_work(struct sprd_work *work)
 	u16 reason_code;
 	struct sprd_vif *vif;
 	enum sprd_hif_type hw_type;
+	struct sprd_hif *hif = NULL;
 
 	if (!work)
 		return false;
@@ -3224,6 +3225,13 @@ bool sc2355_do_delay_work(struct sprd_work *work)
 		sprd_tdls_oper(vif->priv, vif, tdls->peer, tdls->oper);
 		break;
 	case SPRD_SEND_CLOSE:
+		hif = &vif->priv->hif;
+		if (!hif) {
+			pr_err("%s can not get hif!\n", __func__);
+			return false;
+		}
+		vif->state &= ~VIF_STATE_OPEN;
+		sprd_hif_tx_flush(hif, vif);
 		sprd_close_fw(vif->priv, vif);
 		break;
 	case SPRD_PCIE_RX_ALLOC_BUF:
