@@ -317,6 +317,29 @@ out:
 	wl_err("%s check if data freed complete end\n", __func__);
 }
 
+void sprdwl_flush_tofreelist(struct sprdwl_tx_msg *tx_msg)
+{
+	struct list_head *to_free_list = &tx_msg->xmit_msg_list.to_free_list;
+	struct sprdwl_msg_buf *pos_buf, *temp_buf;
+	unsigned long lockflag_txfree = 0;
+
+	wl_err("%s check if data freed complete start, freenum=%d\n",
+		__func__,
+		atomic_read(&tx_msg->xmit_msg_list.free_num));
+
+	spin_lock_irqsave(&tx_msg->xmit_msg_list.free_lock,
+				lockflag_txfree);
+	list_for_each_entry_safe(pos_buf, temp_buf,
+				to_free_list, list)
+		sprdwl_dequeue_tofreelist_buf(tx_msg, pos_buf);
+	spin_unlock_irqrestore(&tx_msg->xmit_msg_list.free_lock,
+				lockflag_txfree);
+	atomic_set(&tx_msg->xmit_msg_list.free_num, 0);
+	wl_err("%s check if data freed complete end, freenum=%d\n",
+		__func__,
+		atomic_read(&tx_msg->xmit_msg_list.free_num));
+}
+
 void sprdwl_dequeue_data_buf(struct sprdwl_msg_buf *msg_buf)
 {
 	unsigned long flags = 0;

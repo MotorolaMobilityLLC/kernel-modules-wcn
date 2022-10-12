@@ -503,6 +503,10 @@ int sprdwl_uninit_fw(struct sprdwl_vif *vif)
 
 	handle_tx_status_after_close(vif);
 
+	if ((atomic_read(&intf->power_cnt) == 1) &&
+		!list_empty(&tx_msg->xmit_msg_list.to_free_list))
+		sprdwl_flush_tofreelist(tx_msg);
+
 	netdev_info(vif->ndev, "%s type %d, mode %d\n", __func__,
 		    vif->wdev.iftype, vif->mode);
 	vif->mode = SPRDWL_MODE_NONE;
