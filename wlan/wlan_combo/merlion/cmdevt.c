@@ -2750,13 +2750,14 @@ static int handle_rsp_status_err(u8 cmd_id, s8 status)
 }
 
 /* retrun the msg length or 0 */
-unsigned short sprdwl_rx_rsp_process(struct sprdwl_priv *priv, u8 *msg)
+unsigned short sprdwl_rx_rsp_process(struct sprdwl_priv *priv, u8 *msg, unsigned short len)
 {
 	u16 plen;
 	void *data;
 	int handle_flag = 0;
 	struct sprdwl_cmd *cmd = &g_sprdwl_cmd;
 	struct sprdwl_cmd_hdr *hdr;
+
 
 	if (unlikely(!cmd->init_ok)) {
 		wl_info("%s cmd coming too early, drop it\n", __func__);
@@ -2791,6 +2792,7 @@ unsigned short sprdwl_rx_rsp_process(struct sprdwl_priv *priv, u8 *msg)
 		return plen;
 	}
 
+	plen = min(plen, len);
 	data = kmalloc(plen, GFP_KERNEL);
 	if (!data) {
 		atomic_dec(&cmd->refcnt);

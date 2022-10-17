@@ -359,7 +359,7 @@ static int sprdwl_rx_work_queue(void *data)
 				if (msg->len > SPRDWL_MAX_CMD_RXLEN)
 					wl_err("err rx cmd too long:%d > %d\n",
 							msg->len, SPRDWL_MAX_CMD_RXLEN);
-				sprdwl_rx_rsp_process(priv, msg->data);
+				sprdwl_rx_rsp_process(priv, msg->data, msg->len);
 				break;
 			case SPRDWL_TYPE_EVENT:
 				if (msg->len > SPRDWL_MAX_CMD_RXLEN)

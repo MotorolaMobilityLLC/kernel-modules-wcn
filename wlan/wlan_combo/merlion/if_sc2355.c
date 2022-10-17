@@ -1341,7 +1341,7 @@ static int sprdwl_sc2355_rx_handle(int chn, struct mbuf_t *head, struct mbuf_t *
 
 		if (msg->tran_data == NULL) {
 			wl_err("%s tran_data is NULL!\n", __func__);
-			sprdwl_dequeue_msg_buf(msg, &rx_if->rx_list);
+			sprdwl_free_msg_buf(msg, &rx_if->rx_list);
 			continue;
 		}
 #endif
