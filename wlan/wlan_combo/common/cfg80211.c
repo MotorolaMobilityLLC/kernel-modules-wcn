@@ -833,7 +833,6 @@ int sprd_cfg80211_connect(struct wiphy *wiphy, struct net_device *ndev,
 	    (sme->crypto.cipher_group == WLAN_CIPHER_SUITE_WEP104);
 	int ret, i;
 
-	vif->is_5g_freq = 0;
 	/* workround for bug 795430 */
 	if (!(vif->state & VIF_STATE_OPEN)) {
 		wiphy_err(wiphy,
@@ -979,8 +978,6 @@ int sprd_cfg80211_connect(struct wiphy *wiphy, struct net_device *ndev,
 	} else {
 		netdev_info(ndev, "No channel specified!\n");
 	}
-	if (center_freq >= 5000)
-		vif->is_5g_freq = 1;
 
 	/* Set BSSID */
 	if (sme->bssid) {

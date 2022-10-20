@@ -108,7 +108,6 @@ struct sprd_vif {
 	struct kobject sprd_power_obj;
 	bool reduce_power;
 	enum nl80211_cqm_rssi_threshold_event cqm;
-	u8 is_5g_freq;
 };
 
 extern int special_data_flag;
