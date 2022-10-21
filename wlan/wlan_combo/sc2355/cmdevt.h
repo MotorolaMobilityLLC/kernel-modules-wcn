@@ -1106,7 +1106,6 @@ int sc2355_set_11v_feature_support(struct sprd_priv *priv,
 				   struct sprd_vif *vif, u16 val);
 int sc2355_set_11v_sleep_mode(struct sprd_priv *priv, struct sprd_vif *vif,
 			      u8 status, u16 interval);
-int sc2355_xmit_data2cmd(struct sk_buff *skb, struct net_device *ndev);
 int sc2355_set_max_clients_allowed(struct sprd_priv *priv,
 				   struct sprd_vif *vif, int n_clients);
 int sc2355_set_random_mac(struct sprd_priv *priv, struct sprd_vif *vif,
