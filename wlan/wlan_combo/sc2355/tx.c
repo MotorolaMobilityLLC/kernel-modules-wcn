@@ -414,9 +414,13 @@ static int tx_eachmode_data(struct sprd_hif *hif, enum sprd_mode mode)
 				if (tx_add_xmit_list_tail
 				    (tx_mgmt, p_list, p_list_num[i][j]))
 					continue;
-				atomic_sub(p_list_num[i][j], &p_list->l_num);
-				atomic_sub(p_list_num[i][j],
-					   &tx_list->mode_list_num);
+				spin_lock_bh(&p_list->p_lock);
+				if (atomic_read(&p_list->l_num)) {
+					atomic_sub(p_list_num[i][j], &p_list->l_num);
+					atomic_sub(p_list_num[i][j],
+						   &tx_list->mode_list_num);
+				}
+				spin_unlock_bh(&p_list->p_lock);
 				pr_debug
 				    ("%s, %d, mode=%d, TID=%d, lut=%d, %d add to xmit_list,"
 				     "then l_num=%d, mode_list_num=%d\n",
@@ -482,15 +486,20 @@ static int tx_eachmode_data(struct sprd_hif *hif, enum sprd_mode mode)
 				break;
 			q_list_num[i] -= p_list_num[i][j];
 			fp_num -= min_num;
-			tx_add_xmit_list_tail(tx_mgmt,
-					      &q_list->p_list[j], min_num);
-			atomic_sub(min_num, &q_list->p_list[j].l_num);
-			atomic_sub(min_num, &tx_list->mode_list_num);
+			if (tx_add_xmit_list_tail(tx_mgmt,
+					      &q_list->p_list[j], min_num))
+				continue;
+			spin_lock_bh(&q_list->p_list[j].p_lock);
+			if (atomic_read(&q_list->p_list[j].l_num)) {
+				atomic_sub(min_num, &q_list->p_list[j].l_num);
+				atomic_sub(min_num, &tx_list->mode_list_num);
+			}
+			spin_unlock_bh(&q_list->p_list[j].p_lock);
 			pr_debug
 			    ("%s, %d, mode=%d, TID=%d, lut=%d, %d add to xmit_list,"
 			     "then l_num=%d, mode_list_num=%d\n",
 			     __func__, __LINE__, mode, i, j, min_num,
-			     atomic_read(&p_list->l_num),
+			     atomic_read(&q_list->p_list[j].l_num),
 			     atomic_read(&tx_mgmt->tx_list[mode]->mode_list_num));
 			if (fp_num <= 0)
 				break;
@@ -1112,14 +1121,14 @@ void sc2355_flush_tx_qoslist(struct tx_mgmt *tx_mgmt, int mode,
 			sprd_free_msg(pos_buf, pos_buf->msglist);
 		}
 
-		spin_unlock_bh(plock);
-
 		atomic_sub(atomic_read
 			   (&tx_mgmt->tx_list[mode]->q_list[ac_index].
 			    p_list[lut_index].l_num),
 			   &tx_mgmt->tx_list[mode]->mode_list_num);
 		atomic_set(&tx_mgmt->tx_list[mode]->q_list[ac_index].
 			   p_list[lut_index].l_num, 0);
+
+		spin_unlock_bh(plock);
 	}
 }
 
