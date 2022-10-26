@@ -689,18 +689,18 @@ static int bluetooth_reset(struct notifier_block *this, unsigned long ev, void *
     int block_size = RESET_BUFSIZE;
 	unsigned char reset_buf[RESET_BUFSIZE]= {0x04, 0xff, 0x02, 0x57, 0xa5};
 
-	BT_VER("%s: reset callback coming\n", __func__);
+	pr_err("%s: reset callback coming\n", __func__);
 	if (mtty_dev != NULL) {
 		if (!work_pending(&mtty_dev->bt_rx_work)) {
-			BT_VER("%s tty_insert_flip_string", __func__);
+			pr_err("%s tty_insert_flip_string", __func__);
 
 			while(ret < block_size){
-				BT_VER("%s before tty_insert_flip_string ret: %d, len: %d\n",
+				pr_err("%s before tty_insert_flip_string ret: %d, len: %d\n",
 						__func__, ret, RESET_BUFSIZE);
 				ret = tty_insert_flip_string(mtty_dev->port0,
 									(unsigned char *)reset_buf,
 									RESET_BUFSIZE);   // -BT_SDIO_HEAD_LEN
-			    BT_VER("%s ret: %d, len: %d\n", __func__, ret, RESET_BUFSIZE);
+			    pr_err("%s ret: %d, len: %d\n", __func__, ret, RESET_BUFSIZE);
 				if (ret)
 					tty_flip_buffer_push(mtty_dev->port0);
 				block_size = block_size - ret;
@@ -770,7 +770,7 @@ static int mtty_probe(struct platform_device *pdev)
     rfkill_bluetooth_init(pdev);
     bluesleep_init();
     atomic_notifier_chain_register(&wcn_reset_notifier_list,&bluetooth_reset_block);
-    
+
     return 0;
 }
 
