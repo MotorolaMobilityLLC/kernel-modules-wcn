@@ -786,7 +786,6 @@ static int sc2355_tx_thread(void *data)
 		sc2355_tx_down(tx_mgmt);
 		if (unlikely(tx_mgmt->tx_thread_exit))
 			goto exit;
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 15, 0))
                 if (!throughput_static.uclamp_set_flag &&
                    (throughput_static.throughput_tx >= SET_UCLAMP_THRESHOLD ||
                     throughput_static.throughput_rx >= SET_UCLAMP_THRESHOLD)) {
@@ -798,7 +797,6 @@ static int sc2355_tx_thread(void *data)
                         sc2355_set_thread_uclamp(tx_mgmt->tx_thread, 0);
                         throughput_static.uclamp_set_flag = false;
                 }
-#endif
 		tx_work_queue(tx_mgmt);
 	}
 
@@ -1947,7 +1945,6 @@ void sc2355_tx_up(struct tx_mgmt *tx_mgmt)
 {
 	complete(&tx_mgmt->tx_completed);
 }
-#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 15, 0)
 //set uclamp params for bug 1959864
 int sc2355_set_thread_uclamp(struct task_struct *thread, int sched_util_min)
 {
@@ -1967,7 +1964,7 @@ int sc2355_set_thread_uclamp(struct task_struct *thread, int sched_util_min)
 
 	return ret;
 }
-#endif
+
 int sc2355_tx_init(struct sprd_hif *hif)
 {
 	int ret = 0;

@@ -300,11 +300,9 @@ static int sdio_suspend_resume_handle(int chn, int mode)
 	}
 
 	if (throughput_static.uclamp_set_flag) {
-          //reset thread uclamp param
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 15, 0))
-          sc2355_set_thread_uclamp(tx_mgmt->tx_thread, 0);
-          throughput_static.uclamp_set_flag = false;
-#endif
+		//reset thread uclamp param
+		sc2355_set_thread_uclamp(tx_mgmt->tx_thread, 0);
+		throughput_static.uclamp_set_flag = false;
 	}
 
 	if (mode == 0) {
@@ -1647,9 +1645,7 @@ int sc2355_sdio_init(struct sprd_hif *hif)
 	sc2355_sdio_throughput_static_init();
 	tx_mgmt = (struct tx_mgmt *)hif->tx_mgmt;
 	//reset thread uclamp param
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 15, 0))
 	sc2355_set_thread_uclamp(tx_mgmt->tx_thread, 0);
-#endif
 
 	if (hif->hw_type == SPRD_HW_SC2355_SDIO) {
 		sc2355_hif.mchn_ops = sdio_hif_ops;
