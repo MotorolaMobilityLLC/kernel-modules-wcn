@@ -1782,6 +1782,8 @@ int sc2355_reset(struct sprd_hif *hif)
 	/* flush cmd and data buffer */
 	pr_info("%s flust all tx list\n", __func__);
 	tx_flush_all_txlist(tx_mgmt);
+	if (hif->hw_type == SPRD_HW_SC2355_PCIE)
+		sc2355_rx_flush_buffer((void *)hif);
 
 	/* when cp2 hang and reset, clear hang_recovery_status */
 	pr_info("%s set hang recovery status to END, %d\n", __func__, __LINE__);

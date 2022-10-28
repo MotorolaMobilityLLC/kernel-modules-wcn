@@ -2052,6 +2052,7 @@ static struct sprd_hif_ops sc2355_pcie_ops = {
 	.post_deinit = pcie_post_deinit,
 	.sync_version = sc2355_sync_version,
 	.download_hw_param = sc2355_download_hw_param,
+	.reset = sc2355_reset,
 	.fill_all_buffer = pcie_mm_fill_all_buffer,
 	.tx_special_data = sprd_tx_special_data,
 	.free_msg_content = pcie_free_msg_content,
