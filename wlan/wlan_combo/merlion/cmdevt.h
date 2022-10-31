@@ -1011,6 +1011,36 @@ struct sprdwl_sae_param {
 	u8 data[0];
 } __packed;
 
+#define SPRDWL_SET_SAR	0x10
+/**
+ * @SPRDWL_SET_SAR_RECOVERY: Indicates that need reset sar value.
+ * @SPRDWL_SET_SAR_ABSOLUTE: Indicates that set sar in absolute mode.
+ * @SPRDWL_SET_SAR_RELATIVE: Indicates that set sar in relative mode.
+ */
+enum sar_subtype {
+	SPRDWL_SET_SAR_RECOVERY = 0,
+	SPRDWL_SET_SAR_ABSOLUTE = 1,
+	SPRDWL_SET_SAR_RELATIVE = 2,
+};
+
+enum sar_mode {
+	SPRDWL_SET_SAR_2G_11B = 0,
+	SPRDWL_SET_SAR_2G_11G = 1,
+	SPRDWL_SET_SAR_2G_11N = 2,
+	SPRDWL_SET_SAR_2G_11AC = 3,
+	SPRDWL_SET_SAR_5G_11A = 4,
+	SPRDWL_SET_SAR_5G_11N = 5,
+	SPRDWL_SET_SAR_5G_11AC = 6,
+	SPRDWL_SET_SAR_ALL_MODE = 7,
+};
+
+struct cmd_set_sar {
+	u8 power_save_type;
+	u8 sub_type;
+	s8 value;
+	u8 mode;
+} __packed;
+
 int sprdwl_cmd_rsp(struct sprdwl_priv *priv, u8 *msg);
 /*driver & fw API sync function start*/
 int sprdwl_sync_version(struct sprdwl_priv *priv);
@@ -1172,6 +1202,8 @@ int sprdwl_send_tdls_cmd(struct sprdwl_vif *vif, u8 vif_ctx_id, const u8 *peer,
 int sprdwl_fw_power_down_ack(struct sprdwl_priv *priv, u8 ctx_id);
 int sprdwl_cmd_host_wakeup_fw(struct sprdwl_priv *priv, u8 ctx_id);
 void sprdwl_work_host_wakeup_fw(struct sprdwl_vif *vif);
+int sprdwl_set_sar(struct sprdwl_priv *priv, struct sprdwl_vif *vif,
+		 u8 sub_type, s8 value);
 struct sprdwl_msg_buf *__sprdwl_cmd_getbuf(struct sprdwl_priv *priv,
 					   u16 len, u8 ctx_id,
 					   enum sprdwl_head_rsp rsp,
