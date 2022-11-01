@@ -3587,6 +3587,11 @@ static void cmdevt_report_tdls_evt(struct sprd_vif *vif, u8 *data, u16 len)
 	u16 reason_code;
 	struct evt_tdls *report_tdls = NULL;
 
+	if (len < sizeof(struct evt_tdls)) {
+		pr_err("%s event_tdls len is invalid!\n", __func__);
+		return;
+	}
+
 	report_tdls = (struct evt_tdls *)data;
 	ether_addr_copy(&peer[0], &report_tdls->mac[0]);
 	oper = report_tdls->tdls_sub_cmd_mgmt;
@@ -3649,9 +3654,15 @@ static void cmdevt_add_hang_cmd(struct sprd_vif *vif)
 
 static void cmdevt_report_hang_recovery_evt(struct sprd_vif *vif, u8 *data, u16 len)
 {
-	struct evt_hang_recovery *hang = (struct evt_hang_recovery *)data;
 	struct sprd_hif *hif = &vif->priv->hif;
 	struct tx_mgmt *tx_mgmt = (struct tx_mgmt *)hif->tx_mgmt;
+	struct evt_hang_recovery *hang = NULL;
+
+	if (len < sizeof(struct evt_hang_recovery)) {
+		pr_err("%s event data len is invalid!\n", __func__);
+		return;
+	}
+	hang = (struct evt_hang_recovery *)data;
 
 	tx_mgmt->hang_recovery_status = hang->action;
 	pr_info("%s, %d, action=%d, status=%d\n",
@@ -3680,12 +3691,18 @@ static void cmdevt_add_close_cmd(struct sprd_vif *vif, enum sprd_mode mode)
 
 static void cmdevt_report_thermal_warn_evt(struct sprd_vif *vif, u8 *data, u16 len)
 {
-	struct evt_thermal_warn *thermal = (struct evt_thermal_warn *)data;
 	struct sprd_priv *priv = vif->priv;
 	struct sprd_hif *hif = &priv->hif;
 	struct tx_mgmt *tx_mgmt = (struct tx_mgmt *)hif->tx_mgmt;
 	enum sprd_mode mode = SPRD_MODE_NONE;
 	struct sprd_vif *tmp_vif;
+	struct evt_thermal_warn *thermal = NULL;
+
+	if (len < sizeof(struct evt_thermal_warn)) {
+		pr_err("%s event data len is invalid!\n", __func__);
+		return;
+	}
+	thermal = (struct evt_thermal_warn *)data;
 
 	pr_info("%s, %d, action=%d, status=%d\n",
 		__func__, __LINE__, thermal->action, tx_mgmt->thermal_status);
@@ -3764,12 +3781,18 @@ static void cmdevt_report_fw_power_down_evt(struct sprd_vif *vif, u8 *data, u16 
 
 static void cmdevt_report_chan_changed_evt(struct sprd_vif *vif, u8 *data, u16 len)
 {
-	struct chan_changed_info *p = (struct chan_changed_info *)data;
 	u8 channel;
 	u16 freq;
 	struct wiphy *wiphy = vif->wdev.wiphy;
 	struct ieee80211_channel *ch = NULL;
 	struct cfg80211_chan_def chandef;
+	struct chan_changed_info *p = NULL;
+
+	if (len < sizeof(struct chan_changed_info)) {
+		pr_err("%s, event data len is invalid!\n", __func__);
+		return;
+	}
+	p = (struct chan_changed_info *)data;
 
 	if (p->initiator == 0) {
 		pr_err("%s, unknowed event!\n", __func__);
