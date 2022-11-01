@@ -169,6 +169,9 @@ static void sprdwl_do_work(struct work_struct *work)
 						     sprdwl_work->data,
 						     sprdwl_work->len);
 			break;
+		case SPRDWL_WORK_REFSH_BO:
+			sprdwl_fcc_fresh_bo_work(vif->priv, sprdwl_work->data, sprdwl_work->len);
+			break;
 #ifdef WMMAC_WFA_CERTIFICATION
 		case SPRDWL_NPI_SEND_RECEIVE:
 			npi_info = (struct sprdwl_npi_send_receive_info *)(sprdwl_work->data);

@@ -18,6 +18,7 @@
 #ifndef __SPRDWL_CMD_H__
 #define __SPRDWL_CMD_H__
 
+#include "fcc.h"
 #include "msg.h"
 #include <linux/math64.h>
 #include <linux/pm_wakeup.h>
@@ -715,6 +716,7 @@ enum SPRDWL_EVENT_LIST {
 	/* SoftAP */
 	WIFI_EVENT_NEW_STATION = 0xA0,
 	WIFI_EVENT_RADAR_DETECTED = 0xA1,
+	WIFI_EVENT_FRESH_POWER_BO = 0xA2,
 
 	/* New Feature */
 	/* Uplayer Roaming */
@@ -1003,6 +1005,12 @@ struct sprdwl_cmd_packet_offload {
 	u8 data[0];
 } __packed;
 
+struct cmd_set_power_backoff {
+#define SPRDWL_SET_POWER_BACKOFF	0x11
+	u8 power_save_type;
+	struct sprdwl_power_backoff backoff;
+} __packed;
+
 #define		SPRDWL_SAE_PASSPHRASE		1
 #define		SPRDWL_SAE_PASSWORD_ENTRY	2
 
@@ -1199,6 +1207,8 @@ int sprdwl_set_tlv_data(struct sprdwl_priv *priv, u8 ctx_id,
 void sprdwl_set_tlv_elmt(u8 *addr, u16 type, u16 len, u8 *data);
 int sprdwl_send_tdls_cmd(struct sprdwl_vif *vif, u8 vif_ctx_id, const u8 *peer,
 		     int oper);
+int sprdwl_set_power_backoff(struct sprdwl_priv *priv, struct sprdwl_vif *vif,
+			     struct sprdwl_power_backoff *data);
 int sprdwl_fw_power_down_ack(struct sprdwl_priv *priv, u8 ctx_id);
 int sprdwl_cmd_host_wakeup_fw(struct sprdwl_priv *priv, u8 ctx_id);
 void sprdwl_work_host_wakeup_fw(struct sprdwl_vif *vif);

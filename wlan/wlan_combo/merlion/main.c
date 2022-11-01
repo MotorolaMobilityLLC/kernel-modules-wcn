@@ -1839,6 +1839,8 @@ int sprdwl_core_init(struct device *dev, struct sprdwl_priv *priv)
 #endif
 	sprdwl_init_npi();
 
+	sprdwl_fcc_init();
+
 	trace_info_init();
 
 out:

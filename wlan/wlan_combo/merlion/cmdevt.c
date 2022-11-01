@@ -419,7 +419,7 @@ struct sprdwl_msg_buf *__sprdwl_cmd_getbuf(struct sprdwl_priv *priv,
 			mode = vif->mode;
 		sprdwl_put_vif(vif);
 
-		if (cmd_id == WIFI_CMD_POWER_SAVE &&
+		if (cmd_id == WIFI_CMD_POWER_SAVE && (!atomic_read(&priv->power_back_off)) &&
 			(vif == NULL ||
 			priv->fw_stat[vif->mode] == SPRDWL_INTF_CLOSE)) {
 			wl_err("%s:send [%s] fail because mode close",
@@ -2256,6 +2256,28 @@ int sprdwl_set_whitelist(struct sprdwl_priv *priv, u8 vif_ctx_id,
 	return sprdwl_cmd_send_recv(priv, msg, CMD_WAIT_TIMEOUT, NULL, NULL);
 }
 
+int sprdwl_set_power_backoff(struct sprdwl_priv *priv, struct sprdwl_vif *vif,
+			     struct sprdwl_power_backoff *data)
+{
+	struct sprdwl_msg_buf *msg;
+	struct cmd_set_power_backoff *p;
+	int i;
+
+	msg = sprdwl_cmd_getbuf(priv, sizeof(*p), SPRDWL_MODE_NONE,
+			SPRDWL_HEAD_RSP, WIFI_CMD_POWER_SAVE);
+	if (!msg)
+		return -ENOMEM;
+
+	p = (struct cmd_set_power_backoff *)msg->data;
+	memset(p, 0, sizeof(*p));
+	p->power_save_type = SPRDWL_SET_POWER_BACKOFF;
+	if (data)
+		memcpy(&p->backoff, data, sizeof(*data));
+	for (i = 0; i < sizeof(*p); i++)
+		wl_debug("%hhu\t", *((u8 *)p + i));
+	return sprdwl_cmd_send_recv(priv, msg, CMD_WAIT_TIMEOUT, NULL, NULL);
+}
+
 int sprdwl_enable_miracast(struct sprdwl_priv *priv,
 			 u8 vif_mode, int val)
 {
@@ -3572,6 +3594,29 @@ int sprdwl_event_acs_lte_event(struct sprdwl_vif *vif)
 	return sprdwl_report_acs_lte_event(vif);
 }
 
+static int sprdwl_event_pw_backoff(struct sprdwl_vif *vif, u8 *data, u16 len)
+{
+	struct sprdwl_work *misc_work;
+
+	if (!len) {
+		netdev_err(vif->ndev, "%s event data len=0\n", __func__);
+		return -EINVAL;
+	}
+
+	misc_work = sprdwl_alloc_work(len);
+	if (!misc_work) {
+		wl_err("%s out of memory\n", __func__);
+		return -1;
+	}
+	misc_work->vif = vif;
+	misc_work->id = SPRDWL_WORK_REFSH_BO;
+	memcpy(misc_work->data, data, len);
+
+	sprdwl_queue_work(vif->priv, misc_work);
+
+	return 0;
+}
+
 static const char *evt2str(u8 evt)
 {
 	switch (evt) {
@@ -3633,6 +3678,8 @@ static const char *evt2str(u8 evt)
 		return "WIFI_EVENT_ACS_DONE";
 	case WIFI_EVENT_ACS_LTE_CONFLICT_EVENT:
 		return "WIFI_EVENT_ACS_LTE_CONFLICT_EVENT";
+	case WIFI_EVENT_FRESH_POWER_BO:
+		return "WIFI_EVENT_FRESH_POWER_BO";
 	default:
 		return "WIFI_EVENT_UNKNOWN";
 	}
@@ -3785,6 +3832,9 @@ unsigned short sprdwl_rx_event_process(struct sprdwl_priv *priv, u8 *msg)
 		break;
 	case WIFI_EVENT_ACS_LTE_CONFLICT_EVENT:
 		sprdwl_event_acs_lte_event(vif);
+		break;
+	case WIFI_EVENT_FRESH_POWER_BO:
+		sprdwl_event_pw_backoff(vif, data, len);
 		break;
 	default:
 		wl_info("unsupported event: %d\n", hdr->cmd_id);

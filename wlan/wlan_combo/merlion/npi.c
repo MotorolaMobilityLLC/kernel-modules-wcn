@@ -78,7 +78,7 @@ static int sprdwl_nl_npi_handler(struct sk_buff *skb_2, struct genl_info *info)
 	unsigned short r_len = 1024, s_len;
 	unsigned char *s_buf = NULL, *r_buf = NULL, *rand_mac = NULL;
 	unsigned char dbgstr[64] = { 0 };
-	int ret = 0;
+	int err = -100, ret = 0;
 
 	ndev = info->user_ptr[0];
 	vif = netdev_priv(ndev);
@@ -97,7 +97,17 @@ static int sprdwl_nl_npi_handler(struct sk_buff *skb_2, struct genl_info *info)
 	sprintf(dbgstr, "[iwnpi][SEND][%d]:", s_len);
 	hdr = (struct sprdwl_npi_cmd_hdr *)s_buf;
 	wl_err("%s type is %d, subtype %d\n", dbgstr, hdr->type, hdr->subtype);
-	if (hdr->subtype == SPRDWL_NPI_CMD_SET_RANDOM_MAC) {
+	if (hdr->subtype == SPRDWL_NPI_CMD_SET_COUNTRY) {
+		char *country = s_buf + sizeof(struct sprdwl_npi_cmd_hdr);
+		/*no need send npi command to firmware*/
+		pr_err("%s show country code : %c%c\n", __func__, country[0], country[1]);
+		err = regulatory_hint(priv->wiphy, country);
+		hdr->len = sizeof(int);
+		hdr->type = SPRDWL_CP2HT_REPLY;
+		r_len = sizeof(*hdr) + hdr->len;
+		memcpy(r_buf, hdr, sizeof(*hdr));
+		memcpy(r_buf + sizeof(*hdr), &err, hdr->len);
+	} else if (hdr->subtype == SPRDWL_NPI_CMD_SET_RANDOM_MAC) {
 		rand_mac = s_buf + sizeof(struct sprdwl_npi_cmd_hdr);
 		priv->rand_mac_flag = *((unsigned int *)rand_mac);
 		pr_err("%s NPI random mac flag%d\n", dbgstr, priv->rand_mac_flag);

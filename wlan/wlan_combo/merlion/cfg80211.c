@@ -1067,6 +1067,8 @@ static int sprdwl_cfg80211_stop_ap(struct wiphy *wiphy, struct net_device *ndev)
 	sprdwl_abort_cac(vif);
 #endif
 
+	sprdwl_fcc_reset_bo();
+
 	return 0;
 }
 
@@ -2620,6 +2622,7 @@ void sprdwl_report_disconnection(struct sprdwl_vif *vif, u16 reason_code)
 	rx_if = (struct sprdwl_rx_if *)intf->sprdwl_rx;
 	lut_index = sprdwl_find_lut_index(intf, vif);
 	sprdwl_defrag_recover(&(rx_if->defrag_entry), lut_index);
+	sprdwl_fcc_reset_bo();
 
 	vif->sm_state = SPRDWL_DISCONNECTED;
 
@@ -3662,6 +3665,9 @@ static void sprdwl_reg_notify(struct wiphy *wiphy,
 			     rd, rd_size, true);
 	if (sprdwl_set_regdom(priv, (u8 *)rd, rd_size))
 		wl_err("%s failed to set regdomain!\n", __func__);
+
+	sprdwl_fcc_match_country(priv, request->alpha2);
+
 	if (rd != NULL) {
 		kfree(rd);
 		rd = NULL;

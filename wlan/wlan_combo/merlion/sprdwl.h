@@ -281,6 +281,9 @@ struct sprdwl_priv {
 	int is_screen_off;
 	u8 tx_mgmt_status;
 	unsigned int rand_mac_flag;
+
+	/* power backoff flag */
+	atomic_t power_back_off;
 };
 
 struct sprdwl_eap_hdr {

@@ -126,6 +126,7 @@ SC2355_SIPC_WLAN := \
 		merlion/txrx_buf_mm.o \
 		merlion/sipc_txrx_mm.o \
 		merlion/sipc_debug.o \
+		merlion/fcc.o \
 
 $(KO_MODULE_NAME)-y += \
 		$(SPRD_WLAN_COMMON) \
