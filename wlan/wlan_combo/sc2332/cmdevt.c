@@ -2243,10 +2243,20 @@ void sc2332_report_frame_evt(struct sprd_vif *vif, u8 *data, u16 len, bool flag)
 	} else {
 		frame = (struct evt_mgmt_frame *)data;
 		buf = frame->data;
+
+		if (len < sizeof(*frame)) {
+			pr_err("%s frame data len is invalid!\n", __func__);
+			return;
+		}
+		len = len - sizeof(*frame);
 	}
 	channel = frame->channel;
 	type = frame->type;
 	buf_len = SPRD_GET_LE16(frame->len);
+	if (len < buf_len) {
+		pr_err("%s frame buf_len is invalid!\n", __func__);
+		return;
+	}
 
 	if (atomic_read(&vif->priv->monitor_mode)) {
 		pr_info("%s: enter rx monitor process\n", __func__);
