@@ -44,9 +44,11 @@ void sc2332_flush_all_txlist(struct sprd_hif *hif);
 void sc2332_keep_wakeup(struct sprd_hif *hif);
 
 unsigned short sc2332_rx_data_process(struct sprd_priv *priv,
-				      unsigned char *msg);
-unsigned short sc2332_rx_evt_process(struct sprd_priv *priv, u8 *msg);
-unsigned short sc2332_rx_rsp_process(struct sprd_priv *priv, u8 *msg);
+				      unsigned char *msg, unsigned int msg_len);
+unsigned short sc2332_rx_evt_process(struct sprd_priv *priv, u8 *msg,
+				     unsigned int msg_len);
+unsigned short sc2332_rx_rsp_process(struct sprd_priv *priv, u8 *msg,
+				     unsigned int msg_len);
 int sc2332_send_data_offset(void);
 int sc2332_send_data(struct sprd_vif *vif, struct sprd_msg *msg,
 		     struct sk_buff *skb, u8 type, u8 offset, bool flag);

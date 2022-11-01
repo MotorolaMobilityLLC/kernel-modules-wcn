@@ -413,25 +413,31 @@ static void sipc_rx_process(unsigned char *data, unsigned int len)
 
 	switch (SPRD_HEAD_GET_TYPE(data)) {
 	case SPRD_TYPE_DATA:
-		if (len > SPRD_MAX_DATA_RXLEN)
+		if (len > SPRD_MAX_DATA_RXLEN) {
 			dev_err(&hif->pdev->dev,
 				"err rx data too long:%d > %d\n",
 				len, SPRD_MAX_DATA_RXLEN);
-		sc2332_rx_data_process(priv, data);
+			return;
+		}
+		sc2332_rx_data_process(priv, data, len);
 		break;
 	case SPRD_TYPE_CMD:
-		if (len > SPRD_MAX_CMD_RXLEN)
+		if (len > SPRD_MAX_CMD_RXLEN) {
 			dev_err(&hif->pdev->dev,
 				"err rx cmd too long:%d > %d\n",
 				len, SPRD_MAX_CMD_RXLEN);
-		sc2332_rx_rsp_process(priv, data);
+			return;
+		}
+		sc2332_rx_rsp_process(priv, data, len);
 		break;
 	case SPRD_TYPE_EVENT:
-		if (len > SPRD_MAX_CMD_RXLEN)
+		if (len > SPRD_MAX_CMD_RXLEN) {
 			dev_err(&hif->pdev->dev,
 				"err rx event too long:%d > %d\n",
 				len, SPRD_MAX_CMD_RXLEN);
-		sc2332_rx_evt_process(priv, data);
+			return;
+		}
+		sc2332_rx_evt_process(priv, data, len);
 		break;
 	default:
 		dev_err(&hif->pdev->dev, "rx unkonow type:%d\n",

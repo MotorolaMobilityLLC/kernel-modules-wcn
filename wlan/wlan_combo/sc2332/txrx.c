@@ -312,7 +312,7 @@ void sc2332_keep_wakeup(struct sprd_hif *hif)
 }
 
 unsigned short sc2332_rx_data_process(struct sprd_priv *priv,
-				      unsigned char *msg)
+				      unsigned char *msg, unsigned int msg_len)
 {
 	unsigned char mode, data_type;
 	unsigned short len, plen;
@@ -333,6 +333,12 @@ unsigned short sc2332_rx_data_process(struct sprd_priv *priv,
 	data = (unsigned char *)msg;
 	data += sizeof(*hdr) + (hdr->info1 & SPRD_DATA_OFFSET_MASK);
 	plen = SPRD_GET_LE16(hdr->plen);
+	if (plen > msg_len ||
+	    plen < (sizeof(*hdr) + (hdr->info1 & SPRD_DATA_OFFSET_MASK))) {
+		pr_err("%s plen is invalid!\n", __func__);
+		return plen;
+	}
+
 	if (!priv) {
 		pr_err("%s sdio->priv not init.\n", __func__);
 		return plen;

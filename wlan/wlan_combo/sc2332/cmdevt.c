@@ -2289,7 +2289,8 @@ void sc2332_report_frame_evt(struct sprd_vif *vif, u8 *data, u16 len, bool flag)
 }
 
 /* return the msg length or 0 */
-unsigned short sc2332_rx_evt_process(struct sprd_priv *priv, u8 *msg)
+unsigned short sc2332_rx_evt_process(struct sprd_priv *priv, u8 *msg,
+				     unsigned int msg_len)
 {
 	struct sprd_cmd_hdr *hdr = (struct sprd_cmd_hdr *)msg;
 	struct sprd_vif *vif;
@@ -2305,6 +2306,11 @@ unsigned short sc2332_rx_evt_process(struct sprd_priv *priv, u8 *msg)
 	}
 
 	plen = SPRD_GET_LE16(hdr->plen);
+	if (plen > msg_len) {
+		pr_err("%s event msg len is invalid!\n", __func__);
+		return plen;
+	}
+
 	if (!priv) {
 		pr_err("%s priv is NULL [%u]mode %d recv[%s]len: %d\n",
 		       __func__, le32_to_cpu(hdr->mstime), mode,
@@ -2411,7 +2417,8 @@ unsigned short sc2332_rx_evt_process(struct sprd_priv *priv, u8 *msg)
 	return plen;
 }
 
-unsigned short sc2332_rx_rsp_process(struct sprd_priv *priv, u8 *msg)
+unsigned short sc2332_rx_rsp_process(struct sprd_priv *priv, u8 *msg,
+				     unsigned int msg_len)
 {
 	u8 mode;
 	u16 plen;
@@ -2427,6 +2434,10 @@ unsigned short sc2332_rx_rsp_process(struct sprd_priv *priv, u8 *msg)
 	hdr = (struct sprd_cmd_hdr *)msg;
 	mode = hdr->common.mode;
 	plen = SPRD_GET_LE16(hdr->plen);
+	if (plen > msg_len) {
+		pr_err("%s rsp msg_len is invalid!\n", __func__);
+		return plen;
+	}
 
 #ifdef DUMP_COMMAND_RESPONSE
 	print_hex_dump(KERN_DEBUG, "CMD RSP: ", DUMP_PREFIX_OFFSET, 16, 1,
