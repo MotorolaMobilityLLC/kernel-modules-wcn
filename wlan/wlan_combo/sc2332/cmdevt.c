@@ -2305,6 +2305,11 @@ unsigned short sc2332_rx_evt_process(struct sprd_priv *priv, u8 *msg)
 	wiphy_info(priv->wiphy, "[%u]mode %d recv[%s]len: %d\n",
 		   le32_to_cpu(hdr->mstime), mode, cmdevt_evt2str(hdr->cmd_id), plen);
 
+	if (plen < sizeof(struct sprd_cmd_hdr)) {
+		pr_err("%s plen is invalid!\n", __func__);
+		return plen;
+	}
+
 	if (dump_data)
 		print_hex_dump_debug("EVENT: ", DUMP_PREFIX_OFFSET, 16, 1,
 				     ((u8 *)hdr + sizeof(*hdr)),

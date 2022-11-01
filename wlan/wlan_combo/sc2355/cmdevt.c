@@ -3911,6 +3911,11 @@ unsigned short sc2355_rx_evt_process(struct sprd_priv *priv, u8 *msg)
 		le32_to_cpu(hdr->mstime), ctx_id,
 		cmdevt_evt2str(hdr->cmd_id), plen, hdr->rsp_cnt);
 
+	if (plen < sizeof(struct sprd_cmd_hdr)) {
+		pr_err("%s plen is invalid!\n", __func__);
+		return plen;
+	}
+
 	print_hex_dump_debug("EVENT: ", DUMP_PREFIX_OFFSET, 16, 1,
 			     (u8 *)hdr, hdr->plen, 0);
 
