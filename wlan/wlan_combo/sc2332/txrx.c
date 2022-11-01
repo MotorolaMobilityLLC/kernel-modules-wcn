@@ -93,41 +93,44 @@ static int rx_route_data_process(struct sprd_vif *vif,
 static int rx_wapi_data_process(struct sprd_vif *vif,
 				unsigned char *pdata, unsigned short len)
 {
-        int decryp_data_len = 0;
-        struct ieee80211_hdr_3addr *addr;
-        struct sk_buff *skb;
-        struct net_device *ndev;
-        u8 snap_header[6] = {0xaa, 0xaa, 0x03, 0x00, 0x00, 0x00};
+	int decryp_data_len = 0;
+	struct ieee80211_hdr_3addr *addr;
+	struct sk_buff *skb;
+	struct net_device *ndev;
+	u8 snap_header[6] = {0xaa, 0xaa, 0x03, 0x00, 0x00, 0x00};
 
-        ndev = vif->ndev;
-        addr = (struct ieee80211_hdr_3addr *)pdata;
-        skb = dev_alloc_skb(len + NET_IP_ALIGN);
-        if (!skb)
-                return -ENOMEM;
-        skb_reserve(skb, NET_IP_ALIGN);
+	ndev = vif->ndev;
+	addr = (struct ieee80211_hdr_3addr *)pdata;
+	skb = dev_alloc_skb(len + NET_IP_ALIGN);
+	if (!skb)
+		return -ENOMEM;
+	skb_reserve(skb, NET_IP_ALIGN);
+	if (len <= 24) {
+		pr_err("%s data len is invalid\n", __func__);
+		return -EINVAL;
+	}
 
-        decryp_data_len = sc2332_wapi_dec(vif, (unsigned char *)addr,
-                                          24, (len - 24), (skb->data + 12));
-        if (!decryp_data_len) {
-                dev_kfree_skb(skb);
-                return -EINVAL;
-        }
+	decryp_data_len = sc2332_wapi_dec(vif, (unsigned char *)addr,
+					  24, (len - 24), (skb->data + 12));
+	if (!decryp_data_len) {
+	        dev_kfree_skb(skb);
+	        return -EINVAL;
+	}
 
-        if (!memcmp((skb->data + 12), snap_header, sizeof(snap_header))) {
-                skb_reserve(skb, 6);
-                memcpy(skb->data, addr->addr1, ETH_ALEN);
-                memcpy(skb->data + ETH_ALEN, addr->addr2, ETH_ALEN);
-                skb_put(skb, (decryp_data_len + 6));
-        } else {
-                /* copy eth header */
-                memcpy(skb->data, addr->addr3, ETH_ALEN);
-                memcpy(skb->data + ETH_ALEN, addr->addr2, ETH_ALEN);
-                skb_put(skb, (decryp_data_len + 12));
-        }
+	if (!memcmp((skb->data + 12), snap_header, sizeof(snap_header))) {
+	        skb_reserve(skb, 6);
+	        memcpy(skb->data, addr->addr1, ETH_ALEN);
+	        memcpy(skb->data + ETH_ALEN, addr->addr2, ETH_ALEN);
+	        skb_put(skb, (decryp_data_len + 6));
+	} else {
+	        /* copy eth header */
+	        memcpy(skb->data, addr->addr3, ETH_ALEN);
+	        memcpy(skb->data + ETH_ALEN, addr->addr2, ETH_ALEN);
+	        skb_put(skb, (decryp_data_len + 12));
+	}
 
-        sprd_netif_rx(ndev, skb);
-
-        return 0;
+	sprd_netif_rx(ndev, skb);
+	return 0;
 }
 
 static void sc2332_tx_qos_flush(struct sprd_qos_t *qos)

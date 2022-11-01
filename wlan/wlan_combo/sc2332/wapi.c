@@ -573,6 +573,11 @@ unsigned short sc2332_wapi_dec(struct sprd_vif *vif,
 	p_ptk_header++;
 	offset++;
 
+	if (data_len <= (KEYID_LEN + RESERVD_LEN + PN_LEN + MIC_LEN)) {
+		pr_err("%s wapi data len is invalid\n", __func__);
+		return 0;
+	}
+
 	/* save data len */
 	encryp_data_len = data_len - KEYID_LEN - RESERVD_LEN - PN_LEN;
 	ral_data_len = data_len - KEYID_LEN - RESERVD_LEN - PN_LEN - MIC_LEN;
