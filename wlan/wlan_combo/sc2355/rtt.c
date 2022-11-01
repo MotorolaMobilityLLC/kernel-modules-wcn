@@ -721,6 +721,11 @@ int sc2355_rtt_event(struct sprd_vif *vif, u8 *data, u16 len)
 		rtt_event_end(priv);
 		break;
 	case RTT_PER_DEST_RES:
+		if (len < sizeof(struct rtt_per_dest_res)) {
+			netdev_err(vif->ndev, "%s: invalid data len\n", __func__);
+			return -1;
+		}
+
 		res = (struct rtt_per_dest_res *)data;
 		rtt_event_per_dest_res(priv, res);
 		break;
