@@ -813,6 +813,11 @@ void wlan_ba_session_event(void *hw_intf,
 	struct sprdwl_peer_entry *peer_entry = NULL;
 	u8 qos_index;
 
+	if (ba_event->sta_lut_index >= MAX_LUT_NUM) {
+		wl_err("%s, error sta_lut_index %d!\n", __func__, ba_event->sta_lut_index);
+		return;
+	}
+
 	switch (type) {
 	case SPRDWL_ADDBA_REQ_EVENT:
 		ret = wlan_addba_event(ba_entry, ba_event);
