@@ -475,6 +475,13 @@ static int iface_prepare_xmit(struct sprd_vif *vif, struct net_device *ndev,
 		return -1;
 	}
 
+	if (hif->hw_type == SPRD_HW_SC2355_PCIE &&
+		hif->suspend_mode != SPRD_PS_RESUMED) {
+		pr_err("not resumed, drop skb\n");
+		dev_kfree_skb(skb);
+		return -1;
+	}
+
 	return sprd_chip_tx_prepare(&vif->priv->chip, skb);
 }
 
