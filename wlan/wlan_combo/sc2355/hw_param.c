@@ -284,6 +284,7 @@ static int hw_param_nvm_set_cmd(struct nvm_name_table *ptable,
 static void hw_param_nvm_get_cmd_par(char *str, struct nvm_cali_cmd *cmd)
 {
 	int i, j, buftype, ctype, flag;
+	unsigned int m_cmd_num = ARRAY_SIZE(cmd->par);
 	char tmp[64];
 	char c;
 	long val;
@@ -293,7 +294,7 @@ static void hw_param_nvm_get_cmd_par(char *str, struct nvm_cali_cmd *cmd)
 	flag = 0;
 	memset(cmd, 0, sizeof(struct nvm_cali_cmd));
 
-	for (i = 0, j = 0;; i++) {
+	for (i = 0, j = 0; j < sizeof(tmp); i++) {
 		c = str[i];
 		ctype = hw_param_nvm_find_type(c);
 		if (ctype == 1 || ctype == 2 || ctype == 3) {
@@ -320,6 +321,10 @@ static void hw_param_nvm_get_cmd_par(char *str, struct nvm_cali_cmd *cmd)
 				if (kstrtol(tmp, 0, &val))
 					pr_info(" %s ", tmp);
 				/* pr_err("kstrtol %s: error\n", tmp); */
+				if (cmd->num >= m_cmd_num) {
+					pr_err("cmd_num(%d) exceed max_num(%d)", cmd->num + 1, m_cmd_num);
+					return;
+				}
 				cmd->par[cmd->num] = val & 0xFFFFFFFF;
 				cmd->num++;
 			}
@@ -331,6 +336,8 @@ static void hw_param_nvm_get_cmd_par(char *str, struct nvm_cali_cmd *cmd)
 		if (ctype == 4)
 			return;
 	}
+	tmp[j - 1] = '\0';
+	pr_err("too long str : %s..., max strlen is %d\n", tmp, sizeof(tmp) - 1);
 }
 
 static struct nvm_name_table *hw_param_nvm_cf_table_match(struct nvm_cali_cmd *cmd)
