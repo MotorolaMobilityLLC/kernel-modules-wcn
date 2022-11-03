@@ -1165,6 +1165,11 @@ int sc2355_set_packet_offload(struct sprd_priv *priv, struct sprd_vif *vif,
 	u16 r_len = sizeof(*packet);
 	u8 r_buf[sizeof(*packet)];
 
+	if (len > (U16_MAX - sizeof(*p))) {
+		pr_err("%s err datalen %u.\n", __func__, len);
+		return -EINVAL;
+	}
+
 	msg = get_cmdbuf(priv, vif, sizeof(*p) + len, CMD_PACKET_OFFLOAD);
 	if (!msg)
 		return -ENOMEM;
