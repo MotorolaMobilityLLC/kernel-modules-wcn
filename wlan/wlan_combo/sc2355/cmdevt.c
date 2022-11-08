@@ -3172,6 +3172,10 @@ bool sc2355_do_delay_work(struct sprd_work *work)
 		sprd_close_fw(vif->priv, vif);
 		break;
 	case SPRD_PCIE_RX_ALLOC_BUF:
+		if (!vif) {
+			pr_err("%s vif is null!\n", __func__);
+			return false;
+		}
 		sc2355_mm_fill_buffer(&vif->priv->hif);
 		break;
 	case SPRD_PCIE_RX_FLUSH_BUF:
