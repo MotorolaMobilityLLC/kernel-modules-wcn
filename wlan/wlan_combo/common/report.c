@@ -214,7 +214,7 @@ void sprd_report_connection(struct sprd_vif *vif,
 	}
 done:
 	if (vif->sm_state == SPRD_CONNECTING &&
-	    status_code == SPRD_CONNECT_SUCCESS)
+	    status_code == SPRD_CONNECT_SUCCESS) {
 		cfg80211_connect_result(vif->ndev,
 					conn_info->bssid,
 					conn_info->req_ie,
@@ -222,6 +222,14 @@ done:
 					conn_info->resp_ie,
 					conn_info->resp_ie_len,
 					WLAN_STATUS_SUCCESS, GFP_KERNEL);
+		/*
+		  to fix memory leak when connect and then disconnect.
+		  roam doesn't need to put bss, because after cfg80211_roamed
+		  the ref_count is 1.when disconnect the bssid,the system will crash.
+		*/
+		if(bss)
+			cfg80211_put_bss(wiphy, bss);
+	}
 	else if (vif->sm_state == SPRD_CONNECTED &&
 		 status_code == SPRD_ROAM_SUCCESS) {
 		memset(&roam_info, 0, sizeof(roam_info));
@@ -269,11 +277,16 @@ err:
 	memset(vif->bssid, 0, sizeof(vif->bssid));
 	memset(vif->ssid, 0, sizeof(vif->ssid));
 	vif->sm_state = SPRD_DISCONNECTED;
+	if(bss)
+		cfg80211_put_bss(wiphy, bss);
 }
 EXPORT_SYMBOL(sprd_report_connection);
 
 void sprd_report_disconnection(struct sprd_vif *vif, u16 reason_code)
 {
+	struct cfg80211_bss *bss;
+	struct wiphy *wiphy = vif->priv->wiphy;
+
 	if (vif->sm_state == SPRD_CONNECTING) {
 		cfg80211_connect_result(vif->ndev, vif->bssid, NULL, 0, NULL, 0,
 					WLAN_STATUS_UNSPECIFIED_FAILURE,
@@ -284,6 +297,25 @@ void sprd_report_disconnection(struct sprd_vif *vif, u16 reason_code)
 		netdev_info(vif->ndev,
 			    "%s %s, passive disconnection, reason_code %d\n", __func__,
 			    vif->ssid, reason_code);
+		/*
+		  unlink all bssid that has the same ssid
+		  1:2055772: to fix reconnect the 2.4g ssid when hiding the dual band AP
+		  2:to fix the issue:UI will show the old channel result even if AP has changed channel
+		*/
+		while(1) {
+			bss = cfg80211_get_bss(wiphy, NULL, NULL,
+				       vif->ssid, vif->ssid_len,
+				       IEEE80211_BSS_TYPE_ESS,
+				       IEEE80211_PRIVACY_ANY);
+			if (bss) {
+				cfg80211_unlink_bss(wiphy, bss);
+				cfg80211_put_bss(wiphy, bss);
+				netdev_info(vif->ndev,
+					"unlink %pM due to passive disconnection\n",
+					bss->bssid);
+			} else
+				break;
+		}
 	} else if (vif->sm_state == SPRD_DISCONNECTING) {
 		cfg80211_disconnected(vif->ndev, reason_code, NULL, 0,
 				      true, GFP_KERNEL);

@@ -110,7 +110,8 @@ void sc2332_report_scan_result(struct sprd_vif *vif, u16 chan, s16 rssi,
 	if (unlikely(!bss))
 		netdev_err(vif->ndev,
 			   "%s failed to inform bss frame!\n", __func__);
-	cfg80211_put_bss(wiphy, bss);
+	else
+		cfg80211_put_bss(wiphy, bss);
 
 	if (vif->beacon_loss) {
 		bss = cfg80211_get_bss(wiphy, NULL, vif->bssid,
@@ -119,6 +120,7 @@ void sc2332_report_scan_result(struct sprd_vif *vif, u16 chan, s16 rssi,
 				       IEEE80211_PRIVACY_ANY);
 		if (bss) {
 			cfg80211_unlink_bss(wiphy, bss);
+			cfg80211_put_bss(wiphy, bss);
 			netdev_info(vif->ndev,
 				    "unlink %pM due to beacon loss\n",
 				    bss->bssid);
