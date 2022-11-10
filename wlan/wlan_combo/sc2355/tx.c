@@ -798,13 +798,17 @@ static int sc2355_tx_thread(void *data)
                 if (!throughput_static.uclamp_set_flag &&
                    (throughput_static.throughput_tx >= SET_UCLAMP_THRESHOLD ||
                     throughput_static.throughput_rx >= SET_UCLAMP_THRESHOLD)) {
-                        sc2355_set_thread_uclamp(tx_mgmt->tx_thread, 400);
-                        throughput_static.uclamp_set_flag = true;
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+                    sc2355_set_thread_uclamp(tx_mgmt->tx_thread, 600);
+#else
+                    sc2355_set_thread_uclamp(tx_mgmt->tx_thread, 400);
+#endif
+                    throughput_static.uclamp_set_flag = true;
                 } else if (throughput_static.uclamp_set_flag &&
                            (throughput_static.throughput_tx < SET_UCLAMP_THRESHOLD &&
                             throughput_static.throughput_rx < SET_UCLAMP_THRESHOLD)) {
-                        sc2355_set_thread_uclamp(tx_mgmt->tx_thread, 0);
-                        throughput_static.uclamp_set_flag = false;
+                            sc2355_set_thread_uclamp(tx_mgmt->tx_thread, 0);
+                            throughput_static.uclamp_set_flag = false;
                 }
 		tx_work_queue(tx_mgmt);
 	}
