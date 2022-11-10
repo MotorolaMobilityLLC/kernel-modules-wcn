@@ -417,6 +417,12 @@ int sprd_cfg80211_change_iface(struct wiphy *wiphy, struct net_device *ndev,
 
 	netdev_info(ndev, "%s type %d -> %d\n", __func__, old_type, type);
 
+	if (vif->mode == SPRD_MODE_NONE  && ((old_type == NL80211_IFTYPE_STATION && type == NL80211_IFTYPE_AP) ||
+		(old_type == NL80211_IFTYPE_AP && type == NL80211_IFTYPE_STATION))) {
+		netdev_err(ndev, "%s change iface but current mode 0!\n", __func__);
+		vif->wdev.iftype = type;
+		return 0;
+	}
 	/*
 	 * hif->power_cnt = 1 means there is only one mode and all
 	 * of the mode are set to NONE after close command. but it
@@ -430,8 +436,6 @@ int sprd_cfg80211_change_iface(struct wiphy *wiphy, struct net_device *ndev,
 	}
 
 	ret = sprd_uninit_fw(vif);
-	if (ret && type == NL80211_IFTYPE_AP)
-		vif->wdev.iftype = type;
 	if (!ret) {
 		vif->wdev.iftype = type;
 		ret = sprd_init_fw(vif);
