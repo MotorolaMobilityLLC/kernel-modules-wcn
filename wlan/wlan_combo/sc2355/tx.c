@@ -958,6 +958,7 @@ static int tx_filter_ip_pkt(struct sk_buff *skb, struct net_device *ndev)
 	bool is_data2cmd;
 	bool is_ipv4_dhcp, is_ipv6_dhcp;
 	bool is_vowifi2cmd;
+	bool is_ipv4_dns = false, is_ipv6_dns = false;
 	unsigned char *dhcpdata = NULL;
 	struct udphdr *udphdr;
 	struct iphdr *iphdr;
@@ -998,6 +999,16 @@ static int tx_filter_ip_pkt(struct sk_buff *skb, struct net_device *ndev)
 	    ((ethhdr->h_proto == htons(ETH_P_IPV6)) &&
 	     ((udphdr->source == htons(DHCP_SERVER_PORT_IPV6)) ||
 	      (udphdr->source == htons(DHCP_CLIENT_PORT_IPV6))));
+
+	is_ipv4_dns =
+	    ((ethhdr->h_proto == htons(ETH_P_IP)) &&
+	     ((udphdr->source == htons(DNS_SERVER_PORT)) ||
+	      (udphdr->dest == htons(DNS_SERVER_PORT))));
+	is_ipv6_dns =
+	    ((ethhdr->h_proto == htons(ETH_P_IPV6)) &&
+	     ((udphdr->source == htons(DNS_SERVER_PORT)) ||
+	      (udphdr->dest == htons(DNS_SERVER_PORT))));
+
 	if (sc2355_is_vowifi_pkt(skb, &is_vowifi2cmd)) {
 		if (!is_vowifi2cmd) {
 			struct sprd_peer_entry *peer_entry = NULL;
@@ -1018,7 +1029,8 @@ static int tx_filter_ip_pkt(struct sk_buff *skb, struct net_device *ndev)
 		is_vowifi2cmd = false;
 	}
 
-	is_data2cmd = (is_ipv4_dhcp || is_ipv6_dhcp || is_vowifi2cmd);
+	is_data2cmd = (is_ipv4_dhcp || is_ipv6_dhcp || is_vowifi2cmd ||
+		       is_ipv4_dns || is_ipv6_dns);
 
 	if (is_ipv4_dhcp) {
 		if (skb->data) {
@@ -1057,6 +1069,10 @@ static int tx_filter_ip_pkt(struct sk_buff *skb, struct net_device *ndev)
 		if (is_vowifi2cmd && ethhdr->h_proto == htons(ETH_P_IP))
 			pr_info("vowifi, proto=0x%x, tos=0x%x, dest=0x%x\n",
 				ethhdr->h_proto, iphdr->tos, udphdr->dest);
+		if (is_ipv4_dns || is_ipv6_dns)
+			pr_info("dns,check:%x,skb->ip_summed:%d\n",
+				udphdr->check, skb->ip_summed);
+
 		if (skb->ip_summed == CHECKSUM_PARTIAL) {
 			checksum =
 			    (__force __sum16)tx_do_csum(skb->data +
@@ -1069,6 +1085,10 @@ static int tx_filter_ip_pkt(struct sk_buff *skb, struct net_device *ndev)
 			pr_info("csum:%x,check:%x\n", checksum, udphdr->check);
 			skb->ip_summed = CHECKSUM_NONE;
 		}
+
+		if ((is_ipv4_dns || is_ipv6_dns) && (special_data_flag == 2 ||
+		    (special_data_flag == 1 && vif->prwise_crypto == SPRD_CIPHER_NONE)))
+			return 1;
 
 		sprd_xmit_data2cmd_wq(skb, ndev);
 		return NETDEV_TX_OK;
