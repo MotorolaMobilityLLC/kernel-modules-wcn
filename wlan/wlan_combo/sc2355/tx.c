@@ -32,16 +32,20 @@ static void tx_dequeue_cmd_buf(struct sprd_msg *msg, struct sprd_msg_list *list)
 	spin_unlock_bh(&list->complock);
 }
 
-static inline void tx_enqueue_data_msg(struct sprd_msg *msg)
+static inline void tx_enqueue_data_msg(struct sprd_msg *msg, struct sprd_hif *hif)
 {
 	struct tx_msdu_dscr *dscr = (struct tx_msdu_dscr *)msg->tran_data;
 
 	spin_lock_bh(&msg->data_list->p_lock);
 	/*to make sure ARP/TDLS/preauth can be tx ASAP */
-	if (dscr->tx_ctrl.sw_rate == 1)
-		list_add(&msg->list, &msg->data_list->head_list);
-	else
+	if (hif->hw_type == SPRD_HW_SC2355_PCIE) {
 		list_add_tail(&msg->list, &msg->data_list->head_list);
+	} else {
+		if (dscr->tx_ctrl.sw_rate == 1)
+			list_add(&msg->list, &msg->data_list->head_list);
+		else
+			list_add_tail(&msg->list, &msg->data_list->head_list);
+	}
 	atomic_inc(&msg->data_list->l_num);
 	spin_unlock_bh(&msg->data_list->p_lock);
 }
@@ -1663,7 +1667,7 @@ int sc2355_tx(struct sprd_chip *chip, struct sprd_msg *msg)
 			SAVE_ADDR(msg->tran_data, msg, 8);
 		}
 
-		tx_enqueue_data_msg(msg);
+		tx_enqueue_data_msg(msg, hif);
 		atomic_inc(&tx_mgmt->tx_list[msg->mode]->mode_list_num);
 	}
 

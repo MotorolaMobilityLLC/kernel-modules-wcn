@@ -450,6 +450,7 @@ void sc2355_ops_update(struct cfg80211_ops *ops)
 struct sprd_chip_ops sc2355_chip_ops = {
 	.get_msg = sc2355_tx_get_msg,
 	.free_msg = sc2355_tx_free_msg,
+	.tx_prepare = sc2355_tx_prepare,
 	.tx = sc2355_tx,
 	.force_exit = sc2355_tx_force_exit,
 	.is_exit = sc2355_tx_is_exit,

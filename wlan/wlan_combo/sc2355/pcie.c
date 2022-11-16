@@ -377,7 +377,7 @@ static int pcie_rx_handle(int chn, struct mbuf_t *head,
 	int buf_num = 0, len = 0, ret = 0;
 	struct mbuf_t *pos = head;
 
-	pr_err("%s: channel:%d head:%p tail:%p num:%d\n",
+	pr_debug("%s: channel:%d head:%p tail:%p num:%d\n",
 	       __func__, chn, head, tail, num);
 
 	for (buf_num = num; buf_num > 0; buf_num--, pos = pos->next) {
@@ -716,7 +716,7 @@ inline int sc2355_tx_addr_trans_pcie(struct sprd_hif *hif,
 			rx_mgmt->addr_trans_num = 0;
 		}
 	}
-	pr_info("%s, trans rx buf, %d, cp2 buffer: %d\n", __func__, ret,
+	pr_debug("%s, trans rx buf, %d, cp2 buffer: %d\n", __func__, ret,
 		skb_queue_len(&rx_mgmt->mm_entry.buffer_list));
 	return ret;
 }
@@ -1291,7 +1291,7 @@ int sc2355_pcie_tx_data_pop_list(int channel, struct mbuf_t *head,
 #endif
 	struct sprd_hif *hif = sc2355_pcie_get_hif();
 
-	pr_info("%s channel: %d, head: %p, tail: %p num: %d\n",
+	pr_debug("%s channel: %d, head: %p, tail: %p num: %d\n",
 		__func__, channel, head, tail, num);
 
 	if (hif->hw_type == SPRD_HW_SC2355_PCIE) {
@@ -1326,7 +1326,6 @@ int sc2355_pcie_tx_data_pop_list(int channel, struct mbuf_t *head,
 	return 0;
 }
 
-static unsigned long total_free_num;
 static inline int sprd_tx_free_txc_msg(struct tx_mgmt *tx_msg,
 					 struct sprd_msg *msg_buf)
 {
@@ -1352,7 +1351,6 @@ static inline int sprd_tx_free_txc_msg(struct tx_mgmt *tx_msg,
 	}
 	list_del(&msg_buf->list);
 	spin_unlock_irqrestore(&tx_msg->xmit_msg_list.free_lock, lockflag_txc);
-
 	if (msg_buf->node)
 		pcie_free_tx_buf(msg_buf->node);
 	if (msg_buf->skb)
@@ -1387,7 +1385,7 @@ int sc2355_tx_free_pcie_data(unsigned char *data)
 	static unsigned long caller_jiffies;
 	struct sprd_priv *priv = hif->priv;
 
-	pr_info("%s:=0x%x %p %p\n", __func__, data, tx_mgmt, hif);
+	pr_debug("%s:=0x%x %p %p\n", __func__, data, tx_mgmt, hif);
 
 	if (tx_mgmt->net_stopped == 1) {
 		sprd_net_flowcontrl(priv, SPRD_MODE_NONE, true);
@@ -1402,8 +1400,6 @@ int sc2355_tx_free_pcie_data(unsigned char *data)
 	pr_info("%s, total free num:%lu; total tx_num:%lu\n", __func__,
 		 tx_mgmt->txc_num, tx_mgmt->tx_num);
 
-	total_free_num += data_num;
-	pr_info("%s, total free num:%lu\n", __func__, total_free_num);
 
 	if (printk_timed_ratelimit(&caller_jiffies, 1000)) {
 		pr_info("%s, free_num: %d, to_free_list num: %d\n",
