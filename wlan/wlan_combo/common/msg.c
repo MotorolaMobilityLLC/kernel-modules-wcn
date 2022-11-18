@@ -116,6 +116,12 @@ struct sprd_msg *sprd_alloc_msg(struct sprd_msg_list *list)
 	spin_lock_irqsave(&list->freelock, flags);
 	if (!list_empty(&list->freelist)) {
 		msg = list_first_entry(&list->freelist, struct sprd_msg, list);
+		if (!msg) {
+			spin_unlock_irqrestore(&list->freelock, flags);
+			pr_err("look out alloc msg failed msg = NULL\n");
+			atomic_dec(&list->ref);
+			return NULL;
+		}
 		list_del(&msg->list);
 	}
 	spin_unlock_irqrestore(&list->freelock, flags);
