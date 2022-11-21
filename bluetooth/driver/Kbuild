@@ -8,11 +8,21 @@
 #   done is this Kbuild file
 #
 
-ifeq ($(filter $(strip $(BSP_BOARD_UNISOC_WCN_SOCKET)),sipc sdio pcie sipc2),)
-$(error no BSP_BOARD_UNISOC_WCN_SOCKET, pls fix it !!!)
+
+ifeq ($(strip $(BSP_BOARD_UNISOC_WCN_SOCKET)),sipc2)
+    TTY_DEVICE := tty-515
+else ifeq ($(strip $(BSP_BOARD_UNISOC_WCN_SOCKET)),sdio)
+    TTY_DEVICE := tty-515
+else ifeq ($(strip $(BSP_BOARD_UNISOC_WCN_SOCKET)),sipc)
+    TTY_DEVICE := tty-515
+else ifeq ($(strip $(BSP_BOARD_UNISOC_WCN_SOCKET)),pcie)
+    TTY_DEVICE := tty-pcie
+else
+    $(error no BSP_BOARD_UNISOC_WCN_SOCKET, pls fix it !!!)
 endif
 
-TTY_DEVICE := tty-$(strip $(BSP_BOARD_UNISOC_WCN_SOCKET))
+
+
 
 #
 # Source List

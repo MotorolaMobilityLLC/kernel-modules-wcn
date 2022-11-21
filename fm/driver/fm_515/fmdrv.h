@@ -31,13 +31,21 @@
 #define FM_HEADER_ERR       "FM_ERR: "
 #define FM_HEADER           "FM_DRV: "
 
+/* sdio                 */
 #define FM_TX_CHANNEL    6
 #define FM_RX_CHANNEL     20
+#define FM_SDIO_TX_POOL_SIZE   5
+#define FM_SDIO_RX_POOL_SIZE   1
+#define FM_SDIO_HEAD_LEN   4
+
+/*sipc                    */
+#define FM_SIPC_TX_CHANNEL    12
+#define FM_SIPC_RX_CHANNEL    13
 #define FM_TX_INOUT    1
 #define FM_RX_INOUT     0
-#define FM_TX_POOL_SIZE   5
-#define FM_RX_POOL_SIZE   1
-#define FM_SDIO_HEAD_LEN   4
+#define FM_SIPC_TX_POOL_SIZE   5
+#define FM_SIPC_RX_POOL_SIZE   5
+#define FM_SIPC_HEAD_LEN   0
 
 /* 1: enable RDS, 0:disable RDS */
 #define FM_RDS_ENABLE 0x01
@@ -520,7 +528,7 @@ struct fm_rds_handle {
 	/* get RT count */
 	unsigned short get_rt_cnt;
 };
-
+/*
 struct fmdrv_ops {
     struct completion	completed;
     unsigned int		rcv_len;
@@ -543,13 +551,53 @@ struct fmdrv_ops {
     struct completion seektask_completion;
     //struct completion *response_completion;
     struct fm_rds_handle rds_han;
-    /* fm power state */
+    // fm power state 
     uint8_t power_status;
     uint8_t fm_pd;
     int8_t  fm_invalid;
     bool short_ana;
     int switch_ana_innner_gpio;
 };
+*/
+
+struct fmdrv_ops {
+    struct completion   completed;
+    unsigned int        rcv_len;
+    void            *read_buf;
+    struct platform_device *pdev;
+    struct mbuf_t   *tx_head;
+    struct mbuf_t   *tx_tail;
+    void            *tx_buf_p;
+    void                *com_response;
+    void                *seek_response;
+    unsigned int        tx_len;
+    unsigned char       write_buf[FM_WRITE_SIZE];
+    unsigned char       com_respbuf[12];
+    unsigned char       seek_respbuf[12];
+    struct tasklet_struct rx_task;
+    struct tasklet_struct tx_task;
+    struct fm_rds_data rds_data;
+    spinlock_t          rw_lock;
+    struct mutex        mutex;
+    struct list_head    rx_head;
+    struct completion commontask_completion;
+    struct completion seektask_completion;
+    struct completion *response_completion;
+    struct fm_rds_handle rds_han;
+    struct fm_init_data	*pdata;
+
+    // fm power state 
+    uint8_t power_status;
+    uint8_t fm_pd;
+    /* fm_state: open: 1, close: 0 */
+    bool    fm_state;
+    /* headset_state: plugin: 0, plugout: 1 */
+    bool    headset_state;
+    int8_t  fm_invalid;
+    bool short_ana;
+    int switch_ana_innner_gpio;
+};
+
 
 /* ********** ***********FM IOCTL define start ****************/
 #define FM_IOC_MAGIC		0xf5

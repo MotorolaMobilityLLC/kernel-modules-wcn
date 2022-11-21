@@ -108,74 +108,74 @@ unsigned long dm_rx_phy[BT_RX_MAX_NUM];
 unsigned char *(dm_rx_ptr[BT_RX_MAX_NUM]);
 
 struct dma_buf {
-	unsigned long vir;
-	unsigned long phy;
-	int size;
+    unsigned long vir;
+    unsigned long phy;
+    int size;
 };
 
 int mtty_dmalloc(struct device *priv, struct dma_buf *dm, int size)
 {
-	struct device *dev = priv;
+    struct device *dev = priv;
 
-	if (!dev) {
-		pr_err("%s(NULL)\n", __func__);
-		return -1;
-	}
+    if (!dev) {
+        pr_err("%s(NULL)\n", __func__);
+        return -1;
+    }
 
-	if (dma_set_mask(dev, DMA_BIT_MASK(64))) {
-		pr_info("dma_set_mask err\n");
-		if (dma_set_coherent_mask(dev, DMA_BIT_MASK(64))) {
-			pr_err("dma_set_coherent_mask err\n");
-			return -1;
-		}
-	}
+    if (dma_set_mask(dev, DMA_BIT_MASK(64))) {
+        pr_info("dma_set_mask err\n");
+        if (dma_set_coherent_mask(dev, DMA_BIT_MASK(64))) {
+            pr_err("dma_set_coherent_mask err\n");
+            return -1;
+        }
+    }
 
-	dm->vir =
-	    (unsigned long)dma_alloc_coherent(dev, size,
-					      (dma_addr_t *)(&(dm->phy)),
-					      GFP_DMA);
-	if (dm->vir == 0) {
-		pr_err("dma_alloc_coherent err\n");
-		return -1;
-	}
-	dm->size = size;
-	memset((unsigned char *)(dm->vir), 0x56, size);
-	pr_info("dma_alloc_coherent(%d) 0x%lx 0x%lx\n",
-		  size, dm->vir, dm->phy);
+    dm->vir =
+        (unsigned long)dma_alloc_coherent(dev, size,
+                            (dma_addr_t *)(&(dm->phy)),
+                            GFP_DMA);
+    if (dm->vir == 0) {
+        pr_err("dma_alloc_coherent err\n");
+        return -1;
+    }
+    dm->size = size;
+    memset((unsigned char *)(dm->vir), 0x56, size);
+    pr_info("dma_alloc_coherent(%d) 0x%lx 0x%lx\n",
+            size, dm->vir, dm->phy);
 
-	return 0;
+    return 0;
 }
 
 int mtty_dma_buf_alloc(int chn, int size, int num)
 {
-	int ret, i;
-	struct dma_buf temp = {0};
-	struct mbuf_t *mbuf, *head, *tail;
+    int ret, i;
+    struct dma_buf temp = {0};
+    struct mbuf_t *mbuf, *head, *tail;
     dm_rx_t = &mtty_dev->pdev->dev;
 
-	if (!dm_rx_t) {
-		pr_err("%s:PCIE device link error\n", __func__);
-		return -1;
-	}
-	ret = sprdwcn_bus_list_alloc(chn, &head, &tail, &num);
-	if (ret != 0)
-		return -1;
-	for (i = 0, mbuf = head; i < num; i++) {
-		ret = mtty_dmalloc(dm_rx_t, &temp, size);
-		if (ret != 0)
-			return -1;
-		mbuf->buf = (unsigned char *)(temp.vir);
+    if (!dm_rx_t) {
+        pr_err("%s:PCIE device link error\n", __func__);
+        return -1;
+    }
+    ret = sprdwcn_bus_list_alloc(chn, &head, &tail, &num);
+    if (ret != 0)
+        return -1;
+    for (i = 0, mbuf = head; i < num; i++) {
+        ret = mtty_dmalloc(dm_rx_t, &temp, size);
+        if (ret != 0)
+            return -1;
+        mbuf->buf = (unsigned char *)(temp.vir);
         dm_rx_ptr[i] = mbuf->buf;
-		mbuf->phy = (unsigned long)(temp.phy);
+        mbuf->phy = (unsigned long)(temp.phy);
         dm_rx_phy[i] = mbuf->phy;
-		mbuf->len = temp.size;
-		memset(mbuf->buf, 0x0, mbuf->len);
-		mbuf = mbuf->next;
-	}
+        mbuf->len = temp.size;
+        memset(mbuf->buf, 0x0, mbuf->len);
+        mbuf = mbuf->next;
+    }
 
-	ret = sprdwcn_bus_push_list(chn, head, tail, num);
+    ret = sprdwcn_bus_push_list(chn, head, tail, num);
 
-	return ret;
+    return ret;
 }
 
 int mtty_dma_buf_free(int num) {
@@ -523,30 +523,31 @@ static int mtty_write(struct tty_struct *tty,
 
 static  int sdio_data_transmit(uint8_t *data, size_t count)
 {
-	return mtty_write(NULL, data, count);
+    return mtty_write(NULL, data, count);
 }
 
 
 static int mtty_write_plus(struct tty_struct *tty,
-	      const unsigned char *buf, int count)
+          const unsigned char *buf, int count)
 {
-	return sitm_write(buf, count, sdio_data_transmit);
+    return sitm_write(buf, count, sdio_data_transmit);
 }
 
 
 static void mtty_flush_chars(struct tty_struct *tty)
 {
+    
 }
 
 #if(LINUX_VERSION_CODE >= KERNEL_VERSION(5,15,0))
 static unsigned int mtty_write_room(struct tty_struct *tty)
 {
-	return INT_MAX;
+    return INT_MAX;
 }
 #else
 static int mtty_write_room(struct tty_struct *tty)
 {
-	return INT_MAX;
+    return INT_MAX;
 }
 #endif
 
@@ -687,32 +688,32 @@ static int bluetooth_reset(struct notifier_block *this, unsigned long ev, void *
 
     int ret = 0;
     int block_size = RESET_BUFSIZE;
-	unsigned char reset_buf[RESET_BUFSIZE]= {0x04, 0xff, 0x02, 0x57, 0xa5};
+    unsigned char reset_buf[RESET_BUFSIZE]= {0x04, 0xff, 0x02, 0x57, 0xa5};
 
-	pr_err("%s: reset callback coming\n", __func__);
-	if (mtty_dev != NULL) {
-		if (!work_pending(&mtty_dev->bt_rx_work)) {
-			pr_err("%s tty_insert_flip_string", __func__);
+    pr_err("%s: reset callback coming\n", __func__);
+    if (mtty_dev != NULL) {
+        if (!work_pending(&mtty_dev->bt_rx_work)) {
+            pr_err("%s tty_insert_flip_string", __func__);
 
-			while(ret < block_size){
-				pr_err("%s before tty_insert_flip_string ret: %d, len: %d\n",
-						__func__, ret, RESET_BUFSIZE);
-				ret = tty_insert_flip_string(mtty_dev->port0,
-									(unsigned char *)reset_buf,
-									RESET_BUFSIZE);   // -BT_SDIO_HEAD_LEN
-			    pr_err("%s ret: %d, len: %d\n", __func__, ret, RESET_BUFSIZE);
-				if (ret)
-					tty_flip_buffer_push(mtty_dev->port0);
-				block_size = block_size - ret;
-				ret = 0;
-			}
-		}
-	}
-	return NOTIFY_DONE;
+            while(ret < block_size){
+                pr_err("%s before tty_insert_flip_string ret: %d, len: %d\n",
+                        __func__, ret, RESET_BUFSIZE);
+                ret = tty_insert_flip_string(mtty_dev->port0,
+                                    (unsigned char *)reset_buf,
+                                    RESET_BUFSIZE);   // -BT_SDIO_HEAD_LEN
+                pr_err("%s ret: %d, len: %d\n", __func__, ret, RESET_BUFSIZE);
+                if (ret)
+                    tty_flip_buffer_push(mtty_dev->port0);
+                block_size = block_size - ret;
+                ret = 0;
+            }
+        }
+    }
+    return NOTIFY_DONE;
 }
 
 static struct notifier_block bluetooth_reset_block = {
-	.notifier_call = bluetooth_reset,
+    .notifier_call = bluetooth_reset,
 };
 
 static int mtty_probe(struct platform_device *pdev)

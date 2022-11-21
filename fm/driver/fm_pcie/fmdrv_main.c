@@ -341,8 +341,46 @@ static void receive_tasklet(unsigned long arg)
     }
 }
 
+static int fm_assert_reset(void){
+    int ret_tune = -1;
+    int ret = -1;
+    struct fm_tune_parm parm;
+    struct fm_tune_parm powerup_parm;
+    powerup_parm.err = (unsigned char)0;
+    powerup_parm.freq = 8750;
+    parm.freq = 8750;
+
+    pr_info("start open SPRD fm module after assert reset\n");
+
+    ret = fm_powerup();
+    if (ret != 0) {
+        pr_info("fm powerup fail after assert reset\n");
+        return ret;
+    } else {
+        fmdev->fm_invalid = 0;
+        pr_info("fm powerup success after assert reset\n");
+        ret_tune = fm_write_cmd(FM_TUNE_CMD, &parm.freq, sizeof(parm.freq),NULL, NULL);
+        if (ret_tune == 0){
+            pr_info("fm tune success after assert reset\n");
+        } else {
+            pr_info("fm tune fail after assert reset\n");
+        }
+        return ret_tune;
+    }
+}
+
 ssize_t fm_read_rds_data(struct file *filp, char __user *buf, size_t count, loff_t *pos) {
     int timeout = -1;
+    int ret = -1;
+
+    if (fmdev->fm_invalid == 1){
+        mdelay(2000);
+        ret = fm_assert_reset();
+        if (ret != 0) {
+            pr_info("fm assert reset fail\n");
+        }
+    }
+
     pr_info("(FM_RDS) fm start to read RDS data\n");
 #ifdef RDS_DEBUG
     sprintf(rds_debug_data.ps_data.PS[3], "PS_debug");

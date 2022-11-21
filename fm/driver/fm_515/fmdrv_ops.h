@@ -19,11 +19,11 @@
 #define _FMDRV_OPS_H
 
 extern struct wakeup_source *fm_wakelock;
-extern struct fmdrv_ops *fmdev;
 
+extern struct fmdrv_ops *fmdev;
 int  fm_device_init_driver(void);
 void fm_device_exit_driver(void);
-
+//to adapt sipc2
 struct fm_init_data {
 	char		*name;
 	uint8_t		dst;
@@ -34,5 +34,6 @@ struct fm_init_data {
 	uint32_t	lna_gpio;
 	uint32_t	ana_inner;
 };
+
 
 #endif

@@ -349,60 +349,97 @@ static void receive_tasklet(unsigned long arg)
 	}
 }
 
-ssize_t fm_read_rds_data(struct file *filp, char __user *buf,
-	size_t count, loff_t *pos)
-{
-	int timeout = -1;
+static int fm_assert_reset(void){
+    int ret_tune = -1;
+    int ret = -1;
+    struct fm_tune_parm parm;
+    struct fm_tune_parm powerup_parm;
+    powerup_parm.err = (unsigned char)0;
+    powerup_parm.freq = 8750;
+    parm.freq = 8750;
 
-	dev_unisoc_fm_info(fm_miscdev,"(FM_RDS) fm start to read RDS data\n");
+    dev_unisoc_fm_info(fm_miscdev,"start open SPRD fm module after assert reset\n");
+
+    ret = fm_powerup(&powerup_parm);
+    if (ret != 0) {
+        dev_unisoc_fm_info(fm_miscdev,"fm powerup fail after assert reset\n");
+        return ret;
+    } else {
+        fmdev->fm_invalid = 0;
+        dev_unisoc_fm_info(fm_miscdev,"fm powerup success after assert reset\n");
+        ret_tune = fm_write_cmd(FM_TUNE_CMD, &parm.freq, sizeof(parm.freq),NULL, NULL);
+        if (ret_tune == 0){
+            dev_unisoc_fm_info(fm_miscdev,"fm tune success after assert reset\n");
+        } else {
+            dev_unisoc_fm_info(fm_miscdev,"fm tune fail after assert reset\n");
+        }
+        return ret_tune;
+    }
+}
+
+ssize_t fm_read_rds_data(struct file *filp, char __user *buf,
+    size_t count, loff_t *pos)
+{
+    int timeout = -1;
+    int ret = -1;
+    
+    if (fmdev->fm_invalid == 1){
+        mdelay(2000);
+        ret = fm_assert_reset();
+        if (ret != 0) {
+            dev_unisoc_fm_info(fm_miscdev,"fm assert reset fail\n");
+        }
+    }
+
+    dev_unisoc_fm_info(fm_miscdev,"(FM_RDS) fm start to read RDS data\n");
 
 #ifdef RDS_DEBUG
-	sprintf(rds_debug_data.ps_data.PS[3], "PS_debug");
-	sprintf(rds_debug_data.rt_data.textdata[3],
-		"Welcome to spreadtrum, This is for RT data debug");
-	dev_unisoc_fm_info(fm_miscdev,"fm ioctl read rds freq =%d\n", global_freq);
-		rds_debug_data.af_data.AF_NUM = 3;
-		rds_debug_data.af_data.AF[1][0] = 1065;
-		rds_debug_data.af_data.AF[1][1] = 1077;
-		rds_debug_data.af_data.AF[1][2] = 1001;
-		rds_debug_data.event_status = 0xFFF;
-		rds_debug_data.rt_data.textlength =
-			strlen(rds_debug_data.rt_data.textdata[3]);
+    sprintf(rds_debug_data.ps_data.PS[3], "PS_debug");
+    sprintf(rds_debug_data.rt_data.textdata[3],
+        "Welcome to spreadtrum, This is for RT data debug");
+    dev_unisoc_fm_info(fm_miscdev,"fm ioctl read rds freq =%d\n", global_freq);
+        rds_debug_data.af_data.AF_NUM = 3;
+        rds_debug_data.af_data.AF[1][0] = 1065;
+        rds_debug_data.af_data.AF[1][1] = 1077;
+        rds_debug_data.af_data.AF[1][2] = 1001;
+        rds_debug_data.event_status = 0xFFF;
+        rds_debug_data.rt_data.textlength =
+            strlen(rds_debug_data.rt_data.textdata[3]);
 
-	if (copy_to_user(buf, &(rds_debug_data), sizeof(rds_debug_data))) {
-		dev_unisoc_fm_err(fm_miscdev,"fm_read_rds_data ret value is -eFAULT\n");
-		return -EFAULT;
-	}
-	return sizeof(rds_debug_data);
+    if (copy_to_user(buf, &(rds_debug_data), sizeof(rds_debug_data))) {
+        dev_unisoc_fm_err(fm_miscdev,"fm_read_rds_data ret value is -eFAULT\n");
+        return -EFAULT;
+    }
+    return sizeof(rds_debug_data);
 #endif
 
-	if (filp->f_flags & O_NONBLOCK) {
-		timeout = 0;
-		dev_unisoc_fm_err(fm_miscdev,"fm_read_rds_data NON BLOCK!!!\n");
-		return -EWOULDBLOCK;
-	}
+    if (filp->f_flags & O_NONBLOCK) {
+        timeout = 0;
+        dev_unisoc_fm_err(fm_miscdev,"fm_read_rds_data NON BLOCK!!!\n");
+        return -EWOULDBLOCK;
+    }
 
-	fmdev->rds_data.rt_data.textlength =
-		strlen(fmdev->rds_data.rt_data.textdata[3]);
-	dev_unisoc_fm_info(fm_miscdev,"fm RT len is %d\n", fmdev->rds_data.rt_data.textlength);
-	if (copy_to_user(buf, &(fmdev->rds_data), sizeof(fmdev->rds_data))) {
-		dev_unisoc_fm_info(fm_miscdev,"fm_read_rds_data ret value is -eFAULT\n");
-		return -EFAULT;
-	}
-	dev_unisoc_fm_info(fm_miscdev,"(fm drs) fm event is %x\n", fmdev->rds_data.event_status);
-	fmdev->rds_han.rds_parse_stop_time = get_seconds();
-	if ((fmdev->rds_han.rds_parse_stop_time -
-		fmdev->rds_han.rds_parse_start_time) >
-		FM_RDS_PARSE_TIME) {
-		dev_unisoc_fm_info(fm_miscdev,"fm clear RDS event! [%ld]-[%ld]\n",
-			fmdev->rds_han.rds_parse_start_time,
-			fmdev->rds_han.rds_parse_stop_time);
-		fmdev->rds_data.event_status = 0;
-	}
-	dev_unisoc_fm_info(fm_miscdev,"PS=%s,RT=%s\n", fmdev->rds_data.ps_data.PS[3],fmdev->rds_data.rt_data.textdata[3]);
-	dev_unisoc_fm_info(fm_miscdev,"fm_read_rds_data end....\n");
+    fmdev->rds_data.rt_data.textlength =
+        strlen(fmdev->rds_data.rt_data.textdata[3]);
+    dev_unisoc_fm_info(fm_miscdev,"fm RT len is %d\n", fmdev->rds_data.rt_data.textlength);
+    if (copy_to_user(buf, &(fmdev->rds_data), sizeof(fmdev->rds_data))) {
+        dev_unisoc_fm_info(fm_miscdev,"fm_read_rds_data ret value is -eFAULT\n");
+        return -EFAULT;
+    }
+    dev_unisoc_fm_info(fm_miscdev,"(fm drs) fm event is %x\n", fmdev->rds_data.event_status);
+    fmdev->rds_han.rds_parse_stop_time = get_seconds();
+    if ((fmdev->rds_han.rds_parse_stop_time -
+        fmdev->rds_han.rds_parse_start_time) >
+        FM_RDS_PARSE_TIME) {
+        dev_unisoc_fm_info(fm_miscdev,"fm clear RDS event! [%ld]-[%ld]\n",
+            fmdev->rds_han.rds_parse_start_time,
+            fmdev->rds_han.rds_parse_stop_time);
+        fmdev->rds_data.event_status = 0;
+    }
+    dev_unisoc_fm_info(fm_miscdev,"PS=%s,RT=%s\n", fmdev->rds_data.ps_data.PS[3],fmdev->rds_data.rt_data.textdata[3]);
+    dev_unisoc_fm_info(fm_miscdev,"fm_read_rds_data end....\n");
 
-	return sizeof(fmdev->rds_data);
+    return sizeof(fmdev->rds_data);
 }
 
 void fm_handler (int event, void *data)

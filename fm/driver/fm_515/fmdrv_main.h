@@ -126,6 +126,12 @@ struct fm_sdio_hdr {
 	unsigned int type;
 	unsigned int subtype;
 } __packed;
+
+struct fm_sipc_hdr {
+	unsigned int length;
+	unsigned int type;
+	unsigned int subtype;
+} __packed;
 int parse_sdio_header(struct mbuf_t *head, struct mbuf_t *tail, int num, struct fm_sdio_hdr *hdr);
 
 #endif

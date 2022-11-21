@@ -520,6 +520,7 @@ struct fmdrv_ops {
   struct fm_init_data	*pdata;
   /* fm_state: open: 1, close: 0 */
   bool	fm_state;
+  int8_t  fm_invalid;
   /* headset_state: plugin: 0, plugout: 1 */
   bool	headset_state;
   bool short_ana;
