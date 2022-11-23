@@ -588,8 +588,11 @@ void *sipc_fill_mbuf(void *data, unsigned int len)
 		wl_err("%s:buf is NULL.\n", __func__);
 		return NULL;
 	}
-
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+	memcpy_fromio(buf, data, len);
+#else
 	memcpy(buf, data, len);
+#endif
 
 	return buf;
 }
