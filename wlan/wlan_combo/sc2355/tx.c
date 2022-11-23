@@ -1725,22 +1725,6 @@ int sc2355_reset(struct sprd_hif *hif)
 		return -1;
 	}
 
-	/* need reset hif->exit flag, if wcn reset happened */
-	if (unlikely(hif->exit)) {
-		hif->exit = 0;
-		pr_info("%s reset hif->exit flag:%d!\n", __func__, hif->exit);
-	}
-
-	/* need reset hif->cp_assert flag */
-	if (unlikely(hif->cp_asserted)) {
-		hif->cp_asserted = 0;
-		pr_info("%s reset hif->cp_asserted flag:%d!\n", __func__,
-			hif->cp_asserted);
-	}
-
-	hif->fw_awake = 1;
-	hif->fw_power_down = 0;
-
 	list_for_each_entry_safe(vif, tmp, &priv->vif_list, vif_node) {
 		int ciphyr_type, key_index;
 		int ciphyr_type_max = 2, key_index_max = 4;
@@ -1820,6 +1804,22 @@ int sc2355_reset(struct sprd_hif *hif)
 	/* bug 1985177, initial suspend mode, set to SPRD_PS_RESUMED */
 	pr_info("%s set suspend_mode to RESUMED, %d\n", __func__, __LINE__);
 	hif->suspend_mode = SPRD_PS_RESUMED;
+
+	/* need reset hif->exit flag, if wcn reset happened */
+	if (unlikely(hif->exit)) {
+		hif->exit = 0;
+		pr_info("%s reset hif->exit flag:%d!\n", __func__, hif->exit);
+	}
+
+	/* need reset hif->cp_assert flag */
+	if (unlikely(hif->cp_asserted)) {
+		hif->cp_asserted = 0;
+		pr_info("%s reset hif->cp_asserted flag:%d!\n", __func__,
+			hif->cp_asserted);
+	}
+
+	hif->fw_awake = 1;
+	hif->fw_power_down = 0;
 
 	return 0;
 }

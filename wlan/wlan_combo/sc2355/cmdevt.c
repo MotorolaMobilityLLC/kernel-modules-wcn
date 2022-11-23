@@ -419,13 +419,13 @@ static int cmdevt_lock_cmd(struct sprd_cmd *cmd, struct sprd_hif *hif)
 		return -1;
 	}
 	mutex_lock(&cmd->cmd_lock);
-#ifdef DRV_RESET_SELF
+
 	if (hif->cp_asserted == 1) {
 		mutex_unlock(&cmd->cmd_lock);
 		pr_err("%s failed, cp_asserted unlock cmd_lock\n", __func__);
 		return -1;
 	}
-#endif
+
 	if (hif->priv->is_suspending == 0)
 		__pm_stay_awake(cmd->wake_lock);
 	pr_info("cmd->refcnt=%x\n", atomic_read(&cmd->refcnt));
