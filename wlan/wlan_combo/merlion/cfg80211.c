@@ -1896,9 +1896,6 @@ static int sprdwl_cfg80211_disconnect(struct wiphy *wiphy,
 	if (ret)
 		vif->sm_state = old_state;
 
-	if (vif->mode == SPRDWL_MODE_STATION ||
-		vif->mode == SPRDWL_MODE_STATION_SECOND)
-		vif->dis_random_flag = 1;
 	trace_deauth_reason(vif->mode, reason_code, LOCAL_EVENT);
 
 	return ret;
@@ -1913,7 +1910,6 @@ static int sprdwl_cfg80211_connect(struct wiphy *wiphy, struct net_device *ndev,
 	int ie_set_flag = 0;
 	int is_wep = (sme->crypto.cipher_group == WLAN_CIPHER_SUITE_WEP40) ||
 	    (sme->crypto.cipher_group == WLAN_CIPHER_SUITE_WEP104);
-	int random_mac_flag;
 	int ret = -EPERM;
 	struct sprdwl_intf *intf = (struct sprdwl_intf *)(vif->priv->hw_priv);
 
@@ -1922,17 +1918,6 @@ static int sprdwl_cfg80211_connect(struct wiphy *wiphy, struct net_device *ndev,
 		wl_err("%s, %d, error!mode%d connect after closed not allowed",
 		       __func__, __LINE__, vif->mode);
 		goto err;
-	}
-
-	if (vif->mode == SPRDWL_MODE_STATION ||
-		vif->mode == SPRDWL_MODE_STATION_SECOND) {
-		if (vif->has_rand_mac) {
-			random_mac_flag = SPRDWL_CONNECT_RANDOM_ADDR;
-			ret = wlan_cmd_set_rand_mac(vif->priv, vif->ctx_id,
-										random_mac_flag, vif->random_mac);
-			if (ret)
-				netdev_info(ndev, "Set random mac failed!\n");
-		}
 	}
 
 	memset(&con, 0, sizeof(con));

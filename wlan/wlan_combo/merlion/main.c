@@ -1106,6 +1106,7 @@ static int sprdwl_set_mac(struct net_device *dev, void *addr)
 	int ret;
 	struct sprdwl_vif *vif = netdev_priv(dev);
 	struct sockaddr *sa = (struct sockaddr *)addr;
+	struct sprdwl_intf *intf = g_intf;
 
 	if (!dev) {
 		netdev_err(dev, "Invalid net device\n");
@@ -1124,23 +1125,24 @@ static int sprdwl_set_mac(struct net_device *dev, void *addr)
 			vif->has_rand_mac = true;
 			memcpy(vif->random_mac, sa->sa_data, ETH_ALEN);
 			memcpy(dev->dev_addr, sa->sa_data, ETH_ALEN);
-		} else {
+			if (atomic_read(&intf->power_cnt) != 0) {
+			netdev_info(dev, "set random mac to cp2: %pM\n",
+					vif->random_mac);
+			ret = wlan_cmd_set_rand_mac(vif->priv, vif->ctx_id,
+						SPRDWL_CONNECT_RANDOM_ADDR, sa->sa_data);
+			if (ret) {
+				netdev_err(dev, "%s set station random mac error\n",
+						   __func__);
+				return -EFAULT;
+			}
+		}
+		
+	} else {
 			vif->has_rand_mac = false;
 			netdev_info(dev, "need clear random mac for sta/softap mode\n");
 			memset(vif->random_mac, 0, ETH_ALEN);
-			memcpy(dev->dev_addr, vif->mac, ETH_ALEN);																						}
-	}
-
-	if (vif->dis_random_flag == 1) {
-		if (vif->has_rand_mac) {
-			netdev_info(dev, "set random mac after disconnect: %pM\n",
-					vif->random_mac);
-			ret = wlan_cmd_set_rand_mac(vif->priv, vif->ctx_id,
-							SPRDWL_CONNECT_RANDOM_ADDR, sa->sa_data);
-			if (ret)
-				netdev_info(dev, "set random mac failed after disconnect!\n");
-		}
-		vif->dis_random_flag = 0;
+			memcpy(dev->dev_addr, vif->mac, ETH_ALEN);	
+                }
 	}
 
 	if (vif->mode == SPRDWL_MODE_P2P_CLIENT || vif->mode == SPRDWL_MODE_P2P_GO) {
