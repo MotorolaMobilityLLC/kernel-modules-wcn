@@ -33,7 +33,7 @@ int sprdwl_handle_cmd(struct net_device *ndev, struct ifreq *ifr)
 		return -EINVAL;
 
 	/*add length check to avoid invalid NULL ptr*/
-	if ((!priv_cmd.total_len) || (SPRDWL_MAX_CMD_TXLEN < priv_cmd.total_len)) {
+	if ((priv_cmd.total_len <= 0) || (SPRDWL_MAX_CMD_TXLEN < priv_cmd.total_len)) {
 		netdev_err(ndev, "%s: priv cmd total len is invalid\n", __func__);
 		return -EINVAL;
 	}

@@ -55,6 +55,7 @@ struct sprdwl_work {
 #ifdef ENABLE_PAM_WIFI
 #define SPRDWL_PAM_WIFI_MISS_NODE_WORK 23
 #endif
+#define SPRDWL_P2P_GO_DEL_STATION	 25
 	u8 id;
 	u32 len;
 	u8 data[0];

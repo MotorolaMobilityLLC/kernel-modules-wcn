@@ -1207,8 +1207,14 @@ int sprdwl_set_ie(struct sprdwl_priv *priv, u8 vif_ctx_id, u8 type,
 {
 	struct sprdwl_msg_buf *msg;
 	struct sprdwl_cmd_set_ie *p;
+	size_t datalen = sizeof(*p) + len;
 
-	msg = sprdwl_cmd_getbuf(priv, sizeof(*p) + len, vif_ctx_id,
+	if (datalen > 0xFFFF) {
+		wl_err("%s err datalen %zu.\n", __func__, datalen);
+		return -EINVAL;
+	}
+
+	msg = sprdwl_cmd_getbuf(priv, (u16)datalen, vif_ctx_id,
 				SPRDWL_HEAD_RSP, WIFI_CMD_SET_IE);
 	if (!msg)
 		return -ENOMEM;
@@ -1904,9 +1910,13 @@ int sprdwl_tx_mgmt(struct sprdwl_priv *priv, u8 vif_ctx_id, u8 channel,
 {
 	struct sprdwl_msg_buf *msg;
 	struct sprdwl_cmd_mgmt_tx *p;
-	u16 datalen = sizeof(*p) + len;
+	size_t datalen = sizeof(*p) + len;
 
-	msg = sprdwl_cmd_getbuf(priv, datalen, vif_ctx_id,
+	if (datalen > 0xFFFF) {
+		wl_err("%s err datalen %zu.\n", __func__, datalen);
+		return -EINVAL;
+	}
+	msg = sprdwl_cmd_getbuf(priv, (u16)datalen, vif_ctx_id,
 				SPRDWL_HEAD_RSP, WIFI_CMD_TX_MGMT);
 	if (!msg)
 		return -ENOMEM;
@@ -2428,18 +2438,7 @@ int sprdwl_send_data2cmd(struct sprdwl_priv *priv, u8 vif_ctx_id,
 
 int sprdwl_xmit_data2cmd(struct sk_buff *skb, struct net_device *ndev)
 {
-#define FLAG_SIZE  5
 	struct sprdwl_vif *vif = netdev_priv(ndev);
-	struct sprdwl_msg_buf *msg;
-	u8 *temp_flag = "01234";
-	struct tx_msdu_dscr *dscr;
-	struct sprdwl_cmd *cmd = &g_sprdwl_cmd;
-
-	if (unlikely(atomic_read(&cmd->refcnt) > 0)) {
-		wl_err("%s, cmd->refcnt = %d, Try later again\n",
-		       __func__, atomic_read(&cmd->refcnt));
-		return -EAGAIN;
-	}
 
 	if(skb->protocol == cpu_to_be16(ETH_P_PAE)) {
 		u8 *data = (u8*)(skb->data) + sizeof(struct ethhdr);
@@ -2451,38 +2450,7 @@ int sprdwl_xmit_data2cmd(struct sk_buff *skb, struct net_device *ndev)
 		}
 	}
 
-	/*fill dscr header first*/
-	if (sprdwl_intf_fill_msdu_dscr(vif, skb, SPRDWL_TYPE_CMD, 0)) {
-		dev_kfree_skb(skb);
-		return -EPERM;
-	}
-	/*alloc five byte for fw 16 byte need
-	 *dscr:11+flag:5 =16
-	 */
-	skb_push(skb, FLAG_SIZE);
-	memcpy(skb->data, temp_flag, FLAG_SIZE);
-	/*malloc msg buffer*/
-	msg = sprdwl_cmd_getbuf_atomic(vif->priv, skb->len, vif->ctx_id,
-				       SPRDWL_HEAD_RSP, WIFI_CMD_TX_DATA);
-	if (!msg) {
-		wl_err("%s, %d, getmsgbuf fail, free skb\n",
-		       __func__, __LINE__);
-		dev_kfree_skb(skb);
-		return -ENOMEM;
-	}
-	/*send group in BK to avoid FW hang*/
-	dscr = (struct tx_msdu_dscr *)skb->data;
-	if ((vif->mode == SPRDWL_MODE_AP ||
-		vif->mode == SPRDWL_MODE_P2P_GO) &&
-		(dscr->sta_lut_index < 6)) {
-		dscr->buffer_info.msdu_tid = prio_1;
-		wl_info("%s, %d, SOFTAP/GO group go as BK\n", __func__, __LINE__);
-	}
-
-	memcpy(msg->data, skb->data, skb->len);
-	dev_kfree_skb(skb);
-
-	return sprdwl_cmd_send_to_ic(vif->priv, msg);
+	return sprdwl_xmit_data2cmd_wq(skb, ndev);
 }
 
 int sprdwl_xmit_data2cmd_wq(struct sk_buff *skb, struct net_device *ndev)
@@ -2722,9 +2690,9 @@ unsigned short sprdwl_rx_rsp_process(struct sprdwl_priv *priv, u8 *msg)
 		complete(&cmd->completed);
 	} else {
 		kfree(data);
-		wl_err("%s ctx_id %d recv mismatched rsp[%s] status[%s]\n",
+		wl_err("%s ctx_id %d recv mismatched rsp[%s] for [%s] status[%s]\n",
 		       __func__, hdr->common.ctx_id,
-		       cmd2str(hdr->cmd_id),
+		       cmd2str(hdr->cmd_id), cmd2str(cmd->cmd_id),
 		       err2str(hdr->status));
 		wl_err("%s mstime:[%u %u]\n", __func__,
 		       SPRDWL_GET_LE32(hdr->mstime), cmd->mstime);
@@ -3155,6 +3123,11 @@ void sprdwl_event_tdls(struct sprdwl_vif *vif, u8 *data, u16 len)
 	u16 reason_code;
 	struct sprdwl_event_tdls *report_tdls = NULL;
 
+	if (len < sizeof(struct sprdwl_event_tdls)) {
+		netdev_err(vif->ndev, "%s event_tdls len is invalid!\n", __func__);
+		return;
+	}
+
 	report_tdls = (struct sprdwl_event_tdls *)data;
 	ether_addr_copy(&peer[0], &report_tdls->mac[0]);
 	oper = report_tdls->tdls_sub_cmd_mgmt;
@@ -3208,6 +3181,10 @@ void sprdwl_event_suspend_resume(struct sprdwl_vif *vif, u8 *data, u16 len)
 	struct sprdwl_intf *intf = (struct sprdwl_intf *)(vif->priv->hw_priv);
 	struct sprdwl_tx_msg *tx_msg = (struct sprdwl_tx_msg *)intf->sprdwl_tx;
 
+	if (len < sizeof(struct sprdwl_event_suspend_resume)) {
+		wl_err("%s event data len is invalid!\n", __func__);
+		return;
+	}
 	suspend_resume = (struct sprdwl_event_suspend_resume *)data;
 	if ((1 == suspend_resume->status) &&
 		(intf->suspend_mode == SPRDWL_PS_RESUMING)) {
@@ -3219,10 +3196,15 @@ void sprdwl_event_suspend_resume(struct sprdwl_vif *vif, u8 *data, u16 len)
 
 void sprdwl_event_hang_recovery(struct sprdwl_vif *vif, u8 *data, u16 len)
 {
-	struct event_hang_recovery *hang =
-		(struct event_hang_recovery *)data;
 	struct sprdwl_intf *intf = (struct sprdwl_intf *)(vif->priv->hw_priv);
 	struct sprdwl_tx_msg *tx_msg = (struct sprdwl_tx_msg *)intf->sprdwl_tx;
+	struct event_hang_recovery *hang = NULL;
+
+	if (len < sizeof(struct event_hang_recovery)) {
+		wl_err("%s event data len is invalid!\n", __func__);
+		return;
+	}
+	hang = (struct event_hang_recovery *)data;
 
 	tx_msg->hang_recovery_status = hang->action;
 	wl_info("%s, %d, action=%d, status=%d\n",
@@ -3237,11 +3219,16 @@ void sprdwl_event_hang_recovery(struct sprdwl_vif *vif, u8 *data, u16 len)
 
 void sprdwl_event_thermal_warn(struct sprdwl_vif *vif, u8 *data, u16 len)
 {
-	struct event_thermal_warn *thermal =
-		(struct event_thermal_warn *)data;
 	struct sprdwl_intf *intf = (struct sprdwl_intf *)(vif->priv->hw_priv);
 	struct sprdwl_tx_msg *tx_msg = (struct sprdwl_tx_msg *)intf->sprdwl_tx;
 	enum sprdwl_mode mode;
+	struct event_thermal_warn *thermal = NULL;
+
+	if (len < sizeof(struct event_thermal_warn)) {
+		wl_err("%s event data len is invald!\n", __func__);
+		return;
+	}
+	thermal = (struct event_thermal_warn *)data;
 
 	wl_info("%s, %d, action=%d, status=%d\n",
 		__func__, __LINE__,
@@ -3378,12 +3365,18 @@ void sprdwl_event_fw_power_down(struct sprdwl_vif *vif, u8 *data, u16 len)
 
 void sprdwl_event_chan_changed(struct sprdwl_vif *vif, u8 *data, u16 len)
 {
-	struct sprdwl_chan_changed_info *p = (struct sprdwl_chan_changed_info *)data;
 	u8 channel;
 	u16 freq;
 	struct wiphy *wiphy = vif->wdev.wiphy;
 	struct ieee80211_channel *ch = NULL;
 	struct cfg80211_chan_def chandef;
+	struct sprdwl_chan_changed_info *p = NULL;
+
+	if (len < sizeof(struct sprdwl_chan_changed_info)) {
+		wl_err("%s, event data len is invalid!\n", __func__);
+		return;
+	}
+	p = (struct sprdwl_chan_changed_info *)data;
 
 	if (p->initiator == 0) {
 		wl_err("%s, unknowed event!\n", __func__);
@@ -3566,6 +3559,11 @@ unsigned short sprdwl_rx_event_process(struct sprdwl_priv *priv, u8 *msg)
 	wl_warn("[%u]ctx_id %d recv[%s]len: %d,rsp_cnt=%d\n",
 		le32_to_cpu(hdr->mstime), ctx_id,
 		evt2str(hdr->cmd_id), plen, hdr->rsp_cnt);
+
+	if (plen < sizeof(struct sprdwl_cmd_hdr)) {
+		wl_err("%s plen is invalid!\n", __func__);
+		return plen;
+	}
 
 	print_hex_dump_debug("EVENT: ", DUMP_PREFIX_OFFSET, 16, 1,
 			     (u8 *)hdr, hdr->plen, 0);

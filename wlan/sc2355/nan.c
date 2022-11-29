@@ -16,6 +16,7 @@
  * GNU General Public License for more details.
  */
 
+#include <linux/kernel.h>
 #include "sprdwl.h"
 #include "nan.h"
 
@@ -35,6 +36,13 @@ int sprdwl_vendor_nan_cmds(struct wiphy *wiphy,
 	u8 rsp[NAN_RSP_LEN] = {0x0};
 	u16 rsp_len = NAN_RSP_LEN;
 	int ret = 0;
+
+	/* bug 2028856, hackerone 1701201 */
+	if (U16_MAX < len || len <= 0) {
+		netdev_err(vif->ndev,
+			   "%s: param data len is invalid\n", __func__);
+		return -EINVAL;
+	}
 
 	msg = sprdwl_cmd_getbuf(vif->priv, len,
 				vif->ctx_id, 1, WIFI_CMD_NAN);

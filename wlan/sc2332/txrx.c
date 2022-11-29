@@ -189,6 +189,11 @@ static int sprdwl_rx_wapi_data_process(struct sprdwl_vif *vif,
 		return -ENOMEM;
 	skb_reserve(skb, NET_IP_ALIGN);
 
+	if (24 >= len) {
+		wl_err("%s data len is invalid\n", __func__);
+		return -EINVAL;
+	}
+
 	decryp_data_len = sprdwl_wapi_dec(vif, (unsigned char *)addr,
 					  24, (len - 24), (skb->data + 12));
 	if (!decryp_data_len) {
@@ -214,7 +219,7 @@ static int sprdwl_rx_wapi_data_process(struct sprdwl_vif *vif,
 }
 
 unsigned short sprdwl_rx_data_process(struct sprdwl_priv *priv,
-				      unsigned char *msg)
+				      unsigned char *msg, unsigned int msg_len)
 {
 	unsigned char mode, data_type;
 	unsigned short len, plen;
@@ -235,6 +240,12 @@ unsigned short sprdwl_rx_data_process(struct sprdwl_priv *priv,
 	data = (unsigned char *)msg;
 	data += sizeof(*hdr) + (hdr->info1 & SPRDWL_DATA_OFFSET_MASK);
 	plen = SPRDWL_GET_LE16(hdr->plen);
+	if (plen > msg_len ||
+	    plen < (sizeof(*hdr) + (hdr->info1 & SPRDWL_DATA_OFFSET_MASK))) {
+		wl_err("%s plen is invalid!\n", __func__);
+		return plen;
+	}
+
 	if (!priv) {
 		wl_err("%s sdio->priv not init.\n", __func__);
 		return plen;

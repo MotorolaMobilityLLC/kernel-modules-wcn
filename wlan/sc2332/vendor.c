@@ -1890,9 +1890,18 @@ static int sprdwl_parse_sae_entry(struct net_device *ndev, struct sprdwl_sae_ent
 		case SPRDWL_VENDOR_SAE_IDENTIFIER:
 			data_len = nla_len(pos);
 			entry->id_len = data_len;
+			if (entry->id_len > sizeof(entry->identifier)) {
+				netdev_err(ndev, "invalid id_len %d\n", entry->id_len);
+				return -EINVAL;
+			}
 			nla_strlcpy(entry->identifier, pos, data_len);
 			break;
 		case SPRDWL_VENDOR_SAE_PEER_ADDR:
+			data_len = nla_len(pos);
+			if (data_len != ETH_ALEN) {
+				netdev_err(ndev, "invalid peer_addr len %d\n", data_len);
+				return -EINVAL;
+			}
 			nla_memcpy(entry->peer_addr, pos, ETH_ALEN);
 			break;
 		case SPRDWL_VENDOR_SAE_VLAN_ID:
@@ -1918,7 +1927,7 @@ static int sprdwl_vendor_set_sae_password(struct wiphy *wiphy,
 	priv = wiphy_priv(wiphy);
 	if (!(priv->extend_feature & SPRDWL_EXTEND_SOATAP_WPA3)) {
 		netdev_info(vif->ndev, "firmware not support softap wpa3\n");
-		return -ENOTSUPP; 
+		return -ENOTSUPP;
 	}
 
 	memset(&sae_para, 0x00, sizeof(sae_para));
@@ -1928,15 +1937,18 @@ static int sprdwl_vendor_set_sae_password(struct wiphy *wiphy,
 		netdev_info(vif->ndev, "type is : %d\n", type);
 		switch (type) {
 		case SPRDWL_VENDOR_SAE_ENTRY:
-			sae_para.entry[sae_entry_index].vlan_id = SPRDWL_SAE_NOT_SET;
-			sae_para.entry[sae_entry_index].used = 1;
-			sprdwl_parse_sae_entry(vif->ndev,
-					       &sae_para.entry[sae_entry_index],
-					       nla_data(pos), nla_len(pos));
-			sae_entry_index++;
 			if(sae_entry_index >= SPRDWl_SAE_MAX_NUM)
 				return -EINVAL;
+			sae_para.entry[sae_entry_index].vlan_id = SPRDWL_SAE_NOT_SET;
+			sae_para.entry[sae_entry_index].used = 1;
+			if (sprdwl_parse_sae_entry(vif->ndev, &sae_para.entry[sae_entry_index],
+				nla_data(pos), nla_len(pos)) != 0) {
+				netdev_info(vif->ndev, "%s %d error.\n", __func__, __LINE__);
+				return -EINVAL;
+			}
+			sae_entry_index++;
 			break;
+
 		case SPRDWL_VENDOR_SAE_GROUP_ID:
 			if (sae_para.group_count >= 31)
 				return 0;
@@ -1950,11 +1962,16 @@ static int sprdwl_vendor_set_sae_password(struct wiphy *wiphy,
 
 		case SPRDWL_VENDOR_SAE_PWD:
 			sae_para.passphrase_len = nla_len(pos);
-			nla_strlcpy(sae_para.passphrase, pos,
-				    sae_para.passphrase_len + 1);
-			netdev_info(vif->ndev, "pwd is :%s, len :%d\n",
-				    sae_para.passphrase,
-				    sae_para.passphrase_len);
+			if (sae_para.passphrase_len <= MAX_PASSWORD_LEN) {
+				nla_strlcpy(sae_para.passphrase, pos,
+					    sae_para.passphrase_len + 1);
+				netdev_info(vif->ndev, "pwd is :%s, len :%d\n",
+					    sae_para.passphrase,
+					    sae_para.passphrase_len);
+			} else {
+				netdev_info(vif->ndev, "%s %d error.\n", __func__, __LINE__);
+				return -EINVAL;
+			}
 			break;
 		default:
 			break;

@@ -61,6 +61,8 @@ static void sprdwl_do_work(struct work_struct *work)
 	struct sprdwl_vif *vif;
 	struct sprdwl_priv *priv = container_of(work, struct sprdwl_priv, work);
 	unsigned char *data = NULL;
+	u8 mac_addr[ETH_ALEN];
+	u16 reason_code;
 
 	while (1) {
 		sprdwl_work = sprdwl_get_work(priv);
@@ -169,6 +171,11 @@ static void sprdwl_do_work(struct work_struct *work)
 			sprdwl_pam_wifi_miss_node_send(sprdwl_work->data);
 			break;
 #endif
+		case SPRDWL_P2P_GO_DEL_STATION:
+			memcpy(mac_addr, (u8 *)sprdwl_work->data, ETH_ALEN);
+			memcpy(&reason_code, (u16 *)(sprdwl_work->data + ETH_ALEN), sizeof(u16));
+			sprdwl_del_station(vif->priv, vif->ctx_id, mac_addr, reason_code);
+			break;
 		default:
 			netdev_dbg(vif->ndev, "Unknown delayed work: %d\n",
 				   sprdwl_work->id);

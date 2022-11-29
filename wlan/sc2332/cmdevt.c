@@ -652,8 +652,14 @@ int sprdwl_set_ie(struct sprdwl_priv *priv, u8 vif_mode, u8 type,
 {
 	struct sprdwl_msg_buf *msg;
 	struct sprdwl_cmd_set_ie *p;
+	size_t datalen = sizeof(*p) + len;
 
-	msg = sprdwl_cmd_getbuf(priv, sizeof(*p) + len, vif_mode,
+	if (datalen > 0xFFFF) {
+		wl_err("%s err datalen %zu.\n", __func__, datalen);
+		return -EINVAL;
+	}
+
+	msg = sprdwl_cmd_getbuf(priv, (u16)datalen, vif_mode,
 				SPRDWL_HEAD_RSP, WIFI_CMD_SET_IE);
 	if (!msg)
 		return -ENOMEM;
@@ -1200,9 +1206,13 @@ int sprdwl_tx_mgmt(struct sprdwl_priv *priv, u8 vif_mode, u8 channel,
 {
 	struct sprdwl_msg_buf *msg;
 	struct sprdwl_cmd_mgmt_tx *p;
-	u16 datalen = sizeof(*p) + len;
+	size_t datalen = sizeof(*p) + len;
 
-	msg = sprdwl_cmd_getbuf(priv, datalen, vif_mode,
+	if (datalen > 0xFFFF) {
+		wl_err("%s err datalen %zu.\n", __func__, datalen);
+		return -EINVAL;
+	}
+	msg = sprdwl_cmd_getbuf(priv, (u16)datalen, vif_mode,
 				SPRDWL_HEAD_RSP, WIFI_CMD_TX_MGMT);
 	if (!msg)
 		return -ENOMEM;
@@ -1823,7 +1833,8 @@ int sprdwl_xmit_data2mgmt(struct sk_buff *skb, struct net_device *ndev)
 }
 
 /* retrun the msg length or 0 */
-unsigned short sprdwl_rx_rsp_process(struct sprdwl_priv *priv, u8 *msg)
+unsigned short sprdwl_rx_rsp_process(struct sprdwl_priv *priv, u8 *msg,
+				     unsigned int msg_len)
 {
 	u8 mode;
 	u16 plen;
@@ -1839,6 +1850,10 @@ unsigned short sprdwl_rx_rsp_process(struct sprdwl_priv *priv, u8 *msg)
 	hdr = (struct sprdwl_cmd_hdr *)msg;
 	mode = hdr->common.mode;
 	plen = SPRDWL_GET_LE16(hdr->plen);
+	if (plen > msg_len) {
+		wl_err("%s rsp msg_len is invalid!\n", __func__);
+		return plen;
+	}
 
 #ifdef DUMP_COMMAND_RESPONSE
 	print_hex_dump(KERN_DEBUG, "CMD RSP: ", DUMP_PREFIX_OFFSET, 16, 1,
@@ -2058,10 +2073,20 @@ void sprdwl_event_frame(struct sprdwl_vif *vif, u8 *data, u16 len, int flag)
 	} else {
 		frame = (struct sprdwl_event_mgmt_frame *)data;
 		buf = frame->data;
+
+		if (len < sizeof(*frame)) {
+			wl_err("%s frame data len is invalid!\n", __func__);
+			return;
+		}
+		len = len - sizeof(*frame);
 	}
 	channel = frame->channel;
 	type = frame->type;
 	buf_len = SPRDWL_GET_LE16(frame->len);
+	if (len < buf_len) {
+		wl_err("%s frame buf_len is invalid!\n", __func__);
+		return;
+	}
 
 	sprdwl_cfg80211_dump_frame_prot_info(0, 0, buf, buf_len);
 
@@ -2249,7 +2274,8 @@ static const char *evt2str(u8 evt)
 }
 
 /* retrun the msg length or 0 */
-unsigned short sprdwl_rx_event_process(struct sprdwl_priv *priv, u8 *msg)
+unsigned short sprdwl_rx_event_process(struct sprdwl_priv *priv, u8 *msg,
+				       unsigned int msg_len)
 {
 	struct sprdwl_cmd_hdr *hdr = (struct sprdwl_cmd_hdr *)msg;
 	struct sprdwl_vif *vif;
@@ -2265,6 +2291,11 @@ unsigned short sprdwl_rx_event_process(struct sprdwl_priv *priv, u8 *msg)
 	}
 
 	plen = SPRDWL_GET_LE16(hdr->plen);
+	if (plen > msg_len) {
+		wl_err("%s event msg len is invalid!\n", __func__);
+		return plen;
+	}
+
 	if (!priv) {
 		wl_err("%s priv is NULL [%u]mode %d recv[%s]len: %d\n",
 		       __func__, le32_to_cpu(hdr->mstime), mode,
@@ -2274,6 +2305,11 @@ unsigned short sprdwl_rx_event_process(struct sprdwl_priv *priv, u8 *msg)
 
 	wiphy_info(priv->wiphy, "[%u]mode %d recv[%s]len: %d\n",
 		   le32_to_cpu(hdr->mstime), mode, evt2str(hdr->cmd_id), plen);
+
+	if (plen < sizeof(struct sprdwl_cmd_hdr)) {
+		wl_err("%s plen is invalid!\n", __func__);
+		return plen;
+	}
 
 	if (dump_data)
 		print_hex_dump_debug("EVENT: ", DUMP_PREFIX_OFFSET, 16, 1,

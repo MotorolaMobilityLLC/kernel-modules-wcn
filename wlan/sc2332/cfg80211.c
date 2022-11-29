@@ -623,7 +623,8 @@ static int sprdwl_add_cipher_key(struct sprdwl_vif *vif, bool pairwise,
 		    pairwise ? "pairwise" : "group", key_index);
 
 	if (vif->key_len[pairwise][0] || vif->key_len[pairwise][1] ||
-	    vif->key_len[pairwise][2] || vif->key_len[pairwise][3]) {
+	    vif->key_len[pairwise][2] || vif->key_len[pairwise][3] ||
+	    vif->key_len[pairwise][4] || vif->key_len[pairwise][5]) {
 		*cipher_ptr = vif->prwise_crypto = sprdwl_parse_cipher(cipher);
 
 		if (vif->prwise_crypto == SPRDWL_CIPHER_WAPI)
@@ -645,6 +646,15 @@ static int sprdwl_cfg80211_add_key(struct wiphy *wiphy, struct net_device *ndev,
 				   struct key_params *params)
 {
 	struct sprdwl_vif *vif = netdev_priv(ndev);
+
+	netdev_info(ndev, "%s key_index=%d, pairwise=%d\n",
+		    __func__, key_index, pairwise);
+
+	if (key_index > SPRDWL_MAX_KEY_INDEX) {
+		netdev_err(ndev, "%s key index %d out of bounds!\n", __func__,
+			   key_index);
+		return -ENOENT;
+	}
 
 	vif->key_index[pairwise] = key_index;
 	vif->key_len[pairwise][key_index] = params->key_len;
@@ -715,20 +725,20 @@ static int sprdwl_set_beacon_ies(struct sprdwl_vif *vif,
 	if (!beacon)
 		return -EINVAL;
 
-	if (beacon->beacon_ies_len) {
+	if (beacon->beacon_ies_len && beacon->beacon_ies_len <= 0xFFFF) {
 		netdev_dbg(vif->ndev, "set beacon extra IE\n");
 		ret = sprdwl_set_ie(vif->priv, vif->mode, SPRDWL_IE_BEACON,
 				    beacon->beacon_ies, beacon->beacon_ies_len);
 	}
 
-	if (beacon->proberesp_ies_len) {
+	if (beacon->proberesp_ies_len && beacon->proberesp_ies_len <= 0xFFFF) {
 		netdev_dbg(vif->ndev, "set probe response extra IE\n");
 		ret = sprdwl_set_ie(vif->priv, vif->mode, SPRDWL_IE_PROBE_RESP,
 				    beacon->proberesp_ies,
 				    beacon->proberesp_ies_len);
 	}
 
-	if (beacon->assocresp_ies_len) {
+	if (beacon->assocresp_ies_len && beacon->assocresp_ies_len <= 0xFFFF) {
 		netdev_dbg(vif->ndev, "set associate response extra IE\n");
 		ret = sprdwl_set_ie(vif->priv, vif->mode, SPRDWL_IE_ASSOC_RESP,
 				    beacon->assocresp_ies,
@@ -752,7 +762,7 @@ static int sprdwl_change_beacon(struct sprdwl_vif *vif,
 		return ret;
 	}
 
-	if (beacon->head_len) {
+	if (beacon->head_len && beacon->head_len <= 0xFFFF) {
 		netdev_dbg(vif->ndev, "set beacon head\n");
 		ret = sprdwl_set_ie(vif->priv, vif->mode, SPRDWL_IE_BEACON_HEAD,
 				    beacon->head, beacon->head_len);
@@ -762,7 +772,7 @@ static int sprdwl_change_beacon(struct sprdwl_vif *vif,
 		}
 	}
 
-	if (beacon->tail_len) {
+	if (beacon->tail_len && beacon->tail_len <= 0xFFFF) {
 		netdev_dbg(vif->ndev, "set beacon tail\n");
 		ret = sprdwl_set_ie(vif->priv, vif->mode, SPRDWL_IE_BEACON_TAIL,
 				    beacon->tail, beacon->tail_len);
@@ -1283,7 +1293,7 @@ static int sprdwl_cfg80211_scan(struct wiphy *wiphy,
 
 		scan_ssids = (struct sprdwl_scan_ssid *)ssids_ptr;
 		for (i = 0; i < n; i++) {
-			if (!ssids[i].ssid_len)
+			if (!ssids[i].ssid_len || ssids[i].ssid_len > IEEE80211_MAX_SSID_LEN)
 				continue;
 			scan_ssids->len = ssids[i].ssid_len;
 			strncpy(scan_ssids->ssid, ssids[i].ssid,
@@ -1560,7 +1570,12 @@ static int sprdwl_cfg80211_connect(struct wiphy *wiphy, struct net_device *ndev,
 
 	/* Set PSK */
 	if (sme->key_len) {
-		if (sme->crypto.cipher_group == WLAN_CIPHER_SUITE_WEP40 ||
+		if (sme->key_len > WLAN_MAX_KEY_LEN) {
+			netdev_err(ndev, "%s invalid key len: %d\n", __func__,
+				   sme->key_len);
+			ret = -EINVAL;
+			goto err;
+		} else if (sme->crypto.cipher_group == WLAN_CIPHER_SUITE_WEP40 ||
 		    sme->crypto.cipher_group == WLAN_CIPHER_SUITE_WEP104 ||
 		    sme->crypto.ciphers_pairwise[0] ==
 		    WLAN_CIPHER_SUITE_WEP40 ||
@@ -1577,11 +1592,6 @@ static int sprdwl_cfg80211_connect(struct wiphy *wiphy, struct net_device *ndev,
 						  NULL, NULL);
 			if (ret)
 				goto err;
-		} else if (sme->key_len > WLAN_MAX_KEY_LEN) {
-			netdev_err(ndev, "%s invalid key len: %d\n", __func__,
-				   sme->key_len);
-			ret = -EINVAL;
-			goto err;
 		} else {
 			netdev_info(ndev, "PSK %s\n", sme->key);
 			con.psk_len = sme->key_len;
@@ -2135,40 +2145,52 @@ static char print_buf[PRINT_BUF_LEN];
 void sprdwl_cfg80211_dump_frame_prot_info(int send, int freq,
 					  const unsigned char *buf, int len)
 {
-	int idx = 0;
-	int type = ((*buf) & IEEE80211_FCTL_FTYPE) >> 2;
-	int subtype = ((*buf) & IEEE80211_FCTL_STYPE) >> 4;
+	int idx = 0, type, subtype;
 	int action, action_subtype;
 	char *p = print_buf;
 
-	idx += sprintf(p + idx, "[cfg80211] ");
+	if (len < 16)
+		return;
+	type = ((*buf) & IEEE80211_FCTL_FTYPE) >> 2;
+	subtype = ((*buf) & IEEE80211_FCTL_STYPE) >> 4;
+
+	idx += snprintf(p + idx, PRINT_BUF_LEN - idx, "[cfg80211] ");
 
 	if (send)
-		idx += sprintf(p + idx, "SEND: ");
+		idx += snprintf(p + idx, PRINT_BUF_LEN - idx, "SEND: ");
 	else
-		idx += sprintf(p + idx, "RECV: ");
+		idx += snprintf(p + idx, PRINT_BUF_LEN - idx, "RECV: ");
 
 	if (type == IEEE80211_FTYPE_MGMT) {
-		idx += sprintf(p + idx, "%dMHz, %s, ",
-			       freq, type_name[subtype]);
+		idx += snprintf(p + idx, PRINT_BUF_LEN - idx, "%dMHz, %s, ",
+				   freq, type_name[subtype]);
 	} else {
-		idx += sprintf(p + idx,
-			       "%dMHz, not mgmt frame, type=%d, ", freq, type);
+		idx += snprintf(p + idx, PRINT_BUF_LEN - idx,
+				   "%dMHz, not mgmt frame, type=%d, ", freq, type);
 	}
 
 	if (subtype == ACTION_TYPE) {
+		if (len < MAC_LEN)
+			goto out;
 		action = *(buf + MAC_LEN);
-		action_subtype = *(buf + ACTION_SUBTYPE_OFFSET);
-		if (action == PUB_ACTION)
-			idx += sprintf(p + idx, "PUB:%s ",
-				       pub_action_name[action_subtype]);
-		else if (action == P2P_ACTION)
-			idx += sprintf(p + idx, "P2P:%s ",
-				       p2p_action_name[action_subtype]);
-		else
-			idx += sprintf(p + idx, "Unknown ACTION(0x%x)", action);
+		if ((action == PUB_ACTION) && (len >= ACTION_SUBTYPE_OFFSET)) {
+			action_subtype = *(buf + ACTION_SUBTYPE_OFFSET);
+			if (action_subtype < ARRAY_SIZE(pub_action_name))
+				idx += snprintf(p + idx, PRINT_BUF_LEN - idx, "PUB:%s ",
+					   pub_action_name[action_subtype]);
+		} else if ((action == P2P_ACTION) && (len >= ACTION_SUBTYPE_OFFSET)) {
+			action_subtype = *(buf + ACTION_SUBTYPE_OFFSET);
+			if (action_subtype < ARRAY_SIZE(p2p_action_name))
+				idx += snprintf(p + idx, PRINT_BUF_LEN - idx, "P2P:%s ",
+					   p2p_action_name[action_subtype]);
+		} else {
+			idx += snprintf(p + idx, PRINT_BUF_LEN - idx, "Unknown ACTION(0x%x)", action);
+		}
 	}
-	p[idx] = '\0';
+
+out:
+	if (idx < PRINT_BUF_LEN)
+		p[idx] = '\0';
 
 	pr_debug("%s %pM %pM\n", p, &buf[4], &buf[10]);
 }

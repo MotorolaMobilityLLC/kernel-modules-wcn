@@ -443,6 +443,11 @@ int sprdwl_pkt_log_save(struct sprdwl_intf *intf, void *data)
 	fs = get_fs();
 	set_fs(KERNEL_DS);
 	pkt_len = ((struct sprdwl_pktlog_hdr *)(data))->plen;
+	if (pkt_len > SPRDWL_MAX_DATA_RXLEN) {
+		wl_err("%s pkt len is invalid!\n", __func__);
+		return 1;
+	}
+
 	data += sizeof(struct sprdwl_pktlog_hdr);
 	while (m < pkt_len) {
 		data_len = *((unsigned char *)(data+2)) + 4;
