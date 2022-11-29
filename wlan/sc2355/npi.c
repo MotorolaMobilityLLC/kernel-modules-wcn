@@ -180,12 +180,18 @@ static int sprdwl_nl_npi_handler(struct sk_buff *skb_2, struct genl_info *info)
 		wl_err("%s: invalid content\n", __func__);
 		return -EPERM;
 	}
+
+	s_buf = nla_data(info->attrs[SPRDWL_NL_ATTR_AP2CP]);
+	s_len = nla_len(info->attrs[SPRDWL_NL_ATTR_AP2CP]);
+	if (s_len < sizeof(struct sprdwl_npi_cmd_hdr)) {
+		wl_err("%s: invalid hdr\n", __func__);
+		return -EPERM;
+	}
+
 	r_buf = kmalloc(1024, GFP_KERNEL);
 	if (!r_buf)
 		return -ENOMEM;
 
-	s_buf = nla_data(info->attrs[SPRDWL_NL_ATTR_AP2CP]);
-	s_len = nla_len(info->attrs[SPRDWL_NL_ATTR_AP2CP]);
 	if (sprdwl_npi_cmd_is_start(s_buf) && sta_or_p2p_is_opened()) {
 		hdr = kzalloc(sizeof(*hdr), GFP_KERNEL);
 		if (!hdr) {

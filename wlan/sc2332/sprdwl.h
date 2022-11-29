@@ -118,8 +118,8 @@ struct sprdwl_vif {
 	u8 prwise_crypto;
 	u8 grp_crypto;
 	u8 key_index[2];
-	u8 key[2][4][WLAN_MAX_KEY_LEN];
-	u8 key_len[2][4];
+	u8 key[2][6][WLAN_MAX_KEY_LEN];
+	u8 key_len[2][6];
 	u8 key_txrsc[2][WLAN_MAX_KEY_LEN];
 	unsigned long mgmt_reg;
 

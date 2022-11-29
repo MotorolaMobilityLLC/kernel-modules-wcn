@@ -296,25 +296,31 @@ static void sprdwl_rx_process(unsigned char *data, unsigned int len)
 
 	switch (SPRDWL_HEAD_GET_TYPE(data)) {
 	case SPRDWL_TYPE_DATA:
-		if (len > SPRDWL_MAX_DATA_RXLEN)
+		if (len > SPRDWL_MAX_DATA_RXLEN) {
 			dev_err(&intf->pdev->dev,
 				"err rx data too long:%d > %d\n",
 				len, SPRDWL_MAX_DATA_RXLEN);
-		sprdwl_rx_data_process(priv, data);
+			return;
+		}
+		sprdwl_rx_data_process(priv, data, len);
 		break;
 	case SPRDWL_TYPE_CMD:
-		if (len > SPRDWL_MAX_CMD_RXLEN)
+		if (len > SPRDWL_MAX_CMD_RXLEN) {
 			dev_err(&intf->pdev->dev,
 				"err rx cmd too long:%d > %d\n",
 				len, SPRDWL_MAX_CMD_RXLEN);
-		sprdwl_rx_rsp_process(priv, data);
+			return;
+		}
+		sprdwl_rx_rsp_process(priv, data, len);
 		break;
 	case SPRDWL_TYPE_EVENT:
-		if (len > SPRDWL_MAX_CMD_RXLEN)
+		if (len > SPRDWL_MAX_CMD_RXLEN) {
 			dev_err(&intf->pdev->dev,
 				"err rx event too long:%d > %d\n",
 				len, SPRDWL_MAX_CMD_RXLEN);
-		sprdwl_rx_event_process(priv, data);
+			return;
+		}
+		sprdwl_rx_event_process(priv, data, len);
 		break;
 	default:
 		dev_err(&intf->pdev->dev, "rx unkonow type:%d\n",

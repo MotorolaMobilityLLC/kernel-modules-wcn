@@ -19,6 +19,7 @@
 #include <linux/etherdevice.h>
 #include <net/cfg80211.h>
 #include <net/netlink.h>
+#include <linux/kernel.h>
 #include "sprdwl.h"
 #include "rtt.h"
 #include "if_sc2355.h"
@@ -820,6 +821,10 @@ int sprdwl_event_ftm(struct sprdwl_vif *vif, u8 *data, u16 len)
 		sprdwl_ftm_event_end(priv);
 		break;
 	case RTT_PER_DEST_RES:
+		if (len < sizeof(struct ftm_per_dest_res)) {
+			netdev_err(vif->ndev, "%s: invalid data len\n", __func__);
+			return -1;
+		}
 		res = (struct ftm_per_dest_res *)data;
 		sprdwl_ftm_event_per_dest_res(priv, res);
 		break;
@@ -1018,6 +1023,14 @@ int sprdwl_ftm_abort_session(struct wiphy *wiphy,
 			   "%s: FTM session not started\n", __func__);
 		return -EAGAIN;
 	}
+
+	/* bug 2028856, hackerone 1701183 */
+	if (U16_MAX < (sizeof(struct sprdwl_cmd_rtt) + len) || len <= 0) {
+		netdev_err(vif->ndev,
+			   "%s: param data len is invalid\n", __func__);
+		return -EINVAL;
+	}
+
 	/* send cancel range request */
 	msg = sprdwl_cmd_getbuf(priv, sizeof(struct sprdwl_cmd_rtt) + len,
 				vif->ctx_id, 0, WIFI_CMD_RTT);

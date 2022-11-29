@@ -1805,10 +1805,14 @@ static int sprdwl_vendor_set_bssid_hotlist(struct wiphy *wiphy,
 					type = nla_type(inner_iter);
 					switch (type) {
 					case GSCAN_ATTR_AP_THR_PARAM_BSSID:
-					    memcpy(
-					    bssid_hotlist_params->ap[i].bssid,
-					    nla_data(inner_iter),
-					    6 * sizeof(unsigned char));
+						if (nla_len(inner_iter) < 6 * sizeof(unsigned char)) {
+							netdev_err(vif->ndev,
+								"nla_data for networks nla type 0x%x not support\n", type);
+								ret = -EINVAL;
+						} else {
+						    memcpy(bssid_hotlist_params->ap[i].bssid,
+						    nla_data(inner_iter), 6 * sizeof(unsigned char));
+						}
 					break;
 
 					case GSCAN_ATTR_AP_THR_PARAM_RSSI_LOW:
@@ -1962,10 +1966,15 @@ static int sprdwl_vendor_set_significant_change(struct wiphy *wiphy,
 				type = nla_type(inner_iter);
 				switch (type) {
 				case GSCAN_ATTR_AP_THR_PARAM_BSSID:
-					memcpy(
-					significant_change_params->ap[i].bssid,
-					nla_data(inner_iter),
-					6 * sizeof(unsigned char));
+					if (nla_len(inner_iter) < 6 * sizeof(unsigned char)) {
+						netdev_err(vif->ndev,
+						"data for networks nla type 0x%x not support\n",
+						type);
+						ret = -EINVAL;
+					} else {
+						memcpy(significant_change_params->ap[i].bssid,
+						nla_data(inner_iter), 6 * sizeof(unsigned char));
+					}
 				break;
 
 				case GSCAN_ATTR_AP_THR_PARAM_RSSI_LOW:
@@ -2231,6 +2240,12 @@ static int sprdwl_vendor_set_mac_oui(struct wiphy *wiphy,
 		type = nla_type(pos);
 		switch (type) {
 		case WLAN_VENDOR_ATTR_SET_SCANNING_MAC_OUI:
+			if (nla_len(pos) < sizeof(struct v_MACADDR_t)) {
+				netdev_err(vif->ndev, "data for nla type 0x%x not support\n",
+					   type);
+				ret = -EINVAL;
+				goto out;
+			}
 			memcpy(rand_mac, nla_data(pos), 3);
 		break;
 
@@ -2684,6 +2699,8 @@ static int sprdwl_vendor_set_roam_params(struct wiphy *wiphy,
 			wl_info("black list mac addr:%pM\n",
 				black_params.black_list[i].MAC_addr);
 			i++;
+			if (i >= MAX_BLACK_BSSID)
+				goto fail;
 		}
 		black_params.num_black_bssid = i;
 		/*send black list with roam_params CMD*/
@@ -2745,10 +2762,17 @@ static int sprdwl_vendor_set_ssid_hotlist(struct wiphy *wiphy,
 					type = nla_type(inner_iter);
 				switch (type) {
 				case GSCAN_ATTR_GSCAN_SSID_THR_PARAM_SSID:
-				memcpy(
-				ssid_hotlist_params->ssid[i].ssid,
-				nla_data(inner_iter),
-				IEEE80211_MAX_SSID_LEN * sizeof(unsigned char));
+					if (nla_len(inner_iter) >
+					    IEEE80211_MAX_SSID_LEN * sizeof(unsigned char)) {
+						netdev_err(vif->ndev,
+							   "nla_data for networks \
+							   nla_type 0x%x is invalid\n", type);
+							ret = -EINVAL;
+					} else {
+						memcpy(ssid_hotlist_params->ssid[i].ssid,
+						       nla_data(inner_iter),
+						       nla_len(inner_iter));
+					}
 				break;
 
 				case GSCAN_ATTR_GSCAN_SSID_THR_PARAM_RSSI_LOW:
@@ -2826,19 +2850,23 @@ static int sprdwl_vendor_set_passpoint_list(struct wiphy *wiphy,
 					    struct wireless_dev *wdev,
 				     const void *data, int len)
 {
-	struct nlattr *tb[GSCAN_MAX + 1];
-	struct nlattr *tb2[GSCAN_MAX + 1];
+	struct nlattr *tb[GSCAN_MAX + 1] = {NULL,};
+	struct nlattr *tb2[GSCAN_MAX + 1] = {NULL,};
 	struct nlattr *HS_list;
 	struct sprdwl_vif *vif = netdev_priv(wdev->netdev);
 	struct wifi_passpoint_network *HS_list_params;
 	int i = 0, rem, flush, ret = 0, tlen, hs_num;
 	struct sprdwl_cmd_gscan_rsp_header rsp;
 	u16 rlen = sizeof(struct sprdwl_cmd_gscan_rsp_header);
+	int maxtype = ARRAY_SIZE(wlan_gscan_config_policy);
+
+	if (maxtype > GSCAN_MAX)
+		maxtype = GSCAN_MAX;
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0)
-	if (nla_parse(tb, GSCAN_MAX, data, len,
+	if (nla_parse(tb, maxtype, data, len,
 		      wlan_gscan_config_policy, NULL)) {
 #else
-	if (nla_parse(tb, GSCAN_MAX, data, len,
+	if (nla_parse(tb, maxtype, data, len,
 			wlan_gscan_config_policy)) {
 #endif
 		netdev_info(vif->ndev,
@@ -2906,7 +2934,9 @@ static int sprdwl_vendor_set_passpoint_list(struct wiphy *wiphy,
 		HS_list_params->id =
 			nla_get_u32(tb[GSCAN_ANQPO_HS_NETWORK_ID]);
 
-		if (!tb2[GSCAN_ANQPO_HS_NAI_REALM]) {
+		if (!tb2[GSCAN_ANQPO_HS_NAI_REALM] ||
+			(nla_len(tb2[GSCAN_ANQPO_HS_NAI_REALM]) >
+			sizeof(HS_list_params->realm))) {
 			netdev_info(vif->ndev,
 				    "%s :Fail to parse GSCAN_ATTR_ANQPO_HS_NAI_REALM\n",
 				__func__);
@@ -2915,9 +2945,11 @@ static int sprdwl_vendor_set_passpoint_list(struct wiphy *wiphy,
 		}
 		memcpy(HS_list_params->realm, nla_data(
 			tb2[GSCAN_ANQPO_HS_NAI_REALM]),
-			256);
+			nla_len(tb2[GSCAN_ANQPO_HS_NAI_REALM]));
 
-		if (!tb2[GSCAN_ANQPO_HS_ROAM_CONSORTIUM_ID]) {
+		if (!tb2[GSCAN_ANQPO_HS_ROAM_CONSORTIUM_ID] ||
+			(nla_len(tb2[GSCAN_ANQPO_HS_ROAM_CONSORTIUM_ID]) >
+			sizeof(HS_list_params->roaming_ids))) {
 			netdev_info(vif->ndev,
 				    "%s :Fail to parse GSCAN_ATTR_ANQPO_HS_ROAM_CONSORTIUM_ID\n",
 				__func__);
@@ -2927,9 +2959,11 @@ static int sprdwl_vendor_set_passpoint_list(struct wiphy *wiphy,
 
 		memcpy(HS_list_params->roaming_ids, nla_data(
 			tb2[GSCAN_ANQPO_HS_ROAM_CONSORTIUM_ID]),
-			128);
+			nla_len(tb2[GSCAN_ANQPO_HS_ROAM_CONSORTIUM_ID]));
 
-		if (!tb2[GSCAN_ANQPO_HS_PLMN]) {
+		if (!tb2[GSCAN_ANQPO_HS_PLMN] ||
+			(nla_len(tb2[GSCAN_ANQPO_HS_PLMN]) >
+			sizeof(HS_list_params->plmn))) {
 			netdev_info(vif->ndev,
 				    "%s :Fail to parse GSCAN_ATTR_ANQPO_HS_PLMN\n",
 				__func__);
@@ -2939,7 +2973,7 @@ static int sprdwl_vendor_set_passpoint_list(struct wiphy *wiphy,
 
 		memcpy(HS_list_params->plmn, nla_data(
 			tb2[GSCAN_ANQPO_HS_PLMN]),
-			3);
+			nla_len(tb2[GSCAN_ANQPO_HS_PLMN]));
 		i++;
 	}
 
@@ -3225,9 +3259,16 @@ static int sprdwl_vendor_set_epno_list(struct wiphy *wiphy,
 					type = nla_type(inner_iter);
 					switch (type) {
 					case SPRDWL_EPNO_PARAM_NETWORK_SSID:
-						memcpy(epno_network->ssid,
-						       nla_data(inner_iter),
-						       IEEE80211_MAX_SSID_LEN);
+						if (nla_len(inner_iter) > IEEE80211_MAX_SSID_LEN) {
+							netdev_err(vif->ndev,
+								   "nla_data for networks \
+								   nla_type 0x%x is invalid\n", type);
+								ret = -EINVAL;
+						} else {
+							memcpy(epno_network->ssid,
+							       nla_data(inner_iter),
+							       nla_len(inner_iter));
+						}
 						break;
 
 					case SPRDWL_EPNO_PARAM_NETWORK_FLAGS:
@@ -3752,9 +3793,18 @@ static int sprdwl_parse_sae_entry(struct sprdwl_sae_entry *entry,
 		case SPRDWL_VENDOR_SAE_IDENTIFIER:
 			data_len = nla_len(pos);
 			entry->id_len = data_len;
+			if (entry->id_len > sizeof(entry->identifier)) {
+				wl_err("invalid id_len %d\n", entry->id_len);
+				return -EINVAL;
+			}
 			nla_strlcpy(entry->identifier, pos, data_len);
 			break;
 		case SPRDWL_VENDOR_SAE_PEER_ADDR:
+			data_len = nla_len(pos);
+			if (data_len != ETH_ALEN) {
+				wl_err("invalid peer_addr len %d\n", data_len);
+				return -EINVAL;
+			}
 			nla_memcpy(entry->peer_addr, pos, ETH_ALEN);
 			break;
 		case SPRDWL_VENDOR_SAE_VLAN_ID:
@@ -3915,13 +3965,16 @@ static int sprdwl_vendor_set_sae_password(struct wiphy *wiphy,
 
 		switch (type) {
 		case SPRDWL_VENDOR_SAE_ENTRY:
-			sae_para.entry[sae_entry_index].vlan_id = SPRDWL_SAE_NOT_SET;
-			sae_para.entry[sae_entry_index].used = 1;
-			sprdwl_parse_sae_entry(&sae_para.entry[sae_entry_index],
-					       nla_data(pos), nla_len(pos));
-			sae_entry_index++;
 			if(sae_entry_index >= SPRDWl_SAE_ENTRY_NUM)
 				return -EINVAL;
+			sae_para.entry[sae_entry_index].vlan_id = SPRDWL_SAE_NOT_SET;
+			sae_para.entry[sae_entry_index].used = 1;
+			if (sprdwl_parse_sae_entry(&sae_para.entry[sae_entry_index],
+					       nla_data(pos), nla_len(pos)) != 0) {
+				wl_err("%s %d error.\n", __func__, __LINE__);
+				return -EINVAL;
+			}
+			sae_entry_index++;
 			break;
 
 		case SPRDWL_VENDOR_SAE_GROUP_ID:
@@ -3937,17 +3990,22 @@ static int sprdwl_vendor_set_sae_password(struct wiphy *wiphy,
 
 		case SPRDWL_VENDOR_SAE_PWD:
 			sae_para.passphrase_len = nla_len(pos);
-			nla_strlcpy(sae_para.passphrase, pos,
-				    sae_para.passphrase_len + 1);
-			wl_info("pwd is :%s, len :%d\n", sae_para.passphrase,
-				sae_para.passphrase_len);
+			if (sae_para.passphrase_len <= MAX_PASSWORD_LEN) {
+				nla_strlcpy(sae_para.passphrase, pos,
+					    sae_para.passphrase_len + 1);
+				wl_info("pwd is :%s, len :%d\n", sae_para.passphrase,
+					sae_para.passphrase_len);
+			} else {
+				wl_err("%s %d error.\n", __func__, __LINE__);
+				return -EINVAL;
+			}
 			break;
 		default:
 			break;
 		}
 	}
 
-	para = kzalloc(512, GFP_KERNEL);
+	para = kzalloc(1024, GFP_KERNEL);
 	if (!para)
 		return -ENOMEM;
 

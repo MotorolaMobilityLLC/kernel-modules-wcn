@@ -421,6 +421,7 @@ static int sprdwl_priv_cmd(struct net_device *ndev, struct ifreq *ifr)
 	u8 feat = 0, status = 0;
 	u8 addr[ETH_ALEN] = {0}, *mac_addr = NULL, *tmp, *mac_list;
 	int ret = 0, skip, counter, index;
+	#define MAC_ADDR_STR_LEN strlen("00:11:22:33:44:55")
 
 	if (!ifr->ifr_data)
 		return -EINVAL;
@@ -428,7 +429,7 @@ static int sprdwl_priv_cmd(struct net_device *ndev, struct ifreq *ifr)
 		return -EFAULT;
 
 	/*add length check to avoid invalid NULL ptr*/
-	if ( (!priv_cmd.total_len) || (MAX_PRIV_CMD_LEN < priv_cmd.total_len)) {
+	if ( (priv_cmd.total_len <= 0) || (MAX_PRIV_CMD_LEN < priv_cmd.total_len)) {
 		netdev_info(ndev, "%s: priv cmd total len is invalid\n", __func__);
 		return -EINVAL;
 	}
@@ -444,6 +445,8 @@ static int sprdwl_priv_cmd(struct net_device *ndev, struct ifreq *ifr)
 	if (!strncasecmp(command, CMD_BLACKLIST_ENABLE,
 			 strlen(CMD_BLACKLIST_ENABLE))) {
 		skip = strlen(CMD_BLACKLIST_ENABLE) + 1;
+		if (priv_cmd.total_len < skip + MAC_ADDR_STR_LEN)
+			goto out;
 		str2mac(command + skip, addr);
 		if (!is_valid_ether_addr(addr))
 			goto out;
@@ -481,6 +484,11 @@ static int sprdwl_priv_cmd(struct net_device *ndev, struct ifreq *ifr)
 				strlen(CMD_ENABLE_WHITELIST))) {
 		skip = strlen(CMD_ENABLE_WHITELIST) + 1;
 		counter = command[skip];
+		if (counter < 0 || counter > 10) {
+			netdev_err(ndev, "%s: enable whitelist counter is invalid: %d\n",
+				   __func__, counter);
+			goto out;
+		}
 		netdev_info(ndev, "%s: enable whitelist counter : %d\n",
 			    __func__, counter);
 		if (!counter) {
@@ -489,6 +497,10 @@ static int sprdwl_priv_cmd(struct net_device *ndev, struct ifreq *ifr)
 						   0, NULL);
 			goto out;
 		}
+
+		if (priv_cmd.total_len < skip + counter * (MAC_ADDR_STR_LEN + 1))
+			goto out;
+
 		mac_addr = kmalloc(ETH_ALEN * counter, GFP_KERNEL);
 		mac_list = mac_addr;
 		if (IS_ERR(mac_addr)) {
@@ -514,6 +526,11 @@ static int sprdwl_priv_cmd(struct net_device *ndev, struct ifreq *ifr)
 				strlen(CMD_DISABLE_WHITELIST))) {
 		skip = strlen(CMD_DISABLE_WHITELIST) + 1;
 		counter = command[skip];
+		if (counter < 0 || counter > 10) {
+			netdev_err(ndev, "%s: disable whitelist counter is invalid: %d\n",
+				   __func__, counter);
+			goto out;
+		}
 		netdev_info(ndev, "%s: disable whitelist counter : %d\n",
 			    __func__, counter);
 		if (!counter) {
@@ -522,6 +539,9 @@ static int sprdwl_priv_cmd(struct net_device *ndev, struct ifreq *ifr)
 						   0, NULL);
 			goto out;
 		}
+		if (priv_cmd.total_len < skip + counter * (MAC_ADDR_STR_LEN + 1))
+			goto out;
+
 		mac_addr = kmalloc(ETH_ALEN * counter, GFP_KERNEL);
 		mac_list = mac_addr;
 		if (IS_ERR(mac_addr)) {
@@ -627,7 +647,7 @@ int sprdwl_set_miracast(struct net_device *ndev, struct ifreq *ifr)
 		return -EINVAL;
 
 	/*add length check to avoid invalid NULL ptr*/
-	if ((!priv_cmd.total_len) || (SPRDWL_MAX_CMD_TXLEN < priv_cmd.total_len)) {
+	if ((priv_cmd.total_len <= 0) || (SPRDWL_MAX_CMD_TXLEN < priv_cmd.total_len)) {
 		netdev_err(ndev, "%s: priv cmd total len is invalid\n", __func__);
 		return -EINVAL;
 	}
@@ -666,7 +686,7 @@ static int sprdwl_set_power_save(struct net_device *ndev, struct ifreq *ifr)
 		return -EFAULT;
 
 	/*add length check to avoid invalid NULL ptr*/
-	if ( (!priv_cmd.total_len) || (MAX_PRIV_CMD_LEN < priv_cmd.total_len)) {
+	if ( (priv_cmd.total_len <= 0) || (MAX_PRIV_CMD_LEN < priv_cmd.total_len)) {
 		netdev_info(ndev, "%s: priv cmd total len is invalid\n", __func__);
 		return -EINVAL;
 	}
@@ -682,6 +702,8 @@ static int sprdwl_set_power_save(struct net_device *ndev, struct ifreq *ifr)
 	if (!strncasecmp(command, CMD_SETSUSPENDMODE,
 			 strlen(CMD_SETSUSPENDMODE))) {
 		skip = strlen(CMD_SETSUSPENDMODE) + 1;
+		if (priv_cmd.total_len <= skip)
+			goto out;
 		ret = kstrtoint(command + skip, 0, &value);
 		if (ret)
 			goto out;
@@ -735,7 +757,7 @@ static int sprdwl_set_tlv(struct net_device *ndev, struct ifreq *ifr)
 		return -EFAULT;
 
 	/*add length check to avoid invalid NULL ptr*/
-	if ( (!priv_cmd.total_len) || (MAX_PRIV_CMD_LEN < priv_cmd.total_len)) {
+	if ( (priv_cmd.total_len <= 0) || (MAX_PRIV_CMD_LEN < priv_cmd.total_len)) {
 		netdev_info(ndev, "%s: priv cmd total len is invalid\n", __func__);
 		return -EINVAL;
 	}
@@ -799,6 +821,7 @@ static int sprdwl_set_p2p_mac(struct net_device *ndev, struct ifreq *ifr)
 	int ret = 0;
 	struct sprdwl_vif *tmp1, *tmp2;
 	u8 addr[ETH_ALEN] = {0};
+	#define P2P_MAC_SKIP_LEN 11
 
 	if (!ifr->ifr_data)
 		return -EINVAL;
@@ -806,7 +829,7 @@ static int sprdwl_set_p2p_mac(struct net_device *ndev, struct ifreq *ifr)
 		return -EFAULT;
 
 	/*add length check to avoid invalid NULL ptr*/
-	if ((!priv_cmd.total_len) || (SPRDWL_MAX_CMD_TXLEN < priv_cmd.total_len)) {
+	if ((priv_cmd.total_len < P2P_MAC_SKIP_LEN + ETH_ALEN) || (SPRDWL_MAX_CMD_TXLEN < priv_cmd.total_len)) {
 		netdev_err(ndev, "%s: priv cmd total len is invalid\n", __func__);
 		return -EINVAL;
 	}
@@ -819,7 +842,7 @@ static int sprdwl_set_p2p_mac(struct net_device *ndev, struct ifreq *ifr)
 		 goto out;
 	}
 
-	memcpy(addr, command + 11, ETH_ALEN);
+	memcpy(addr, command + P2P_MAC_SKIP_LEN, ETH_ALEN);
 	netdev_info(ndev, "p2p dev random addr is %pM\n", addr);
 	if (is_multicast_ether_addr(addr)) {
 		netdev_err(ndev, "%s invalid addr\n", __func__);
