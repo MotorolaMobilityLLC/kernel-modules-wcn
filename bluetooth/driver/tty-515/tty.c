@@ -1617,6 +1617,24 @@ static int  mtty_sipc_remove(struct platform_device *pdev)
     return 0;
 }
 
+//sipc2 remove
+static int mtty_sipc2_remove(struct platform_device *pdev)
+{
+    struct mtty_device *mtty = platform_get_drvdata(pdev);
+
+    mtty_tty_driver_exit(mtty);
+    sprdwcn_bus_chn_deinit(&bt_sipc2_rx_ops);
+    sprdwcn_bus_chn_deinit(&bt_sipc2_tx_ops);
+    kfree(mtty->port);
+    mtty_destroy_pdata(&mtty->pdata);
+    flush_workqueue(mtty_dev->bt_rx_workqueue);
+    destroy_workqueue(mtty_dev->bt_rx_workqueue);
+    devm_kfree(&pdev->dev, mtty);
+    platform_set_drvdata(pdev, NULL);
+    sysfs_remove_group(&pdev->dev.kobj, &bluetooth_group);
+    return 0;
+}
+
 
 //sdio remove
 static int  mtty_sdio_remove(struct platform_device *pdev)
@@ -1643,9 +1661,9 @@ const struct mtty_match_data g_sc2332_sipc_data = {
     .hw_type = SPRD_HW_SC2332_SIPC,
 };
 
-struct mtty_match_data g_sc2355_pcie_data = {
+/*struct mtty_match_data g_sc2355_pcie_data = {
     .hw_type = SPRD_HW_SC2355_PCIE,
-};
+};*/
 
 struct mtty_match_data g_sc2355_sipc2_data = {
     .hw_type = SPRD_HW_SC2355_SIPC2,
@@ -1657,9 +1675,9 @@ struct mtty_match_data g_sc2355_sdio_data = {
 
 struct of_device_id mtty_global_match_table[] = {
     { .compatible = "sprd,wcn_bt", .data = &g_sc2332_sipc_data},
-    { .compatible = "sprd,mtty_pcie", .data = &g_sc2355_pcie_data},
-    { .compatible = "sprd,mtty", .data = &g_sc2355_sdio_data},
+    //{ .compatible = "sprd,mtty_pcie", .data = &g_sc2355_pcie_data},
     { .compatible = "sprd,wcn_internal_chip", .data = &g_sc2355_sipc2_data},
+    { .compatible = "sprd,mtty", .data = &g_sc2355_sdio_data},
     { },
 };
 MODULE_DEVICE_TABLE(of, mtty_global_match_table);
@@ -1724,10 +1742,16 @@ static int sprd_mtty_remove(struct platform_device *pdev){
 
     pr_info("%s %s %d.\n", __func__, of_id->compatible, p_match_data->hw_type);
 
-    if (p_match_data->hw_type == SPRD_HW_SC2332_SIPC)
+    if (p_match_data->hw_type == SPRD_HW_SC2332_SIPC) {
         return mtty_sipc_remove(pdev);
-
-    return mtty_sdio_remove(pdev);
+    }
+    if (p_match_data->hw_type == SPRD_HW_SC2355_SIPC2) {
+        return mtty_sipc2_remove(pdev);
+    }
+    if (p_match_data->hw_type == SPRD_HW_SC2355_SDIO) {
+        return mtty_sdio_remove(pdev);
+    }
+    return -EINVAL;
 }
 
 static struct platform_driver sprd_mtty_driver = {

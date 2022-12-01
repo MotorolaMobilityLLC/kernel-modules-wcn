@@ -387,7 +387,7 @@ static void receive_tasklet(unsigned long arg){
     unsigned int channel, num;
     struct fm_sdio_hdr *sdio_hdr;
     struct fm_sipc_hdr *sipc_hdr;
-    unsigned char *receive_buf;
+    unsigned char *receive_buf = NULL;
 
     fmdev = (struct fmdrv_ops *)arg;
 
@@ -835,10 +835,8 @@ int fm_powerdown(void) {
     if (stop_marlin(MARLIN_FM) < 0) {
         dev_unisoc_fm_err(fm_miscdev,"fm_powerdown stop_marlin failed");  
     }
-    if(SIPC){
-
-    stop_marlin(MARLIN_FM);
-    if (ana_switch == 1){
+    if (SIPC) {
+    if (ana_switch == 1) {
     fmdev->fm_state = 0;
     gpio_request(anten, "FM_ANT_EN_GPIO");
     gpio_direction_output(anten, 0);
