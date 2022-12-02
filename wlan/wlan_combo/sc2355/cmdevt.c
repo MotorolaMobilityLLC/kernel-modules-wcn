@@ -1128,6 +1128,8 @@ int sc2355_cmd_host_wakeup_fw(struct sprd_priv *priv, struct sprd_vif *vif)
 	p = (struct cmd_power_save *)msg->data;
 	p->sub_type = SPRD_HOST_WAKEUP_FW;
 	p->value = 0;
+	pr_info("CMD_POWER_SAVE subtype is [%s]\n",
+			ps_subtype2str(p->sub_type));
 
 	ret = send_cmd_recv_rsp(priv, msg, &r_buf, &r_len);
 
@@ -1678,6 +1680,8 @@ int sc2355_power_save(struct sprd_priv *priv, struct sprd_vif *vif,
 	p = (struct cmd_power_save *)msg->data;
 	p->sub_type = sub_type;
 	p->value = status;
+	pr_info("CMD_POWER_SAVE subtype is [%s]\n",
+			ps_subtype2str(p->sub_type));
 	return send_cmd_recv_rsp(priv, msg, NULL, NULL);
 }
 
@@ -1696,6 +1700,7 @@ int sc2355_set_sar(struct sprd_priv *priv, struct sprd_vif *vif,
 	p->sub_type = sub_type;
 	p->value = value;
 	p->mode = SPRD_SET_SAR_ALL_MODE;
+	pr_info("CMD_POWER_SAVE subtype is SPRD_SET_SAR\n");
 	return send_cmd_recv_rsp(priv, msg, NULL, NULL);
 }
 
@@ -1717,6 +1722,7 @@ int sc2355_set_power_backoff(struct sprd_priv *priv, struct sprd_vif *vif,
 		memcpy(&p->backoff, data, sizeof(*data));
 	for (i = 0; i < sizeof(*p); i++)
 		pr_debug("%hhu\t", *((u8 *)p + i));
+	pr_info("CMD_POWER_SAVE subtype is SPRD_SET_POWER_BACKOFF\n");
 	return send_cmd_recv_rsp(priv, msg, NULL, NULL);
 }
 
@@ -3086,7 +3092,8 @@ static int cmdevt_fw_power_down_ack(struct sprd_priv *priv, struct sprd_vif *vif
 		tx_num,
 		list_empty(&tx_mgmt->xmit_msg_list.to_send_list),
 		list_empty(&tx_mgmt->xmit_msg_list.to_free_list));
-
+	pr_info("CMD_POWER_SAVE subtype is [%s]\n",
+			ps_subtype2str(p->sub_type));
 	ret = send_cmd_recv_rsp(priv, msg, NULL, NULL);
 
 	if (ret)

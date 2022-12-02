@@ -13,6 +13,7 @@
 #include <linux/moduleparam.h>
 #include <misc/wcn_bus.h>
 #include <linux/miscdevice.h>
+#include <net/ip.h>
 
 #include "cfg80211.h"
 #include "chip_ops.h"
@@ -26,8 +27,19 @@
 #include "qos.h"
 #include "report.h"
 #include "tcp_ack.h"
+#include "wapi.h"
 
 static struct sprd_priv *sprd_prv;
+
+const char *dhcp_str_info[] ={
+	"INVALID DHCP",
+	"DHCP DISCOVER",
+	"DHCP OFFER",
+	"DHCP REQUEST",
+	"DHCP DECLINE",
+	"DHCP ACK",
+	"DHCP NACK"
+};
 
 void sprd_put_vif(struct sprd_vif *vif)
 {
@@ -356,6 +368,70 @@ void sprd_net_flowcontrl(struct sprd_priv *priv, enum sprd_mode mode,
 }
 EXPORT_SYMBOL(sprd_net_flowcontrl);
 
+void sprd_filter_ip_pkt_debug(struct sk_buff *skb,
+			      struct net_device *ndev, const char* direct)
+{
+	unsigned char *dhcpdata = NULL;
+	struct udphdr *udphdr;
+	struct iphdr *iphdr;
+	struct ipv6hdr *ipv6hdr;
+	struct ethhdr *ethhdr = (struct ethhdr *)skb->data;
+	unsigned char iphdrlen = 0;
+
+	if (ethhdr->h_proto == htons(ETH_P_IPV6)) {
+		ipv6hdr = (struct ipv6hdr *)(skb->data + ETHER_HDR_LEN);
+		/* check for udp header */
+		if (ipv6hdr->nexthdr != IPPROTO_UDP)
+			return;
+		iphdrlen = sizeof(*ipv6hdr);
+	} else if (ethhdr->h_proto == htons(ETH_P_IP)) {
+		iphdr = (struct iphdr *)(skb->data + ETHER_HDR_LEN);
+		if (iphdr->protocol != IPPROTO_UDP)
+			return;
+		iphdrlen = iphdr->ihl * 4;
+	} else {
+		return;
+	}
+
+	udphdr = (struct udphdr *)(skb->data + ETHER_HDR_LEN + iphdrlen);
+	if ((ethhdr->h_proto == htons(ETH_P_IP)) &&
+	     ((udphdr->source == htons(DHCP_SERVER_PORT)) ||
+	     (udphdr->source == htons(DHCP_CLIENT_PORT)))) {
+		dhcpdata = skb->data + ETHER_HDR_LEN + iphdrlen + 250;
+
+		if(*dhcpdata < ARRAY_SIZE(dhcp_str_info))
+			pr_info("[%s] [%s]\n", direct, dhcp_str_info[*dhcpdata]);
+	}
+	else if ((ethhdr->h_proto == htons(ETH_P_IPV6)) &&
+		 ((udphdr->source == htons(DHCP_SERVER_PORT_IPV6)) ||
+		 (udphdr->source == htons(DHCP_CLIENT_PORT_IPV6)))) {
+		pr_info("[%s] special data: DHCP\n", direct);
+	}
+	else if ((ethhdr->h_proto == htons(ETH_P_IP) ||
+		  ethhdr->h_proto == htons(ETH_P_IPV6))
+		&& (udphdr->source == htons(DNS_SERVER_PORT) ||
+		    udphdr->dest == htons(DNS_SERVER_PORT))) {
+		pr_info("[%s] special data: DNS\n", direct);
+	}
+}
+
+/*Print special data info in the TX and RX directions for debugging*/
+void sprd_filter_data_debug(struct sk_buff *skb, struct net_device *ndev, const char *direct)
+{
+	struct ethhdr *ethhdr = (struct ethhdr *)skb->data;
+	if (ethhdr->h_proto == htons(ETH_P_ARP))
+		pr_info("[%s] special data: ARP\n", direct);
+	else if (ethhdr->h_proto == htons(ETH_P_TDLS))
+		pr_info("[%s] special data: TDLS\n", direct);
+	else if (ethhdr->h_proto == htons(ETH_P_PREAUTH))
+		pr_info("[%s] special data: PREAUTH\n", direct);
+	else if (ethhdr->h_proto == htons(ETH_P_IP) ||
+			 ethhdr->h_proto == htons(ETH_P_IPV6))
+		sprd_filter_ip_pkt_debug(skb, ndev, direct);
+	else
+		return;
+}
+
 void sprd_netif_rx(struct net_device *ndev, struct sk_buff *skb)
 {
 	struct sprd_vif *vif;
@@ -392,12 +468,18 @@ void sprd_netif_rx(struct net_device *ndev, struct sk_buff *skb)
 		return;
 	}
 
+	sprd_filter_data_debug(skb, ndev, "RX");
 	print_hex_dump_debug("RX packet: ", DUMP_PREFIX_OFFSET,
 			     16, 1, skb->data, skb->len, 0);
 	skb->dev = ndev;
 	skb->protocol = eth_type_trans(skb, ndev);
 	/* CHECKSUM_UNNECESSARY not supported by our hardware */
 	/* skb->ip_summed = CHECKSUM_UNNECESSARY; */
+
+	if (skb->protocol == cpu_to_be16(ETH_P_PAE))
+		pr_info("RX special data: 802.1x\n");
+	else if (skb->protocol == cpu_to_be16(WAPI_TYPE))
+		pr_info("RX special data: WAPI\n");
 
 	ndev->stats.rx_packets++;
 	ndev->stats.rx_bytes += skb->len;

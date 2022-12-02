@@ -49,6 +49,21 @@
 #define SPRD_GET_DATA_TYPE(info)		((info) & 0xe0)
 #define SPRD_DATA_OFFSET_MASK			0x1f
 
+/* The number of bytes in an ethernet (MAC) address. */
+#define	ETHER_ADDR_LEN 	6
+/* The number of bytes in the type field. */
+#define	ETHER_TYPE_LEN	2
+/* The length of the combined header. */
+#define	ETHER_HDR_LEN	(ETHER_ADDR_LEN * 2 + ETHER_TYPE_LEN)
+
+#define DHCP_SERVER_PORT	0x0043
+#define DHCP_CLIENT_PORT	0x0044
+#define DHCP_SERVER_PORT_IPV6	0x0223
+#define DHCP_CLIENT_PORT_IPV6	0x0222
+#define ETH_P_PREAUTH		0x88C7
+
+#define DNS_SERVER_PORT		0x0035
+
 /* 0 for cmd, 1 for event, 2 for data, 3 for mh data */
 enum sprd_head_type {
 	SPRD_TYPE_CMD,

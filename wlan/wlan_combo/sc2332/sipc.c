@@ -18,6 +18,7 @@
 #include "common/msg.h"
 #include "qos.h"
 #include "txrx.h"
+#include "wapi.h"
 
 #define WLAN_CP_ID		3
 #define SPRD_SBLOCK_CMD_EVENT	7
@@ -887,11 +888,22 @@ void sipc_deinit(struct sprd_hif *hif)
 		hif->drop_cmd_cnt, hif->drop_data1_cnt, hif->drop_data2_cnt);
 }
 
+int sc2332_tx_special_data(struct sk_buff *skb, struct net_device *ndev)
+{
+	if (skb->protocol == cpu_to_be16(ETH_P_PAE))
+		pr_info("TX special data: 802.1x\n");
+	else if (skb->protocol == cpu_to_be16(WAPI_TYPE))
+		pr_info("TX special data: WAPI\n");
+	sprd_filter_data_debug(skb, ndev, "TX");
+	return 1;
+}
+
 struct sprd_hif_ops sc2332_sipc_ops = {
 	.init = sipc_init,
 	.deinit = sipc_deinit,
 	.reserv_len = sipc_reserv_len,
 	.reset = sc2332_reset,
+	.tx_special_data = sc2332_tx_special_data,
 #ifdef DRV_RESET_SELF
 	.reset_self = sc2332_reset_self,
 #endif

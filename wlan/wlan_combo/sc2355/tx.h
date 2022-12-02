@@ -28,23 +28,6 @@
 #define SPRD_SDIO_MASK_LIST_DATA	0x4
 #define TX_TIMEOUT_DROP_RATE		50
 
-/* The number of bytes in an ethernet (MAC) address. */
-#define	ETHER_ADDR_LEN 	6
-
-/* The number of bytes in the type field. */
-#define	ETHER_TYPE_LEN	2
-
-/* The length of the combined header. */
-#define	ETHER_HDR_LEN	(ETHER_ADDR_LEN * 2 + ETHER_TYPE_LEN)
-
-#define DHCP_SERVER_PORT	0x0043
-#define DHCP_CLIENT_PORT	0x0044
-#define DHCP_SERVER_PORT_IPV6	0x0223
-#define DHCP_CLIENT_PORT_IPV6	0x0222
-#define ETH_P_PREAUTH		0x88C7
-
-#define DNS_SERVER_PORT		0x0035
-
 #define VOWIFI_SIP_DSCP		0x1a
 #define VOWIFI_IKE_DSCP		0x30
 #define VOWIFI_VIDEO_DSCP	0x28
@@ -303,7 +286,7 @@ void sc2355_flush_tosendlist(struct tx_mgmt *tx_mgmt);
 bool sc2355_is_vowifi_pkt(struct sk_buff *skb, bool *b_cmd_path);
 void sc2355_dequeue_tofreelist_buf(struct sprd_hif *hif, struct sprd_msg *msg);
 void sc2355_tx_flush(struct sprd_hif *hif, struct sprd_vif *vif);
-int sprd_tx_special_data(struct sk_buff *skb, struct net_device *ndev);
+int sc2355_tx_special_data(struct sk_buff *skb, struct net_device *ndev);
 int sc2355_send_data_offset(void);
 int sc2355_send_data(struct sprd_vif *vif, struct sprd_msg *msg,
 		     struct sk_buff *skb, u8 type, u8 offset, bool flag);

@@ -2266,7 +2266,7 @@ int sprd_tx_filter_packet(struct sk_buff *skb, struct net_device *ndev)
 	return 1;
 }
 
-int sprd_tx_special_data(struct sk_buff *skb, struct net_device *ndev)
+int sc2355_tx_special_data(struct sk_buff *skb, struct net_device *ndev)
 {
 	int ret = -1;
 
