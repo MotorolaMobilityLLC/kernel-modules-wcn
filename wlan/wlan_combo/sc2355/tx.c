@@ -557,6 +557,11 @@ static void tx_prepare_addba(struct sprd_hif *hif, unsigned char lut_index,
 				__LINE__, tid);
 			ktime_get_real_ts64(&peer_entry->time[tid]);
 			if (!test_and_set_bit(tid, &peer_entry->ba_tx_done_map)) {
+				if (hif->fw_power_down == 1) {
+					pr_info("%s wakeup fw before tx_addba\n", __func__);
+					hif->fw_power_down = 0;
+					sc2355_work_host_wakeup_fw(vif);
+				}
 				if (hif->hw_type == SPRD_HW_SC2355_PCIE) {
 					sc2355_pcie_tx_addba(hif, peer_entry, tid);
 				} else {
@@ -574,6 +579,11 @@ static void tx_prepare_addba(struct sprd_hif *hif, unsigned char lut_index,
 				__LINE__, tid);
 			getnstimeofday(&peer_entry->time[tid]);
 			if (!test_and_set_bit(tid, &peer_entry->ba_tx_done_map)) {
+				if (hif->fw_power_down == 1) {
+					pr_info("%s wakeup fw before tx_addba\n", __func__);
+					hif->fw_power_down = 0;
+					sc2355_work_host_wakeup_fw(vif);
+				}
 				if (hif->hw_type == SPRD_HW_SC2355_PCIE) {
 					sc2355_pcie_tx_addba(hif, peer_entry, tid);
 				} else {
