@@ -1498,7 +1498,7 @@ struct sprd_msg *sc2355_tx_get_msg(struct sprd_chip *chip,
 				   enum sprd_head_type type,
 				   enum sprd_mode mode)
 {
-	struct sprd_msg *msg = NULL, *new_msg;
+	struct sprd_msg *msg = NULL;
 	struct sprd_msg_list *list = NULL;
 	struct sprd_priv *priv = chip->priv;
 	struct sprd_hif *hif = &priv->hif;
@@ -1529,23 +1529,7 @@ struct sprd_msg *sc2355_tx_get_msg(struct sprd_chip *chip,
 		return NULL;
 	}
 
-	if (type == SPRD_TYPE_DATA &&
-	    atomic_read(&list->ref) > (SPRD_TX_QOS_POOL_SIZE * 8 / 10)) {
-		new_msg = kzalloc(sizeof(*new_msg), GFP_KERNEL);
-		if (new_msg) {
-			INIT_LIST_HEAD(&new_msg->list);
-			spin_lock_bh(&tx_dev->tx_list_qos_pool.freelock);
-			list_add_tail(&new_msg->list,
-				      &tx_dev->tx_list_qos_pool.freelist);
-			spin_unlock_bh(&tx_dev->tx_list_qos_pool.freelock);
-			tx_dev->tx_list_qos_pool.maxnum++;
-			msg = sprd_alloc_msg(list);
-		} else {
-			pr_err("%s failed to alloc msg!\n", __func__);
-		}
-	} else {
-		msg = sprd_alloc_msg(list);
-	}
+	msg = sprd_alloc_msg(list);
 
 	if (msg) {
 #if defined(MORE_DEBUG)
