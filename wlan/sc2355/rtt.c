@@ -848,6 +848,12 @@ int sprdwl_ftm_get_capabilities(struct wiphy *wiphy,
 	struct sk_buff *skb;
 	struct nlattr *attr;
 
+	if (U16_MAX < (sizeof(struct sprdwl_cmd_rtt) + len) || len <= 0) {
+		netdev_err(vif->ndev,
+			   "%s: param data len is invalid\n", __func__);
+		return -EINVAL;
+	}
+
 	/* get the capabilities from the FW */
 	msg = sprdwl_cmd_getbuf(vif->priv, sizeof(struct sprdwl_cmd_rtt) + len,
 				vif->ctx_id, SPRDWL_HEAD_RSP, WIFI_CMD_RTT);
