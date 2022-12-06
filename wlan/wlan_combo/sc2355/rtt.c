@@ -748,6 +748,12 @@ int sc2355_rtt_get_capabilities(struct wiphy *wiphy, struct wireless_dev *wdev,
 	struct sk_buff *skb;
 	struct nlattr *attr;
 
+	if (U16_MAX < (sizeof(struct cmd_rtt) + len) || len <= 0) {
+		netdev_err(vif->ndev,
+			   "%s: param data len is invalid\n", __func__);
+		return -EINVAL;
+	}
+
 	/* get the capabilities from the FW */
 	msg = get_cmdbuf(vif->priv, vif, sizeof(struct cmd_rtt) + len, CMD_RTT);
 	if (!msg)
