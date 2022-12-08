@@ -61,8 +61,6 @@ struct pcie_addr_buffer {
 
 static inline void pcie_free_msg_content(struct sprd_msg *msg)
 {
-	if (msg->skb)
-		dev_kfree_skb(msg->skb);
 	if (msg->node)
 		pcie_free_tx_buf(msg->node);
 

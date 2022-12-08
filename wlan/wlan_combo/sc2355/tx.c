@@ -50,20 +50,14 @@ static inline void tx_enqueue_data_msg(struct sprd_msg *msg, struct sprd_hif *hi
 	spin_unlock_bh(&msg->data_list->p_lock);
 }
 
-static inline void tx_dequeue_data_msg(struct sprd_hif *hif, struct sprd_msg *msg, int ac_index)
+static inline void tx_dequeue_data_msg(struct sprd_hif *hif, struct sprd_msg *msg)
 {
-	spinlock_t *lock;	/*to lock qos list */
-
-	if (ac_index != SPRD_AC_MAX)
-		lock = &msg->data_list->p_lock;
-	else
-		lock = &msg->xmit_msg_list->send_lock;
-	spin_lock_bh(lock);
+	dev_kfree_skb(msg->skb);
+	msg->skb = NULL;
 	if (hif->ops->free_msg_content)
 		hif->ops->free_msg_content(msg);
 	list_del(&msg->list);
 	sprd_free_msg(msg, msg->msglist);
-	spin_unlock_bh(lock);
 }
 
 static void tx_flush_data_txlist(struct tx_mgmt *tx_mgmt)
@@ -239,28 +233,23 @@ static int tx_handle_timeout(struct tx_mgmt *tx_mgmt,
 	struct sprd_msg *pos_buf, *temp_buf, *tailbuf;
 	struct sprd_priv *priv = tx_mgmt->hif->priv;
 
-	if (ac_index != SPRD_AC_MAX) {
-		tx_list = &p_list->head_list;
-		lock = &p_list->p_lock;
-		spin_lock_bh(lock);
-		if (list_empty(tx_list)) {
-			spin_unlock_bh(lock);
-			return 0;
-		}
-		tailbuf = list_first_entry(tx_list, struct sprd_msg, list);
+	if (SPRD_AC_MAX == ac_index)
+		return 0;
+
+	tx_list = &p_list->head_list;
+	lock = &p_list->p_lock;
+	spin_lock_bh(lock);
+	if (list_empty(tx_list)) {
 		spin_unlock_bh(lock);
-	} else {
-		tx_list = &tx_mgmt->xmit_msg_list.to_send_list;
-		if (list_empty(tx_list))
-			return 0;
-		tailbuf = list_first_entry(tx_list, struct sprd_msg, list);
+		return 0;
 	}
+	tailbuf = list_first_entry(tx_list, struct sprd_msg, list);
+	spin_unlock_bh(lock);
 
 	if (time_after(jiffies, tailbuf->timeout)) {
 		mode = tailbuf->mode;
 		sprd_net_flowcontrl(priv, mode, false);
 		i = 0;
-		lock = &p_list->p_lock;
 		spin_lock_bh(lock);
 		del_list_num = TX_TIMEOUT_DROP_RATE *
 		    atomic_read(&p_list->l_num) / 100;
@@ -268,7 +257,6 @@ static int tx_handle_timeout(struct tx_mgmt *tx_mgmt,
 			del_list_num = atomic_read(&p_list->l_num);
 		pr_info("tx timeout drop num:%d, l_num:%d",
 			del_list_num, atomic_read(&p_list->l_num));
-		spin_unlock_bh(lock);
 		list_for_each_entry_safe(pos_buf, temp_buf, tx_list, list) {
 			if (i >= del_list_num)
 				break;
@@ -281,15 +269,13 @@ static int tx_handle_timeout(struct tx_mgmt *tx_mgmt,
 				cnt = tx_mgmt->drop_data2_cnt++;
 			}
 			pr_err("tx drop %s, dropcnt:%u\n", pinfo, cnt);
-			tx_dequeue_data_msg(tx_mgmt->hif, pos_buf, ac_index);
+			tx_dequeue_data_msg(tx_mgmt->hif, pos_buf);
 			atomic_dec(&tx_mgmt->tx_list[mode]->mode_list_num);
 #if defined(MORE_DEBUG)
 			tx_mgmt->hif->stats.tx_dropped++;
 #endif
 			i++;
 		}
-		lock = &p_list->p_lock;
-		spin_lock_bh(lock);
 		atomic_sub(del_list_num, &p_list->l_num);
 		spin_unlock_bh(lock);
 		return -ENOMEM;
@@ -1150,11 +1136,11 @@ void sc2355_flush_tx_qoslist(struct tx_mgmt *tx_mgmt, int mode,
 	plock =
 	    &tx_mgmt->tx_list[mode]->q_list[ac_index].p_list[lut_index].p_lock;
 
+	spin_lock_bh(plock);
 	if (!list_empty(data_list)) {
-		spin_lock_bh(plock);
-
 		list_for_each_entry_safe(pos_buf, temp_buf, data_list, list) {
 			dev_kfree_skb(pos_buf->skb);
+			pos_buf->skb = NULL;
 			list_del(&pos_buf->list);
 			sprd_free_msg(pos_buf, pos_buf->msglist);
 		}
@@ -1165,9 +1151,8 @@ void sc2355_flush_tx_qoslist(struct tx_mgmt *tx_mgmt, int mode,
 			   &tx_mgmt->tx_list[mode]->mode_list_num);
 		atomic_set(&tx_mgmt->tx_list[mode]->q_list[ac_index].
 			   p_list[lut_index].l_num, 0);
-
-		spin_unlock_bh(plock);
 	}
+	spin_unlock_bh(plock);
 }
 
 void sc2355_flush_mode_txlist(struct tx_mgmt *tx_mgmt, enum sprd_mode mode)
@@ -1211,14 +1196,18 @@ void sc2355_flush_tosendlist(struct tx_mgmt *tx_mgmt)
 {
 	struct sprd_msg *pos_buf, *temp_buf;
 	struct list_head *data_list;
+	spinlock_t *lock;
 
 	pr_err("%s, %d\n", __func__, __LINE__);
-	if (!list_empty(&tx_mgmt->xmit_msg_list.to_send_list)) {
-		data_list = &tx_mgmt->xmit_msg_list.to_send_list;
+	data_list = &tx_mgmt->xmit_msg_list.to_send_list;
+	lock = &tx_mgmt->xmit_msg_list.send_lock;
+	spin_lock_bh(lock);
+	if (!list_empty(data_list)) {
 		list_for_each_entry_safe(pos_buf, temp_buf, data_list, list) {
-			tx_dequeue_data_msg(tx_mgmt->hif, pos_buf, SPRD_AC_MAX);
+			tx_dequeue_data_msg(tx_mgmt->hif, pos_buf);
 		}
 	}
+	spin_unlock_bh(lock);
 }
 
 void sc2355_dequeue_data_buf(struct sprd_msg *msg)
