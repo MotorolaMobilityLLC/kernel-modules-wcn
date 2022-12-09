@@ -13,6 +13,10 @@ ccflags-y += -DCONFIG_SPRD_WLAN_DEBUG
 ccflags-y += -DCONFIG_SPRD_WCN_DEBUG
 endif
 
+ifeq ($(BSP_PAMWIFI_SUPPORT),sprd)
+CONFIG_SPRD_PAMWIFI := y
+endif
+
 ccflags-y += -DCONFIG_SPRD_WLAN_VENDOR_SPECIFIC
 # ccflags-y += -DCONFIG_SC2355_WLAN_NAN
 # ccflags-y += -DCONFIG_SC2355_WLAN_RTT
@@ -30,6 +34,7 @@ ccflags-y += -DTCPACK_DELAY_SUPPORT
 ccflags-y += -DSIPC_SUPPORT
 ccflags-y += -DSPLIT_STACK
 
+
 KO_MODULE_NAME := sprd_wlan_combo
 KO_MODULE_PATH := $(src)
 
@@ -39,6 +44,12 @@ ccflags-y += -I$(KO_MODULE_PATH)/sc2332
 ccflags-y += -I$(KO_MODULE_PATH)/sc2355
 ccflags-y += -I$(KO_MODULE_PATH)/merlion
 
+
+ifeq ($(CONFIG_SPRD_PAMWIFI),y)
+ccflags-y += -DENABLE_PAM_WIFI
+ccflags-y += -I$(KO_MODULE_PATH)/sc2355/pamwifi
+ccflags-y += -I$(KO_MODULE_PATH)/sc2355/pamwifi/r2p0
+endif
 #
 # Final Objects
 #
@@ -128,6 +139,10 @@ SC2355_SIPC_WLAN := \
 		merlion/sipc_debug.o \
 		merlion/fcc.o \
 
+SC2355_PAMWIFI_WLAN := \
+                sc2355/pamwifi/pamwifi_core.o \
+                sc2355/pamwifi/r2p0/r2p0.o
+
 $(KO_MODULE_NAME)-y += \
 		$(SPRD_WLAN_COMMON) \
 		$(SC2332_WLAN) \
@@ -136,3 +151,5 @@ $(KO_MODULE_NAME)-y += \
 		$(SC2355_SDIO_WLAN) \
 		$(SC2355_SIPC_WLAN) \
 		$(SC2355_PCIE_WLAN)
+
+$(KO_MODULE_NAME)-$(CONFIG_SPRD_PAMWIFI) += $(SC2355_PAMWIFI_WLAN)

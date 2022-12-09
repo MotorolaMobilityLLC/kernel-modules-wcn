@@ -22,7 +22,9 @@
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
 #include <linux/bitops.h>
 #endif
-
+#ifdef ENABLE_PAM_WIFI
+#include "pamwifi/pamwifi.h"
+#endif
 static char type_name[16][32] = {
 	"ASSO REQ",
 	"ASSO RESP",
@@ -1466,7 +1468,19 @@ int sprd_init_fw(struct sprd_vif *vif)
 		mac = vif->wdev.address;
 	else
 		mac = vif->ndev->dev_addr;
-
+#ifdef ENABLE_PAM_WIFI
+	if (vif->mode == SPRD_MODE_AP) {
+		/*init pamwifi*/
+		ret = sprdwl_pamwifi_init(priv->hif.pdev, priv);
+		/*software conf enable*/
+		if (!ret) {
+			sprdwl_pamwifi_enable(vif);
+		} else {
+ 			pr_err("softap open fail, because pamwifi init fail\n");
+			return ret;
+		}
+	}
+#endif
 	if (vif->mode == SPRD_MODE_AP || vif->mode == SPRD_MODE_P2P_GO) {
 		if (vif->has_rand_mac) {
 			netdev_info(vif->ndev, "use random mac addr:%pM\n",
@@ -1527,6 +1541,14 @@ int sprd_uninit_fw(struct sprd_vif *vif)
 	if (hif->hw_type == SPRD_HW_SC2355_PCIE)
 		sc2355_handle_tx_status_after_close(vif);
 
+#ifdef ENABLE_PAM_WIFI
+	if (vif->mode == SPRD_MODE_AP) {
+		/*software conf disable*/
+		sprdwl_pamwifi_disable(vif);
+		/*uninit pamwifi*/
+		sprdwl_pamwifi_uninit(hif->pdev);
+	}
+#endif
 	netdev_info(vif->ndev, "%s type %d, mode %d\n", __func__,
 		    vif->wdev.iftype, vif->mode);
 	vif->mode = SPRD_MODE_NONE;

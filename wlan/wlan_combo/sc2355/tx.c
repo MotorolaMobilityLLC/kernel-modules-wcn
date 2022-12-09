@@ -582,6 +582,12 @@ static void tx_prepare_addba(struct sprd_hif *hif, unsigned char lut_index,
 	}
 }
 
+void sc2355_tx_prepare_addba(struct sprd_hif *hif, unsigned char lut_index,
+                     struct sprd_peer_entry *peer_entry,unsigned char tid)
+{
+	return tx_prepare_addba(hif,lut_index,peer_entry,tid);
+}
+
 static int tx_prepare_tx_msg(struct sprd_hif *hif, struct sprd_msg *msg)
 {
 	u16 len;
@@ -883,6 +889,10 @@ static unsigned int tx_do_csum(const unsigned char *buff, int len)
 		result = ((result >> 8) & 0xff) | ((result & 0xff) << 8);
 out:
 	return result;
+}
+
+int sc2355_tx_do_csum(const unsigned char *buff, int len){
+	return tx_do_csum(buff, len);
 }
 
 static int tx_is_multicast_mac_addr(const u8 *addr)

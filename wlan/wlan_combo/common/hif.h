@@ -107,6 +107,9 @@ struct sprd_peer_entry {
 #else
 	struct timespec time[6 + 1];
 #endif
+#ifdef ENABLE_PAM_WIFI
+	struct sprd_vif *vif;
+#endif	
 };
 
 struct sprd_hif {

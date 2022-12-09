@@ -164,6 +164,10 @@
 /* TLV type list */
 #define GET_INFO_TLV_TP_OTT	1
 #define NOTIFY_AP_VERSION	2
+#ifdef ENABLE_PAM_WIFI
+#define PAM_WIFI_AP_CAP_TLV_TYPE	6
+#define GET_INFO_TLV_PAM_WIFI_CP_CAP 2
+#endif
 
 #define NOTIFY_AP_VERSION_USER 0
 #define NOTIFY_AP_VERSION_USER_DEBUG 1
@@ -281,7 +285,9 @@ enum CMD_LIST {
 	CMD_SET_MIRACAST = 82,
 	CMD_PACKET_OFFLOAD = 84,
 	CMD_SET_SAE_PARAM = 85,
-	CMD_RESERVED_FOR_PAM_WIFI = 86,
+#ifdef ENABLE_PAM_WIFI
+	CMD_UL_RES_STS = 86,
+#endif	
 	CMD_SET_SNIFFER = 87,
 	CMD_RESVERED_FOR_FILTER = 88,
 	CMD_EXTENDED_LLSTAT = 89,
@@ -372,6 +378,9 @@ struct cmd_open {
 	u8 mode;
 	u8 reserved;
 	u8 mac[ETH_ALEN];
+#ifdef ENABLE_PAM_WIFI
+	u8 enable_pamwifi;
+#endif	
 } __packed;
 
 /* CMD_CLOSE */
@@ -677,6 +686,9 @@ enum EVT_LIST {
 	EVT_CHAN_CHANGED = 0xfb,
 	EVT_ACS_DONE = 0xfc,
 	EVT_ACS_LTE_CONFLICT_EVENT = 0xfd,
+#ifdef ENABLE_PAM_WIFI
+	EVT_PAMWIFI_UL_RESOURCE_EVENT = 0xfe,
+#endif	
 	EVT_MAX
 };
 

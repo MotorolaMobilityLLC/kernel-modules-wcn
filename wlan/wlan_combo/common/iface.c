@@ -27,6 +27,9 @@
 #include "qos.h"
 #include "report.h"
 #include "tcp_ack.h"
+#ifdef ENABLE_PAM_WIFI
+#include "pamwifi/pamwifi.h"
+#endif
 #include "wapi.h"
 
 static struct sprd_priv *sprd_prv;
@@ -615,7 +618,12 @@ static netdev_tx_t iface_start_xmit(struct sk_buff *skb, struct net_device *ndev
 		dev_kfree_skb(skb);
 		return NETDEV_TX_OK;
 	}
-
+#ifdef ENABLE_PAM_WIFI
+	if (vif->mode == SPRD_MODE_AP) {
+		ret = sprdwl_pamwifi_xmit_to_ipa(skb, ndev);
+		return ret;
+	}
+#endif
 	msg = sprd_chip_get_msg(&vif->priv->chip, SPRD_TYPE_DATA, vif->mode);
 	if (!msg) {
 		ndev->stats.tx_fifo_errors++;

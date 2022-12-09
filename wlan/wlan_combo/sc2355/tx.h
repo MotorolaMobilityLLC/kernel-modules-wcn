@@ -17,6 +17,7 @@
 #include "common/cfg80211.h"
 #include "common/msg.h"
 #include "common/qos.h"
+#include "common/common.h"
 #include "sdio.h"
 #include "pcie.h"
 
@@ -290,4 +291,7 @@ int sc2355_tx_special_data(struct sk_buff *skb, struct net_device *ndev);
 int sc2355_send_data_offset(void);
 int sc2355_send_data(struct sprd_vif *vif, struct sprd_msg *msg,
 		     struct sk_buff *skb, u8 type, u8 offset, bool flag);
+int sc2355_tx_do_csum(const unsigned char *buff, int len);
+void sc2355_tx_prepare_addba(struct sprd_hif *hif, unsigned char lut_index,
+		     struct sprd_peer_entry *peer_entry,unsigned char tid);
 #endif

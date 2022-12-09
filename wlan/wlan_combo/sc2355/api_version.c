@@ -297,6 +297,13 @@ struct sprd_api_version_t api_array[] = {
 		.cmd_id = CMD_SET_SAE_PARAM,
 		.drv_version = 1,
 	},
+#ifdef ENABLE_PAM_WIFI
+	[86]{
+		/*ID:86*/
+		.cmd_id = CMD_UL_RES_STS,
+		.drv_version = 1,
+	},
+#endif	
 	[87]{
 		/*ID:87*/
 		.cmd_id = CMD_SET_SNIFFER,
