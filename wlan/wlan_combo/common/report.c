@@ -104,6 +104,7 @@ void sprd_report_connection(struct sprd_vif *vif,
 	struct ieee80211_channel *channel;
 	struct ieee80211_mgmt *mgmt;
 	struct cfg80211_bss *bss = NULL;
+	struct cfg80211_bss *other_bss = NULL;
 	struct timespec64 ts;
 	const u8 *ssid_ie;
 	u16 band, capability, beacon_interval;
@@ -114,6 +115,7 @@ void sprd_report_connection(struct sprd_vif *vif,
 	int index = 0;
 	int hidden_ssid = 0;
 	struct cfg80211_roam_info roam_info;
+	u8 ssid_len = 0, ssid[IEEE80211_MAX_SSID_LEN + 1] = {0};
 
 	if (vif->sm_state != SPRD_CONNECTING &&
 	    vif->sm_state != SPRD_CONNECTED) {
@@ -188,6 +190,11 @@ void sprd_report_connection(struct sprd_vif *vif,
 					goto done;
 				}
 			}
+
+			if (ssid_ie[1] && ssid_ie[1] <= IEEE80211_MAX_SSID_LEN) {
+				ssid_len = ssid_ie[1];
+				memcpy(ssid, (ssid_ie + 2), ssid_len);
+			}
 		}
 		/* framework use system bootup time */
 		ktime_get_boottime_ts64(&ts);
@@ -211,6 +218,25 @@ void sprd_report_connection(struct sprd_vif *vif,
 				   __func__);
 	} else {
 		netdev_warn(vif->ndev, "%s No Beason IE!\n", __func__);
+	}
+
+	/*
+	  2100599:unlink all bsses that only channel different with the current connected one.
+	  to fix the issue:UI will show the old channel result even if AP has changed channel
+	*/
+	while(1) {
+		other_bss = cfg80211_get_bss(wiphy, NULL, bss->bssid,
+					     ssid, ssid_len,
+					     IEEE80211_BSS_TYPE_ESS,
+					     IEEE80211_PRIVACY_ANY);
+		if (bss && other_bss && other_bss != bss) {
+			cfg80211_unlink_bss(wiphy, other_bss);
+			cfg80211_put_bss(wiphy, other_bss);
+			netdev_info(vif->ndev,
+				    "unlink bss(%pM) that only channel different\n",
+				    other_bss->bssid);
+		} else
+			break;
 	}
 done:
 	if (vif->sm_state == SPRD_CONNECTING &&
@@ -299,8 +325,7 @@ void sprd_report_disconnection(struct sprd_vif *vif, u16 reason_code)
 			    vif->ssid, reason_code);
 		/*
 		  unlink all bssid that has the same ssid
-		  1:2055772: to fix reconnect the 2.4g ssid when hiding the dual band AP
-		  2:to fix the issue:UI will show the old channel result even if AP has changed channel
+		  2055772: to fix reconnect the 2.4g ssid when hiding the dual band AP
 		*/
 		while(1) {
 			bss = cfg80211_get_bss(wiphy, NULL, NULL,
