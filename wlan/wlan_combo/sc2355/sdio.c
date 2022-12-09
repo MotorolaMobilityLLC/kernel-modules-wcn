@@ -738,22 +738,23 @@ unsigned char sc2355_find_lut_index(struct sprd_hif *hif, struct sprd_vif *vif)
 		}
 	}
 
-	for (i = 0; i < MAX_LUT_NUM; i++) {
-		if ((vif->mode == SPRD_MODE_STATION ||
-			 vif->mode == SPRD_MODE_STATION_SECOND ||
-		     vif->mode == SPRD_MODE_P2P_CLIENT) &&
-		    hif->peer_entry[i].ctx_id == vif->ctx_id) {
-			pr_debug("%s, %d, lut_index=%d\n",
-				 __func__, __LINE__,
-				 hif->peer_entry[i].lut_index);
-			return hif->peer_entry[i].lut_index;
+	if (vif->mode == SPRD_MODE_STATION ||
+	    vif->mode == SPRD_MODE_STATION_SECOND ||
+	    vif->mode == SPRD_MODE_P2P_CLIENT) {
+		for (i = 0; i < MAX_LUT_NUM; i++) {
+			if (hif->peer_entry[i].ctx_id == vif->ctx_id) {
+				pr_debug("%s, %d, lut_index=%d\n",
+					 __func__, __LINE__,
+					 hif->peer_entry[i].lut_index);
+				return hif->peer_entry[i].lut_index;
+			}
 		}
 	}
 
 out:
 	if (vif->mode == SPRD_MODE_STATION ||
-		vif->mode == SPRD_MODE_STATION_SECOND ||
-		vif->mode == SPRD_MODE_P2P_CLIENT) {
+	    vif->mode == SPRD_MODE_STATION_SECOND ||
+	    vif->mode == SPRD_MODE_P2P_CLIENT) {
 		pr_err("%s,%d,bssid not found, multicast?\n"
 		       "default of STA/GC = 0,\n", __func__, vif->ctx_id);
 		return 0;
