@@ -437,6 +437,7 @@ static void receive_tasklet(unsigned long arg){
         receive_buf = head->buf + FM_SIPC_HEAD_LEN;
         }
         
+    if (receive_buf) {
         if ((*(receive_buf + 1)) == 0x0e) {
             memcpy(fmdev->com_respbuf, receive_buf + 2, (*(receive_buf+2)) + 1);
             dev_unisoc_fm_dbg(fm_miscdev,"fm RX before commontask_completion=0x%x\n", fmdev->commontask_completion.done);
@@ -453,6 +454,7 @@ static void receive_tasklet(unsigned long arg){
                 dev_unisoc_fm_err(fm_miscdev,"fmdrv error:unknown event !!!\n");
         }
         sprdwcn_bus_push_list(channel, head, tail, num);
+    }
         if(SDIO)
         {
             kfree(sdio_hdr);
