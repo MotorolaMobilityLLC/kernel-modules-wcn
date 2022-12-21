@@ -119,11 +119,11 @@ void sc2332_report_scan_result(struct sprd_vif *vif, u16 chan, s16 rssi,
 				       IEEE80211_BSS_TYPE_ESS,
 				       IEEE80211_PRIVACY_ANY);
 		if (bss) {
-			cfg80211_unlink_bss(wiphy, bss);
-			cfg80211_put_bss(wiphy, bss);
 			netdev_info(vif->ndev,
 				    "unlink %pM due to beacon loss\n",
 				    bss->bssid);
+			cfg80211_unlink_bss(wiphy, bss);
+			cfg80211_put_bss(wiphy, bss);
 			vif->beacon_loss = 0;
 		}
 	}

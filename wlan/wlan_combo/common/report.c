@@ -230,11 +230,11 @@ void sprd_report_connection(struct sprd_vif *vif,
 					     IEEE80211_BSS_TYPE_ESS,
 					     IEEE80211_PRIVACY_ANY);
 		if (bss && other_bss && other_bss != bss) {
-			cfg80211_unlink_bss(wiphy, other_bss);
-			cfg80211_put_bss(wiphy, other_bss);
 			netdev_info(vif->ndev,
 				    "unlink bss(%pM) that only channel different\n",
 				    other_bss->bssid);
+			cfg80211_unlink_bss(wiphy, other_bss);
+			cfg80211_put_bss(wiphy, other_bss);
 		} else
 			break;
 	}
@@ -333,11 +333,11 @@ void sprd_report_disconnection(struct sprd_vif *vif, u16 reason_code)
 				       IEEE80211_BSS_TYPE_ESS,
 				       IEEE80211_PRIVACY_ANY);
 			if (bss) {
-				cfg80211_unlink_bss(wiphy, bss);
-				cfg80211_put_bss(wiphy, bss);
 				netdev_info(vif->ndev,
 					"unlink %pM due to passive disconnection\n",
 					bss->bssid);
+				cfg80211_unlink_bss(wiphy, bss);
+				cfg80211_put_bss(wiphy, bss);
 			} else
 				break;
 		}
