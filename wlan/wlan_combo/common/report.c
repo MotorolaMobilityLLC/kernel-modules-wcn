@@ -224,19 +224,21 @@ void sprd_report_connection(struct sprd_vif *vif,
 	  2100599:unlink all bsses that only channel different with the current connected one.
 	  to fix the issue:UI will show the old channel result even if AP has changed channel
 	*/
-	while(1) {
-		other_bss = cfg80211_get_bss(wiphy, NULL, bss->bssid,
-					     ssid, ssid_len,
-					     IEEE80211_BSS_TYPE_ESS,
-					     IEEE80211_PRIVACY_ANY);
-		if (bss && other_bss && other_bss != bss) {
-			netdev_info(vif->ndev,
-				    "unlink bss(%pM) that only channel different\n",
-				    other_bss->bssid);
-			cfg80211_unlink_bss(wiphy, other_bss);
-			cfg80211_put_bss(wiphy, other_bss);
-		} else
-			break;
+	if(bss) {
+		while(1) {
+			other_bss = cfg80211_get_bss(wiphy, NULL, bss->bssid,
+						     ssid, ssid_len,
+						     IEEE80211_BSS_TYPE_ESS,
+						     IEEE80211_PRIVACY_ANY);
+			if (other_bss && other_bss != bss) {
+				netdev_info(vif->ndev,
+					    "unlink bss(%pM) that only channel different\n",
+					    other_bss->bssid);
+				cfg80211_unlink_bss(wiphy, other_bss);
+				cfg80211_put_bss(wiphy, other_bss);
+			} else
+				break;
+		}
 	}
 done:
 	if (vif->sm_state == SPRD_CONNECTING &&
