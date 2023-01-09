@@ -648,7 +648,9 @@ static void mtty_close(struct tty_struct *tty, struct file *filp)
 		sprdwcn_bus_chn_deinit(&bt_pcie_tx_ops);
 	}
     atomic_set(&mtty->state, MTTY_STATE_CLOSE);
+    mutex_lock(&mtty->rw_mutex);
     sitm_cleanup();
+    mutex_unlock(&mtty->rw_mutex);
 
     if (data_dump != NULL) {
         vfree(data_dump);
@@ -803,7 +805,13 @@ static  int sdio_data_transmit(uint8_t *data, size_t count)
 static int mtty_write_plus(struct tty_struct *tty,
 	      const unsigned char *buf, int count)
 {
-	return sitm_write(buf, count, sdio_data_transmit);
+	int ret = 0;
+	struct mtty_device *mtty = (struct mtty_device *) tty->driver_data;
+
+	mutex_lock(&mtty->rw_mutex);
+	ret = sitm_write(buf, count, sdio_data_transmit);
+	mutex_unlock(&mtty->rw_mutex);
+	return ret;
 }
 
 
