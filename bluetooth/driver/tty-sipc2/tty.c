@@ -408,8 +408,9 @@ static void stty_close(struct tty_struct *tty, struct file *filp)
 
 	dev_unisoc_bt_info(ttyBT_dev,
 						"stty_close device success !\n");
-
+	mutex_lock(&(stty->stat_lock));
 	sitm_cleanup();
+	mutex_unlock(&(stty->stat_lock));
 #ifdef CONFIG_ARCH_SCX20
 	rf2351_vddwpa_ctrl_power_enable(0);
 #endif
@@ -495,7 +496,12 @@ static int stty_data_transmit(uint8_t *data, size_t count)
 static int stty_write_plus(struct tty_struct *tty,
 			const unsigned char *buf, int count)
 {
-	return sitm_write(buf, count, stty_data_transmit);
+	int ret = 0;
+	struct stty_device *stty = (struct stty_device *) tty->driver_data;
+	mutex_lock(&stty->stat_lock);
+	ret = sitm_write(buf, count, stty_data_transmit);
+	mutex_unlock(&stty->stat_lock);
+	return ret;
 }
 
 static void stty_flush_chars(struct tty_struct *tty)
