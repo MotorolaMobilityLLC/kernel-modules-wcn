@@ -18,6 +18,7 @@
 #include <linux/kernel.h>
 #include <linux/sched.h>
 #include <linux/wait.h>
+#include <linux/version.h>
 #include "fmdrv.h"
 #include "fmdrv_main.h"
 #include "fmdrv_rds_parser.h"
@@ -1176,7 +1177,11 @@ void rds_parser(unsigned char *buffer)
 {
 	unsigned char grp_type;
 
-	fmdev->rds_han.rds_parse_start_time = get_seconds();
+	#if(LINUX_VERSION_CODE >= KERNEL_VERSION(5,15,0))
+    fmdev->rds_han.rds_parse_stop_time = ktime_get_real_seconds();
+    #else
+    fmdev->rds_han.rds_parse_stop_time = get_seconds();
+    #endif
 	/*dump_rx_data(buffer, len);*/
 	grp_type = rds_get_group_type(buffer);
 	dev_unisoc_fm_info(fm_miscdev,"group type is : 0x%x\n", grp_type);

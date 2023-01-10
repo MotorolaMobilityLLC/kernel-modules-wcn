@@ -35,6 +35,7 @@
 #include <linux/uaccess.h>
 #include <linux/wait.h>
 #include <linux/sipc.h>
+#include <linux/version.h>
 
 #include "fmdrv.h"
 #include "fmdrv_main.h"
@@ -427,7 +428,11 @@ ssize_t fm_read_rds_data(struct file *filp, char __user *buf,
         return -EFAULT;
     }
     dev_unisoc_fm_info(fm_miscdev,"(fm drs) fm event is %x\n", fmdev->rds_data.event_status);
+    #if(LINUX_VERSION_CODE >= KERNEL_VERSION(5,15,0))
+    fmdev->rds_han.rds_parse_stop_time = ktime_get_real_seconds();
+    #else
     fmdev->rds_han.rds_parse_stop_time = get_seconds();
+    #endif
     if ((fmdev->rds_han.rds_parse_stop_time -
         fmdev->rds_han.rds_parse_start_time) >
         FM_RDS_PARSE_TIME) {
@@ -1257,7 +1262,11 @@ int fm_rds_onoff(void *arg)
 		return ret;
 	}
 
-	fmdev->rds_han.rds_parse_start_time = get_seconds();
+	#if(LINUX_VERSION_CODE >= KERNEL_VERSION(5,15,0))
+    fmdev->rds_han.rds_parse_stop_time = ktime_get_real_seconds();
+    #else
+    fmdev->rds_han.rds_parse_stop_time = get_seconds();
+    #endif
 
 	return ret;
 }

@@ -37,6 +37,7 @@
 #include <linux/of.h>
 #include <linux/of_address.h>
 #include <linux/of_irq.h>
+#include <linux/notifier.h>
 
 #include "unisoc_fm_log.h"
 
@@ -50,6 +51,7 @@ struct device *fm_miscdev = NULL;
 #include <misc/wcn_integrate_platform.h>
 #include <linux/gpio.h>
 #include <linux/of_gpio.h>
+
 
 long fm_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
 {
