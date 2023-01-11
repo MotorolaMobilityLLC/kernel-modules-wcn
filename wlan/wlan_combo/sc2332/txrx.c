@@ -307,7 +307,7 @@ void sc2332_keep_wakeup(struct sprd_hif *hif)
 {
 	if (time_after(jiffies, hif->wake_last_time)) {
 		hif->wake_last_time = jiffies + hif->wake_pre_timeout;
-		__pm_wakeup_event(hif->keep_wake, hif->wake_timeout);
+		__pm_wakeup_event(hif->keep_wake, jiffies_to_msecs(hif->wake_timeout));
 	}
 }
 
