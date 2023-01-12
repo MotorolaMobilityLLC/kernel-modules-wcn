@@ -206,7 +206,12 @@ static netdev_tx_t sprdwl_start_xmit(struct sk_buff *skb, struct net_device *nde
 	if (vif->priv->hw_type == SPRDWL_HW_SC2355_PCIE) {
 		dma_addr = PFN_PHYS(virt_to_pfn(skb->head)) + offset_in_page(skb->head);
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+#ifdef CONFIG_64BIT
 		if (!dma_capable(wiphy_dev(vif->priv->wiphy), dma_addr, skb->len, true)) {
+#else
+		{
+			pr_err("FIXME: dma_capble can't used by 32bit-ARCH!\n");
+#endif   //CONFIG_64BIT
 #else
 		if (!dma_capable(wiphy_dev(vif->priv->wiphy), dma_addr, skb->len)) {
 #endif

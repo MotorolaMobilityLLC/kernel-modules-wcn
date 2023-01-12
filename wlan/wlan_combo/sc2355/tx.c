@@ -626,7 +626,12 @@ static void tx_get_pcie_dma_addr(struct sprd_hif *hif, struct sk_buff *skb)
 	dma_addr = PFN_PHYS(virt_to_pfn(skb->head)) + offset_in_page(skb->head);
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+#ifdef CONFIG_64BIT
 	if (!dma_capable(wiphy_dev(hif->priv->wiphy), dma_addr, skb->len, true)) {
+#else
+	{
+		pr_err("FIXME: dma_capble can't used by 32bit-ARCH!\n");
+#endif  //CONFIG_64BIT
 #else
 	if (!dma_capable(wiphy_dev(hif->priv->wiphy), dma_addr, skb->len)) {
 #endif
