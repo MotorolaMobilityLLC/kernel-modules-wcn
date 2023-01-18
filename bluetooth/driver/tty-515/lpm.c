@@ -41,7 +41,7 @@ void host_wakeup_bt(void)
 
 void bt_wakeup_host(void)
 {
-    long timeout = 5 * HZ;
+    long timeout = 1 * HZ;
     __pm_relax(tx_wakelock);
     __pm_wakeup_event(rx_wakelock, jiffies_to_msecs(timeout));
 }
