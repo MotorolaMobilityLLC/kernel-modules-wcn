@@ -1027,6 +1027,8 @@ static int sprdwl_cfg80211_start_ap(struct wiphy *wiphy,
 #endif
 	if (ret)
 		netdev_err(ndev, "%s failed to start AP!\n", __func__);
+	else
+		netif_carrier_on(vif->ndev);
 
 	return ret;
 }
