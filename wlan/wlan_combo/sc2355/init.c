@@ -221,7 +221,7 @@ static void sc2355_reg_notify(struct wiphy *wiphy,
 				    reg_rule->dfs_cac_ms;
 				i++;
 
-				wiphy_dbg(wiphy,
+				wiphy_info(wiphy,
 					  "   %d KHz - %d KHz @ %d KHz flags %#x\n",
 					  freq_range->start_freq_khz,
 					  freq_range->end_freq_khz,
