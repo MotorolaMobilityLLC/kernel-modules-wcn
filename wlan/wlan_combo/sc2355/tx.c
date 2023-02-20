@@ -1105,9 +1105,17 @@ static int tx_filter_ip_pkt(struct sk_buff *skb, struct net_device *ndev)
 			skb->ip_summed = CHECKSUM_NONE;
 		}
 
-		if ((is_ipv4_dns || is_ipv6_dns) && (special_data_flag == 2 ||
-		    (special_data_flag == 1 && vif->prwise_crypto == SPRD_CIPHER_NONE)))
-			return 1;
+		mutex_lock(&adap_info.adap_lock);
+		pr_info("%s special_data_flag: %d\n",
+			__func__, adap_info.special_data_flag);
+		if ((is_ipv4_dns || is_ipv6_dns) &&
+		    (adap_info.special_data_flag == SPRD_NPI_NORMAL_ALL ||
+		    (adap_info.special_data_flag == SPRD_NPI_NORMAL_UNENCRYP &&
+		    vif->prwise_crypto == SPRD_CIPHER_NONE))) {
+				mutex_unlock(&adap_info.adap_lock);
+				return 1;
+			}
+		mutex_unlock(&adap_info.adap_lock);
 
 		sprd_xmit_data2cmd_wq(skb, ndev);
 		return NETDEV_TX_OK;
@@ -2235,9 +2243,18 @@ int sprd_tx_filter_packet(struct sk_buff *skb, struct net_device *ndev)
 
 	if (ethhdr->h_proto == htons(ETH_P_ARP)) {
 		pr_info("incoming ARP packet\n");
-		if ((special_data_flag == 2) || ((special_data_flag == 1) &&
-		    (vif->prwise_crypto == SPRD_CIPHER_NONE)))
-			return 1;
+
+		mutex_lock(&adap_info.adap_lock);
+		pr_info("%s special_data_flag: %d\n",
+			__func__, adap_info.special_data_flag);
+		if ((adap_info.special_data_flag == SPRD_NPI_NORMAL_ALL) ||
+		    ((adap_info.special_data_flag == SPRD_NPI_NORMAL_UNENCRYP) &&
+		    (vif->prwise_crypto == SPRD_CIPHER_NONE))) {
+				mutex_unlock(&adap_info.adap_lock);
+				return 1;
+			}
+		mutex_unlock(&adap_info.adap_lock);
+
 		sprd_xmit_data2cmd_wq(skb, ndev);
 		return NETDEV_TX_OK;
 	}

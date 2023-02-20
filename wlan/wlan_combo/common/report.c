@@ -290,6 +290,8 @@ done:
 	netdev_info(vif->ndev, "%s %s to %s (%pM)\n", __func__,
 		    status_code == SPRD_CONNECT_SUCCESS ? "connect" : "roam",
 		    vif->ssid, vif->bssid);
+
+	sprd_evt_adaptive(vif);
 	return;
 err:
 	if (status_code == WLAN_STATUS_SUCCESS)

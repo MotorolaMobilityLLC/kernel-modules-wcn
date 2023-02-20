@@ -23,6 +23,7 @@
 #define SPRD_NPI_CMD_SET_PROTECTION_MODE	50
 #define SPRD_NPI_CMD_GET_PROTECTION_MODE	51
 #define SPRD_NPI_CMD_SET_RTS_THRESHOLD		52
+#define SPRD_NPI_CMD_SET_CCA_PARAM          198
 #define SPRD_NPI_CMD_SET_RANDOM_MAC         199
 
 struct sprd_priv;
@@ -66,7 +67,38 @@ enum sprd_npi_cmd_type {
 	SPRD_CP2HT_REPLY,
 };
 
+enum sprd_npi_cca_type {
+	SPRD_NPI_CCA_CLOSE,
+	SPRD_NPI_CCA_ABSOLUTE,
+	SPRD_NPI_CCA_RELATIVE,
+	SPRD_NPI_CCA_CE,
+	SPRD_NPI_CCA_MAX,
+};
+
+enum sprd_npi_ce_subtype {
+	SPRD_NPI_CE_DISABLE,
+	SPRD_NPI_CE_ENABLE,
+	SPRD_NPI_CE_MAX,
+};
+
+enum sprd_npi_data_flag {
+	SPRD_NPI_DATA_SPECIAL,
+	SPRD_NPI_NORMAL_UNENCRYP,
+	SPRD_NPI_NORMAL_ALL,
+	SPRD_NPI_DATA_FLAG_MAX,
+};
+
+struct sprd_wlan_adap_param {
+	int special_data_flag;
+	char wifi_adaptive_flag;
+	struct mutex adap_lock;
+
+};
+
 void sprd_init_npi(void);
 void sprd_deinit_npi(void);
+void sprd_npi_set_cca_param(struct sprd_priv *priv, struct sprd_vif *vif);
+void sprd_evt_adaptive(struct sprd_vif *vif);
+void sprd_wifi_adaptive_work(struct sprd_priv *priv, struct sprd_vif *vif);
 
 #endif

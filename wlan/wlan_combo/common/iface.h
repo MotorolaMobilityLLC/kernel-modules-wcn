@@ -110,7 +110,6 @@ struct sprd_vif {
 	enum nl80211_cqm_rssi_threshold_event cqm;
 };
 
-extern int special_data_flag;
 void sprd_put_vif(struct sprd_vif *vif);
 struct sprd_vif *sprd_mode_to_vif(struct sprd_priv *priv, u8 vif_mode);
 

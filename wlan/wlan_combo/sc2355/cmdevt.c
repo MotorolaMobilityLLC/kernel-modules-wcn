@@ -3257,14 +3257,16 @@ bool sc2355_do_delay_work(struct sprd_work *work)
 		memcpy(&reason_code, (u16 *)(work->data + ETH_ALEN), sizeof(u16));
 		sc2355_del_station(vif->priv, vif, mac_addr, reason_code);
 		break;
-	case SPRD_WORK_REFSH_BO:
+	case SPRD_WORK_FRESH_BO:
 		sc2355_fcc_fresh_bo_work(vif->priv, work->data, work->len);
 		break;
 #ifdef ENABLE_PAM_WIFI
 	case SPRD_WORK_UL_RES_STS_CMD:
 		sprdwl_pamwifi_send_ul_res_cmd(vif->priv, vif->ctx_id, work->data, work->len);
 		break;
-#endif		
+#endif
+	case SPRD_WORK_ADAPTIVE:
+		sprd_wifi_adaptive_work(vif->priv, vif);
 	default:
 		return false;
 	}
@@ -3965,7 +3967,7 @@ static int sc2355_evt_pw_backoff(struct sprd_vif *vif, u8 *data, u16 len)
 		return -1;
 	}
 	misc_work->vif = vif;
-	misc_work->id = SPRD_WORK_REFSH_BO;
+	misc_work->id = SPRD_WORK_FRESH_BO;
 	memcpy(misc_work->data, data, len);
 
 	sprd_queue_work(vif->priv, misc_work);

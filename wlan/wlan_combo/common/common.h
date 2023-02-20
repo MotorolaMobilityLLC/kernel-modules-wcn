@@ -42,6 +42,7 @@
 #include "iface.h"
 #include "tcp_ack.h"
 #include "vendor.h"
+#include "npi.h"
 
 #define SPRD_DRIVER_VERSION		"v1.0"
 
@@ -294,6 +295,7 @@ struct sprd_priv {
 };
 
 extern unsigned int wfa_cap;
+extern struct sprd_wlan_adap_param adap_info;
 
 static inline void sprd_version_init(struct sprd_ver *ver)
 {
