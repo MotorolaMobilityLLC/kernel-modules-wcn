@@ -34,7 +34,7 @@ struct sprdwl_if_ops {
 	void (*free_msg_buf)(void *sdev, struct sprdwl_msg_buf *msg);
 	int (*tx)(void *spdev, struct sprdwl_msg_buf *msg);
 #if defined(SC2355_FTR)
-	void (*force_exit)(void *spdev);
+	int (*force_exit)(void *spdev);
 	int (*is_exit)(void *spdev);
 #else
 	void (*force_exit)(void);

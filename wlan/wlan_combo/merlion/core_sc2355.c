@@ -738,7 +738,7 @@ static int sprdwl_ini_download_status(void)
 #endif
 }
 
-static void sprdwl_force_exit(void *spdev)
+static int sprdwl_force_exit(void *spdev)
 {
 	struct sprdwl_intf *intf;
 	struct sprdwl_tx_msg *tx_msg;
@@ -746,6 +746,7 @@ static void sprdwl_force_exit(void *spdev)
 	intf = (struct sprdwl_intf *)spdev;
 	tx_msg = (struct sprdwl_tx_msg *)intf->sprdwl_tx;
 	intf->exit = 1;
+	return 0;
 }
 
 static int sprdwl_is_exit(void *spdev)
