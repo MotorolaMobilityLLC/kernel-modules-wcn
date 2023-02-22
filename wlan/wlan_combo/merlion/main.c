@@ -1678,9 +1678,11 @@ static void sprdwl_unregister_netdev(struct sprdwl_vif *vif)
 {
 	wl_info("iface '%s' deleted\n", vif->ndev->name);
 
+	sprdwl_deinit_vif(vif);
+
 	if (vif->priv->fw_capa & SPRDWL_CAPA_MC_FILTER)
 		kfree(vif->mc_filter);
-	sprdwl_deinit_vif(vif);
+
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
 	cfg80211_unregister_netdevice(vif->ndev);
 #else
