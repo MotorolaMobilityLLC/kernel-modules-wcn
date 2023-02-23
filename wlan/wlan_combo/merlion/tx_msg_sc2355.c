@@ -292,8 +292,8 @@ static void sprdwl_flush_data_txlist(struct sprdwl_tx_msg *tx_msg)
 		__func__,
 		atomic_read(&tx_msg->xmit_msg_list.free_num));
 	while (!list_empty(to_free_list) && (cnt < 1000)) {
-		if (priv->hw_type == SPRDWL_HW_SC2355_PCIE &&
-			sprdwcn_bus_get_status() == WCN_BUS_DOWN) {
+		if ((priv->hw_type == SPRDWL_HW_SIPC) || (priv->hw_type == SPRDWL_HW_SC2355_PCIE &&
+			sprdwcn_bus_get_status() == WCN_BUS_DOWN)) {
 			struct sprdwl_msg_buf *pos_buf, *temp_buf;
 			unsigned long lockflag_txfree = 0;
 
