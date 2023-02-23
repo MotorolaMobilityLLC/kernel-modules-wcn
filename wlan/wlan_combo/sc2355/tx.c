@@ -2131,7 +2131,7 @@ bool sc2355_is_vowifi_pkt(struct sk_buff *skb, bool *b_cmd_path)
 	u32 mark;
 
 	mark = skb->mark & DUAL_VOWIFI_MASK_MARK;
-	pr_info("%s Dual vowifi: mark bits 0x%x\n", __func__, mark);
+	pr_debug("%s Dual vowifi: mark bits 0x%x\n", __func__, mark);
 	switch (mark) {
 	case DUAL_VOWIFI_NOT_SUPPORT:
 		break;

@@ -196,15 +196,6 @@ sdio_list_cut_position(struct list_head *tx_list_head,
 	spin_unlock_bh(lock);
 }
 
-static int sdio_bus_list_alloc(struct sprd_hif *hif,
-			       int tx_count,
-			       struct mbuf_t **head,
-			       struct mbuf_t **tail,
-			       int *pcie_count, int *cnt, int *num)
-{
-	return sprdwcn_bus_list_alloc(hif->tx_data_port, head, tail, &tx_count);
-}
-
 static int sdio_rx_handle(int chn, struct mbuf_t *head,
 			  struct mbuf_t *tail, int num)
 {
@@ -566,7 +557,7 @@ int sc2355_hif_tx_list(struct sprd_hif *hif,
 		       int tx_count, int ac_index, u8 coex_bt_on)
 {
 #define SPRD_MAX_PRINT_LEN 200
-	int ret = 0, i = 0, pcie_count = 0, cnt = 0, num = 0;
+	int ret = 0, i = 0;
 	struct sprd_msg *msg_pos;
 
 	struct tx_mgmt *tx_mgmt;
@@ -591,8 +582,7 @@ int sc2355_hif_tx_list(struct sprd_hif *hif,
 
 	tx_mgmt = (struct tx_mgmt *)hif->tx_mgmt;
 
-	if (-1 == sdio_bus_list_alloc(hif, tx_count, &head, &tail,
-				      &pcie_count, &cnt, &num))
+	if (-1 == sprdwcn_bus_list_alloc(hif->tx_data_port, &head, &tail, &tx_count))
 		return -ENOMEM;
 
 	if (tx_count_saved != tx_count) {
@@ -637,6 +627,7 @@ int sc2355_hif_tx_list(struct sprd_hif *hif,
 		if (!mbuf_pos) {
 			pr_err("%s:%d mbuf addr is NULL!\n", __func__,
 			       __LINE__);
+			sprdwcn_bus_list_free(hif->tx_data_port, head, tail, i);
 			return -1;
 		}
 		mbuf_pos->buf = data_ptr;
