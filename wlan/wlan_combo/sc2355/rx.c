@@ -153,9 +153,8 @@ int sprd_rx_defragment_attack_check(struct sprd_priv *priv, struct sk_buff *skb)
 	return 0;
 }
 
-extern int wcn_thread_setattr(unsigned dir, struct sched_attr *attr);
-
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+extern int wcn_thread_setattr(unsigned dir, struct sched_attr *attr);
 static struct sched_attr attr;
 #endif
 static void rx_skb_process(struct sprd_priv *priv, struct sk_buff *skb)
