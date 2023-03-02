@@ -213,11 +213,10 @@ void sprdwl_flush_tx_qoslist(struct sprdwl_tx_msg *tx_msg, int mode, int ac_inde
 			sprdwl_free_msg_buf(pos_buf, pos_buf->msglist);
 		}
 
-		spin_unlock_bh(plock);
-
 		atomic_sub(atomic_read(&tx_msg->tx_list[mode]->q_list[ac_index].p_list[lut_index].l_num),
 					&tx_msg->tx_list[mode]->mode_list_num);
 		atomic_set(&tx_msg->tx_list[mode]->q_list[ac_index].p_list[lut_index].l_num, 0);
+		spin_unlock_bh(plock);
 	}
 }
 
@@ -1149,8 +1148,13 @@ static int sprdwl_tx_eachmode_data(struct sprdwl_intf *intf,
 				if (p_list_num[i][j] ==  0)
 					continue;
 				add_xmit_list_tail(tx_msg, p_list, p_list_num[i][j]);
-				atomic_sub(p_list_num[i][j], &p_list->l_num);
-				atomic_sub(p_list_num[i][j], &tx_list->mode_list_num);
+				spin_lock_bh(&p_list->p_lock);
+				if (atomic_read(&p_list->l_num)) {
+					atomic_sub(p_list_num[i][j], &p_list->l_num);
+					atomic_sub(p_list_num[i][j],
+						   &tx_list->mode_list_num);
+				}
+				spin_unlock_bh(&p_list->p_lock);
 				wl_debug("%s, %d, mode=%d, TID=%d, lut=%d, %d add to xmit_list, then l_num=%d, mode_list_num=%d\n",
 					 __func__, __LINE__, mode, i, j,
 					 p_list_num[i][j],
@@ -1216,8 +1220,12 @@ static int sprdwl_tx_eachmode_data(struct sprdwl_intf *intf,
 			add_xmit_list_tail(tx_msg,
 					   &q_list->p_list[j],
 					   min_num);
-			atomic_sub(min_num, &q_list->p_list[j].l_num);
-			atomic_sub(min_num, &tx_list->mode_list_num);
+			spin_lock_bh(&q_list->p_list[j].p_lock);
+			if (atomic_read(&q_list->p_list[j].l_num)) {
+				atomic_sub(min_num, &q_list->p_list[j].l_num);
+				atomic_sub(min_num, &tx_list->mode_list_num);
+			}
+			spin_unlock_bh(&q_list->p_list[j].p_lock);
 			wl_debug("%s, %d, mode=%d, TID=%d, lut=%d, %d add to xmit_list, then l_num=%d, mode_list_num=%d\n",
 				 __func__, __LINE__, mode, i, j,
 				 min_num,
