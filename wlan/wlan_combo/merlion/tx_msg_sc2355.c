@@ -1752,6 +1752,7 @@ int sprdwl_sc2355_reset(struct sprdwl_intf *intf)
 	struct sprdwl_tx_msg *tx_msg = NULL;
 	struct sprdwl_vif *vif, *tmp;
 	int i;
+	enum sprdwl_mode mode;
 
 	if (!intf) {
 		wl_err("%s can not get intf!\n", __func__);
@@ -1817,6 +1818,10 @@ int sprdwl_sc2355_reset(struct sprdwl_intf *intf)
 				vif->key_len[ciphyr_type][key_index] = 0;
 			}
 		}
+	}
+
+	for (mode = SPRDWL_MODE_STATION; mode < SPRDWL_MODE_MAX; mode++) {
+		priv->fw_stat[mode] = SPRDWL_INTF_CLOSE;
 	}
 
 	for (i = 0; i < 32; i++) {
