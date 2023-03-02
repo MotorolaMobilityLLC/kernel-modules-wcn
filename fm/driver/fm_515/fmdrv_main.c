@@ -97,7 +97,7 @@ static struct fm_rds_data *g_rds_data_string;
 unsigned global_freq = 8750;
 struct fm_rds_data rds_debug_data;
 #endif
-
+unsigned last_tune_freq = 8750;
 extern struct device *fm_miscdev;
 int SIPC = 0;
 int SDIO = 0;
@@ -478,7 +478,7 @@ static int fm_assert_reset(void){
     struct fm_tune_parm powerup_parm;
     powerup_parm.err = (unsigned char)0;
     powerup_parm.freq = 8750;
-    parm.freq = 8750;
+    parm.freq = last_tune_freq;
 
     dev_unisoc_fm_info(fm_miscdev,"start open SPRD fm module after assert reset\n");
 
@@ -491,7 +491,7 @@ static int fm_assert_reset(void){
         dev_unisoc_fm_info(fm_miscdev,"fm powerup success after assert reset\n");
         ret_tune = fm_write_cmd(FM_TUNE_CMD, &parm.freq, sizeof(parm.freq),NULL, NULL);
         if (ret_tune == 0){
-            dev_unisoc_fm_info(fm_miscdev,"fm tune success after assert reset\n");
+            dev_unisoc_fm_info(fm_miscdev,"fm tune success freq: %d after assert reset\n",parm.freq);
         } else {
             dev_unisoc_fm_info(fm_miscdev,"fm tune fail after assert reset\n");
         }
@@ -889,7 +889,7 @@ int fm_tune(void *arg){
         dev_unisoc_fm_info(fm_miscdev,"fm tune 's ret value is -eFAULT\n");
         return -EFAULT;
     }
-
+    last_tune_freq = parm.freq;
 #ifdef RDS_DEBUG
     global_freq = parm.freq;
 #endif
