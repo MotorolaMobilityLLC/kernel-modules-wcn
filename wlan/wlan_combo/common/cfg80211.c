@@ -1306,7 +1306,12 @@ int sprd_cfg80211_start_p2p_device(struct wiphy *wiphy,
 	if (ret)
 		return ret;
 
-	return sprd_init_fw(vif);
+	ret = sprd_init_fw(vif);
+	if (ret) {
+		netdev_err(vif->ndev, "%s failed! power_cnt revert\n", __func__);
+		atomic_sub(1, &hif->power_cnt);
+	}
+	return ret;
 }
 
 void sprd_cfg80211_stop_p2p_device(struct wiphy *wiphy,
