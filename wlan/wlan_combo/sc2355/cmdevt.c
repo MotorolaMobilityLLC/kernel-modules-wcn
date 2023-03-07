@@ -1132,8 +1132,10 @@ int sc2355_cmd_host_wakeup_fw(struct sprd_priv *priv, struct sprd_vif *vif)
 	struct tx_mgmt *tx_mgmt = (struct tx_mgmt *)hif->tx_mgmt;
 
 	msg = get_cmdbuf(priv, vif, sizeof(*p), CMD_POWER_SAVE);
-	if (!msg)
+	if (!msg) {
+		hif->fw_power_down = 1;
 		return -ENOMEM;
+	}
 
 	p = (struct cmd_power_save *)msg->data;
 	p->sub_type = SPRD_HOST_WAKEUP_FW;
@@ -1663,6 +1665,10 @@ int sc2355_open_fw(struct sprd_priv *priv, struct sprd_vif *vif, u8 *mac_addr)
 		wfa_cap = 0;
 	}
 
+	if (vif->mode == SPRD_MODE_STATION || vif->mode == SPRD_MODE_AP) {
+		priv->hif.fw_awake = 1;
+		priv->hif.fw_power_down = 0;
+	}
 	return send_cmd_recv_rsp(priv, msg, &vif->ctx_id, &rlen);
 }
 
