@@ -4046,6 +4046,7 @@ unsigned short sc2355_rx_evt_process(struct sprd_priv *priv, u8 *msg)
 		cmdevt_report_remain_on_channel_evt(vif, data, len);
 		break;
 	case EVT_NEW_STATION:
+		sc2355_work_host_wakeup_fw(vif);
 		cmdevt_report_new_station_evt(vif, data, len);
 		break;
 	case EVT_MGMT_FRAME:
