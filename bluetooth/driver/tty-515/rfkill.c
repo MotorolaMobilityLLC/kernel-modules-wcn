@@ -66,6 +66,11 @@ int rfkill_bluetooth_init(struct platform_device *pdev)
     }
     /* userspace cannot take exclusive control */
     rfkill_init_sw_state(bt_rfk, true);
+    if (!bt_rfk) {
+        dev_unisoc_bt_info(ttyBT_dev,
+                        "rfk is null!\n");
+        goto err_rfkill_reg;
+    }
     rc = rfkill_register(bt_rfk);
     if (rc)
         goto err_rfkill_reg;

@@ -1112,7 +1112,6 @@ static int mtty_sipc_parse_dt(struct mtty_init_data **init, struct device *dev)
     ret = of_property_read_string(np,
                         "sprd,name",
                         (const char **)&pdata->name);
-    pr_info("%s chenggong start!", (const char **)&pdata->name);
     if (ret) {
         goto error;
     }
