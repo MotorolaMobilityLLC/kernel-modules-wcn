@@ -1296,7 +1296,7 @@ static int vendor_get_cached_gscan_results(struct wiphy *wiphy,
 		if (!(vif->priv->gscan_res + i)->num_results)
 			continue;
 
-		for (j = 0; j <= (vif->priv->gscan_res + i)->num_results; j++) {
+		for (j = 0; j < (vif->priv->gscan_res + i)->num_results; j++) {
 			if (time_after(jiffies - VENDOR_SCAN_RESULT_EXPIRE,
 				       (unsigned long)
 				       (vif->priv->gscan_res +
