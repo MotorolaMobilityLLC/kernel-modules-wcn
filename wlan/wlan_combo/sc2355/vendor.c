@@ -3059,6 +3059,11 @@ static int vendor_set_sar_limits(struct wiphy *wiphy,
 	struct set_sar_limit_param *psar_param;
 	u32 sar_scence = 0;
 
+	if (!(priv->extend_feature & SPRD_CAPA_TX_POWER)) {
+		pr_info("%s, fw don't support 'Set sar limit function", __func__);
+		return -EOPNOTSUPP;
+	}
+
 	pr_info("%s enter:\n", __func__);
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0)
 	if (nla_parse(tb, ATTR_SAR_LIMITS_MAX, data, len, NULL, NULL)) {
