@@ -47,6 +47,8 @@
 #include <misc/marlin_platform.h>
 #include <linux/pm_wakeup.h>
 #include <linux/gpio.h>
+#include <linux/dma-direction.h>
+#include <linux/dma-mapping.h>
 
 #include "unisoc_fm_log.h"
 
@@ -93,14 +95,29 @@
 bool read_flag;
 struct fmdrv_ops *fmdev;
 static struct fm_rds_data *g_rds_data_string;
+extern struct platform_device *g_fm_pdev;
+
+unsigned last_tune_freq = 8750;
+
 #ifdef RDS_DEBUG
 unsigned global_freq = 8750;
 struct fm_rds_data rds_debug_data;
 #endif
-unsigned last_tune_freq = 8750;
+
+static struct device *dm_rx_t = NULL;
+unsigned long dm_rx_phy[FM_RX_MAX_NUM];
+unsigned char *(dm_rx_ptr[FM_RX_MAX_NUM]);
+
+struct dma_buf {
+	unsigned long vir;
+	unsigned long phy;
+	int size;
+};
+
 extern struct device *fm_miscdev;
 int SIPC = 0;
 int SDIO = 0;
+int PCIE = 0;
 
 /**************************for test*************************************/
 #ifdef FM_TEST
@@ -203,6 +220,86 @@ static int fm_sipc_send_cmd(unsigned char subcmd, void *payload, int payload_len
     }
     return 0;
 }
+
+//pcie
+static int fm_pcie_send_cmd(unsigned char subcmd, void *payload, int payload_len) {
+    int num = 1;
+    unsigned char *cmd_buf;
+    struct fm_cmd_hdr *cmd_hdr;
+    int size;
+
+    struct mbuf_t *tx_head = NULL;
+    struct mbuf_t *tx_tail = NULL;
+
+    size = sizeof(struct fm_cmd_hdr) + ((payload == NULL) ? 0 : payload_len);
+    cmd_buf = kmalloc(size + FM_PCIE_HEAD_LEN, GFP_KERNEL);
+	//cmd_buf = (unsigned char *)dma_alloc_coherent(dm, size + FM_PCIE_HEAD_LEN, (dma_addr_t *)(&(tx_head->phy)), GFP_DMA);
+    memset(cmd_buf, 0, size + FM_PCIE_HEAD_LEN);
+    if (!cmd_buf) {
+        pr_err("(fmdrv):%s():No memory to create new command buf\n", __func__);
+        return -ENOMEM;
+    }
+
+    /* Fill command information */
+    cmd_hdr = (struct fm_cmd_hdr *)(cmd_buf + FM_PCIE_HEAD_LEN);
+    cmd_hdr->header = 0x01;
+    /* cmd_hdr->cmd = 0xFC8C; */
+    cmd_hdr->opcode = hci_opcode_pack(HCI_GRP_VENDOR_SPECIFIC, FM_SPRD_OP_CODE);
+    cmd_hdr->len = ((payload == NULL) ? 0 : payload_len) + 1;
+    cmd_hdr->fm_subcmd = subcmd;
+
+    if (payload != NULL)
+        memcpy(cmd_buf + FM_PCIE_HEAD_LEN + sizeof(struct fm_cmd_hdr), payload, payload_len);
+
+    if (!sprdwcn_bus_list_alloc(FM_TX_CHANNEL, &tx_head, &tx_tail, &num)) {
+		int ret = 0;
+        struct device *dm = &g_fm_pdev->dev;
+		pr_err("%s() sprdwcn_bus_list_alloc() success dm %p tx_head %p tx_tail %p num %d\n", __func__, dm, tx_head, tx_tail, num);
+
+#if 1
+        if ((ret = dma_set_mask(dm, DMA_BIT_MASK(64)))) {
+            printk(KERN_ERR "dma_set_mask err ret %d\n", ret);
+            if ((ret = dma_set_coherent_mask(dm, DMA_BIT_MASK(64)))) {
+                printk(KERN_ERR "dma_set_coherent_mask err ret %d\n", ret);
+                return -ENOMEM;
+            }
+        }
+
+#elif 0
+        {
+            dm_t dm = {0};
+            ret = dmalloc(&dm, count);
+            pr_err("%s:line:%d dmalloc ret %d\n",__func__,__LINE__);
+            return -ENOMEM;
+        }
+#endif
+
+		tx_head->buf = (unsigned char *)dma_alloc_coherent(dm, size, (dma_addr_t *)(&(tx_head->phy)), GFP_DMA);
+		if(!tx_head->buf){
+			pr_err("%s:line:%d dma_alloc_coherent err dev %p size %d phy %p\n", __func__, __LINE__, &fmdev->pdev->dev, size, &(tx_head->phy));
+            return -ENOMEM;
+        }
+		//fmdev->tx_head->buf = cmd_buf;
+		memcpy(tx_head->buf, cmd_buf + FM_PCIE_HEAD_LEN, size);
+        tx_head->len = size;
+        tx_head->next = NULL;
+#ifdef FM_DUMP_DATA
+	dump_buf((unsigned char *)tx_head->buf, (unsigned char)(size + FM_PCIE_HEAD_LEN), __func__);
+#endif
+        if (sprdwcn_bus_push_list(FM_TX_CHANNEL, tx_head, tx_tail, num)) {
+            pr_err("fmdrv write cmd to sdiom fail, free buf\n");
+            dma_free_coherent(dm, size, (void *)tx_head->buf, tx_head->phy);
+
+            tx_head->buf = NULL;
+            sprdwcn_bus_list_free(FM_TX_CHANNEL, tx_head, tx_tail, num);
+        }
+    } else {
+        pr_err("%s:%d mchn_bus_list_alloc fail\n", __func__, __LINE__);
+    }
+    kfree(cmd_buf);
+    return 0;
+}
+
 static int fm_send_cmd(unsigned char subcmd, void *payload, int payload_len) {
     int num = 1;
     unsigned char *cmd_buf;
@@ -346,6 +443,48 @@ static int fm_sdio_write_cmd(unsigned char subcmd, void *payload,
     return 0;
 }
 
+static int fm_pcie_write_cmd(unsigned char subcmd, void *payload,
+                        unsigned char payload_len,  void *response,
+                        unsigned char *response_len) {
+    /*struct fm_event_hdr *fm_evt_head;*/
+    unsigned long timeleft;
+    int ret;
+
+    //wake_lock(&fm_wakelock);
+    /*marlin_set_sleep(MARLIN_FM, 0);
+    if (marlin_set_wakeup(MARLIN_FM) != 0) {
+        pr_err("AP wake up marlin3 %s failed\n", __func__);
+        return -EFAULT;
+    }*/
+    mutex_lock(&fmdev->mutex);
+    ret = fm_pcie_send_cmd(subcmd, payload, payload_len);
+    if (ret < 0) {
+        /*marlin_set_sleep(MARLIN_FM, 1);*/
+        //wake_unlock(&fm_wakelock);
+        return ret;
+    }
+
+    timeleft = wait_for_completion_timeout(&fmdev->commontask_completion, FM_DRV_TX_TIMEOUT);
+    if (!timeleft) {
+        pr_err(timeoutformat"\n", __func__, jiffies_to_msecs(FM_DRV_TX_TIMEOUT) / 1000, subcmd);
+        /*marlin_set_sleep(MARLIN_FM, 1);*/
+        //wake_unlock(&fm_wakelock);
+        mutex_unlock(&fmdev->mutex);
+        return -ETIMEDOUT;
+    }
+    mutex_unlock(&fmdev->mutex);
+    pr_debug("fmdrv wait command have complete\n");
+    /* 0:len; XX XX XX sttaus*/
+    if ((fmdev->com_respbuf[4]) != 0) {
+        pr_err("(fmdrv) %s(): Response status not success for 0x%02X\n", __func__, subcmd);
+        return -EFAULT;
+    }
+    pr_info("(fmdrv) %s(): Response status success for 0x%02X: %d\n", __func__, subcmd, fmdev->com_respbuf[4]);
+    /*the event : 04 0e len 01 8C  fc  00(status) rssi snr freq .p->len*/
+    if (response != NULL && response_len != NULL)
+        memcpy(response, &(fmdev->com_respbuf[5]), fmdev->com_respbuf[0]-4);
+    return 0;
+}
 
 
 static int fm_write_cmd(unsigned char subcmd, void *payload,
@@ -356,9 +495,11 @@ static int fm_write_cmd(unsigned char subcmd, void *payload,
         return fm_sipc_write_cmd(subcmd,payload,payload_len, response, response_len);
     } else if (SDIO) {
         dev_unisoc_fm_info(fm_miscdev,"(fmdrv)  start sdio: %d\n",SDIO);
-
         return  fm_sdio_write_cmd(subcmd,payload,payload_len, response,response_len);
-    } else {
+    } else if (PCIE) {
+        dev_unisoc_fm_info(fm_miscdev,"(fmdrv)  start pcie: %d\n",PCIE);
+        return  fm_pcie_write_cmd(subcmd,payload,payload_len, response,response_len);
+    }else {
         dev_unisoc_fm_info(fm_miscdev,"(fmdrv)  start failed: \n");
         return -EFAULT;
     }
@@ -428,6 +569,15 @@ static void receive_tasklet(unsigned long arg){
             return;
         }
         receive_buf = head->buf + FM_SDIO_HEAD_LEN;
+        } else if (PCIE) {
+            sdio_hdr = kmalloc(sizeof(struct fm_sdio_hdr), GFP_ATOMIC);
+        if (!sdio_hdr){
+            pr_err("fm sdio_hdr kmalloc fail\n");
+            return;
+        }
+        parse_pcie_header(head, tail, num, sdio_hdr);
+
+        receive_buf = head->buf + FM_PCIE_HEAD_LEN;
         } else if (SIPC) {
             sipc_hdr = kmalloc(sizeof(struct fm_sipc_hdr), GFP_ATOMIC);
             if (!sipc_hdr) {
@@ -455,7 +605,7 @@ static void receive_tasklet(unsigned long arg){
         }
         sprdwcn_bus_push_list(channel, head, tail, num);
     }
-        if(SDIO)
+        if(SDIO | PCIE)
         {
             kfree(sdio_hdr);
             sdio_hdr = NULL;
@@ -491,7 +641,7 @@ static int fm_assert_reset(void){
         dev_unisoc_fm_info(fm_miscdev,"fm powerup success after assert reset\n");
         ret_tune = fm_write_cmd(FM_TUNE_CMD, &parm.freq, sizeof(parm.freq),NULL, NULL);
         if (ret_tune == 0){
-            dev_unisoc_fm_info(fm_miscdev,"fm tune success freq: %d after assert reset\n",parm.freq);
+            dev_unisoc_fm_info(fm_miscdev,"fm tune freq: %d success after assert reset\n",parm.freq);
         } else {
             dev_unisoc_fm_info(fm_miscdev,"fm tune fail after assert reset\n");
         }
@@ -568,6 +718,14 @@ int parse_sdio_header(struct mbuf_t *head,struct mbuf_t *tail, int num, struct f
     hdr->subtype = head->buf[3];
     dev_unisoc_fm_info(fm_miscdev,"%s length: %d, type: %d, subtype: %d", __func__, hdr->length, hdr->type, hdr->subtype);
     dump_buf((unsigned char *)head->buf, (hdr->length)+4, __func__);
+    return 0;
+}
+
+int parse_pcie_header(struct mbuf_t *head,struct mbuf_t *tail, int num, struct fm_sdio_hdr *hdr)
+{
+    hdr->length = head->buf[2];
+    pr_info("%s xp length: %d", __func__, hdr->length);
+    dump_buf((unsigned char *)head->buf, (hdr->length)+3, __func__);
     return 0;
 }
 
@@ -736,6 +894,139 @@ int fm_tx_cback(int channel, struct mbuf_t *head,struct mbuf_t *tail, int num){
 }
 EXPORT_SYMBOL_GPL(fm_tx_cback);
 
+//pcie-tx-rx-cb
+int fm_pcie_rx_cback(int chn, struct mbuf_t *head, struct mbuf_t *tail, int num)
+{
+    //wake_lock_timeout(&fm_wakelock, HZ*1);
+    pr_info("%s: channel:%d head:%p tail:%p num:%d\n",__func__, chn, head, tail, num);
+
+    if (fmdev != NULL) {
+        struct fm_rx_data *rx = kmalloc(sizeof(struct fm_rx_data), GFP_ATOMIC);
+        if (!rx) {
+            pr_err("(fmdrv): %s(): No memory to create fm rx buf\n", __func__);
+            sprdwcn_bus_list_free(chn, head, tail, num);
+            return -ENOMEM;
+        }
+        rx->head = head;
+        rx->tail = tail;
+        rx->channel = chn;
+        rx->num = num;
+        spin_lock_bh(&fmdev->rw_lock);
+        list_add_tail(&rx->entry, &fmdev->rx_head);
+        spin_unlock_bh(&fmdev->rw_lock);
+
+        pr_debug("(fmdrv) %s(): tasklet_schedule start\n", __func__);
+        tasklet_schedule(&fmdev->rx_task);
+    }
+    return 0;
+}
+EXPORT_SYMBOL_GPL(fm_pcie_rx_cback);
+
+int fm_pcie_tx_cback(int channel, struct mbuf_t *head, struct mbuf_t *tail, int num)
+{
+    int i;
+    struct mbuf_t *pos = NULL;
+    pr_info("%s channel: %d, head: %p, tail: %p num: %d\n", __func__, channel, head, tail, num);
+
+    pos = head;
+    for (i = 0; i < num; i++, pos = pos->next) {
+        //kfree(pos->buf);
+		struct device *dm = &g_fm_pdev->dev;
+		pr_info("%s dm %p buf %p phy %ld\n", __func__, dm, pos->buf, head->phy);
+		dma_free_coherent(dm, pos->len, (void *)pos->buf, head->phy);
+        pos->buf = NULL;
+    }
+    sprdwcn_bus_list_free(channel, head, tail, num);
+    return 0;
+}
+EXPORT_SYMBOL_GPL(fm_pcie_tx_cback);
+
+static int rx_push(int chn, struct mbuf_t **head, struct mbuf_t **tail, int *num) {
+    pr_err("%s no buf, rx_push called \n", __func__);
+    return 0;
+}
+
+int fm_dmalloc(struct device *priv, struct dma_buf *dm, int size)
+{
+	struct device *dev = priv;
+
+	if (!dev) {
+		pr_err("%s(NULL)\n", __func__);
+		return -1;
+	}
+
+	if (dma_set_mask(dev, DMA_BIT_MASK(64))) {
+		pr_info("dma_set_mask err\n");
+		if (dma_set_coherent_mask(dev, DMA_BIT_MASK(64))) {
+			pr_err("dma_set_coherent_mask err\n");
+			return -1;
+		}
+	}
+
+	dm->vir =(unsigned long)dma_alloc_coherent(dev, size,
+					      (dma_addr_t *)(&(dm->phy)),
+					      GFP_DMA);
+	if (dm->vir == 0) {
+		pr_err("dma_alloc_coherent err\n");
+		return -1;
+	}
+	dm->size = size;
+	memset((unsigned char *)(dm->vir), 0x56, size);
+	pr_info("dma_alloc_coherent(%d) 0x%lx 0x%lx\n",
+		  size, dm->vir, dm->phy);
+
+	return 0;
+}
+
+int fm_dma_buf_alloc(int chn, int size, int num)
+{
+	int ret, i;
+	struct dma_buf temp = {0};
+	struct mbuf_t *mbuf, *head, *tail;
+	dm_rx_t = &g_fm_pdev ->dev;
+
+	if (!dm_rx_t) {
+		pr_err("%s:PCIE device link error\n", __func__);
+		return -1;
+	}
+	ret = sprdwcn_bus_list_alloc(chn, &head, &tail, &num);
+	if (ret != 0)
+		return -1;
+	for (i = 0, mbuf = head; i < num; i++) {
+		ret = fm_dmalloc(dm_rx_t, &temp, size);
+		if (ret != 0)
+			return -1;
+		mbuf->buf = (unsigned char *)(temp.vir);
+        dm_rx_ptr[i] = mbuf->buf;
+		mbuf->phy = (unsigned long)(temp.phy);
+        dm_rx_phy[i] = mbuf->phy;
+		mbuf->len = temp.size;
+		memset(mbuf->buf, 0x0, mbuf->len);
+		mbuf = mbuf->next;
+	}
+
+	ret = sprdwcn_bus_push_list(chn, head, tail, num);
+
+	return ret;
+}
+
+int fm_dma_buf_free(int num) {
+    int loop_count = 0;
+    for (; loop_count < num; loop_count++) {
+        if(!dm_rx_t) {
+            pr_err("%s: dm_rx_t or is dm_rx_ptr NULL \n", __func__);
+        } else {
+            dma_free_coherent(dm_rx_t, FM_RX_DMA_SIZE , (void *)dm_rx_ptr[loop_count], dm_rx_phy[loop_count]);
+            pr_err("%s: free  dm_rx_ptr[%d] success \n", __func__, loop_count);
+            dm_rx_ptr[loop_count] = NULL;
+        }
+    }
+    return 0;
+}
+
+
+
+
 //chinaycheng
 #if 0
 int fm_write(unsigned char *array, unsigned char len)
@@ -785,8 +1076,7 @@ int fm_powerup(struct fm_tune_parm *p) {
     fmdev-> power_status = 0;
     fmdev-> power_status ++;
     fmdev-> fm_pd = 0;
-    
-        //
+
 
     if (start_marlin(MARLIN_FM)) {
         dev_unisoc_fm_err(fm_miscdev,"marlin3 chip %s failed\n", __func__);
@@ -889,10 +1179,11 @@ int fm_tune(void *arg){
         dev_unisoc_fm_info(fm_miscdev,"fm tune 's ret value is -eFAULT\n");
         return -EFAULT;
     }
-    last_tune_freq = parm.freq;
+
 #ifdef RDS_DEBUG
     global_freq = parm.freq;
 #endif
+    last_tune_freq = parm.freq;
     dev_unisoc_fm_info(fm_miscdev,"fm ioctl tune 50k/100k freq = %d\n", parm.freq);
     ret = fm_write_cmd(FM_TUNE_CMD, &parm.freq, sizeof(parm.freq), respond_buf, &respond_len);
     if (ret < 0) {
@@ -1608,6 +1899,26 @@ struct mchn_ops_t fm_sdio_rx_ops = {
     .pool_size = FM_SDIO_RX_POOL_SIZE,
     .pop_link = fm_rx_cback,
 };
+
+struct mchn_ops_t fm_pcie_tx_ops = {
+    .channel = FM_PCIE_TX_CHANNEL,
+    .hif_type = HW_TYPE_PCIE,
+    .inout = FM_TX_INOUT,
+    .pool_size = FM_PCIE_TX_POOL_SIZE,
+	.cb_in_irq = 0,
+    .max_pending = 1,
+    .pop_link = fm_pcie_tx_cback,
+};
+
+struct mchn_ops_t fm_pcie_rx_ops = {
+    .channel = FM_PCIE_RX_CHANNEL,
+    .hif_type = HW_TYPE_PCIE,
+    .inout = FM_RX_INOUT,
+    .pool_size = FM_PCIE_RX_POOL_SIZE,
+    .pop_link = fm_pcie_rx_cback,
+	.push_link = rx_push,
+};
+
 
 int __init init_fm_driver(void) {
     int ret = 0;

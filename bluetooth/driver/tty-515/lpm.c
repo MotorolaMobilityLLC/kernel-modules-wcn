@@ -32,16 +32,23 @@ static struct wakeup_source *rx_wakelock;
 
 extern struct device *ttyBT_dev;
 
+extern  int  SIPC;
+extern  int  SIPC2;
+extern  int  SDIO;
+extern  int  PCIE;
+
 void host_wakeup_bt(void)
 {
     __pm_stay_awake(tx_wakelock);
+    if (SIPC || SIPC2) {
     marlin_set_sleep(MARLIN_BLUETOOTH, FALSE);
     marlin_set_wakeup(MARLIN_BLUETOOTH);
+    }
 }
 
 void bt_wakeup_host(void)
 {
-    long timeout = 1 * HZ;
+    long timeout = 5 * HZ;
     __pm_relax(tx_wakelock);
     __pm_wakeup_event(rx_wakelock, jiffies_to_msecs(timeout));
 }
@@ -61,6 +68,7 @@ static ssize_t bluesleep_write_proc_btwrite(struct file *file,
     if (b == '1')
         host_wakeup_bt();
     else if (b == '2') {
+        if (SDIO | PCIE)
         marlin_set_sleep(MARLIN_BLUETOOTH, TRUE);
         __pm_relax(tx_wakelock);
     } else

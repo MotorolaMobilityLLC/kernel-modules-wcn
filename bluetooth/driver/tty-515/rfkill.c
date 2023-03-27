@@ -27,6 +27,14 @@
 static struct rfkill *bt_rfk;
 static const char bt_name[] = "bluetooth";
 extern struct device *ttyBT_dev;
+extern  int  PCIE;
+extern  int  SIPC;
+extern  int  SIPC2;
+extern  int  SDIO;
+
+int set_power_ret = 0;
+
+
 
 static int bluetooth_set_power(void *data, bool blocked)
 {
@@ -65,16 +73,18 @@ int rfkill_bluetooth_init(struct platform_device *pdev)
         goto err_rfkill_alloc;
     }
     /* userspace cannot take exclusive control */
-    rfkill_init_sw_state(bt_rfk, true);
-    if (!bt_rfk) {
-        dev_unisoc_bt_info(ttyBT_dev,
-                        "rfk is null!\n");
-        goto err_rfkill_reg;
+    if (PCIE || SDIO)
+    {
+        rfkill_init_sw_state(bt_rfk, true);
+    } else {
+        rfkill_init_sw_state(bt_rfk, false);
     }
+    //bug 2163182:rfkill->tiager_led->name judge
     rc = rfkill_register(bt_rfk);
     if (rc)
+    {
         goto err_rfkill_reg;
-
+    }
     dev_unisoc_bt_info(ttyBT_dev,
                         "<--%s\n",
                         __func__);

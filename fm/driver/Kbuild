@@ -15,7 +15,7 @@ else ifeq ($(strip $(BSP_BOARD_UNISOC_WCN_SOCKET)),sdio)
 else ifeq ($(strip $(BSP_BOARD_UNISOC_WCN_SOCKET)),sipc)
     FM_DEVICE := fm_$(strip $(BSP_BOARD_UNISOC_WCN_SOCKET))
 else ifeq ($(strip $(BSP_BOARD_UNISOC_WCN_SOCKET)),pcie)
-    FM_DEVICE := fm_$(strip $(BSP_BOARD_UNISOC_WCN_SOCKET))
+    FM_DEVICE := fm_515
 else
     $(error no BSP_BOARD_UNISOC_WCN_SOCKET, pls fix it !!!)
 endif

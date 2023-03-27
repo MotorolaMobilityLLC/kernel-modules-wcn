@@ -16,7 +16,7 @@ else ifeq ($(strip $(BSP_BOARD_UNISOC_WCN_SOCKET)),sdio)
 else ifeq ($(strip $(BSP_BOARD_UNISOC_WCN_SOCKET)),sipc)
     TTY_DEVICE := tty-515
 else ifeq ($(strip $(BSP_BOARD_UNISOC_WCN_SOCKET)),pcie)
-    TTY_DEVICE := tty-pcie
+    TTY_DEVICE := tty-515
 else
     $(error no BSP_BOARD_UNISOC_WCN_SOCKET, pls fix it !!!)
 endif

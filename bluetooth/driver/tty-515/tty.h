@@ -14,7 +14,7 @@
 #ifndef __MTTY_H
 #define __MTTY_H
 #include <misc/wcn_bus.h>
-
+#include <misc/mchn.h>
 
 //sipc
 #define SPRD_BT_DST         3
@@ -62,13 +62,21 @@ struct mtty_match_data {
 
 #define MTTY_DEV_MAX_NR     1
 #define BT_TX_CHANNEL    3
-//#define BT_TX_CHANNEL1    4
 #define BT_RX_CHANNEL     17
 #define BT_TX_INOUT    1
 #define BT_RX_INOUT     0
 #define BT_TX_POOL_SIZE   64  // the max buffer is 64
 #define BT_RX_POOL_SIZE   1
 #define BT_SDIO_HEAD_LEN   4
+
+#define BT_PCIE_TX_CHANNEL0    1
+#define BT_PCIE_TX_CHANNEL1    4
+#define BT_PCIE_RX_CHANNEL     2
+#define BT_PCIE_TX_POOL_SIZE0   64  // the max buffer is 64
+#define BT_PCIE_TX_POOL_SIZE1   64
+#define BT_PCIE_SDIO_HEAD_LEN   0
+#define BT_PCIE_RX_MAX_NUM 4
+#define BT_PCIE_RX_DMA_SIZE 2048
 
 #define BT_SIPC_TX_CHANNEL    8
 #define BT_SIPC_RX_CHANNEL    9

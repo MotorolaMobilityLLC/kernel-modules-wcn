@@ -133,5 +133,6 @@ struct fm_sipc_hdr {
 	unsigned int subtype;
 } __packed;
 int parse_sdio_header(struct mbuf_t *head, struct mbuf_t *tail, int num, struct fm_sdio_hdr *hdr);
+int parse_pcie_header(struct mbuf_t *head, struct mbuf_t *tail, int num, struct fm_sdio_hdr *hdr);
 
 #endif

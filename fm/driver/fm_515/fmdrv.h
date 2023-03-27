@@ -46,6 +46,14 @@
 #define FM_SIPC_TX_POOL_SIZE   5
 #define FM_SIPC_RX_POOL_SIZE   5
 #define FM_SIPC_HEAD_LEN   0
+/*pcie                        */
+#define FM_PCIE_TX_CHANNEL    6
+#define FM_PCIE_RX_CHANNEL    8
+#define FM_PCIE_TX_POOL_SIZE   5
+#define FM_PCIE_RX_POOL_SIZE   1
+#define FM_PCIE_HEAD_LEN   0
+#define FM_RX_MAX_NUM      4
+#define FM_RX_DMA_SIZE     2048
 
 /* 1: enable RDS, 0:disable RDS */
 #define FM_RDS_ENABLE 0x01
@@ -528,37 +536,7 @@ struct fm_rds_handle {
 	/* get RT count */
 	unsigned short get_rt_cnt;
 };
-/*
-struct fmdrv_ops {
-    struct completion	completed;
-    unsigned int		rcv_len;
-    void			*read_buf;
-    struct mbuf_t                  *tx_head;
-    struct mbuf_t                  *tx_tail;
-    //void                    *com_response;
-    //void                    *seek_response;
-    unsigned int		tx_len;
-    //unsigned char		write_buf[FM_WRITE_SIZE];
-    unsigned char		com_respbuf[12];
-    unsigned char		seek_respbuf[12];
-    struct tasklet_struct rx_task;
-    //struct tasklet_struct tx_task;
-    struct fm_rds_data rds_data;
-    spinlock_t		rw_lock;
-    struct mutex		mutex;
-    struct list_head	rx_head;
-    struct completion commontask_completion;
-    struct completion seektask_completion;
-    //struct completion *response_completion;
-    struct fm_rds_handle rds_han;
-    // fm power state 
-    uint8_t power_status;
-    uint8_t fm_pd;
-    int8_t  fm_invalid;
-    bool short_ana;
-    int switch_ana_innner_gpio;
-};
-*/
+
 
 struct fmdrv_ops {
     struct completion   completed;
