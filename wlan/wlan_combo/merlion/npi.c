@@ -26,6 +26,7 @@
 
 #include "sprdwl.h"
 #include "npi.h"
+#include "cmdevt.h"
 
 static int sprdwl_nl_send_generic(struct genl_info *info, u8 attr, u8 cmd,
 				  u32 len, u8 *data);
@@ -65,10 +66,11 @@ static int sprdwl_npi_pre_doit(const struct genl_ops *ops,
 static void sprdwl_npi_post_doit(const struct genl_ops *ops,
 				 struct sk_buff *skb, struct genl_info *info)
 {
+
 	if (info->user_ptr[0])
 		dev_put(info->user_ptr[0]);
 }
-
+extern struct set_5g_sar_info g_set_5g_sar_info;
 static int sprdwl_nl_npi_handler(struct sk_buff *skb_2, struct genl_info *info)
 {
 	struct net_device *ndev = NULL;
@@ -76,9 +78,10 @@ static int sprdwl_nl_npi_handler(struct sk_buff *skb_2, struct genl_info *info)
 	struct sprdwl_priv *priv = NULL;
 	struct sprdwl_npi_cmd_hdr *hdr = NULL;
 	unsigned short r_len = 1024, s_len;
-	unsigned char *s_buf = NULL, *r_buf = NULL, *rand_mac = NULL;
+	unsigned char *s_buf = NULL, *r_buf = NULL, *rand_mac = NULL, *value = NULL;
 	unsigned char dbgstr[64] = { 0 };
 	int err = -100, ret = 0;
+	u8 sar_value;
 
 	ndev = info->user_ptr[0];
 	vif = netdev_priv(ndev);
@@ -116,6 +119,22 @@ static int sprdwl_nl_npi_handler(struct sk_buff *skb_2, struct genl_info *info)
 		r_len = sizeof(*hdr) + hdr->len;
 		memcpy(r_buf, hdr, sizeof(*hdr));
 		memcpy(r_buf + sizeof(*hdr), &ret, hdr->len);
+	} else if (hdr->subtype == SPRDWL_NPI_CMD_5GPW_BACKOFF) {
+		value = s_buf + sizeof(struct sprdwl_npi_cmd_hdr);
+		if (*value == 127) {
+			sprdwl_5g_sar_info_set(NULL);
+			sprdwl_set_sar(vif->priv, vif, SPRDWL_SET_SAR_RELATIVE, 127);
+		} else {
+			sprdwl_5g_sar_info_set(value);
+			sar_value = sprdwl_pw_backoff_band2value(g_set_5g_sar_info.channel);
+			if (sar_value)
+				sprdwl_set_sar(vif->priv, vif, SPRDWL_SET_SAR_RELATIVE, sar_value);
+		}
+		hdr->len = sizeof(int);
+		hdr->type = SPRDWL_CP2HT_REPLY;
+		r_len = sizeof(*hdr) + hdr->len;
+                memcpy(r_buf, hdr, sizeof(*hdr));
+                memcpy(r_buf + sizeof(*hdr), &ret, hdr->len);
 	} else {
 		sprdwl_npi_send_recv(priv, vif->ctx_id, s_buf, s_len, r_buf, &r_len);
 		sprintf(dbgstr, "[iwnpi][RECV][%d]:", r_len);

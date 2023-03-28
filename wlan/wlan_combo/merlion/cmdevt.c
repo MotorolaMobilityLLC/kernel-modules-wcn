@@ -40,6 +40,8 @@
 #endif
 
 struct sprdwl_cmd g_sprdwl_cmd;
+struct set_5g_sar_info g_set_5g_sar_info;
+
 
 const uint16_t CRC_table[] = {
 	0x0000, 0xCC01, 0xD801, 0x1400, 0xF001, 0x3C00,
@@ -3593,6 +3595,91 @@ int sprdwl_event_acs_lte_event(struct sprdwl_vif *vif)
 {
 	return sprdwl_report_acs_lte_event(vif);
 }
+u8 sprdwl_pw_backoff_band2value(u8 channel)
+{
+        u8 value = 0;
+	if (!channel)
+		return value;
+	mutex_lock(&g_set_5g_sar_info.lock);
+	g_set_5g_sar_info.channel = channel;
+	switch(channel) {
+		case 30 ... 50:
+			value = g_set_5g_sar_info.value[0];
+			break;
+		case 51 ... 70:
+			value = g_set_5g_sar_info.value[1];
+			break;
+		case 71 ... 145:
+			value = g_set_5g_sar_info.value[2];
+			break;
+		case 146 ... 170:
+			value = g_set_5g_sar_info.value[3];
+			break;
+		default:
+			value = g_set_5g_sar_info.value[4];
+			break;
+	}
+	mutex_unlock(&g_set_5g_sar_info.lock);
+	return value;
+
+}
+
+void sprdwl_5g_sar_info_init(void)
+{
+	mutex_init(&g_set_5g_sar_info.lock);
+	g_set_5g_sar_info.channel = 0;
+	memset(g_set_5g_sar_info.value, 0x00, 5);
+}
+
+void sprdwl_5g_sar_info_reset(void)
+{
+	mutex_lock(&g_set_5g_sar_info.lock);
+	g_set_5g_sar_info.channel = 0;
+	mutex_unlock(&g_set_5g_sar_info.lock);
+}
+void sprdwl_5g_sar_info_set(unsigned char *data)
+{
+	mutex_lock(&g_set_5g_sar_info.lock);
+	if (data == NULL)
+		memset(g_set_5g_sar_info.value, 0x00, 5);
+	else
+		memcpy(g_set_5g_sar_info.value, data, 5);
+	wl_info("%s band sar: %d, %d, %d, %d\n", __func__,
+                        g_set_5g_sar_info.value[0],
+                        g_set_5g_sar_info.value[1],
+                        g_set_5g_sar_info.value[2],
+                        g_set_5g_sar_info.value[3],
+			g_set_5g_sar_info.value[4]);
+
+	mutex_unlock(&g_set_5g_sar_info.lock);
+}
+int sprdwl_event_pw_5gband_backoff(struct sprdwl_vif *vif, u8 *data, u16 len)
+{
+	struct sprdwl_work *misc_work;
+	u8 channel, value;
+
+	if (!len) {
+		netdev_err(vif->ndev, "%s event data len=0\n", __func__);
+		return -EINVAL;
+	}
+
+	channel = *data;
+	value = sprdwl_pw_backoff_band2value(channel);
+
+	if (!value)
+		return -1;
+	misc_work = sprdwl_alloc_work(1);
+        if (!misc_work) {
+                wl_err("%s out of memory\n", __func__);
+                return -1;
+        }
+	misc_work->vif = vif;
+	misc_work->id = SPRDWL_WORK_5G_PW_BACKOFF;
+	memcpy(misc_work->data, &value, 1);
+	wl_info("%s channel %d, vlaue  %d\n", __func__, channel, value);
+	sprdwl_queue_work(vif->priv, misc_work);
+	return 0;
+}
 
 static int sprdwl_event_pw_backoff(struct sprdwl_vif *vif, u8 *data, u16 len)
 {
@@ -3834,6 +3921,7 @@ unsigned short sprdwl_rx_event_process(struct sprdwl_priv *priv, u8 *msg)
 		sprdwl_event_acs_lte_event(vif);
 		break;
 	case WIFI_EVENT_FRESH_POWER_BO:
+		sprdwl_event_pw_5gband_backoff(vif, data, len);
 		sprdwl_event_pw_backoff(vif, data, len);
 		break;
 	default:

@@ -1849,6 +1849,7 @@ int sprdwl_core_init(struct device *dev, struct sprdwl_priv *priv)
 	sprdwl_init_npi();
 
 	sprdwl_fcc_init();
+	sprdwl_5g_sar_info_init();
 
 	trace_info_init();
 

@@ -1070,6 +1070,7 @@ static int sprdwl_cfg80211_stop_ap(struct wiphy *wiphy, struct net_device *ndev)
 #endif
 
 	sprdwl_fcc_reset_bo();
+	sprdwl_5g_sar_info_reset();
 
 	return 0;
 }
@@ -2610,6 +2611,8 @@ void sprdwl_report_disconnection(struct sprdwl_vif *vif, u16 reason_code)
 	lut_index = sprdwl_find_lut_index(intf, vif);
 	sprdwl_defrag_recover(&(rx_if->defrag_entry), lut_index);
 	sprdwl_fcc_reset_bo();
+	sprdwl_5g_sar_info_reset();
+
 
 	vif->sm_state = SPRDWL_DISCONNECTED;
 

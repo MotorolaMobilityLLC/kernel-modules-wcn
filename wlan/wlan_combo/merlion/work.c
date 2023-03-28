@@ -64,6 +64,7 @@ static void sprdwl_do_work(struct work_struct *work)
 	struct sprdwl_vif *vif;
 	struct sprdwl_priv *priv = container_of(work, struct sprdwl_priv, work);
 	unsigned char *data = NULL;
+	u8 value;
 
 	while (1) {
 		sprdwl_work = sprdwl_get_work(priv);
@@ -181,6 +182,10 @@ static void sprdwl_do_work(struct work_struct *work)
 				   npi_info->s_len, NULL, NULL);
 			break;
 #endif
+		case SPRDWL_WORK_5G_PW_BACKOFF:
+			value = *(sprdwl_work->data);
+			sprdwl_set_sar(vif->priv, vif, SPRDWL_SET_SAR_RELATIVE, value);
+			break;
 		default:
 			netdev_dbg(vif->ndev, "Unknown delayed work: %d\n",
 				   sprdwl_work->id);

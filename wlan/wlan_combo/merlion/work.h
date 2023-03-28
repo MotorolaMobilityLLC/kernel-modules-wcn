@@ -58,6 +58,7 @@ struct sprdwl_work {
 #ifdef WMMAC_WFA_CERTIFICATION
 #define SPRDWL_NPI_SEND_RECEIVE 24
 #endif
+#define SPRDWL_WORK_5G_PW_BACKOFF 25
 
 	u8 id;
 	u32 len;

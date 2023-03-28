@@ -32,6 +32,7 @@
 #define SPRDWL_NPI_CMD_SET_RTS_THRESHOLD   52
 #define SPRDWL_NPI_CMD_SET_RANDOM_MAC 199
 #define SPRDWL_NPI_CMD_SET_COUNTRY			200
+#define SPRDWL_NPI_CMD_5GPW_BACKOFF                     201
 
 /* enable: 0x0
  * disable: 0x1

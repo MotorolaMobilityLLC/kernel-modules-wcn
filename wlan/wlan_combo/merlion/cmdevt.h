@@ -694,7 +694,11 @@ struct sprdwl_cmd_11v {
 		u8 buf[0];
 	};
 } __packed;
-
+struct set_5g_sar_info {
+	struct mutex lock;
+	u8 channel;
+	u8 value[5];
+};
 struct sprdwl_event_suspend_resume {
 	u32 status;
 } __packed;
@@ -1240,4 +1244,8 @@ int sprdwl_send_data2cmd(struct sprdwl_priv *priv, u8 vif_ctx_id,
 		void *data, u16 len);
 
 void mdbg_assert_interface(char *str);
+void sprdwl_5g_sar_info_init(void);
+void sprdwl_5g_sar_info_reset(void);
+void sprdwl_5g_sar_info_set(unsigned char *data);
+u8 sprdwl_pw_backoff_band2value(u8 channel);
 #endif
