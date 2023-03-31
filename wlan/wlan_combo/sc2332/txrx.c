@@ -385,8 +385,10 @@ int sc2332_send_data(struct sprd_vif *vif, struct sprd_msg *msg,
 	struct sprd_data_hdr *hdr;
 
 	if (is_wapi(vif, skb->data)) {
-		if (sc2332_rebuild_wapi_skb(vif, &skb))
+		if (sc2332_rebuild_wapi_skb(vif, &skb)) {
+			sprd_free_msg(msg, msg->msglist);
 			return -ENOMEM;
+		}
 		type = SPRD_DATA_TYPE_WAPI;
 		flag = false;
 		pr_debug("%s TX data : SPRD_DATA_TYPE_WAPI\n", __func__);

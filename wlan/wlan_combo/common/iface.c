@@ -658,7 +658,6 @@ static netdev_tx_t iface_start_xmit(struct sk_buff *skb, struct net_device *ndev
 		 * wapi temp drop
 		 */
 		dev_kfree_skb(skb);
-		sprd_chip_free_msg(&vif->priv->chip, msg);
 		return NETDEV_TX_OK;
 	}
 

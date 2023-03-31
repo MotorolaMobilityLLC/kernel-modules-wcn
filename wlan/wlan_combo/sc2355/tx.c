@@ -2322,11 +2322,15 @@ int sc2355_send_data(struct sprd_vif *vif, struct sprd_msg *msg,
 	buf = skb->data;
 
 	if (hif->hw_type == SPRD_HW_SC2355_PCIE) {
-		if (sc2355_pcie_hif_fill_msdu_dscr(vif, skb, SPRD_TYPE_DATA, offset))
+		if (sc2355_pcie_hif_fill_msdu_dscr(vif, skb, SPRD_TYPE_DATA, offset)) {
+			sprd_free_msg(msg, msg->msglist);
 			return -EPERM;
+		}
 	} else {
-		if (sc2355_hif_fill_msdu_dscr(vif, skb, SPRD_TYPE_DATA, offset))
+		if (sc2355_hif_fill_msdu_dscr(vif, skb, SPRD_TYPE_DATA, offset)) {
+			sprd_free_msg(msg, msg->msglist);
 			return -EPERM;
+		}
 	}
 
 	sprd_fill_msg(msg, skb, skb->data, skb->len);
