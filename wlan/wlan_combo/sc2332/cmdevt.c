@@ -1917,13 +1917,13 @@ int sc2332_set_sniffer(struct net_device *ndev, struct ifreq *ifr)
 		return -EFAULT;
 
 	/* add length check to avoid invalid NULL ptr */
-	if (priv_cmd.total_len <= 0) {
+	if (priv_cmd.total_len <= 0 || priv_cmd.total_len > 4096) {
 		netdev_err(ndev, "%s: priv cmd total len is invalid\n",
 			   __func__);
 		return -EINVAL;
 	}
 
-	command = kmalloc(priv_cmd.total_len, GFP_KERNEL);
+	command = kzalloc(priv_cmd.total_len + 4, GFP_KERNEL);
 	if (!command)
 		return -ENOMEM;
 	if (copy_from_user(command, priv_cmd.buf, priv_cmd.total_len)) {
