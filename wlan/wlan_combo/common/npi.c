@@ -149,7 +149,7 @@ static int npi_nl_handler(struct sk_buff *skb_2, struct genl_info *info)
 			disable wifi adaptive: set_cca_param 3 0
 		*/
 		if (cca_param[0] == SPRD_NPI_CCA_CE) {
-			mutex_lock(&adap_info.adap_lock);
+			spin_lock_bh(&adap_info.adap_lock);
 			/* high bit: iwnpi control, low bit: adaptive value */
 			adap_info.wifi_adaptive_flag = 0x10 | (cca_param[1] & 0xf);
 
@@ -162,14 +162,14 @@ static int npi_nl_handler(struct sk_buff *skb_2, struct genl_info *info)
 			pr_info("%s wifi_adaptive_flag: 0x%x, special_data_flag: %d\n",
 				__func__, adap_info.wifi_adaptive_flag,
 				adap_info.special_data_flag);
-			mutex_unlock(&adap_info.adap_lock);
+			spin_unlock_bh(&adap_info.adap_lock);
 
 			/* when connect to ap, send npi command directly */
 			if (vif->sm_state == SPRD_CONNECTED) {
 				if (cca_param[1] == SPRD_NPI_CE_DISABLE) {
-					mutex_lock(&adap_info.adap_lock);
+					spin_lock_bh(&adap_info.adap_lock);
 					adap_info.wifi_adaptive_flag = 0;
-					mutex_unlock(&adap_info.adap_lock);
+					spin_unlock_bh(&adap_info.adap_lock);
 				}
 
 				sprd_npi_send_recv(priv, vif, s_buf, s_len, r_buf, &r_len);
@@ -299,7 +299,7 @@ void sprd_init_npi(void)
 
 	adap_info.special_data_flag = 0;
 	adap_info.wifi_adaptive_flag = 0;
-	mutex_init(&adap_info.adap_lock);
+	spin_lock_init(&adap_info.adap_lock);
 }
 
 void sprd_deinit_npi(void)
@@ -308,8 +308,6 @@ void sprd_deinit_npi(void)
 
 	if (ret)
 		pr_err("genl_unregister_family error:%d\n", ret);
-
-	mutex_destroy(&adap_info.adap_lock);
 }
 
 void sprd_npi_set_cca_param(struct sprd_priv *priv, struct sprd_vif *vif)
@@ -327,7 +325,7 @@ void sprd_npi_set_cca_param(struct sprd_priv *priv, struct sprd_vif *vif)
 
 	p = s_buf + sizeof(struct sprd_npi_cmd_hdr);
 
-	mutex_lock(&adap_info.adap_lock);
+	spin_lock_bh(&adap_info.adap_lock);
 	tmp_flag = adap_info.wifi_adaptive_flag;
 
 	/* set the special data flag to SPRD_NPI_NORMAL_ALL firstly */
@@ -341,7 +339,7 @@ void sprd_npi_set_cca_param(struct sprd_priv *priv, struct sprd_vif *vif)
 	pr_info("%s wifi_adaptive_flag: 0x%x, special_data_flag: %d\n",
 		__func__, adap_info.wifi_adaptive_flag,
 		adap_info.special_data_flag);
-	mutex_unlock(&adap_info.adap_lock);
+	spin_unlock_bh(&adap_info.adap_lock);
 
 	/* high bit, iwnpi control */
 	if (tmp_flag & 0xf0) {

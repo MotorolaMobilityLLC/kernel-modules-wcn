@@ -91,7 +91,7 @@ enum sprd_npi_data_flag {
 struct sprd_wlan_adap_param {
 	int special_data_flag;
 	char wifi_adaptive_flag;
-	struct mutex adap_lock;
+	spinlock_t adap_lock;
 
 };
 

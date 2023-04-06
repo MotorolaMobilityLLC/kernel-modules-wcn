@@ -383,11 +383,11 @@ static int hw_param_nvm_buf_operate(char *pbuf, int file_len, void *p_data)
 						conf->rf_config.rf_data_len = cmd->num;
 					}
 					if (strcmp(ptable->itm, "value") == 0) {
-						mutex_lock(&adap_info.adap_lock);
+						spin_lock_bh(&adap_info.adap_lock);
 						adap_info.special_data_flag = cmd->par[4];
 						pr_info("%s special_data_flag: %d\n",
 							__func__, adap_info.special_data_flag);
-						mutex_unlock(&adap_info.adap_lock);
+						spin_unlock_bh(&adap_info.adap_lock);
 					}
 				}
 			}
