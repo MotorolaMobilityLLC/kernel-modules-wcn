@@ -308,13 +308,14 @@ static inline void reorder_bar_send_ba_buffer(struct rx_ba_entry *ba_entry,
 
 static inline int
 reorder_insert_msdu(struct rx_msdu_desc *msdu_desc, struct sk_buff *skb,
-		    struct rx_ba_node_desc *ba_node_desc)
+		    struct rx_ba_node_desc *ba_node_desc, bool *full_msdu_flag)
 {
 	int ret = 0;
 	unsigned short seq_num = msdu_desc->seq_num;
 	unsigned short index = seq_num & ba_node_desc->index_mask;
 	struct rx_ba_pkt *insert = &ba_node_desc->reorder_buffer[index];
 	bool last_msdu_flag = msdu_desc->last_msdu_of_mpdu;
+	u8 msdu_index_of_mpdu =  msdu_desc->msdu_index_of_mpdu;
 
 	pr_debug("%s: index: %d, seq: %d\n", __func__, index, insert->desc.seq);
 
@@ -323,7 +324,8 @@ reorder_insert_msdu(struct rx_msdu_desc *msdu_desc, struct sk_buff *skb,
 		    reorder_is_same_pn(&insert->desc, msdu_desc)) {
 			reorder_joint_msdu(insert, skb);
 			insert->desc.msdu_num++;
-			insert->desc.last = last_msdu_flag;
+			if (last_msdu_flag)
+				insert->desc.msdu_total_num = msdu_index_of_mpdu;
 		} else {
 			pr_err("%s: in_use: %d\n", __func__, insert->desc.seq);
 			ret = -EINVAL;
@@ -331,9 +333,15 @@ reorder_insert_msdu(struct rx_msdu_desc *msdu_desc, struct sk_buff *skb,
 	} else {
 		reorder_joint_msdu(insert, skb);
 		reorder_set_ba_pkt_desc(&insert->desc, msdu_desc);
-		insert->desc.last = last_msdu_flag;
 		insert->desc.msdu_num = 1;
 		ba_node_desc->buff_cnt++;
+		if (last_msdu_flag)
+			insert->desc.msdu_total_num = msdu_index_of_mpdu;
+	}
+
+	if (!ret && insert->desc.msdu_total_num == insert->desc.msdu_num) {
+		insert->desc.last = 1;
+		*full_msdu_flag = insert->desc.last;
 	}
 
 	return ret;
@@ -341,7 +349,8 @@ reorder_insert_msdu(struct rx_msdu_desc *msdu_desc, struct sk_buff *skb,
 
 static int reorder_msdu(struct rx_ba_entry *ba_entry,
 			struct rx_msdu_desc *msdu_desc,
-			struct sk_buff *skb, struct rx_ba_node *ba_node)
+			struct sk_buff *skb, struct rx_ba_node *ba_node,
+			bool *full_msdu_flag)
 {
 	int ret = -EINVAL;
 	unsigned short seq_num = msdu_desc->seq_num;
@@ -354,7 +363,7 @@ static int reorder_msdu(struct rx_ba_entry *ba_entry,
 						   seq_num);
 		}
 
-		ret = reorder_insert_msdu(msdu_desc, skb, ba_node_desc);
+		ret = reorder_insert_msdu(msdu_desc, skb, ba_node_desc, full_msdu_flag);
 		if (!ret && seqno_geq(seq_num, ba_node_desc->win_tail))
 			ba_node_desc->win_tail = seq_num;
 	} else {
@@ -379,7 +388,9 @@ static void reorder_msdu_process(struct rx_ba_entry *ba_entry,
 	int ret = 0;
 	int seq_num = msdu_desc->seq_num;
 	bool last_msdu_flag = msdu_desc->last_msdu_of_mpdu;
+	u8 msdu_index_of_mpdu =  msdu_desc->msdu_index_of_mpdu;
 	unsigned short old_win_start = 0;
+	bool full_msdu_flag = false;
 
 	spin_lock_bh(&ba_node->ba_node_lock);
 	if (likely(ba_node->active)) {
@@ -390,7 +401,8 @@ static void reorder_msdu_process(struct rx_ba_entry *ba_entry,
 			 ba_node_desc->win_tail, ba_node_desc->buff_cnt);
 
 		if (seq_num == ba_node_desc->win_start &&
-		    !ba_node_desc->buff_cnt && last_msdu_flag) {
+		    !ba_node_desc->buff_cnt && last_msdu_flag &&
+		    msdu_index_of_mpdu == 1) {
 			reorder_send_order_msdu(ba_entry, msdu_desc, skb,
 						ba_node_desc);
 			goto out;
@@ -404,9 +416,9 @@ static void reorder_msdu_process(struct rx_ba_entry *ba_entry,
 		}
 
 		old_win_start = ba_node_desc->win_start;
-		ret = reorder_msdu(ba_entry, msdu_desc, skb, ba_node);
+		ret = reorder_msdu(ba_entry, msdu_desc, skb, ba_node, &full_msdu_flag);
 		if (!ret) {
-			if (last_msdu_flag &&
+			if (full_msdu_flag &&
 			    seq_num == ba_node_desc->win_start) {
 				reorder_between_seqlo_seqhi(ba_entry,
 							    ba_node_desc);
@@ -535,7 +547,7 @@ static void reorder_wlan_filter_event(struct rx_ba_entry *ba_entry,
 	if (ba_node) {
 		msdu_desc.last_msdu_of_mpdu = 1;
 		msdu_desc.seq_num = ba_event->msdu_param.seq_num;
-		msdu_desc.msdu_index_of_mpdu = 0;
+		msdu_desc.msdu_index_of_mpdu = 1;
 		msdu_desc.pn_l = 0;
 		msdu_desc.pn_h = 0;
 		msdu_desc.cipher_type = 0;

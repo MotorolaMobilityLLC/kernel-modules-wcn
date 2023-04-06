@@ -30,6 +30,7 @@ struct rx_ba_pkt_desc {
 	unsigned char cipher_type;
 	unsigned char last;
 	unsigned short msdu_num;
+	unsigned short msdu_total_num;
 };
 
 struct rx_ba_pkt {
