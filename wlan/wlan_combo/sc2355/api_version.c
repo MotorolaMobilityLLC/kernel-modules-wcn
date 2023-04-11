@@ -54,7 +54,7 @@ struct sprd_api_version_t api_array[] = {
 	},
 	{	/*ID:11*/
 		.cmd_id = CMD_SCAN,
-		.drv_version = 2,
+		.drv_version = 3,
 	},
 	{	/*ID:12*/
 		.cmd_id = CMD_SCHED_SCAN,
