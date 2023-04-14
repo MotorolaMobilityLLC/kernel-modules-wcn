@@ -290,10 +290,6 @@ void sprd_init_npi(void)
 
 	if (ret)
 		pr_err("genl_register_family error: %d\n", ret);
-
-	adap_info.special_data_flag = 0;
-	adap_info.wifi_adaptive_flag = 0;
-	spin_lock_init(&adap_info.adap_lock);
 }
 
 void sprd_deinit_npi(void)
