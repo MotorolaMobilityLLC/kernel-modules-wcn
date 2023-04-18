@@ -16,6 +16,7 @@
 #include "common/report.h"
 #include "common/tdls.h"
 #include "hw_param.h"
+#include "hw_sipc_param.h"
 #ifdef CONFIG_SC2355_WLAN_NAN
 #include "nan.h"
 #endif /* CONFIG_SC2355_WLAN_NAN */
@@ -1403,6 +1404,77 @@ void sc2355_download_hw_param(struct sprd_priv *priv)
 	kfree(wifi_data);
 }
 
+void sc2355_sipc_download_hw_param(struct sprd_priv *priv)
+{
+	int ret;
+	struct merl_wifi_conf_t *wifi_data;
+	struct merl_wifi_conf_sec1_t *sec1;
+	struct merl_wifi_conf_sec2_t *sec2;
+	struct merl_wifi_config_param_t *wifi_param;
+
+	wifi_data = kzalloc(sizeof( *wifi_data), GFP_KERNEL);
+	/*init INI data struct */
+	/*got ini data from file*/
+	ret = get_wifi_config_param(priv, wifi_data);
+	if (ret) {
+		pr_err("load ini data failed, return\n");
+		kfree(wifi_data);
+		sc2355_assert_cmd(priv, NULL, CMD_DOWNLOAD_INI, LOAD_INI_DATA_FAILED);
+		return;
+	}
+
+	pr_info("total config len:%ld,sec1 len:%ld, sec2 len:%ld\n",
+		(long unsigned int)sizeof(wifi_data), (long unsigned int)sizeof(*sec1),
+		(long unsigned int)sizeof(*sec2));
+	/*devide wifi_conf into sec1 and sec2 since it's too large*/
+	sec1 = (struct merl_wifi_conf_sec1_t *)wifi_data;
+	sec2 = (struct merl_wifi_conf_sec2_t *)(&wifi_data->tx_scale);
+	wifi_param = (struct merl_wifi_config_param_t *)(&wifi_data->wifi_param);
+	pr_info("total config len:%ld,sec1 len:%ld, sec2 len:%ld, sec4 len:%ld\n",
+		(long unsigned int)sizeof(*wifi_data), (long unsigned int)sizeof(*sec1),
+		(long unsigned int)sizeof(*sec2), (long unsigned int)sizeof(*wifi_param));
+	pr_info("download the first section of config file\n");
+	ret = cmdevt_download_ini(priv, (uint8_t *)sec1, sizeof(*sec1), SEC1);
+	if (ret) {
+		pr_err("download the first section of ini fail,return\n");
+		kfree(wifi_data);
+		sc2355_assert_cmd(priv, NULL, CMD_DOWNLOAD_INI, LOAD_INI_DATA_FAILED);
+		return;
+	}
+
+	pr_info("download the second section of config file\n");
+	ret = cmdevt_download_ini(priv, (uint8_t *)sec2, sizeof(*sec2), SEC2);
+	if (ret) {
+		pr_err("download the second section of ini fail,return\n");
+		kfree(wifi_data);
+		sc2355_assert_cmd(priv, NULL, CMD_DOWNLOAD_INI, LOAD_INI_DATA_FAILED);
+		return;
+	}
+
+	if (wifi_data->rf_config.rf_data_len) {
+		pr_info("download the third section of config file\n");
+		pr_info("rf_data_len = %d\n", wifi_data->rf_config.rf_data_len);
+		ret = cmdevt_download_ini(priv, wifi_data->rf_config.rf_data,
+				wifi_data->rf_config.rf_data_len, SEC3);
+		if (ret) {
+			pr_err("download the third section of ini fail,return\n");
+			kfree(wifi_data);
+			sc2355_assert_cmd(priv, NULL, CMD_DOWNLOAD_INI, LOAD_INI_DATA_FAILED);
+			return;
+		}
+	}
+	pr_info("download the 4th section of config file\n");
+	pr_info("trigger = %d, delta = %d, prefer = %d\n", wifi_param->roaming_param.trigger, wifi_param->roaming_param.delta, wifi_param->roaming_param.band_5g_prefer);
+	ret = cmdevt_download_ini(priv, (uint8_t *)wifi_param, sizeof(*wifi_param), SEC4);
+	if (ret) {
+		pr_err("download the 4th section of ini fail,return\n");
+		kfree(wifi_data);
+		sc2355_assert_cmd(priv, NULL, CMD_DOWNLOAD_INI, LOAD_INI_DATA_FAILED);
+		return;
+	}
+	kfree(wifi_data);
+}
+
 static void cmdevt_set_tlv_elmt(u8 *addr, u16 type, u16 len, u8 *data)
 {
 	struct tlv_data *p = (struct tlv_data *)addr;
@@ -2490,6 +2562,8 @@ int sc2355_notify_ip(struct sprd_priv *priv, struct sprd_vif *vif, u8 ip_type,
 
 	if (hif->hw_type == SPRD_HW_SC2355_PCIE)
 		entry = sc2355_pcie_find_peer_entry_using_addr(vif, vif->bssid);
+	else if (hif->hw_type == SPRD_HW_SC2355_SIPC)
+		entry = sc2355_sipc_find_peer_entry_using_addr(vif, vif->bssid);
 	else
 		entry = sc2355_find_peer_entry_using_addr(vif, vif->bssid);
 	if (entry && ip_type == SPRD_IPV4) {
@@ -2678,6 +2752,11 @@ int sprd_xmit_data2cmd_wq(struct sk_buff *skb, struct net_device *ndev)
 			dev_kfree_skb(skb);
 			return -EPERM;
 		}
+	} else if (hif->hw_type == SPRD_HW_SC2355_SIPC) {
+		if (sc2355_sipc_hif_fill_msdu_dscr(vif, skb, SPRD_TYPE_CMD, 0)) {
+			dev_kfree_skb(skb);
+			return -EPERM;
+		}
 	} else {
 		if (sc2355_hif_fill_msdu_dscr(vif, skb, SPRD_TYPE_CMD, 0)) {
 			dev_kfree_skb(skb);
@@ -2687,7 +2766,8 @@ int sprd_xmit_data2cmd_wq(struct sk_buff *skb, struct net_device *ndev)
 	/*alloc five byte for fw 16 byte need
 	 *dscr:11+flag:5 =16
 	 */
-	if (hif->hw_type != SPRD_HW_SC2355_PCIE) {
+	if (hif->hw_type != SPRD_HW_SC2355_PCIE &&
+		hif->hw_type != SPRD_HW_SC2355_SIPC) {
 		skb_push(skb,FLAG_SIZE);
 		memcpy(skb->data,temp_flag,FLAG_SIZE);
 	}
@@ -2806,6 +2886,8 @@ int sc2355_set_vowifi(struct net_device *ndev, struct ifreq *ifr)
 
 		if (hif->hw_type == SPRD_HW_SC2355_PCIE)
 			peer_entry = sc2355_pcie_find_peer_entry_using_addr(vif, vif->bssid);
+		else if (hif->hw_type == SPRD_HW_SC2355_SIPC)
+			peer_entry = sc2355_sipc_find_peer_entry_using_addr(vif, vif->bssid);
 		else
 			peer_entry = sc2355_find_peer_entry_using_addr(vif, vif->bssid);
 		if (hif && peer_entry) {
@@ -3178,6 +3260,8 @@ bool sc2355_do_delay_work(struct sprd_work *work)
 	case SPRD_WORK_ADDBA:
 		if (hw_type == SPRD_HW_SC2355_PCIE)
 			sc2355_pcie_tx_send_addba(vif, work->data, work->len);
+		else if (hw_type == SPRD_HW_SC2355_SIPC)
+			sc2355_sipc_tx_send_addba(vif, work->data, work->len);
 		else
 			sc2355_tx_send_addba(vif, work->data, work->len);
 		break;
@@ -3193,6 +3277,8 @@ bool sc2355_do_delay_work(struct sprd_work *work)
 	case SPRD_POP_MBUF:
 		if (hw_type == SPRD_HW_SC2355_PCIE)
 			sc2355_pcie_handle_pop_list(work->data);
+		else if (hw_type == SPRD_HW_SC2355_SIPC)
+			sc2355_sipc_handle_pop_list(work->data);
 		else
 			sc2355_handle_pop_list(work->data);
 		break;
@@ -3225,6 +3311,10 @@ bool sc2355_do_delay_work(struct sprd_work *work)
 			sc2355_pcie_add_to_free_list(vif->priv,
 					(struct list_head *)work->data,
 					work->len);
+		else if (hw_type == SPRD_HW_SC2355_SIPC)
+			sc2355_sipc_add_to_free_list(vif->priv,
+					(struct list_head *)work->data,
+					work->len);
 		else
 			sc2355_add_to_free_list(vif->priv,
 					(struct list_head *)work->data,
@@ -3233,7 +3323,10 @@ bool sc2355_do_delay_work(struct sprd_work *work)
 	case SPRD_PCIE_TX_FREE_BUF:
 		memcpy((unsigned char *)&data, work->data,
 		       sizeof(unsigned char *));
-		sc2355_tx_free_pcie_data(data);
+		if (hw_type == SPRD_HW_SC2355_PCIE)
+			sc2355_tx_free_pcie_data(data);
+		else
+			sc2355_tx_free_sipc_data(data);
 		sc2355_free_data(data, work->len);
 		break;
 	case SPRD_CMD_TX_DATA:
@@ -3898,6 +3991,8 @@ static void cmdevt_report_coex_bt_on_off_evt(u8 *data, u16 len, enum sprd_hif_ty
 		__func__, __LINE__, coex_bt_on_off->action);
 	if (hw_type == SPRD_HW_SC2355_PCIE)
 		sc2355_pcie_set_coex_bt_on_off(coex_bt_on_off->action);
+	else if (hw_type == SPRD_HW_SC2355_SIPC)
+		sc2355_sipc_set_coex_bt_on_off(coex_bt_on_off->action);
 	else
 		sc2355_set_coex_bt_on_off(coex_bt_on_off->action);
 }
@@ -4086,6 +4181,8 @@ unsigned short sc2355_rx_evt_process(struct sprd_priv *priv, u8 *msg)
 	case EVT_STA_LUT_INDEX:
 		if (hif->hw_type == SPRD_HW_SC2355_PCIE)
 			sc2355_pcie_event_sta_lut(vif, data, len);
+		else if (hif->hw_type == SPRD_HW_SC2355_SIPC)
+			sc2355_sipc_event_sta_lut(vif, data, len);
 		else
 			sc2355_event_sta_lut(vif, data, len);
 		break;

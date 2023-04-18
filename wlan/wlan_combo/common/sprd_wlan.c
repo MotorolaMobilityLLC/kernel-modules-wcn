@@ -94,8 +94,7 @@ MODULE_DEVICE_TABLE(of, wlan_global_match_table);
 extern int sc2332_sipc_probe(struct platform_device *pdev);
 extern int sc2355_sdio_probe(struct platform_device *pdev);
 extern int pcie_probe(struct platform_device *pdev);
-extern int sprdwl_probe(struct platform_device *pdev);
-extern int sprdwl_remove(struct platform_device *pdev);
+extern int sc2355_sipc_probe(struct platform_device *pdev);
 
 static int sprd_wlan_probe(struct platform_device *pdev)
 {
@@ -122,7 +121,7 @@ static int sprd_wlan_probe(struct platform_device *pdev)
 	} else if (p_match_data->hw_type == SPRD_HW_SC2355_SDIO) {
 		return sc2355_sdio_probe(pdev);
 	} else if (p_match_data->hw_type == SPRD_HW_SC2355_SIPC) {
-		return sprdwl_probe(pdev);
+		return sc2355_sipc_probe(pdev);
 	} else if (p_match_data->hw_type == SPRD_HW_SC2355_PCIE) {
 		return pcie_probe(pdev);
 	} else {
@@ -152,9 +151,6 @@ static int sprd_wlan_remove(struct platform_device *pdev)
 	}
 
 	pr_info("%s %s %d.\n", __func__, of_id->compatible, p_match_data->hw_type);
-
-	if (p_match_data->hw_type == SPRD_HW_SC2355_SIPC)
-		return sprdwl_remove(pdev);
 
 	return sprd_iface_remove(pdev);
 }

@@ -238,9 +238,9 @@ void sc2355_rx_process(struct rx_mgmt *rx_mgmt, struct sk_buff *pskb);
 void sc2355_rx_send_cmd(struct sprd_hif *hif, void *data, int len,
 			unsigned char id, unsigned char ctx_id);
 void sc2355_queue_rx_buff_work(struct sprd_priv *priv, unsigned char id);
-int sc2355_mm_fill_buffer(struct sprd_hif *intf);
-void sc2355_mm_fill_all_buffer(void *intf);
-void sc2355_rx_flush_buffer(void *intf);
+int sc2355_mm_fill_buffer(struct sprd_hif *hif);
+void sc2355_mm_fill_all_buffer(void *hif);
+void sc2355_rx_flush_buffer(void *hif);
 void sc2355_rx_up(struct rx_mgmt *rx_mgmt);
 int sc2355_rx_init(struct sprd_hif *hif);
 int sc2355_rx_deinit(struct sprd_hif *hif);

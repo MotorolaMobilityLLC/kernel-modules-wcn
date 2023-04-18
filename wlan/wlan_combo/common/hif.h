@@ -206,7 +206,7 @@ struct sprd_hif {
 	int mbuf_num;
 	int pushfail_count;
 	int remove_flag;
-
+	struct sipc_txrx_mm *sipc_mm;
 	/* block command before stop marlin */
 	atomic_t block_cmd_after_close;
 	/* block command while change iface */

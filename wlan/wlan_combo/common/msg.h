@@ -185,6 +185,7 @@ struct sprd_msg {
 	void *data;
 	void *tran_data;
 	void *node;
+	void *sipc_node;
 	unsigned long pcie_addr;
 	u8 type;
 	u8 mode;

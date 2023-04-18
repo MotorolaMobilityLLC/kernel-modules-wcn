@@ -1021,6 +1021,7 @@ void sc2355_cmd_init(struct sprd_cmd *cmd);
 void sc2355_cmd_deinit(struct sprd_cmd *cmd);
 int sc2355_sync_version(struct sprd_priv *priv);
 void sc2355_download_hw_param(struct sprd_priv *priv);
+void sc2355_sipc_download_hw_param(struct sprd_priv *priv);
 
 int sc2355_get_fw_info(struct sprd_priv *priv);
 int sc2355_open_fw(struct sprd_priv *priv, struct sprd_vif *vif, u8 *mac_addr);

@@ -18,13 +18,21 @@
 
 #define SPRD_PHYS_MASK (((uint64_t)1 << 40) - 1)
 #define SPRD_MH_ADDRESS_BIT ((uint64_t)1 << 39)
+#define SPRD_MH_SIPC_ADDRESS_BIT 0x00F0FFFFFF
+#define SPRD_MH_SIPC_ADDRESS_BASE 0x87000000
 
 #define SPRD_MAX_MH_BUF 500
+#define SPRD_PCIE_MAX_MH_BUF 500
+#define SPRD_SIPC_MAX_MH_BUF 450
 #define SPRD_ADD_MH_BUF_THRESHOLD 300
-#define SPRD_MAX_ADD_MH_BUF_ONCE 100
-#define SPRD_ADDR_BUF_LEN (sizeof(struct sprd_addr_hdr) +\
+#define SPRD_PCIE_MAX_ADD_MH_BUF_ONCE 100
+#define SPRD_SIPC_MAX_ADD_MH_BUF_ONCE 52
+#define SPRD_PCIE_ADDR_BUF_LEN (sizeof(struct sprd_addr_hdr) +\
 			     sizeof(struct addr_trans_value) +\
-			     (SPRD_MAX_ADD_MH_BUF_ONCE * SPRD_PHYS_LEN))
+			     (SPRD_PCIE_MAX_ADD_MH_BUF_ONCE * SPRD_PHYS_LEN))
+#define SPRD_SIPC_ADDR_BUF_LEN (sizeof(struct sprd_addr_hdr) +\
+			     sizeof(struct addr_trans_value) +\
+			     (SPRD_SIPC_MAX_ADD_MH_BUF_ONCE * SPRD_PHYS_LEN))
 
 #define SPRD_PROCESS_BUFFER 0
 #define SPRD_FREE_BUFFER 1

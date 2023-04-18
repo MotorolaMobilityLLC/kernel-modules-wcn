@@ -269,6 +269,8 @@ void sc2355_defrag_recover(struct sprd_vif *vif)
 
 	if (hif->hw_type == SPRD_HW_SC2355_PCIE)
 		lut_index = sc2355_pcie_find_lut_index(hif, vif);
+	else if (hif->hw_type == SPRD_HW_SC2355_SIPC)
+		lut_index = sc2355_sipc_find_lut_index(hif, vif);
 	else
 		lut_index = sc2355_find_lut_index(hif, vif);
 

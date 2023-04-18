@@ -6,6 +6,7 @@
 #include "cmdevt.h"
 #include "common/common.h"
 #include "rx.h"
+#include "sipc_buf.h"
 
 #define GET_NEXT_ADDR_TRANS_VALUE(value, offset) \
 	((struct addr_trans_value *)((unsigned char *)(value) + (offset)))
@@ -88,13 +89,21 @@ static inline void mm_free_addr_buf(struct mem_mgmt *mm_entry)
 	mm_entry->addr_trans = NULL;
 }
 
-static inline void mm_alloc_addr_buf(struct mem_mgmt *mm_entry)
+static inline void mm_alloc_addr_buf(struct mem_mgmt *mm_entry,  struct sprd_hif *hif)
 {
 	struct addr_trans_value *value = NULL;
 	struct sprd_addr_hdr *hdr = NULL;
 	void *p = NULL;
+	unsigned int sprd_addr_buf_len;
 
-	p = kmalloc((mm_entry->hif_offset + SPRD_ADDR_BUF_LEN), GFP_KERNEL);
+	if (hif->hw_type == SPRD_HW_SC2355_PCIE)
+		sprd_addr_buf_len =
+			SPRD_PCIE_ADDR_BUF_LEN;
+	else
+		sprd_addr_buf_len =
+			SPRD_SIPC_ADDR_BUF_LEN;
+
+	p = kmalloc((mm_entry->hif_offset + sprd_addr_buf_len), GFP_KERNEL);
 	if (likely(p)) {
 		hdr = (struct sprd_addr_hdr *)(p + mm_entry->hif_offset);
 		value = (struct addr_trans_value *)hdr->paydata;
@@ -125,6 +134,14 @@ static inline int mm_do_addr_buf(struct mem_mgmt *mm_entry)
 	struct sprd_vif *vif = NULL, *tmp_vif;
 	int ret = 0;
 	int addr_trans_len = 0;
+	unsigned char sprd_max_add_mh_buf_once;
+
+	if (hif->hw_type == SPRD_HW_SC2355_PCIE)
+		sprd_max_add_mh_buf_once =
+			SPRD_PCIE_MAX_ADD_MH_BUF_ONCE;
+	else
+		sprd_max_add_mh_buf_once =
+			SPRD_SIPC_MAX_ADD_MH_BUF_ONCE;
 
 	/* NOTE: addr_buf should be allocating after being sent,
 	 *       JUST avoid addr_buf allocating fail after being sent here
@@ -153,12 +170,12 @@ static inline int mm_do_addr_buf(struct mem_mgmt *mm_entry)
 
 	if (unlikely(!value)) {
 		pr_debug("%s: addr buf is NULL, re-alloc here\n", __func__);
-		mm_alloc_addr_buf(mm_entry);
+		mm_alloc_addr_buf(mm_entry, hif);
 		if (unlikely(!mm_entry->addr_trans)) {
 			pr_err("%s: alloc addr buf fail!\n", __func__);
 			ret = -ENOMEM;
 		}
-	} else if (value->num >= SPRD_MAX_ADD_MH_BUF_ONCE) {
+	} else if (value->num >= sprd_max_add_mh_buf_once) {
 		addr_trans_len = sizeof(struct sprd_addr_hdr) +
 		    sizeof(struct addr_trans_value) +
 		    (value->num * SPRD_PHYS_LEN);
@@ -169,7 +186,7 @@ static inline int mm_do_addr_buf(struct mem_mgmt *mm_entry)
 			return -EIO;
 		if ((hif->ops->tx_addr_trans(hif, mm_entry->hdr,
 					  addr_trans_len, false) >= 0)) {
-			mm_alloc_addr_buf(mm_entry);
+			mm_alloc_addr_buf(mm_entry, hif);
 			if (unlikely(!mm_entry->addr_trans)) {
 				pr_err("%s: alloc addr buf fail!\n", __func__);
 				ret = -ENOMEM;
@@ -210,6 +227,9 @@ static int mm_single_buffer_alloc(struct mem_mgmt *mm_entry)
 	struct sk_buff *skb = NULL;
 	unsigned long pcie_addr = 0;
 	int ret = -ENOMEM;
+	void *buff = NULL, *pad = NULL;
+	struct sipc_buf_node *node = NULL;
+	struct sipc_buf_mm *rx_mm = NULL;
 
 	skb = dev_alloc_skb(SPRD_MAX_DATA_RXLEN);
 	if (skb) {
@@ -219,22 +239,52 @@ static int mm_single_buffer_alloc(struct mem_mgmt *mm_entry)
 		 * It could be re-used and MUST clean after using
 		 */
 		//memcpy((void *)skb_end_pointer(skb), &skb, sizeof(skb));
+		buff = skb->data;
+
+		if (SPRD_HW_SC2355_SIPC == rx_mgmt->hif->hw_type) {
+			rx_mm = rx_mgmt->hif->sipc_mm->rx_buf;
+			node = sipc_rx_alloc_node_buf(rx_mgmt->hif);
+			if (node) {
+				memcpy(skb->data, &node, sizeof(node));
+				pad = node->buf + SPRD_MAX_DATA_RXLEN;
+				memcpy_toio(pad, &node, sizeof(node));
+				buff = node->buf;
+				node->priv = (void *)skb;
+			} else {
+				pr_err("%s: Node list is NULL! \n", __func__);
+				dev_kfree_skb(skb);
+				return ret;
+			}
+		}
 		SAVE_ADDR(skb->data, skb, sizeof(struct sk_buff *));
 		/* transfer virt to phys */
-		pcie_addr = sc2355_mm_virt_to_phys(&rx_mgmt->hif->pdev->dev,
-						   skb->data,
-						   SPRD_MAX_DATA_RXLEN,
-						   DMA_FROM_DEVICE);
+		if (SPRD_HW_SC2355_PCIE == rx_mgmt->hif->hw_type)
+			pcie_addr = sc2355_mm_virt_to_phys(&rx_mgmt->hif->pdev->dev,
+							skb->data,
+							SPRD_MAX_DATA_RXLEN,
+							DMA_FROM_DEVICE);
+
+		if (SPRD_HW_SC2355_SIPC == rx_mgmt->hif->hw_type) {
+			pcie_addr = ((unsigned long)buff - rx_mm->offset) | SPRD_MH_ADDRESS_BIT;
+			pcie_addr = pcie_addr & SPRD_MH_SIPC_ADDRESS_BIT;
+			pr_debug("%s: sipc_addr is 0x%lx. \n", __func__, pcie_addr);
+		}
 
 		if (likely(pcie_addr)) {
 			ret = mm_w_addr_buf(mm_entry, pcie_addr);
 			if (ret) {
 				pr_err("%s: write addr buf fail: %d\n",
 				       __func__, ret);
+				if (SPRD_HW_SC2355_SIPC == rx_mgmt->hif->hw_type) {
+					node->priv = NULL;
+					sipc_free_node_buf(node, &rx_mm->nlist);
+				}
 				dev_kfree_skb(skb);
 			} else {
 				/* queue skb */
 				skb_queue_tail(&mm_entry->buffer_list, skb);
+				if (SPRD_HW_SC2355_SIPC == rx_mgmt->hif->hw_type)
+					sipc_queue_node_buf(node, &rx_mm->nlist);
 			}
 		}
 	} else {
@@ -251,14 +301,41 @@ static struct sk_buff *mm_single_buffer_unlink(struct mem_mgmt *mm_entry,
 	    container_of(mm_entry, struct rx_mgmt, mm_entry);
 	struct sk_buff *skb = NULL;
 	void *buffer = NULL;
+	struct sipc_buf_node *node = NULL;
+	unsigned long phy_addr = 0;
+	struct sipc_buf_mm *rx_buf = NULL;
+	unsigned long flags = 0;
+	struct sprd_msg_list *list;
 
-	buffer = sc2355_mm_phys_to_virt(&rx_mgmt->hif->pdev->dev, pcie_addr,
-					SPRD_MAX_DATA_RXLEN, DMA_FROM_DEVICE,
-					true);
+	if (rx_mgmt->hif->hw_type == SPRD_HW_SC2355_PCIE) {
+		buffer = sc2355_mm_phys_to_virt(&rx_mgmt->hif->pdev->dev, pcie_addr,
+						SPRD_MAX_DATA_RXLEN, DMA_FROM_DEVICE,
+						true);
 
-	RESTORE_ADDR(skb, buffer, sizeof(struct sk_buff *));
-	skb_unlink(skb, &mm_entry->buffer_list);
-	CLEAR_ADDR(skb->data, sizeof(struct sk_buff *));
+		RESTORE_ADDR(skb, buffer, sizeof(struct sk_buff *));
+		skb_unlink(skb, &mm_entry->buffer_list);
+		CLEAR_ADDR(skb->data, sizeof(struct sk_buff *));
+	} else if (rx_mgmt->hif->hw_type == SPRD_HW_SC2355_SIPC) {
+		rx_buf = rx_mgmt->hif->sipc_mm->rx_buf;
+		phy_addr = pcie_addr & (~(SPRD_MH_ADDRESS_BIT) & SPRD_PHYS_MASK);
+		phy_addr |= SPRD_MH_SIPC_ADDRESS_BASE;
+		buffer = (void *)(phy_addr + rx_buf->offset);
+
+		list = &(rx_buf->nlist);
+		spin_lock_irqsave(&list->busylock, flags);
+		memcpy_fromio(&node, buffer + SPRD_MAX_DATA_RXLEN, sizeof(node));
+		if (node && node->priv) {
+			skb = node->priv;
+			skb_unlink(skb, &mm_entry->buffer_list);
+			CLEAR_ADDR(skb->data, sizeof(skb));
+		} else {
+			pr_err("%s node or addr is null, phy 0x%lx,\
+				sipc addr 0x%lx\n", __func__, phy_addr, pcie_addr);
+			spin_unlock_irqrestore(&list->busylock, flags);
+			return NULL;
+		}
+		spin_unlock_irqrestore(&list->busylock, flags);
+	}
 
 	return skb;
 }
@@ -314,9 +391,17 @@ static int mm_buffer_unlink(struct mem_mgmt *mm_entry,
 	struct rx_mgmt *rx_mgmt =
 	    container_of(mm_entry, struct rx_mgmt, mm_entry);
 	struct sprd_hif *hif = rx_mgmt->hif;
+	unsigned char sprd_max_add_mh_buf_once;
+
+	if (hif->hw_type == SPRD_HW_SC2355_PCIE)
+		sprd_max_add_mh_buf_once =
+			SPRD_PCIE_MAX_ADD_MH_BUF_ONCE;
+	else
+		sprd_max_add_mh_buf_once =
+			SPRD_SIPC_MAX_ADD_MH_BUF_ONCE;
 
 	if (atomic_add_return(value->num, &mm_entry->alloc_num) >=
-	    SPRD_MAX_ADD_MH_BUF_ONCE) {
+	    sprd_max_add_mh_buf_once) {
 		sc2355_queue_rx_buff_work(rx_mgmt->hif->priv,
 					  SPRD_PCIE_RX_ALLOC_BUF);
 	}
@@ -337,6 +422,13 @@ static int mm_buffer_unlink(struct mem_mgmt *mm_entry,
 		pr_debug("%s: pcie_addr=0x%lx", __func__, pcie_addr);
 
 		skb = mm_single_buffer_unlink(mm_entry, pcie_addr);
+		if (SPRD_HW_SC2355_SIPC == rx_mgmt->hif->hw_type) {
+			if (!skb) {
+				pr_err("%s: Rx address buffer is valid.\n", __func__);
+				continue;
+			}
+			sipc_rx_mm_buf_to_skb(rx_mgmt->hif, skb);
+		}
 		if (likely(skb)) {
 			if (sprd_get_debug_level() >= L_DBG)
 				sc2355_hex_dump("sc2355_rx_mh_desc rx:",
@@ -344,7 +436,10 @@ static int mm_buffer_unlink(struct mem_mgmt *mm_entry,
 			if (hif->hw_type == SPRD_HW_SC2355_PCIE) {
 				csum = sc2355_pcie_get_data_csum((void *)rx_mgmt->hif,
 								skb->data);
-			 } else {
+			} else if (hif->hw_type == SPRD_HW_SC2355_SIPC) {
+				csum = sc2355_sipc_get_data_csum((void *)rx_mgmt->hif,
+								skb->data);
+			} else {
 				csum = sc2355_get_data_csum((void *)rx_mgmt->hif,
 								skb->data);
 			}
@@ -362,6 +457,7 @@ static int mm_buffer_unlink(struct mem_mgmt *mm_entry,
 
 		} else {
 			pr_err("%s: unlink skb fail!\n", __func__);
+
 		}
 
 		skb = NULL;
@@ -435,6 +531,8 @@ static void mm_normal_data_process(struct mem_mgmt *mm_entry,
 	} else {
 		if (hif->hw_type == SPRD_HW_SC2355_PCIE)
 			csum = sc2355_pcie_get_data_csum((void *)rx_mgmt->hif, data);
+		else if (hif->hw_type == SPRD_HW_SC2355_SIPC)
+			csum = sc2355_sipc_get_data_csum((void *)rx_mgmt->hif, data);
 		else
 			csum = sc2355_get_data_csum((void *)rx_mgmt->hif, data);
 		skb_len = SKB_DATA_ALIGN(sizeof(struct skb_shared_info)) +
@@ -447,7 +545,7 @@ static void mm_normal_data_process(struct mem_mgmt *mm_entry,
 			pr_err("%s: data len is %d, skb need %d\n",
 			       __func__, len, skb_len);
 			skb = mm_data2skb_process(mm_entry, data,
-						  SKB_WITH_OVERHEAD(skb_len));
+						  len);
 			free_data = true;
 		}
 
@@ -590,7 +688,8 @@ void sc2355_free_data(void *data, int buffer_type)
 	if (buffer_type) {	/* Fragment page buffer */
 		put_page(virt_to_head_page(data));
 	} else {		/* Normal buffer */
-		kfree(data);
+		if (data)
+			kfree(data);
 	}
 }
 
@@ -640,7 +739,8 @@ int sc2355_mm_init(struct mem_mgmt *mm_entry, void *hif)
 
 	mm_entry->hif_offset = ((struct sprd_hif *)hif)->hif_offset;
 
-	if (((struct sprd_hif *)hif)->hw_type == SPRD_HW_SC2355_PCIE) {
+	if (((struct sprd_hif *)hif)->hw_type == SPRD_HW_SC2355_PCIE ||
+		((struct sprd_hif *)hif)->hw_type == SPRD_HW_SC2355_SIPC) {
 		skb_queue_head_init(&mm_entry->buffer_list);
 		atomic_set(&mm_entry->alloc_num, 0);
 
@@ -651,7 +751,8 @@ int sc2355_mm_init(struct mem_mgmt *mm_entry, void *hif)
 
 int sc2355_mm_deinit(struct mem_mgmt *mm_entry, void *hif)
 {
-	if (((struct sprd_hif *)hif)->hw_type == SPRD_HW_SC2355_PCIE) {
+	if (((struct sprd_hif *)hif)->hw_type == SPRD_HW_SC2355_PCIE ||
+		((struct sprd_hif *)hif)->hw_type == SPRD_HW_SC2355_SIPC) {
 		/* NOTE: pclint says kfree(NULL) is safe */
 		kfree(mm_entry->hdr);
 		mm_entry->hdr = NULL;

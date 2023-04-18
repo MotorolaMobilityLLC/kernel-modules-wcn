@@ -32,7 +32,8 @@ static inline void tx_enqueue_data_msg(struct sprd_msg *msg, struct sprd_hif *hi
 
 	spin_lock_bh(&msg->data_list->p_lock);
 	/*to make sure ARP/TDLS/preauth can be tx ASAP */
-	if (hif->hw_type == SPRD_HW_SC2355_PCIE) {
+	if (hif->hw_type == SPRD_HW_SC2355_PCIE ||
+		hif->hw_type == SPRD_HW_SC2355_SIPC) {
 		list_add_tail(&msg->list, &msg->data_list->head_list);
 	} else {
 		if (dscr->tx_ctrl.sw_rate == 1)
@@ -72,8 +73,9 @@ static void tx_flush_data_txlist(struct tx_mgmt *tx_mgmt)
 	/*wait until data list sent completely and freed by HIF */
 	pr_err("%s check if data freed complete start\n", __func__);
 	while (!list_empty(data_list) && (cnt < 1000)) {
-		if (priv->hif.hw_type == SPRD_HW_SC2355_PCIE &&
-		    sprdwcn_bus_get_status() == WCN_BUS_DOWN) {
+		if (priv->hif.hw_type == SPRD_HW_SC2355_SIPC || (
+		    priv->hif.hw_type == SPRD_HW_SC2355_PCIE &&
+		    sprdwcn_bus_get_status() == WCN_BUS_DOWN)) {
 			struct sprd_msg *pos_buf, *temp_buf;
 			unsigned long lockflag_txfree = 0;
 
@@ -168,7 +170,7 @@ static int tx_cmd(struct sprd_hif *hif, struct sprd_msg_list *list)
 	struct sprd_msg *msg;
 	struct tx_mgmt *tx_mgmt;
 	struct sprd_cmd_hdr *hdr;
-	u8 cmd_id, mode;
+	u8 cmd_id, mode, i;
 	__le32 mstime;
 
 	tx_mgmt = (struct tx_mgmt *)hif->tx_mgmt;
@@ -200,9 +202,24 @@ static int tx_cmd(struct sprd_hif *hif, struct sprd_msg_list *list)
 		if (hif->hw_type == SPRD_HW_SC2355_PCIE)
 			ret = sc2355_pcie_tx_cmd(hif, (unsigned char *)msg->tran_data,
 						msg->len);
+		else if (hif->hw_type == SPRD_HW_SC2355_SIPC)
+			ret = sc2355_sipc_tx_cmd(hif, (unsigned char *)msg->tran_data,
+						msg->len);
 		else
 			ret = sc2355_tx_cmd(hif, (unsigned char *)msg->tran_data,
 						msg->len);
+		if (ret && hif->hw_type == SPRD_HW_SC2355_SIPC) {
+			pr_err("%s, %d. tx cmd err : %d firstly\n", __func__, __LINE__, ret);
+			for (i = 0; i < 10; i++) {
+				msleep(50);
+				ret = sc2355_sipc_tx_cmd(hif, (unsigned char *)msg->tran_data,
+							msg->len);
+				if (ret)
+					pr_err("%s tx cmd retry %d\n", __func__, i);
+				else
+					break;
+			}
+		}
 		if (ret) {
 			pr_err("%s [%u]ctx_id %d send[%s] err:%d.\n", __func__,
 				le32_to_cpu(mstime), mode,
@@ -294,6 +311,8 @@ static int tx_handle_to_send_list(struct sprd_hif *hif, enum sprd_mode mode)
 		spin_unlock_bh(t_lock);
 		if (hif->hw_type == SPRD_HW_SC2355_PCIE)
 			credit = sc2355_pcie_fc_get_send_num(hif, mode, tosendnum);
+		else if (hif->hw_type == SPRD_HW_SC2355_SIPC)
+			credit = sc2355_sipc_fc_get_send_num(hif, mode, tosendnum);
 		else
 			credit = sc2355_fc_get_send_num(hif, mode, tosendnum);
 		if (credit < tosendnum)
@@ -309,6 +328,12 @@ static int tx_handle_to_send_list(struct sprd_hif *hif, enum sprd_mode mode)
 						&tx_list_head,
 						credit, SPRD_AC_MAX, coex_bt_on);
 			sc2355_pcie_handle_tx_return(hif, list, credit, ret);
+		} else if (hif->hw_type == SPRD_HW_SC2355_SIPC) {
+			ret = sc2355_sipc_hif_tx_list(hif,
+						to_send_list,
+						&tx_list_head,
+						credit, SPRD_AC_MAX, coex_bt_on);
+			sc2355_sipc_handle_tx_return(hif, list, credit, ret);
 		} else {
 			ret = sc2355_hif_tx_list(hif,
 						to_send_list,
@@ -370,6 +395,8 @@ static int tx_eachmode_data(struct sprd_hif *hif, enum sprd_mode mode)
 	}
 	if (hif->hw_type == SPRD_HW_SC2355_PCIE)
 		send_num = sc2355_pcie_fc_test_send_num(hif, mode, total);
+	else if (hif->hw_type == SPRD_HW_SC2355_SIPC)
+		send_num = sc2355_sipc_fc_test_send_num(hif, mode, total);
 	else
 		send_num = sc2355_fc_test_send_num(hif, mode, total);
 	if (total != 0 && send_num <= 0) {
@@ -544,6 +571,8 @@ static void tx_prepare_addba(struct sprd_hif *hif, unsigned char lut_index,
 				}
 				if (hif->hw_type == SPRD_HW_SC2355_PCIE) {
 					sc2355_pcie_tx_addba(hif, peer_entry, tid);
+				} else if (hif->hw_type == SPRD_HW_SC2355_SIPC) {
+					sc2355_sipc_tx_addba(hif, peer_entry, tid);
 				} else {
 					sc2355_tx_addba(hif, peer_entry, tid);
 				}
@@ -566,6 +595,8 @@ static void tx_prepare_addba(struct sprd_hif *hif, unsigned char lut_index,
 				}
 				if (hif->hw_type == SPRD_HW_SC2355_PCIE) {
 					sc2355_pcie_tx_addba(hif, peer_entry, tid);
+				} else if (hif->hw_type == SPRD_HW_SC2355_SIPC) {
+					sc2355_sipc_tx_addba(hif, peer_entry, tid);
 				} else {
 					sc2355_tx_addba(hif, peer_entry, tid);
 				}
@@ -715,7 +746,8 @@ static void tx_work_queue(struct tx_mgmt *tx_mgmt)
 		printk_ratelimited("sc2355, %s, not RESUMED\n", __func__);
 		return;
 	}
-	if (hif->pushfail_count > 100 && priv->hif.hw_type == SPRD_HW_SC2355_PCIE)
+	if (hif->pushfail_count > 100 && (priv->hif.hw_type == SPRD_HW_SC2355_PCIE ||
+		priv->hif.hw_type == SPRD_HW_SC2355_SIPC))
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
 		usleep_range_state(5990, 6010, TASK_UNINTERRUPTIBLE);
 #else
@@ -732,7 +764,8 @@ static void tx_work_queue(struct tx_mgmt *tx_mgmt)
 			return;
 		}
 	}
-	if (hif->pushfail_count > 100 && priv->hif.hw_type == SPRD_HW_SC2355_PCIE)
+	if (hif->pushfail_count > 100 && (priv->hif.hw_type == SPRD_HW_SC2355_PCIE ||
+		priv->hif.hw_type == SPRD_HW_SC2355_SIPC))
 		sc2355_flush_tosendlist(tx_mgmt);
 
 	for (mode = SPRD_MODE_NONE; mode < SPRD_MODE_MAX; mode++) {
@@ -755,6 +788,8 @@ static void tx_work_queue(struct tx_mgmt *tx_mgmt)
 		sprd_put_vif(vif);
 		if (hif->hw_type == SPRD_HW_SC2355_PCIE)
 			send_num = sc2355_pcie_fc_test_send_num(hif, mode, num);
+		else if (hif->hw_type == SPRD_HW_SC2355_SIPC)
+			send_num = sc2355_sipc_fc_test_send_num(hif, mode, num);
 		else
 			send_num = sc2355_fc_test_send_num(hif, mode, num);
 		if (send_num > 0)
@@ -763,8 +798,9 @@ static void tx_work_queue(struct tx_mgmt *tx_mgmt)
 			need_polling |= (1 << (u8)mode);
 	}
 	/*sleep more time if screen off */
-	if (priv->is_screen_off == 1 &&
-	    priv->hif.hw_type == SPRD_HW_SC2355_PCIE) {
+	if (priv->is_screen_off == 1 && (
+	    priv->hif.hw_type == SPRD_HW_SC2355_PCIE ||
+		priv->hif.hw_type == SPRD_HW_SC2355_SIPC)) {
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
 		usleep_range_state(590, 610, TASK_UNINTERRUPTIBLE);
 #else
@@ -1016,6 +1052,8 @@ static int tx_filter_ip_pkt(struct sk_buff *skb, struct net_device *ndev)
 
 			if (hif->hw_type == SPRD_HW_SC2355_PCIE)
 				lut_index = sc2355_pcie_find_lut_index(hif, vif);
+			else if (hif->hw_type == SPRD_HW_SC2355_SIPC)
+				lut_index = sc2355_sipc_find_lut_index(hif, vif);
 			else
 				lut_index = sc2355_find_lut_index(hif, vif);
 			peer_entry = &hif->peer_entry[lut_index];
@@ -1039,6 +1077,8 @@ static int tx_filter_ip_pkt(struct sk_buff *skb, struct net_device *ndev)
 		}
 		if (hif->hw_type == SPRD_HW_SC2355_PCIE) {
 			lut_index = sc2355_pcie_find_lut_index(hif, vif);
+		} else if (hif->hw_type == SPRD_HW_SC2355_SIPC) {
+			lut_index = sc2355_sipc_find_lut_index(hif, vif);
 		} else {
 			lut_index = sc2355_find_lut_index(hif, vif);
 		}
@@ -1116,15 +1156,11 @@ void sc2355_free_cmd_buf(struct sprd_msg *msg, struct sprd_msg_list *list)
 
 void sc2355_dequeue_tofreelist_buf(struct sprd_hif *hif, struct sprd_msg *msg)
 {
-	spinlock_t *lock;	/*to lock qos list */
 
-	lock = &msg->xmit_msg_list->free_lock;
-	spin_lock_bh(lock);
 	if (hif->ops->free_msg_content)
 		hif->ops->free_msg_content(msg);
 	list_del(&msg->list);
 	sprd_free_msg(msg, msg->msglist);
-	spin_unlock_bh(lock);
 }
 
 void sc2355_flush_tx_qoslist(struct tx_mgmt *tx_mgmt, int mode,
@@ -1289,7 +1325,8 @@ void sc2355_handle_tx_status_after_close(struct sprd_vif *vif)
 			atomic_set(&tx_mgmt->flow_ctrl[i].flow, 0);
 		}
 
-		if (priv->hif.hw_type == SPRD_HW_SC2355_PCIE)
+		if (priv->hif.hw_type == SPRD_HW_SC2355_PCIE ||
+			priv->hif.hw_type == SPRD_HW_SC2355_SIPC)
 			sc2355_rx_flush_buffer(&priv->hif);
 	} else {
 		/*a mode closed,
@@ -1603,7 +1640,8 @@ int sc2355_tx(struct sprd_chip *chip, struct sprd_msg *msg)
 	if (msg->msglist == &tx_mgmt->tx_list_qos_pool) {
 		struct sprd_qos_peer_list *data_list;
 
-		if (hif->hw_type == SPRD_HW_SC2355_PCIE) {
+		if (hif->hw_type == SPRD_HW_SC2355_PCIE ||
+			hif->hw_type == SPRD_HW_SC2355_SIPC) {
 			dscr =
 			    (struct tx_msdu_dscr *)(msg->tran_data +
 						    MSDU_DSCR_RSVD);
@@ -1647,13 +1685,14 @@ int sc2355_tx(struct sprd_chip *chip, struct sprd_msg *msg)
 		tx_mgmt->tx_list[msg->mode]->lut_id = dscr->sta_lut_index;
 		msg->data_list = data_list;
 
-		if (hif->hw_type == SPRD_HW_SC2355_PCIE) {
+		if (hif->hw_type == SPRD_HW_SC2355_PCIE)
 			msg->pcie_addr = sc2355_mm_virt_to_phys(&hif->pdev->dev,
 								msg->tran_data,
 								msg->len,
 								DMA_TO_DEVICE);
+		if (hif->hw_type == SPRD_HW_SC2355_PCIE ||
+			hif->hw_type == SPRD_HW_SC2355_SIPC)
 			SAVE_ADDR(msg->tran_data, msg, 8);
-		}
 
 		tx_enqueue_data_msg(msg, hif);
 		atomic_inc(&tx_mgmt->tx_list[msg->mode]->mode_list_num);
@@ -1775,6 +1814,8 @@ int sc2355_reset(struct sprd_hif *hif)
 		hif->tx_num[i] = 0;
 		if (hif->hw_type == SPRD_HW_SC2355_PCIE)
 			sc2355_pcie_dis_flush_txlist(hif, i);
+		else if (hif->hw_type == SPRD_HW_SC2355_SIPC)
+			sc2355_sipc_dis_flush_txlist(hif, i);
 		else
 			sc2355_dis_flush_txlist(hif, i);
 	}
@@ -1782,7 +1823,8 @@ int sc2355_reset(struct sprd_hif *hif)
 	/* flush cmd and data buffer */
 	pr_info("%s flust all tx list\n", __func__);
 	tx_flush_all_txlist(tx_mgmt);
-	if (hif->hw_type == SPRD_HW_SC2355_PCIE)
+	if (hif->hw_type == SPRD_HW_SC2355_PCIE ||
+		hif->hw_type == SPRD_HW_SC2355_SIPC)
 		sc2355_rx_flush_buffer((void *)hif);
 
 	/* when cp2 hang and reset, clear hang_recovery_status */
@@ -2251,6 +2293,8 @@ int sprd_tx_filter_packet(struct sk_buff *skb, struct net_device *ndev)
 	if (ethhdr->h_proto == htons(ETH_P_IPV6)) {
 		if (hif->hw_type == SPRD_HW_SC2355_PCIE)
 			lut_index = sc2355_pcie_find_lut_index(hif, vif);
+		else if (hif->hw_type == SPRD_HW_SC2355_SIPC)
+			lut_index = sc2355_sipc_find_lut_index(hif, vif);
 		else
 			lut_index = sc2355_find_lut_index(hif, vif);
 		if ((vif->mode == SPRD_MODE_AP || vif->mode == SPRD_MODE_P2P_GO) &&
@@ -2308,6 +2352,11 @@ int sc2355_send_data(struct sprd_vif *vif, struct sprd_msg *msg,
 			sprd_free_msg(msg, msg->msglist);
 			return -EPERM;
 		}
+	} else if (hif->hw_type == SPRD_HW_SC2355_SIPC) {
+		if (sc2355_sipc_hif_fill_msdu_dscr(vif, skb, SPRD_TYPE_DATA, offset)) {
+			sprd_free_msg(msg, msg->msglist);
+			return -EPERM;
+		}
 	} else {
 		if (sc2355_hif_fill_msdu_dscr(vif, skb, SPRD_TYPE_DATA, offset)) {
 			sprd_free_msg(msg, msg->msglist);
@@ -2317,7 +2366,8 @@ int sc2355_send_data(struct sprd_vif *vif, struct sprd_msg *msg,
 
 	sprd_fill_msg(msg, skb, skb->data, skb->len);
 
-	if (hif->hw_type == SPRD_HW_SC2355_PCIE)
+	if (hif->hw_type == SPRD_HW_SC2355_PCIE ||
+		hif->hw_type == SPRD_HW_SC2355_SIPC)
 		buf = skb->data + MSDU_DSCR_RSVD + DSCR_LEN;
 
 	if (sc2355_tcp_ack_filter_send(vif->priv, msg, buf, plen))
@@ -2328,7 +2378,8 @@ int sc2355_send_data(struct sprd_vif *vif, struct sprd_msg *msg,
 		pr_err("%s TX data Err: %d\n", __func__, ret);
 
 	if (hif->tdls_flow_count_enable == 1 && vif->sm_state == SPRD_CONNECTED) {
-		if (hif->hw_type == SPRD_HW_SC2355_PCIE) {
+		if (hif->hw_type == SPRD_HW_SC2355_PCIE ||
+			hif->hw_type == SPRD_HW_SC2355_SIPC) {
 			sc2355_tdls_count_flow(vif, buf, skb->len);
 		} else {
 			sc2355_tdls_count_flow(vif,

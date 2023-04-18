@@ -143,9 +143,15 @@ static int iface_host_reset(struct notifier_block *nb,
 	hif = &priv->hif;
 	hif->cp_asserted = 1;
 
-	kobject_uevent_env(&wlan_misc_device.this_device->kobj, KOBJ_CHANGE, envp);
-	pr_err("%s() dev_path: %s\n", __func__,
-	       kobject_get_path(&wlan_misc_device.this_device->kobj, GFP_KERNEL));
+	if (hif->hw_type == SPRD_HW_SC2355_SIPC) {
+		kobject_uevent_env(&hif->pdev->dev.kobj, KOBJ_CHANGE, envp);
+		pr_err("%s() dev_path: %s\n", __func__,
+			kobject_get_path(&hif->pdev->dev.kobj, GFP_KERNEL));
+	} else {
+		kobject_uevent_env(&wlan_misc_device.this_device->kobj, KOBJ_CHANGE, envp);
+		pr_err("%s() dev_path: %s\n", __func__,
+			kobject_get_path(&wlan_misc_device.this_device->kobj, GFP_KERNEL));
+	}
 	sprd_chip_force_exit((void *)&priv->chip);
 
 	return NOTIFY_OK;

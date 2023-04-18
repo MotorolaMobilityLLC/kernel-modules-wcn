@@ -14,6 +14,7 @@
 #include "common/common.h"
 #include "sdio.h"
 #include "pcie.h"
+#include "sipc.h"
 
 #define WAPI_TYPE                 0x88B4
 /* descriptor len + sdio/sdio.header len + offset */

@@ -1534,7 +1534,8 @@ int sprd_uninit_fw(struct sprd_vif *vif)
 		return -EIO;
 	}
 
-	if (hif->hw_type == SPRD_HW_SC2355_PCIE)
+	if (hif->hw_type == SPRD_HW_SC2355_PCIE ||
+		hif->hw_type == SPRD_HW_SC2355_SIPC)
 		sc2355_handle_tx_status_after_close(vif);
 
 #ifdef ENABLE_PAM_WIFI

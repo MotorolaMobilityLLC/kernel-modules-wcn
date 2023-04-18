@@ -13,6 +13,7 @@
 #include "common/chip_ops.h"
 #include "rx.h"
 #include "txrx.h"
+#include "sipc_buf.h"
 
 static bool rx_mh_ipv6_ext_hdr(unsigned char nexthdr)
 {
@@ -208,19 +209,20 @@ static void rx_skb_process(struct sprd_priv *priv, struct sk_buff *skb)
 		sc2355_tdls_count_flow(vif, skb->data + ETH_ALEN,
 				       skb->len - ETH_ALEN);
 	sc2355_sdio_rx_throughput_statistic(skb->len);
-
+	if (hif->hw_type == SPRD_HW_SC2355_SDIO) {
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
-	if (attr.sched_util_min != 400 &&
-	    throughput_static.throughput_rx >= SET_UCLAMP_THRESHOLD) {
-		attr.sched_util_min = 400;
-		ret = wcn_thread_setattr(0, &attr);
+		if (attr.sched_util_min != 400 &&
+			throughput_static.throughput_rx >= SET_UCLAMP_THRESHOLD) {
+			attr.sched_util_min = 400;
+			ret = wcn_thread_setattr(0, &attr);
 	/*need reset sdiohal_rx_thread util to 0*/
-	} else if (attr.sched_util_min &&
-		   throughput_static.throughput_rx < SET_UCLAMP_THRESHOLD) {
-		attr.sched_util_min = 0;
-		ret = wcn_thread_setattr(0, &attr);
-	}
+		} else if (attr.sched_util_min &&
+			throughput_static.throughput_rx < SET_UCLAMP_THRESHOLD) {
+			attr.sched_util_min = 0;
+			ret = wcn_thread_setattr(0, &attr);
+		}
 #endif
+	}
 
 	if ((vif->mode == SPRD_MODE_AP ||
 	     vif->mode == SPRD_MODE_P2P_GO) && msdu_desc->uc_w2w_flag) {
@@ -245,7 +247,8 @@ static void rx_skb_process(struct sprd_priv *priv, struct sk_buff *skb)
 		/* skb->data MUST point to ETH HDR */
 		sc2355_tcp_ack_filter_rx(priv, skb->data, msdu_desc->msdu_len);
 
-		if (hif->hw_type == SPRD_HW_SC2355_PCIE)
+		if (hif->hw_type == SPRD_HW_SC2355_PCIE ||
+			hif->hw_type == SPRD_HW_SC2355_SIPC)
 			sc2355_count_rx_tp(hif, msdu_desc->msdu_len);
 		sprd_netif_rx(ndev, skb);
 	}
@@ -461,6 +464,14 @@ int sc2355_mm_fill_buffer(struct sprd_hif *hif)
 	    (struct rx_mgmt *)hif->rx_mgmt;
 	struct mem_mgmt *mm_entry = &rx_mgmt->mm_entry;
 	unsigned int num = 0, alloc_num = atomic_xchg(&mm_entry->alloc_num, 0);
+	unsigned char sprd_max_add_mh_buf_once;
+
+	if (hif->hw_type == SPRD_HW_SC2355_PCIE)
+		sprd_max_add_mh_buf_once =
+			SPRD_PCIE_MAX_ADD_MH_BUF_ONCE;
+	else
+		sprd_max_add_mh_buf_once =
+			SPRD_SIPC_MAX_ADD_MH_BUF_ONCE;
 
 	num = sc2355_mm_buffer_alloc(&rx_mgmt->mm_entry, alloc_num);
 	if (hif->ops->tx_addr_trans)
@@ -468,7 +479,7 @@ int sc2355_mm_fill_buffer(struct sprd_hif *hif)
 	if (num)
 		num = atomic_add_return(num, &mm_entry->alloc_num);
 
-	if (num > SPRD_MAX_ADD_MH_BUF_ONCE || rx_mgmt->addr_trans_head)
+	if (num > sprd_max_add_mh_buf_once || rx_mgmt->addr_trans_head)
 		sc2355_queue_rx_buff_work(rx_mgmt->hif->priv,
 					  SPRD_PCIE_RX_ALLOC_BUF);
 
@@ -480,7 +491,15 @@ void sc2355_mm_fill_all_buffer(void *hif)
 	struct rx_mgmt *rx_mgmt =
 	    (struct rx_mgmt *)((struct sprd_hif *)hif)->rx_mgmt;
 	struct mem_mgmt *mm_entry = &rx_mgmt->mm_entry;
-	int num = SPRD_MAX_MH_BUF - skb_queue_len(&mm_entry->buffer_list);
+	int sprd_max_mh_buf;
+	int num;
+
+	if (((struct sprd_hif *)hif)->hw_type == SPRD_HW_SC2355_PCIE){
+		sprd_max_mh_buf = SPRD_PCIE_MAX_MH_BUF;
+	} else {
+		sprd_max_mh_buf = SPRD_SIPC_MAX_MH_BUF;
+	}
+	num = sprd_max_mh_buf - skb_queue_len(&mm_entry->buffer_list);
 
 	if (num >= 0) {
 		atomic_add(num, &mm_entry->alloc_num);
@@ -499,11 +518,15 @@ void sc2355_rx_flush_buffer(void *hif)
 	if (rx_mgmt->addr_trans_head) {
 		if (hw_type == SPRD_HW_SC2355_PCIE) {
 			sc2355_pcie_tx_addr_trans_free(hif);
+		} else if (hw_type == SPRD_HW_SC2355_SIPC) {
+			sc2355_sipc_tx_addr_trans_free(hif);
 		} else {
 			sc2355_tx_addr_trans_free(hif);
 		}
 	}
 
+	if (hw_type == SPRD_HW_SC2355_SIPC)
+		sipc_mm_rx_buf_flush(hif);
 	sc2355_mm_flush_buffer(mm_entry);
 }
 
@@ -538,6 +561,8 @@ int sc2355_rx_init(struct sprd_hif *hif)
 	/*init rx_queue*/
 	if (hif->hw_type == SPRD_HW_SC2355_PCIE) {
 		INIT_WORK(&rx_mgmt->rx_work, sc2355_pcie_rx_work_queue);
+	} else if (hif->hw_type == SPRD_HW_SC2355_SIPC) {
+		INIT_WORK(&rx_mgmt->rx_work, sc2355_sipc_rx_work_queue);
 	} else {
 		INIT_WORK(&rx_mgmt->rx_work, sc2355_rx_work_queue);
 	}
