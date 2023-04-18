@@ -1655,8 +1655,6 @@ int sc2355_sdio_init(struct sprd_hif *hif)
 		}
 
 		sc2355_hif.hif = (void *)hif;
-		hif->fw_awake = 1;
-		hif->fw_power_down = 0;
 	}
 
 	hif->cp_asserted = 0;

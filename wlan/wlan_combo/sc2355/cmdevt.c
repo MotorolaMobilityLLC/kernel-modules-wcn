@@ -1637,6 +1637,7 @@ int sc2355_open_fw(struct sprd_priv *priv, struct sprd_vif *vif, u8 *mac_addr)
 	struct sprd_msg *msg;
 	struct cmd_open *p;
 	u16 rlen = 1;
+	struct sprd_hif *hif = &priv->hif;
 
 	msg = get_cmdbuf(priv, vif, sizeof(*p), CMD_OPEN);
 	if (!msg)
@@ -1659,9 +1660,10 @@ int sc2355_open_fw(struct sprd_priv *priv, struct sprd_vif *vif, u8 *mac_addr)
 		wfa_cap = 0;
 	}
 
-	if (vif->mode == SPRD_MODE_STATION || vif->mode == SPRD_MODE_AP) {
-		priv->hif.fw_awake = 1;
-		priv->hif.fw_power_down = 0;
+	/* open first mode,need init fw_power_down and fw_awake */
+	if (atomic_read(&hif->power_cnt) == 1) {
+		hif->fw_awake = 1;
+		hif->fw_power_down = 0;
 	}
 	return send_cmd_recv_rsp(priv, msg, &vif->ctx_id, &rlen);
 }

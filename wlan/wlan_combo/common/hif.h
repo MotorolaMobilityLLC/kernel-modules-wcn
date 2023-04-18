@@ -189,6 +189,7 @@ struct sprd_hif {
 	struct tdls_flow_count_para tdls_flow_count[MAX_TDLS_PEER];
 	int suspend_mode;
 
+	/* need init when first mode open */
 	int fw_power_down;
 	int fw_awake;
 
