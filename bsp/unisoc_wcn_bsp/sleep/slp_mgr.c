@@ -34,6 +34,7 @@
 #include "slp_sdio.h"
 #include "wcn_glb.h"
 #include "slp_dbg.h"
+#include "../platform/wcn_boot.h"
 
 static struct slp_mgr_t slp_mgr;
 
@@ -61,6 +62,7 @@ int slp_mgr_wakeup(enum slp_subsys subsys)
 {
 	unsigned char slp_sts = 0;
 	int ret;
+	unsigned char cnt = 0;
 	int do_dump = 0;
 	ktime_t time_end;
 	struct wcn_match_data *g_match_config = get_wcn_match_config();
@@ -82,6 +84,15 @@ int slp_mgr_wakeup(enum slp_subsys subsys)
 				goto try_timeout;
 			}
 			slp_sts &= 0xF0;
+			if (g_match_config && g_match_config->unisoc_wcn_m3lite &&
+						marlin_dev->btwf_wakeup_lock) {
+				if ((slp_sts != M3L_BTWF_WAKEUP_LOCK) && (cnt == 0)) {
+					marlin_avdd18_dcxo_enable(true);
+					WCN_INFO("cnt-%d, subsys-%d\n",
+						cnt, subsys);
+					cnt++;
+				}
+			}
 
 			if (g_match_config && g_match_config->unisoc_wcn_m3lite) {
 				if ((slp_sts != BTWF_IN_DEEPSLEEP) &&

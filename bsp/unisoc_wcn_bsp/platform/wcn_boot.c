@@ -90,7 +90,7 @@ static char GNSS_FIRMWARE_PATH[255];
 static struct wifi_calibration wifi_data;
 struct completion ge2_completion;
 static int first_call_flag = 1;
-static struct marlin_device *marlin_dev;
+struct marlin_device *marlin_dev;
 struct sprdwcn_gnss_ops *gnss_ops;
 static struct completion find_tsx_completion;
 static const struct firmware *tsx_firmware;
@@ -1442,6 +1442,14 @@ static int marlin_parse_dt(struct platform_device *pdev)
 		strcpy(GNSS_FIRMWARE_PATH, marlin_dev->gnss_path);
 	}
 
+	if (of_property_read_bool(np, "btwf-wakeup-lock")) {
+		pr_info("wcn config wakeup lock\n");
+		marlin_dev->btwf_wakeup_lock = true;
+	} else {
+		pr_info("wcn not config wakeup lock\n");
+		marlin_dev->btwf_wakeup_lock = false;
+	}
+
 	cmdline_node = of_find_node_by_path("/chosen");
 	if (cmdline_node)
 		rc = of_property_read_string(cmdline_node, "bootargs", &cmd_line);
@@ -1580,7 +1588,7 @@ static int marlin_clk_enable(bool enable)
 	return ret;
 }
 
-static int marlin_avdd18_dcxo_enable(bool enable)
+int marlin_avdd18_dcxo_enable(bool enable)
 {
 	int ret = 0;
 	struct wcn_match_data *g_match_config = get_wcn_match_config();

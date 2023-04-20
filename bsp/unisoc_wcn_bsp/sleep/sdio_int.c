@@ -17,6 +17,7 @@
 #include "wcn_glb.h"
 #include "../sdio/sdiohal.h"
 #include "slp_dbg.h"
+#include "../platform/wcn_boot.h"
 
 struct sdio_int_t sdio_int = {0};
 
@@ -43,6 +44,7 @@ void sdio_wait_pub_int_done(void)
 {
 	struct slp_mgr_t *slp_mgr;
 	long ret = 0;
+	struct wcn_match_data *g_match_config = get_wcn_match_config();
 
 	slp_mgr = slp_get_info();
 
@@ -59,6 +61,9 @@ void sdio_wait_pub_int_done(void)
 		/* wait pub_int handle finish */
 		if (unlikely(atomic_read(&flag_pub_int_done) == 0))
 			WCN_INFO("wait pub_int_done\n");
+		if (g_match_config && g_match_config->unisoc_wcn_m3lite &&
+				marlin_dev->btwf_wakeup_lock)
+			marlin_avdd18_dcxo_enable(false);
 		ret = wait_event_killable_timeout(sdio_int.pub_int_done,
 			atomic_read(&flag_pub_int_done), usecs_to_jiffies(3000 * 10));
 

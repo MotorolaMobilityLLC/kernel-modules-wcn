@@ -51,5 +51,6 @@ void slp_mgr_drv_sleep(enum slp_subsys subsys, bool enable);
 int slp_mgr_wakeup(enum slp_subsys subsys);
 void slp_mgr_reset(void);
 int slp_mgr_death(void);
+extern struct marlin_device *marlin_dev;
 
 #endif

@@ -107,6 +107,7 @@ struct marlin_device {
 	bool is_btwf_in_sysfs;
 	bool is_gnss_in_sysfs;
 	bool need_to_check_ufs;
+	bool btwf_wakeup_lock;
 	int wifi_need_download_ini_flag;
 	int first_power_on_ready;
 	atomic_t download_finish_flag;
@@ -122,5 +123,6 @@ struct marlin_device {
 	phys_addr_t	base_addr_gnss;
 	u32	maxsz_gnss;
 };
+int marlin_avdd18_dcxo_enable(bool enable);
 
 #endif
