@@ -1238,6 +1238,68 @@ static enum wcn_clock_type crystal_check(const char *cmd_line)
 	return WCN_CLOCK_TYPE_UNKNOWN;
 }
 
+int btwf_reg_cnt;
+int gnss_reg_cnt;
+struct wcn_dump_mem_reg btwf_reg[MAX_DUMP_REG];
+struct wcn_dump_mem_reg gnss_reg[MAX_DUMP_REG];
+
+int wcn_get_dump_regs(struct device_node *np)
+{
+	struct device_node *btwf_dump;
+	struct device_node *gnss_dump;
+	struct property *prop;
+
+	if (btwf_reg_cnt)
+		goto next;
+
+	btwf_dump = of_find_node_by_name(np, "btwf-dump");
+	if (IS_ERR_OR_NULL(btwf_dump)) {
+		WCN_INFO("get node btwf-dump failed\n");
+		goto next;
+	}
+
+	for_each_property_of_node(btwf_dump, prop) {
+		if (strncmp(prop->name, "sprd", strlen("sprd")) != 0)
+			continue;
+		of_property_read_u32_array(btwf_dump, prop->name, &btwf_reg[btwf_reg_cnt].addr, 4);
+		WCN_INFO("%s:0x%x, 0x%x, 0x%x, %d\n",
+					prop->name,
+					btwf_reg[btwf_reg_cnt].addr,
+					btwf_reg[btwf_reg_cnt].len,
+					btwf_reg[btwf_reg_cnt].offset,
+					btwf_reg[btwf_reg_cnt].domain);
+		btwf_reg_cnt++;
+	}
+next:
+
+	if (gnss_reg_cnt)
+		goto out;
+
+	gnss_dump = of_find_node_by_name(np, "gnss-dump");
+	if (IS_ERR_OR_NULL(gnss_dump)) {
+		WCN_INFO("get node gnss-dump failed\n");
+		goto out;
+	}
+
+	for_each_property_of_node(gnss_dump, prop) {
+		if (strncmp(prop->name, "sprd", strlen("sprd")) != 0)
+			continue;
+		of_property_read_u32_array(gnss_dump, prop->name, &gnss_reg[gnss_reg_cnt].addr, 4);
+		WCN_INFO("%s:0x%x, 0x%x, 0x%x, %d\n",
+					prop->name,
+					gnss_reg[gnss_reg_cnt].addr,
+					gnss_reg[gnss_reg_cnt].len,
+					gnss_reg[gnss_reg_cnt].offset,
+					gnss_reg[gnss_reg_cnt].domain);
+		gnss_reg_cnt++;
+	}
+
+out:
+	WCN_INFO("btwf_reg_cnt=%d, gnss_reg_cnt=%d\n", btwf_reg_cnt, gnss_reg_cnt);
+
+	return 0;
+}
+
 static int marlin_parse_dt(struct platform_device *pdev)
 {
 	struct device_node *np = pdev->dev.of_node;
@@ -1254,33 +1316,7 @@ static int marlin_parse_dt(struct platform_device *pdev)
 
 	wcn_get_pmic_config(np);
 
-	ret = of_property_read_u32(np, "sprd,gnss-cp-start-addr",
-				   &GNSS_CP_START_ADDR);
-	if (ret) {
-		WCN_ERR("failed to read sprd,gnss-cp-start-addr\n");
-		return -EINVAL;
-	}
-
-	ret = of_property_read_u32(np, "sprd,gnss-firmware-max-size",
-				   &GNSS_FIRMWARE_MAX_SIZE);
-	if (ret) {
-		WCN_ERR("failed to read sprd,gnss-firmware-max-size\n");
-		return -EINVAL;
-	}
-
-	ret = of_property_read_u32(np, "sprd,gnss-dump-packet-size",
-				   &GNSS_DUMP_PACKET_SIZE);
-	if (ret) {
-		WCN_ERR("failed to read sprd,gnss-dump-packet-size\n");
-		//return -EINVAL;
-	}
-
-	ret = of_property_read_u32(np, "sprd,gnss-dump-reg-number",
-				   &GNSS_DUMP_REG_NUMBER);
-	if (ret) {
-		WCN_ERR("failed to read sprd,gnss-dump-reg-number\n");
-		return -EINVAL;
-	}
+	wcn_get_dump_regs(np);
 
 	marlin_dev->wakeup_ap = of_get_named_gpio(np, "m2-wakeup-ap-gpios", 0);
 	if (!gpio_is_valid(marlin_dev->wakeup_ap))

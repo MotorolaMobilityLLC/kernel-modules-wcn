@@ -23,6 +23,7 @@
 #include "../include/wcn_dbg.h"
 #include "gnss_dump.h"
 #include "wcn_gnss_dump.h"
+#include "wcn_dump.h"
 
 #define DUMP_PACKET_SIZE		(32 * 1024)
 
@@ -89,7 +90,7 @@ static int mdbg_write_smp_head(unsigned int len)
 }
 
 static int mdbg_dump_data(unsigned int start_addr,
-			  char *str, int len, int str_len)
+			  char *str, int len, int str_len, size_t skip)
 {
 	unsigned char *buf, *temp_buf;
 	int count, trans_size, err = 0, i, prin_temp = 2;
@@ -137,7 +138,7 @@ static int mdbg_dump_data(unsigned int start_addr,
 	if (len == 0)
 		return 0;
 
-	buf = kmalloc(DUMP_PACKET_SIZE, GFP_KERNEL);
+	buf = kzalloc(DUMP_PACKET_SIZE, GFP_KERNEL);
 	temp_buf = buf;
 	if (!buf)
 		return -ENOMEM;
@@ -147,7 +148,9 @@ static int mdbg_dump_data(unsigned int start_addr,
 		trans_size = (len - count) > DUMP_PACKET_SIZE ?
 			DUMP_PACKET_SIZE : (len - count);
 		temp_buf = buf;
-		err = sprdwcn_bus_direct_read(start_addr + count, buf,
+
+		if (likely(!skip))
+			err = sprdwcn_bus_direct_read(start_addr + count, buf,
 					      trans_size);
 		if (err < 0) {
 			WCN_ERR("%s dump memory error:%d\n", __func__, err);
@@ -197,7 +200,7 @@ out:
 	return count;
 }
 
-int gnss_dump_data(void *start_addr, int len)
+int gnss_dump_data(void *start_addr, int len, u32 skip)
 {
 	char *buf, *temp_buf;
 	int count, trans_size;
@@ -207,15 +210,19 @@ int gnss_dump_data(void *start_addr, int len)
 
 	buf = kmalloc(DUMP_PACKET_SIZE, GFP_KERNEL);
 	temp_buf = buf;
-	if (!buf)
+	if (!buf) {
+		WCN_ERR("%s kmalloc failed\n", __func__);
 		return -ENOMEM;
+	}
 
 	count = 0;
 	while (count < len) {
+		memset(buf, 0, DUMP_PACKET_SIZE);
 		trans_size = (len - count) > DUMP_PACKET_SIZE ?
 			DUMP_PACKET_SIZE : (len - count);
 		temp_buf = buf;
-		memcpy(buf, start_addr+count, trans_size);
+		if (likely(!skip))
+			memcpy_fromio(buf, start_addr+count, trans_size);
 		while (gnss_ring_free_space() - 1 == 0) {
 			WCN_ERR("no space to write mem,sleep...\n");
 			msleep(20);
@@ -243,213 +250,13 @@ static void mdbg_clear_log(void)
 	}
 }
 
-struct wcn_dump_mem_reg {
-	/* some CP regs can't dump */
-	bool do_dump;
-	u32 addr;
-	/* 4 btyes align */
-	u32 len;
-};
-
 #define WCN_DUMP_END_STRING "marlin_memdump_finish"
 /* magic number, not change it */
 #define WCN_DUMP_VERSION_NAME "WCN_DUMP_HEAD__"
 /* SUB_NAME len not more than 15 bytes */
 #define WCN_DUMP_VERSION_SUB_NAME "SDIO_23xx"
-/* CP2 iram start and end */
-#define WCN_DUMP_CP2_IRAM_START 1
-#define WCN_DUMP_CP2_IRAM_END 2
-/* AP regs start and end */
-#define WCN_DUMP_AP_REGS_START (WCN_DUMP_CP2_IRAM_END + 1)
-#define WCN_DUMP_AP_REGS_END 9
-/* CP2 regs start and end */
-#define WCN_DUMP_CP2_REGS_START (WCN_DUMP_AP_REGS_END + 1)
-#define WCN_DUMP_CP2_REGS_END (ARRAY_SIZE(s_wcn_dump_regs) - 1)
 
 #define WCN_DUMP_ALIGN(x) (((x) + 3) & ~3)
-/* used for HEAD, so all dump mem in this array.
- * if new member added, please modify the macor XXX_START XXX_end above.
- */
-static struct wcn_dump_mem_reg m3_s_wcn_dump_regs_pcie[] = {
-	/* IRAM + DRAM */
-	{1, 0x100000, M3_FIRMWARE_MAX_SIZE},
-	/* top */
-	{1, 0x40880000, 0x54}, /* AON_AHB */
-	{1, 0x4083C000, 0x354}, /* AON_APB */
-	{1, 0x40130000, 0x400}, /* BTWF_AHB */
-	{1, 0x40088000, 0x28c}, /* BTWF_APB */
-	{1, 0x40844200, 0x144}, /* AON_CLK */
-	{1, 0x40844000, 0x48}, /* PRE_DIV_CLK */
-
-	{1, 0x40160000, 0x3c}, /* edma global regs */
-	{1, 0x40161000, 0x480}, /* edma chn regs(0~17) */
-	{1, 0x40180000, 0x17c}, /* pcie config */
-	{1, 0x40180720, 0x30}, /* pcie status */
-	{1, 0x40180e50, 0x30}, /* pcie Sub system */
-
-	/* WIFI regs */
-	{1, 0x400f0000, M3_WIFI_AON_MAC_SIZE}, /* WIFI_AON_MAC */
-	{1, 0x400f1000, 0xD100}, /* WIFI_RTN_PD_MAC */
-	{1, 0x40300000, M3_WIFI_RAM_SIZE}, /* WIFI_352K/298K_RAM */
-	{1, 0x400a0000, M3_WIFI_GLB_REG_SIZE}, /* Wifi_glb_reg */
-	{1, 0x400b0000, 0x388}, /* Wifi_phy_top_reg */
-	{1, 0x400b1000, 0x154}, /* Wifi_phy_tx11a_reg */
-	{1, 0x400b2000, 0xa8c}, /* Wifi_phy_rx11a_reg */
-	{1, 0x400b3000, 0xb0}, /* Wifi_phy_11b_reg */
-	{1, 0x400b4000, 0xa70}, /* Wifi_rfif_reg */
-	{1, 0x400b7000, 0x618}, /* Wifi_dfe_reg */
-	/* FM regs */
-	{1, 0x40098000, 0xabc}, /* fm + rds */
-	/* Bluetooth (HW DEC and BB) Buffer regs */
-	{1, 0x40240000, M3_BT_ACC_SIZE}, /* BT_ACC */
-	{1, 0x40246000, 0x738}, /* BT_JAL */
-	{1, 0x40248000, 0xA0},  /* BT_HAB */
-	{1, 0x4024A000, 0x21C},  /* BT_LEJAL */
-	{1, 0x4024F000, M3_BT_MODEM_SIZE},  /* BT_MODEM */
-	{1, 0x40200000, 0x200}, /* BT_CMD_BUF */
-	{1, 0x40204000, 0x200}, /* BT_EVENT_BUF */
-	{1, 0x40208000, 0x12A4},  /* BT_LMP_TX_BUF */
-	{1, 0x40200C00, 0xB744},  /* BT_LMP_RX_BUF */
-	{1, 0x40210000, 0x3000},  /* BT_ACL_TX_BUF */
-	{1, 0x40214000, 0x3000},  /* BT_ACL_RX_BUF */
-	{1, 0x40218000, 0x2D0},  /* BT_SCO_TX_BUF */
-	{1, 0x4021C000, 0x5C0},  /* BT_SCO_RX_BUF */
-	{1, 0x40241000, 0x400},  /* BT_BB_TX_BUF */
-	{1, 0x40242000, 0x400}   /* BT_BB_RX_BUF */
-};
-
-static struct wcn_dump_mem_reg m3_s_wcn_dump_regs[] = {
-	/* IRAM + DRAM */
-	{1, 0x100000, M3_FIRMWARE_MAX_SIZE},
-	/* top */
-	{1, 0x40880000, 0x54}, /* AON_AHB */
-	{1, 0x4083C000, 0x354}, /* AON_APB */
-	{1, 0x40130000, 0x400}, /* BTWF_AHB */
-	{1, 0x40088000, 0x28c}, /* BTWF_APB */
-	{1, 0x40844200, 0x144}, /* AON_CLK */
-	{1, 0x40844000, 0x48}, /* PRE_DIV_CLK */
-
-	/* SDIO regs */
-	{1, 0x40140000, 0x10000}, /* SDIO regs */
-
-	/* WIFI regs */
-	{1, 0x400f0000, M3_WIFI_AON_MAC_SIZE}, /* WIFI_AON_MAC */
-	{1, 0x400f1000, 0xD100}, /* WIFI_RTN_PD_MAC */
-	{1, 0x40300000, M3_WIFI_RAM_SIZE}, /* WIFI_352K/298K_RAM */
-	{1, 0x400a0000, M3_WIFI_GLB_REG_SIZE}, /* Wifi_glb_reg */
-	{1, 0x400b0000, 0x388}, /* Wifi_phy_top_reg */
-	{1, 0x400b1000, 0x154}, /* Wifi_phy_tx11a_reg */
-	{1, 0x400b2000, 0xa8c}, /* Wifi_phy_rx11a_reg */
-	{1, 0x400b3000, 0xb0}, /* Wifi_phy_11b_reg */
-	{1, 0x400b4000, 0xa70}, /* Wifi_rfif_reg */
-	{1, 0x400b7000, 0x618}, /* Wifi_dfe_reg */
-	/* FM regs */
-	{1, 0x40098000, 0xabc}, /* fm + rds */
-	/* Bluetooth (HW DEC and BB) Buffer regs */
-	{1, 0x40240000, M3_BT_ACC_SIZE}, /* BT_ACC */
-	{1, 0x40246000, 0x738}, /* BT_JAL */
-	{1, 0x40248000, 0xA0},  /* BT_HAB */
-	{1, 0x4024A000, 0x21C},  /* BT_LEJAL */
-	{1, 0x4024F000, M3_BT_MODEM_SIZE},  /* BT_MODEM */
-	{1, 0x40200000, 0x200}, /* BT_CMD_BUF */
-	{1, 0x40204000, 0x200}, /* BT_EVENT_BUF */
-	{1, 0x40208000, 0x12A4},  /* BT_LMP_TX_BUF */
-	{1, 0x40200C00, 0xB744},  /* BT_LMP_RX_BUF */
-	{1, 0x40210000, 0x3000},  /* BT_ACL_TX_BUF */
-	{1, 0x40214000, 0x3000},  /* BT_ACL_RX_BUF */
-	{1, 0x40218000, 0x2D0},  /* BT_SCO_TX_BUF */
-	{1, 0x4021C000, 0x5C0},  /* BT_SCO_RX_BUF */
-	{1, 0x40241000, 0x400},  /* BT_BB_TX_BUF */
-	{1, 0x40242000, 0x400}   /* BT_BB_RX_BUF */
-};
-
-static struct wcn_dump_mem_reg m3l_s_wcn_dump_regs[] = {
-	/* IRAM + DRAM */
-	{1, 0x100000, M3L_FIRMWARE_MAX_SIZE},
-	/* top */
-	{1, 0x40880000, 0x54}, /* AON_AHB */
-	{1, 0x4083C000, 0x354}, /* AON_APB */
-	{1, 0x40130000, 0x400}, /* BTWF_AHB */
-	{1, 0x40088000, 0x28c}, /* BTWF_APB */
-	{1, 0x40844200, 0x144}, /* AON_CLK */
-	{1, 0x40844000, 0x48}, /* PRE_DIV_CLK */
-
-	/* SDIO regs */
-	{1, 0x40140000, 0x10000}, /* SDIO regs */
-
-	/* WIFI regs */
-	{1, 0x400f0000, M3L_WIFI_AON_MAC_SIZE}, /* WIFI_AON_MAC */
-	{1, 0x400f1000, 0xD100}, /* WIFI_RTN_PD_MAC */
-	{1, 0x40300000, M3L_WIFI_RAM_SIZE}, /* WIFI_352K/298K_RAM */
-	{1, 0x400a0000, M3L_WIFI_GLB_REG_SIZE}, /* Wifi_glb_reg */
-	{1, 0x400b0000, 0x388}, /* Wifi_phy_top_reg */
-	{1, 0x400b1000, 0x154}, /* Wifi_phy_tx11a_reg */
-	{1, 0x400b2000, 0xa8c}, /* Wifi_phy_rx11a_reg */
-	{1, 0x400b3000, 0xb0}, /* Wifi_phy_11b_reg */
-	{1, 0x400b4000, 0xa70}, /* Wifi_rfif_reg */
-	{1, 0x400b7000, 0x618}, /* Wifi_dfe_reg */
-	/* FM regs */
-	{1, 0x40098000, 0xabc}, /* fm + rds */
-	/* Bluetooth (HW DEC and BB) Buffer regs */
-	{1, 0x40240000, M3L_BT_ACC_SIZE}, /* BT_ACC */
-	{1, 0x40246000, 0x738}, /* BT_JAL */
-	{1, 0x40248000, 0xA0},  /* BT_HAB */
-	{1, 0x4024A000, 0x21C},  /* BT_LEJAL */
-	{1, 0x4024F000, M3L_BT_MODEM_SIZE},  /* BT_MODEM */
-	{1, 0x40200000, 0x200}, /* BT_CMD_BUF */
-	{1, 0x40204000, 0x200}, /* BT_EVENT_BUF */
-	{1, 0x40208000, 0x12A4},  /* BT_LMP_TX_BUF */
-	{1, 0x40200C00, 0xB744},  /* BT_LMP_RX_BUF */
-	{1, 0x40210000, 0x3000},  /* BT_ACL_TX_BUF */
-	{1, 0x40214000, 0x3000},  /* BT_ACL_RX_BUF */
-	{1, 0x40218000, 0x2D0},  /* BT_SCO_TX_BUF */
-	{1, 0x4021C000, 0x5C0},  /* BT_SCO_RX_BUF */
-	{1, 0x40241000, 0x400},  /* BT_BB_TX_BUF */
-	{1, 0x40242000, 0x400}   /* BT_BB_RX_BUF */
-};
-
-static struct wcn_dump_mem_reg *get_wcn_dump_mem_area(size_t *array_size)
-{
-	struct wcn_dump_mem_reg *reg_area = NULL;
-	struct wcn_match_data *g_match_config = get_wcn_match_config();
-
-	/* fixme */
-	if (g_match_config && g_match_config->unisoc_wcn_pcie) {
-		reg_area = m3_s_wcn_dump_regs_pcie;
-		*array_size = ARRAY_SIZE(m3_s_wcn_dump_regs_pcie);
-	} else if (g_match_config && g_match_config->unisoc_wcn_m3lite) {
-		reg_area = m3l_s_wcn_dump_regs;
-		*array_size = ARRAY_SIZE(m3l_s_wcn_dump_regs);
-	} else {
-		reg_area = m3_s_wcn_dump_regs;
-		*array_size = ARRAY_SIZE(m3_s_wcn_dump_regs);
-	}
-
-	return reg_area;
-}
-
-struct wcn_dump_section_info {
-	/* cp load start addr */
-	__le32 start;
-	/* cp load end addr */
-	__le32 end;
-	/* load from file offset */
-	__le32 off;
-	__le32 reserv;
-} __packed;
-
-struct wcn_dump_head_info {
-	/* WCN_DUMP_VERSION_NAME */
-	u8 version[16];
-	/* WCN_DUMP_VERSION_SUB_NAME */
-	u8 sub_version[16];
-	/* numbers of wcn_dump_section_info */
-	__le32 n_sec;
-	/* used to check if dump is full */
-	__le32 file_size;
-	u8 reserv[8];
-	struct wcn_dump_section_info section[0];
-} __packed;
 
 static int wcn_fill_dump_head_info(struct wcn_dump_mem_reg *mem_cfg, size_t cnt)
 {
@@ -513,34 +320,12 @@ void gnss_dump_str(char *str, int str_len)
 	WCN_INFO("dump str finish!");
 }
 
-/*
- * dump cp wifi phy reg
- * wifi phy start[11,17]
- */
-static void wcn_dump_cp_register(struct wcn_dump_mem_reg *mem)
-{
-	int i;
-
-	for (i = 11; i <= 17; i++) {
-		mdbg_dump_data(mem[i].addr, NULL, mem[i].len, 0);
-		WCN_INFO("dump cp reg section[%d] ok!\n", i);
-	}
-}
-
-static void wcn_dump_cp_data(struct wcn_dump_mem_reg *mem, int start, int end)
-{
-	int i;
-
-	for (i = start; i <= end; i++) {
-		mdbg_dump_data(mem[i].addr, NULL, mem[i].len, 0);
-		WCN_INFO("dump cp data section[%d] ok!\n", i);
-	}
-}
 
 #define  CACHE_STATUS_OFFSET  32
 #define  CACHE_START_OFFSET    36
 #define  CACHE_END_OFFSET       40
 #define  DCACHE_BLOCK_NUM       7
+
 struct cache_block_config {
 	unsigned int reg_addr;
 	unsigned int reg_value;
@@ -1114,7 +899,7 @@ static int check_bt_buffer_rw(void)
 	ret = sprdwcn_bus_reg_read(HCI_ARM_WR_RD_MODE, &temp, 4);
 	if (ret < 0) {
 		WCN_ERR("read HCI_ARM_WR_RD_MODE reg error:%d\n", ret);
-		return ret;
+		return BT_BUF;
 	}
 	WCN_INFO("%s HCI_ARM_WR_RD_MODE reg val:0x%x\n", __func__, temp);
 
@@ -1163,7 +948,7 @@ static int check_bt_power_clk_ison(void)
 	ret = sprdwcn_bus_reg_read(AHB_EB0, &temp, 4);
 	if (ret < 0) {
 		WCN_ERR("%s read AHB_EB0 reg error:%d\n", __func__, ret);
-		return ret;
+		return BT;
 	}
 	WCN_INFO("%s AHB_EB0 reg val:0x%x\n", __func__, temp);
 	if ((temp & BT_EN) != BT_EN) {
@@ -1175,7 +960,7 @@ static int check_bt_power_clk_ison(void)
 	ret = sprdwcn_bus_reg_read(CLK_CTRL3, &temp, 4);
 	if (ret < 0) {
 		WCN_ERR("%s read CLK_CTRL3 reg error:%d\n", __func__, ret);
-		return ret;
+		return BT;
 	}
 	WCN_INFO("%s CLK_CTRL3(bit18,19 need 1)val:0x%x\n", __func__, temp);
 	if (((temp & CGM_BT_32M_EN) != CGM_BT_32M_EN) ||
@@ -1185,7 +970,7 @@ static int check_bt_power_clk_ison(void)
 		ret = sprdwcn_bus_reg_write(CLK_CTRL3, &temp, 4);
 	}
 
-	return ret;
+	return 0;
 }
 
 
@@ -1197,13 +982,13 @@ static int check_wifi_power_domain_ison(void)
 	ret = enable_cp_pll();
 	if (ret < 0) {
 		WCN_ERR("wifi enable cp pll err\n");
-		return ret;
+		return WIFI;
 	}
 
 	ret = sprdwcn_bus_reg_read(CHIP_SLP, &temp, 4);
 	if (ret < 0) {
 		WCN_ERR("%s read CHIP_SLP reg error:%d\n", __func__, ret);
-		return ret;
+		return WIFI;
 	}
 	WCN_INFO("%s CHIP_SLP reg val:0x%x\n", __func__, temp);
 
@@ -1261,7 +1046,7 @@ static int check_wifi_power_domain_ison(void)
 	ret = sprdwcn_bus_reg_read(AHB_EB0, &temp, 4);
 	if (ret < 0) {
 		WCN_ERR("%s read AHB_EB0 reg error:%d\n", __func__, ret);
-		return ret;
+		return WIFI;
 	}
 	WCN_INFO("%s AHB_EB0 reg val:0x%x\n", __func__, temp);
 
@@ -1276,6 +1061,22 @@ static int check_wifi_power_domain_ison(void)
 
 	return 0;
 }
+
+static int btwf_dump_mem(size_t skip)
+{
+	int i;
+
+	for (i = 0; i < btwf_reg_cnt; i++) {
+		mdbg_dump_data(btwf_reg[i].addr + btwf_reg[i].offset,
+						NULL,
+						btwf_reg[i].len,
+						0,
+						btwf_reg[i].domain & skip);
+	}
+
+	return 0;
+}
+
 /*
  * 0x400F0000 - 0x400F0108 MAC AON
  * check 1:
@@ -1291,12 +1092,9 @@ static int check_wifi_power_domain_ison(void)
  */
 int mdbg_dump_mem(void)
 {
-	long int count;
-	int ret;
 	struct wcn_match_data *g_match_config = get_wcn_match_config();
 	int i;
-	size_t dump_array_size;
-	struct wcn_dump_mem_reg *p_wcn_dump_regs = NULL;
+	size_t skip_modules = 0;
 
 	if (g_match_config && g_match_config->unisoc_wcn_pcie) {
 		edma_dump_glb_reg();
@@ -1317,281 +1115,29 @@ int mdbg_dump_mem(void)
 	/* mdbg_atcmd_clean(); */
 	cp_dcache_clean_invalid_all();
 
-	p_wcn_dump_regs = get_wcn_dump_mem_area(&dump_array_size);
-
-	if (wcn_fill_dump_head_info(p_wcn_dump_regs, dump_array_size))
+	if (wcn_fill_dump_head_info(btwf_reg, btwf_reg_cnt))
 		return -1;
 
-	count = mdbg_dump_data(get_cp_start_addr(), NULL, get_firmware_max_size(), 0);
-	if (count <= 0) {
-		WCN_INFO("mdbg start reset marlin reg!\n");
-		ret = marlin_reset_reg();
-		if (ret < 0)
-			return 0;
-		cp_dcache_clean_invalid_all();
-		count = mdbg_dump_data(get_cp_start_addr(), NULL,
-				       get_firmware_max_size(), 0);
-
-		WCN_INFO("mdbg only dump ram %ld ok!\n", count);
-
-		goto end;
-	}
-	WCN_INFO("mdbg dump ram %ld ok!\n", count);
-
-#ifdef AON_AHB_ADDR
-	count = mdbg_dump_data(AON_AHB_ADDR, "start_dump_aon_ahb_reg",
-			       AON_AHB_SIZE, strlen("start_dump_aon_ahb_reg"));
-	WCN_INFO("mdbg dump aon ahb %ld ok!\n", count);
-#endif
-#ifdef AON_APB_ADDR
-	count = mdbg_dump_data(AON_APB_ADDR, "start_dump_aon_apb_reg",
-			       AON_APB_SIZE, strlen("start_dump_aon_aph_reg"));
-	WCN_INFO("mdbg dump aon_apb %ld ok!\n", count);
-#endif
-#ifdef BTWF_AHB_ADDR
-	count = mdbg_dump_data(BTWF_AHB_ADDR, "start_dump_btwf_ahb_reg",
-			       BTWF_AHB_SIZE,
-			       strlen("start_dump_btwf_ahb_reg"));
-	WCN_INFO("mdbg dump btwfahb %ld ok!\n", count);
-#endif
-#ifdef BTWF_APB_ADDR
-	count = mdbg_dump_data(BTWF_APB_ADDR, "start_dump_btwf_apb_reg",
-			       BTWF_APB_SIZE,
-			       strlen("start_dump_btwf_apb_reg"));
-	WCN_INFO("mdbg dump btwfapb %ld ok!\n", count);
-#endif
-#ifdef AON_CLK_ADDR
-	count = mdbg_dump_data(AON_CLK_ADDR, "start_dump_aon_clk_reg",
-			       AON_CLK_SIZE, strlen("start_dump_aon_clk_reg"));
-	WCN_INFO("mdbg dump aonclk %ld ok!\n", count);
-#endif
-#ifdef PRE_DIV_CLK_ADDR
-	count = mdbg_dump_data(PRE_DIV_CLK_ADDR,
-			       "start_dump_pre_div_clk_reg",
-			       PRE_DIV_CLK_SIZE,
-			       strlen("start_dump_pre_div_clk_reg"));
-	WCN_INFO("mdbg dump predivclk %ld ok!\n", count);
-#endif
-
-	if (g_match_config && g_match_config->unisoc_wcn_pcie) {
-		wcn_dump_cp_data(p_wcn_dump_regs, 7, 11);
-	} else {
-		count = mdbg_dump_data(DUMP_SDIO_ADDR, "start_dump_sdio_reg",
-				       DUMP_SDIO_ADDR_SIZE,
-				      strlen("start_dump_sdio_reg"));
-		WCN_INFO("mdbg dump sdio %ld ok!\n", count);
-	}
-
 	/* for dump wifi reg */
-	ret = check_wifi_power_domain_ison();
-	if (ret != 0) {
-		WCN_ERR("********:-) :-) :-) :-)*********\n");
-		WCN_ERR("!!!mdbg wifi power domain is down!!\n");
-		goto next;
+	skip_modules |= check_wifi_power_domain_ison();
+	if (skip_modules & WIFI) {
+		WCN_WARN("********:-) :-) :-) :-)*********\n");
+		WCN_WARN("!!!mdbg wifi power domain is down!!\n");
 	}
 
-#ifdef DUMP_WIFI_AON_MAC_ADDR
-	count = mdbg_dump_data(DUMP_WIFI_AON_MAC_ADDR,
-			       "start_dump_wifi_aon_reg",
-				get_wifi_aon_mac_size(),
-				strlen("start_dump_wifi_aon_reg"));
-#endif
-
-#ifdef DUMP_WIFI_RTN_PD_MAC_ADDR
-	count = mdbg_dump_data(DUMP_WIFI_RTN_PD_MAC_ADDR,
-			       "start_dump_wifi_RTN+PD_reg",
-			       DUMP_WIFI_RTN_PD_MAC_ADDR_SIZE,
-			       strlen("start_dump_wifi_RTN+PD_reg"));
-#endif
-
-#ifdef DUMP_WIFI_352K_RAM_ADDR
-
-	count = mdbg_dump_data(DUMP_WIFI_352K_RAM_ADDR,
-			       "start_dump_wifi_352K_RAM_reg",
-			       get_wifi_ram_size(),
-			       strlen("start_dump_wifi_352K_RAM_reg"));
-	WCN_INFO("mdbg dump wifi %ld ok!\n", count);
-#endif
-	if (g_match_config && g_match_config->unisoc_wcn_pcie)
-		wcn_dump_cp_data(p_wcn_dump_regs, 15, 21);
-	else
-		wcn_dump_cp_register(p_wcn_dump_regs);
-
-next:
-#ifdef DUMP_INTC_ADDR
-	count = mdbg_dump_data(DUMP_INTC_ADDR, "start_dump_intc_reg",
-			       DUMP_REG_SIZE,
-			       strlen("start_dump_intc_reg"));
-	WCN_INFO("mdbg dump intc %ld ok!\n", count);
-#endif
-
-#ifdef DUMP_SYSTIMER_ADDR
-	count = mdbg_dump_data(DUMP_SYSTIMER_ADDR,
-			       "start_dump_systimer_reg",
-			       DUMP_REG_SIZE,
-			       strlen("start_dump_systimer_reg"));
-	WCN_INFO("mdbg dump systimer %ld ok!\n", count);
-#endif
-
-#ifdef DUMP_WDG_ADDR
-	count = mdbg_dump_data(DUMP_WDG_ADDR, "start_dump_wdg_reg",
-			       DUMP_REG_SIZE, strlen("start_dump_wdg_reg"));
-	WCN_INFO("mdbg dump wdg %ld ok!\n", count);
-#endif
-
-#ifdef DUMP_APB_ADDR
-	count = mdbg_dump_data(DUMP_APB_ADDR, "start_dump_apb_reg",
-			       DUMP_REG_SIZE, strlen("start_dump_apb_reg"));
-	WCN_INFO("mdbg dump apb %ld ok!\n", count);
-#endif
-
-#ifdef DUMP_DMA_ADDR
-	count = mdbg_dump_data(DUMP_DMA_ADDR, "start_dump_dma_reg",
-			       DUMP_REG_SIZE, strlen("start_dump_dma_reg"));
-	WCN_INFO("mdbg dump dma %ld ok!\n", count);
-#endif
-
-#ifdef DUMP_DMA_ADDR
-	count = mdbg_dump_data(DUMP_AHB_ADDR, "start_dump_ahb_reg",
-			       DUMP_REG_SIZE, strlen("start_dump_ahb_reg"));
-	WCN_INFO("mdbg dump ahb %ld ok!\n", count);
-#endif
-
-	count = mdbg_dump_data(DUMP_FM_ADDR, "start_dump_fm_reg",
-			       DUMP_FM_ADDR_SIZE,
-			       strlen("start_dump_fm_reg"));
-	WCN_INFO("mdbg dump fm %ld ok!\n", count);
-
-#ifdef DUMP_WIFI_ADDR
-	count = mdbg_dump_data(DUMP_WIFI_ADDR, "start_dump_wifi_reg",
-			       DUMP_WIFI_ADDR_SIZE,
-			       strlen("start_dump_wifi_reg"));
-	WCN_INFO("mdbg dump wifi %ld ok!\n", count);
-#endif
-
-	ret = check_bt_power_clk_ison();
-	if (ret < 0) {
-		WCN_INFO("bt enable clk fail\n");
-		goto end;
+	skip_modules |= check_bt_power_clk_ison();
+	if (skip_modules & BT) {
+		WCN_WARN("********:-) :-) :-) :-)*********\n");
+		WCN_WARN("!!!mdbg bt power domain is down!!\n");
 	}
 
-#ifdef DUMP_BT_CMD_ADDR
-	count = mdbg_dump_data(DUMP_BT_CMD_ADDR,
-			       "start_dump_bt_cmd_buf",
-			       DUMP_BT_CMD_ADDR_SIZE,
-			       strlen("start_dump_bt_cmd_buf"));
-	WCN_INFO("mdbg dump bt cmd %ld ok!\n", count);
-#endif
+	skip_modules |= check_bt_buffer_rw();
 
-#ifdef DUMP_BT_ADDR
-	count = mdbg_dump_data(DUMP_BT_ADDR, "start_dump_bt_reg",
-			       DUMP_BT_ADDR_SIZE, strlen("start_dump_bt_reg"));
-	WCN_INFO("mdbg dump bt %ld ok!\n", count);
-#endif
-#ifdef BT_ACC_ADDR
-	count = mdbg_dump_data(BT_ACC_ADDR, "start_dump_bt_acc_reg",
-			       get_bt_acc_size(), strlen("start_dump_bt_acc_reg"));
-	WCN_INFO("mdbg dump btacc %ld ok!\n", count);
-#endif
-#ifdef BT_JAL_ADDR
-	count = mdbg_dump_data(BT_JAL_ADDR, "start_dump_bt_jal_reg",
-			       BT_JAL_SIZE, strlen("start_dump_bt_jal_reg"));
-	WCN_INFO("mdbg dump btjal %ld ok!\n", count);
-#endif
-#ifdef BT_HAB_ADDR
-	count = mdbg_dump_data(BT_HAB_ADDR, "start_dump_bt_hab_reg",
-			       BT_HAB_SIZE, strlen("start_dump_bt_hab_reg"));
-	WCN_INFO("mdbg dump bthab %ld ok!\n", count);
-#endif
-#ifdef BT_LEJAL_ADDR
-	count = mdbg_dump_data(BT_LEJAL_ADDR, "start_dump_bt_lejal_reg",
-			       BT_LEJAL_SIZE,
-			       strlen("start_dump_bt_lejal_reg"));
-	WCN_INFO("mdbg dump btlejal %ld ok!\n", count);
-#endif
-#ifdef BT_MODEM_ADDR
-	count = mdbg_dump_data(BT_MODEM_ADDR, "start_dump_bt_modem_reg",
-			       get_bt_modem_size(),
-			       strlen("start_dump_bt_modem_reg"));
-	WCN_INFO("mdbg dump bt modem %ld ok!\n", count);
-#endif
-
-	check_bt_buffer_rw();
-
-#ifdef BT_CMD_BUF_ADDR
-	count = mdbg_dump_data(BT_CMD_BUF_ADDR,
-			       "start_dump_bt_cmd_buf_reg",
-			       BT_CMD_BUF_SIZE,
-			       strlen("start_dump_bt_cmd_buf_reg"));
-	WCN_INFO("mdbg dump bt_cmd buf %ld ok!\n", count);
-#endif
-#ifdef BT_EVENT_BUF_ADDR
-	count = mdbg_dump_data(BT_EVENT_BUF_ADDR,
-			       "start_dump_bt_event_buf_reg",
-			       BT_EVENT_BUF_SIZE,
-			       strlen("start_dump_bt_event_buf_reg"));
-	WCN_INFO("mdbg dump btevent buf %ld ok!\n", count);
-#endif
-#ifdef BT_LMP_TX_BUF_ADDR
-	count = mdbg_dump_data(BT_LMP_TX_BUF_ADDR,
-			       "start_dump_bt_lmp_tx_buf_reg",
-			       BT_LMP_TX_BUF_SIZE,
-			       strlen("start_dump_bt_lmp_tx_buf_reg"));
-	WCN_INFO("mdbg dump bt_lmp_tx_buf %ld ok!\n", count);
-#endif
-#ifdef BT_LMP_RX_BUF_ADDR
-	count = mdbg_dump_data(BT_LMP_RX_BUF_ADDR,
-			       "start_dump_bt_lmp_rx_buf_reg",
-			       BT_LMP_RX_BUF_SIZE,
-			       strlen("start_dump_bt_lmp_rx_buf_reg"));
-	WCN_INFO("mdbg dump bt_lmp_rx_buf %ld ok!\n", count);
-#endif
-#ifdef BT_ACL_TX_BUF_ADDR
-	count = mdbg_dump_data(BT_ACL_TX_BUF_ADDR,
-			       "start_dump_bt_acl_tx_buf_reg",
-			       BT_ACL_TX_BUF_SIZE,
-			       strlen("start_dump_bt_acl_tx_buf_reg"));
-	WCN_INFO("mdbg dump bt_acl_tx_buf%ld ok!\n", count);
-#endif
-#ifdef BT_ACL_RX_BUF_ADDR
-	count = mdbg_dump_data(BT_ACL_RX_BUF_ADDR,
-			       "start_dump_bt_acl_rx_buf_reg",
-			       BT_ACL_RX_BUF_SIZE,
-			       strlen("start_dump_bt_acl_rx_buf_reg"));
-	WCN_INFO("mdbg dump bt_acl_rx_buf %ld ok!\n", count);
-#endif
-#ifdef BT_SCO_TX_BUF_ADDR
-	count = mdbg_dump_data(BT_SCO_TX_BUF_ADDR,
-			       "start_dump_bt_sco_tx_buf_reg",
-			       BT_SCO_TX_BUF_SIZE,
-			       strlen("start_dump_bt_sco_tx_buf_reg"));
-	WCN_INFO("mdbg dump bt_sco_tx_buf %ld ok!\n", count);
-#endif
-#ifdef BT_SCO_RX_BUF_ADDR
-	count = mdbg_dump_data(BT_SCO_RX_BUF_ADDR,
-			       "start_dump_bt_sco_rx_buf_reg",
-			       BT_SCO_RX_BUF_SIZE,
-			       strlen("start_dump_bt_sco_rx_buf_reg"));
-	WCN_INFO("mdbg dump bt_sco_rx_buf %ld ok!\n", count);
-#endif
-#ifdef BT_BB_TX_BUF_ADDR
-	count = mdbg_dump_data(BT_BB_TX_BUF_ADDR,
-			       "start_dump_bt_bb_tx_buf_reg",
-			       BT_BB_TX_BUF_SIZE,
-			       strlen("start_dump_bt_bb_tx_buf_reg"));
-	WCN_INFO("mdbg dump bt_bb_tx_buf %ld ok!\n", count);
-#endif
-#ifdef BT_BB_RX_BUF_ADDR
-	count = mdbg_dump_data(BT_BB_RX_BUF_ADDR,
-			       "start_dump_bt_bb_rx_buf_reg",
-			       BT_BB_RX_BUF_SIZE,
-			       strlen("start_dump_bt_bb_rx_buf_reg"));
-	WCN_INFO("mdbg dump bt_bb_rx_buf %ld ok!\n", count);
-#endif
+	btwf_dump_mem(skip_modules);
 
 	/* dump gnss */
 	gnss_dump_mem(0);
-end:
+
 	/* Make sure only string "marlin_memdump_finish" to slog one time */
 	msleep(40);
 	mdbg_dump_str(WCN_DUMP_END_STRING, strlen(WCN_DUMP_END_STRING));

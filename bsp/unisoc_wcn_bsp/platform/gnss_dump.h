@@ -13,6 +13,7 @@
 #define __GNSS_DUMP_H__
 
 #include "sprd_wcn_glb.h"
+#include "wcn_dump.h"
 
 #define GNSS_DUMP_IRAM_START_ADDR_SIPC	0x88240000
 #define SIPC_BUFFER_DATA_NUM		0x40000
@@ -82,6 +83,9 @@
 #define GNSS_BASE_AON_APB_SIZE 0x354
 #define CTL_BASE_AON_CLOCK  0x40844200
 #define CTL_BASE_AON_CLOCK_SIZE  0x144
+
+extern int gnss_reg_cnt;
+extern struct wcn_dump_mem_reg gnss_reg[MAX_DUMP_REG];
 
 int gnss_dump_mem(char flag);
 void gnss_set_clk_gate_en(u32 flag);
