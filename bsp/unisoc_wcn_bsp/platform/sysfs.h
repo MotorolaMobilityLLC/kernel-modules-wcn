@@ -20,6 +20,22 @@
 #define WCN_ASSERT_ONLY_RESET        1
 #define WCN_ASSERT_BOTH_RESET_DUMP   2
 
+struct wcn_sysfs_info {
+	void *p;
+	unsigned char len;
+	struct mutex mutex;
+	struct completion cmd_completion;
+	atomic_t set_mask;
+	/* 0:dumpmem; 1:reset */
+	atomic_t is_reset;
+	char sw_ver_buf[128];
+	size_t sw_ver_len;
+	unsigned char armlog_status;
+	char loglevel_buf[128];
+	size_t loglevel_len;
+	unsigned char loglevel;
+};
+
 int notify_at_cmd_finish(void *buf, unsigned char len);
 void wcn_notify_fw_error(enum wcn_source_type type, char *buf);
 int wcn_sysfs_get_reset_prop(void);

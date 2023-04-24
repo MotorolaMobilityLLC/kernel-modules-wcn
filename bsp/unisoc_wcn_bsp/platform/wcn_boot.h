@@ -131,5 +131,6 @@ struct marlin_device {
 	u32	maxsz_gnss;
 };
 int marlin_avdd18_dcxo_enable(bool enable);
+int wcn_chr_init(void);
 
 #endif

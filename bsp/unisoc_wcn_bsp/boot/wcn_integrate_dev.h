@@ -532,4 +532,5 @@ int btwf_clear_force_deepsleep_aontop(struct wcn_device *wcn_dev);
 int btwf_force_shutdown_aontop(struct wcn_device *wcn_dev);
 int btwf_clear_force_shutdown_aontop(struct wcn_device *wcn_dev);
 
+int wcn_chr_init(void);
 #endif

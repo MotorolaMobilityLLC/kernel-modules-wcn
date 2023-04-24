@@ -70,7 +70,8 @@ WCN_BSP_PLATFORM := \
 		platform/wcn_swd_dap.o \
 		platform/mem_pd_mgr.o \
 		platform/wcn_debugfs.o \
-		platform/wcn_ca_trusty.o
+		platform/wcn_ca_trusty.o \
+		platform/wcn_chr.o
 
 WCN_BSP_BOOT := \
 		boot/wcn_integrate.o \

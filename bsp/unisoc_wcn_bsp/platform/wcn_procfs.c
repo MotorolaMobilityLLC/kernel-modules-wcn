@@ -62,7 +62,8 @@ struct mdbg_proc_t {
 	struct mdbg_proc_entry		loopcheck;
 	struct mdbg_proc_entry		at_cmd;
 	struct mdbg_proc_entry		snap_shoot;
-	struct mutex			mutex;
+	struct mdbg_proc_entry          wcn_chr;
+	struct mutex		mutex;
 	char write_buf[MDBG_WRITE_SIZE];
 	int fail_count;
 	int assert_notify_flag;
@@ -158,7 +159,7 @@ void __wcn_assert_interface(enum wcn_source_type type, char *str)
 		wcn_notify_fw_error(type, str);
 		mdbg_proc->assert_notify_flag = 1;
 	}
-
+	wcn_chr_report_event(str, 0);
 	sprdwcn_bus_debug_point_show();
 	/*wcn reset or dump process*/
 	stop_loopcheck();
@@ -1078,6 +1079,40 @@ static const struct proc_ops mdbg_proc_fops = {
 	.proc_poll		= mdbg_proc_poll,
 };
 
+static ssize_t mdbg_wcn_chr_write(struct file *filp,
+		const char __user *buf, size_t count, loff_t *ppos)
+{
+	char *tmp;
+	int ret;
+
+	if (*ppos)
+		return 0;
+
+	tmp = kzalloc(count, GFP_KERNEL);
+	if (!tmp) {
+		WCN_ERR("%s: alloc %d byte memory failed\n", __func__, count);
+		return -ENOMEM;
+	}
+
+	if (copy_from_user(tmp, buf, count)) {
+		WCN_ERR("%s: copy_from_user failed\n", __func__);
+		kfree(tmp);
+		return -EINVAL;
+	}
+
+	WCN_INFO("%s:%s\n", __func__, tmp);
+	ret = wcn_chr_write(tmp, count);
+
+	kfree(tmp);
+	*ppos += count;
+
+	return ret;
+}
+
+static const struct proc_ops mdbg_wcn_chr_fops = {
+	.proc_write		= mdbg_wcn_chr_write,
+};
+
 int mdbg_memory_alloc(void)
 {
 	mdbg_proc->assert.buf =  kzalloc(MDBG_ASSERT_SIZE, GFP_KERNEL);
@@ -1323,6 +1358,14 @@ int proc_fs_init(void)
 						&mdbg_snap_shoot_seq_fops,
 						&(mdbg_proc->snap_shoot));
 
+	mdbg_proc->wcn_chr.name = "wcn_chr";
+	mdbg_proc->wcn_chr.entry = proc_create_data(
+						mdbg_proc->wcn_chr.name,
+						0220,
+						mdbg_proc->procdir,
+						&mdbg_wcn_chr_fops,
+						&(mdbg_proc->wcn_chr));
+
 	if (g_match_config && !g_match_config->unisoc_wcn_pcie)
 		mdbg_fs_channel_init();
 
@@ -1352,6 +1395,7 @@ void proc_fs_exit(void)
 	remove_proc_entry(mdbg_proc->loopcheck.name, mdbg_proc->procdir);
 	remove_proc_entry(mdbg_proc->at_cmd.name, mdbg_proc->procdir);
 	remove_proc_entry(mdbg_proc->dir_name, NULL);
+	remove_proc_entry(mdbg_proc->wcn_chr.name, mdbg_proc->procdir);
 
 	kfree(mdbg_proc);
 	mdbg_proc = NULL;

@@ -3250,6 +3250,8 @@ int marlin_probe(struct platform_device *pdev)
 		goto error0;
 	}
 
+	wcn_chr_init();
+
 	/* init data for pre_gnss_download_firmware*/
 	gnss_data_init();
 

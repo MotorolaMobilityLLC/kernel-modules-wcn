@@ -1397,6 +1397,7 @@ int wcn_probe(struct platform_device *pdev)
 		proc_fs_init();
 		log_dev_init();
 		wcn_gnss_dump_init();
+		wcn_chr_init();
 
 		init_wcn_sysfs();
 		mdbg_atcmd_owner_init();

@@ -21,23 +21,7 @@
 #include "wcn_boot.h"
 static bool from_ddr;
 
-struct wcn_sysfs_info {
-	void *p;
-	unsigned char len;
-	struct mutex mutex;
-	struct completion cmd_completion;
-	atomic_t set_mask;
-	/* 0:dumpmem; 1:reset */
-	atomic_t is_reset;
-	char sw_ver_buf[128];
-	size_t sw_ver_len;
-	unsigned char armlog_status;
-	char loglevel_buf[128];
-	size_t loglevel_len;
-	unsigned char loglevel;
-};
-
-static struct wcn_sysfs_info sysfs_info;
+struct wcn_sysfs_info sysfs_info;
 
 void wcn_send_atcmd_lock(void)
 {
