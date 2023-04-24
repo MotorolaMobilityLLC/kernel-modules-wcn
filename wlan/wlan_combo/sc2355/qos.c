@@ -341,6 +341,10 @@ void sc2355_qos_update_admitted_time(struct sprd_priv *priv, u8 tsid,
 	u8 ac = sta_ts_info[tsid].ac;
 
 	if (increase) {
+		/* medium_time(unit) indicates the time allowed to access the medium per second,
+		 * 1 unit=32us
+		 * (medium_time << 5) equals (medium_time*32) us
+		 */
 		wmmac_admittedtime[ac] += (medium_time << 5);
 		mod_timer(&priv->wmmac.wmmac_edcaf_timer,
 			  jiffies + WMMAC_EDCA_TIMEOUT_MS * HZ / 1000);
@@ -419,6 +423,11 @@ unsigned int sc2355_qos_change_priority_if(struct sprd_priv *priv,
 			if (!!(priv->wmmac.ac[ac].aci_aifsn & WMM_AC_ACM)) {
 				/*current ac is available, use it directly */
 				if (wmmac_available[ac]) {
+					/* to calculate the time that a packet occupies the medium
+					 * use wmmac_ratio to adjust ac used time,wmmac_ratio can be modified by :
+					 * echo "qos_ratio:am=15" > /d/sprd_wlan/log_level
+					 * it is rough calc method: (data_len * 8) * ratio / data_rate, here , use 54Mbps as common usage
+					 */
 					wmmac_usedtime[ac] +=
 					    (len + 4) *
 					    8 * get_wmmac_ratio() / 10 / 54;
@@ -427,6 +436,10 @@ unsigned int sc2355_qos_change_priority_if(struct sprd_priv *priv,
 					     wmmac_admittedtime[ac]);
 					break;
 				}
+				/* wmmac_usedtime indicates the total time that ac frames occupy the medium per second
+				 * wmmac_admittedtime indicates the time allowed to access the medium per second
+				 * if ac wmmac_usedtime greater than or eaqual to  wmmac_admittedtime,then drop frames,until medium can be used
+				 */
 				if (!wmmac_available[ac] &&
 				    wmmac_usedtime[ac] != 0)
 					return SPRD_AC_MAX;
