@@ -25,6 +25,7 @@ static unsigned int vi_ratio = 90;
 static unsigned int be_ratio = 81;
 static unsigned int wmmac_ratio = 10;
 static atomic_t tcp_ack_enable;
+int sprd_dbg_level = L_INFO;
 
 int get_max_fw_tx_dscr(void)
 {
@@ -104,8 +105,6 @@ static struct debug_ctrl dbg_ctrl;
 static struct debug_time_stamp dbg_ts[MAX_DEBUG_TS_INDEX];
 static struct debug_cnt dbg_cnt[MAX_DEBUG_CNT_INDEX];
 static struct debug_record dbg_record[MAX_RECORD_NUM];
-
-int sprd_dbg_level = L_INFO;
 
 int sprd_get_debug_level(void)
 {
@@ -562,6 +561,7 @@ EXPORT_SYMBOL(sprd_debug_record_add);
 void sprd_debug_init(struct sprd_debug *dbg)
 {
 	sprd_dbg = dbg;
+	sprd_dbg_level = L_INFO;
 	/* create debugfs */
 	dbg->dir = debugfs_create_dir("sprd_wlan", NULL);
 	if (IS_ERR(dbg->dir)) {

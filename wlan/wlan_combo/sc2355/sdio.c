@@ -656,7 +656,7 @@ int sc2355_hif_tx_list(struct sprd_hif *hif,
 #endif
 		INIT_LIST_HEAD(tx_list_head);
 		tx_packets += tx_count;
-		pr_info("%s,tx_count=%d,total=%lu,mbuf=%lu,%lu\n",
+		wl_info("%s,tx_count=%d,total=%lu,mbuf=%lu,%lu\n",
 			__func__, tx_count, tx_packets, mbufalloc, mbufpop);
 		sc2355_add_topop_list(hif->tx_data_port, head, tail, tx_count);
 	}
