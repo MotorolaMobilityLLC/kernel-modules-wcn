@@ -286,6 +286,7 @@ struct sprd_priv {
 	atomic_t monitor_mode;
 	unsigned long monitor_data_cnt;
 	unsigned long monitor_mgmt_cnt;
+	volatile bool probe_done;
 };
 
 extern unsigned int wfa_cap;

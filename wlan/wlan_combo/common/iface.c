@@ -272,8 +272,21 @@ static int iface_open(struct net_device *ndev)
 	struct sprd_vif *vif = netdev_priv(ndev);
 	struct sprd_hif *hif = &vif->priv->hif;
 	int ret;
+	int count = 0;
 
 	netdev_info(ndev, "%s\n", __func__);
+
+	/*here we need to wait for 3s*/
+	while ((!vif->priv->probe_done) && (count < 1000)) {
+		printk_ratelimited("error! driver probe not done, wait\n",
+				   __func__);
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+		usleep_range_state(2500, 3000, TASK_UNINTERRUPTIBLE);
+#else
+		usleep_range(2500, 3000);
+#endif
+		count++;
+	}
 
 	netdev_info(ndev, "Power on WCN (%d time)\n",
 		    atomic_read(&hif->power_cnt));
@@ -1809,6 +1822,7 @@ int sprd_iface_probe(struct platform_device *pdev,
 		return -ENXIO;
 	}
 
+	priv->probe_done = false;
 	iface_set_priv(priv);
 	platform_set_drvdata(pdev, priv);
 	hif = &priv->hif;
@@ -1853,6 +1867,7 @@ int sprd_iface_probe(struct platform_device *pdev,
 	/* Power off chipset in order to save power */
 	pr_info("Power off WCN (%d time)\n", atomic_read(&hif->power_cnt));
 	sprd_iface_set_power(hif, false);
+	priv->probe_done = true;
 
 	return ret;
 }
