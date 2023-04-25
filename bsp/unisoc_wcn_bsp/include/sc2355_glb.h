@@ -1,3 +1,7 @@
+ /*
+ * SPDX-FileCopyrightText: 2021-2023 Unisoc (Shanghai) Technologies Co. Ltd
+ * SPDX-License-Identifier: GPL-2.0-only
+ */
 #ifndef __SC2355_GLB_H__
 #define __SC2355_GLB_H__
 
@@ -25,7 +29,7 @@
 #define M3_WIFI_AON_MAC_SIZE		0x108
 
 #define M3_WIFI_RAM_SIZE		0x58000
-#define M3_WIFI_GLB_REG_SIZE	0x4c
+#define M3_WIFI_GLB_REG_SIZE		0x4c
 
 /* for BT */
 #define M3_BT_ACC_SIZE			(0x8d8)

@@ -1,6 +1,6 @@
-// SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (C) 2020 Unisoc Communications Inc.
+ * SPDX-FileCopyrightText: 2021-2023 Unisoc (Shanghai) Technologies Co. Ltd
+ * SPDX-License-Identifier: GPL-2.0-only
  *
  * Filename : sdiohal_common.c
  * Abstract : This file is an implementation for wcn sdio hal function
@@ -30,7 +30,7 @@ void sdiohal_debug_point_show(void)
 		p_data->op_leave_ns);
 
 	if (p_data->op_enter_ns > p_data->op_leave_ns)
-		pr_info("WARNING:Task(%s) holds xmit_lock!!!", p_data->sdcb.op_enter_comm);
+		pr_info("WARNING: Task(%s) holds xmit_lock!!!", p_data->sdcb.op_enter_comm);
 
 	pr_info("SDIOHAL TX DEBUG POINT[%d]:\n", p_data->sdcb.tx_list_push_index - 1);
 	for (i = 0; i < SDIO_DEBUG_POINT_NUM; i++) {

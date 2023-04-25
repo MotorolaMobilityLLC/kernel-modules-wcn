@@ -1,9 +1,7 @@
 /*
- * Copyright (C) 2016-2018 Spreadtrum Communications Inc.
- * This software is licensed under the terms of the GNU General Public
- * License version 2, as published by the Free Software Foundation, and
- * may be copied, distributed, and modified under those terms.
-
+ * SPDX-FileCopyrightText: 2021-2023 Unisoc (Shanghai) Technologies Co. Ltd
+ * SPDX-License-Identifier: GPL-2.0-only
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -43,7 +41,7 @@
 #define LTSSM_STATE_L1_IDLE		0x14
 #define LTSSM_STATE_L2_IDLE		0x15
 
-#define N	16
+#define N 16
 
 static int (*scan_card_notify)(void);
 static struct wcn_pcie_info *g_pcie_dev;

@@ -1,4 +1,7 @@
 /*
+ * SPDX-FileCopyrightText: 2021-2023 Unisoc (Shanghai) Technologies Co. Ltd
+ * SPDX-License-Identifier: GPL-2.0-only
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -162,6 +165,7 @@ void module_bus_pcie_init(void)
 {
 	module_ops_register(&pcie_bus_ops);
 }
+
 EXPORT_SYMBOL(module_bus_pcie_init);
 
 void module_bus_pcie_deinit(void)

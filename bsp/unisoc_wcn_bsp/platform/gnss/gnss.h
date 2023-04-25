@@ -1,21 +1,13 @@
 /*
- * Copyright (C) 2017 Spreadtrum Communications Inc.
+ *
+ * SPDX-FileCopyrightText: 2021-2023 Unisoc (Shanghai) Technologies Co. Ltd
+ * SPDX-License-Identifier: GPL-2.0-only
  *
  * Filename : gnss.h
  * Abstract : This file is a implementation for driver of gnss:
  *                 GNSS chip were integrated with AP chipset.
  *
  * Authors	: zhaohui.chen
- *
- *
- * This software is licensed under the terms of the GNU General Public
- * License version 2, as published by the Free Software Foundation, and
- * may be copied, distributed, and modified under those terms.
-
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
  */
 
 #ifndef __GNSS_H__
@@ -43,7 +35,7 @@
 #define GNSS_STATUS_SIZE		   (4)
 
 #define GNSS_REC_AON_CHIPID_OFFSET (0x00150000) /* sharkle or pike2 */
-#define GNSS_REC_AON_CHIPID_SIZE (8)
+#define GNSS_REC_AON_CHIPID_SIZE   (8)
 
 #define GNSS_EFUSE_DATA_OFFSET (0x00150008)
 #define GNSS_EFUSE_DATA_SIZE  12

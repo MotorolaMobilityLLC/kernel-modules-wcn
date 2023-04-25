@@ -1,3 +1,7 @@
+ /*
+ * SPDX-FileCopyrightText: 2021-2023 Unisoc (Shanghai) Technologies Co. Ltd
+ * SPDX-License-Identifier: GPL-2.0-only
+ */
 #ifndef __WCN_DBG_H__
 #define __WCN_DBG_H__
 
@@ -11,7 +15,7 @@
 
 extern u32 wcn_print_level;
 
-#define pr_fmt(fmt) "WCN BASE" fmt
+#define  pr_fmt(fmt) "WCN BASE" fmt
 
 #define WCN_INFO(fmt, args...)\
 	pr_info(": " fmt, ## args)

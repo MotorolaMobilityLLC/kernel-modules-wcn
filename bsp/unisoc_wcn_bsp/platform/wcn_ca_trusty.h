@@ -1,9 +1,7 @@
 /*
- * Copyright (C) 2015 Spreadtrum Communications Inc.
  *
- * This software is licensed under the terms of the GNU General Public
- * License version 2, as published by the Free Software Foundation, and
- * may be copied, distributed, and modified under those terms.
+ * SPDX-FileCopyrightText: 2021-2023 Unisoc (Shanghai) Technologies Co. Ltd
+ * SPDX-License-Identifier: GPL-2.0-only
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -41,8 +39,8 @@ enum secureboot_command {
 	KERNEL_BOOTCP_VERIFY_ALL        = (0 << KERNELBOOTCP_REQ_SHIFT),
 	KERNEL_BOOTCP_UNLOCK_DDR        = (1 << KERNELBOOTCP_REQ_SHIFT),
 	KERNEL_BOOTCP_VERIFY_VDSP       = (2 << KERNELBOOTCP_REQ_SHIFT),
-	KERNEL_BOOTCP_VERIFY_WCN       = (3 << KERNELBOOTCP_REQ_SHIFT),
-	KERNEL_BOOTCP_VERIFY_GPS       = (4 << KERNELBOOTCP_REQ_SHIFT),
+	KERNEL_BOOTCP_VERIFY_WCN        = (3 << KERNELBOOTCP_REQ_SHIFT),
+	KERNEL_BOOTCP_VERIFY_GPS        = (4 << KERNELBOOTCP_REQ_SHIFT),
 };
 
 /* Size of the footer.                 */

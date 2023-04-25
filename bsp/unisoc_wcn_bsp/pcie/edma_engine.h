@@ -1,9 +1,7 @@
 /*
- * Copyright (C) 2018 Spreadtrum Communications Inc.
- * This software is licensed under the terms of the GNU General Public
- * License version 2, as published by the Free Software Foundation, and
- * may be copied, distributed, and modified under those terms.
-
+ * SPDX-FileCopyrightText: 2021-2023 Unisoc (Shanghai) Technologies Co. Ltd
+ * SPDX-License-Identifier: GPL-2.0-only
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -107,6 +105,7 @@ union dma_glb_pause_reg {
 		unsigned int edma_glb_cfg_wclk_cg_en:1;
 		unsigned int edma_chn_cfg_wclk_cg_en:1;
 		unsigned int edma_req_cid_wclk_cg_en:1;
+
 		unsigned int edma_chn_int_clk_cg_en:1;
 		unsigned int edma_axi_clk_cg_en:1;
 		unsigned int rsvd2:2;

@@ -1,10 +1,14 @@
+ /*
+ * SPDX-FileCopyrightText: 2021-2023 Unisoc (Shanghai) Technologies Co. Ltd
+ * SPDX-License-Identifier: GPL-2.0-only
+ */
 #include <linux/notifier.h>
 
 #include "wcn_glb.h"
 
 static int wcn_reset(struct notifier_block *this, unsigned long ev, void *ptr)
 {
-	WCN_INFO("%s: reset callback coming\n", __func__);
+	WCN_INFO(" %s: reset callback coming\n", __func__);
 
 	return NOTIFY_DONE;
 }

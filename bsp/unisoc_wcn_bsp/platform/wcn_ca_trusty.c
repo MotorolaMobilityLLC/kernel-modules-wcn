@@ -1,9 +1,7 @@
 /*
- * Copyright (C) 2015 Spreadtrum Communications Inc.
  *
- * This software is licensed under the terms of the GNU General Public
- * License version 2, as published by the Free Software Foundation, and
- * may be copied, distributed, and modified under those terms.
+ * SPDX-FileCopyrightText: 2021-2023 Unisoc (Shanghai) Technologies Co. Ltd
+ * SPDX-License-Identifier: GPL-2.0-only
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -40,7 +38,7 @@ static struct tipc_msg_buf *wcn_ca_handle_msg(void *data,
 		/* get new buffer */
 		newbuf = tipc_chan_get_rxbuf(dn->chan);
 		if (newbuf) {
-			WCN_INFO("received new data, rxbuf %p, newbuf %p\n",
+			WCN_INFO(" received new data, rxbuf %p, newbuf %p\n",
 						  rxbuf, newbuf);
 			/* queue an old buffer and return a new one */
 			list_add_tail(&rxbuf->node, &dn->rx_msg_queue);

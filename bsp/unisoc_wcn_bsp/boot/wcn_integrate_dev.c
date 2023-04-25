@@ -1,9 +1,6 @@
 /*
- * Copyright (C) 2017 Spreadtrum Communications Inc.
- *
- * This software is licensed under the terms of the GNU General Public
- * License version 2, as published by the Free Software Foundation, and
- * may be copied, distributed, and modified under those terms.
+ * SPDX-FileCopyrightText: 2021-2023 Unisoc (Shanghai) Technologies Co. Ltd
+ * SPDX-License-Identifier: GPL-2.0-only
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -216,7 +213,7 @@ static void wcn_codes_debug(void)
 {
 	/* Check reg read */
 	s_thead_wcn_codes_debug = kthread_create(wcn_codes_debug_thread, NULL,
-						 "wcn_codes_debug");
+						 " wcn_codes_debug");
 	wake_up_process(s_thead_wcn_codes_debug);
 }
 #endif

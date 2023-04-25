@@ -1,6 +1,6 @@
-// SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (C) 2020 Unisoc Communications Inc.
+ * SPDX-FileCopyrightText: 2021-2023 Unisoc (Shanghai) Technologies Co. Ltd
+ * SPDX-License-Identifier: GPL-2.0-only
  *
  * Filename : wcn_boot.c
  * Abstract : This file is a implementation for wcn sdio hal function
@@ -34,10 +34,12 @@
 #include "mem_pd_mgr.h"
 #include "wcn_op.h"
 #include "wcn_parn_parser.h"
+
 #if 0
 #include "pcie_boot.h"
 #include "rdc_debug.h"
 #endif
+
 #include "gnss/gnss_common.h"
 #include "wcn_boot.h"
 #include "wcn_dump.h"

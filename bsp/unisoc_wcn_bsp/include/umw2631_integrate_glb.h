@@ -1,3 +1,7 @@
+/*
+ * SPDX-FileCopyrightText: 2021-2023 Unisoc (Shanghai) Technologies Co. Ltd
+ * SPDX-License-Identifier: GPL-2.0-only
+*/
 #ifndef _UMW2631_INTEG_GLB_H_
 #define _UMW2631_INTEG_GLB_H_
 
@@ -5,7 +9,6 @@
 
 /* ap cp sync flag */
 #define UMW2631_MARLIN_CP_INIT_READY_MAGIC	(0xf0f0f0ff)
-
 
 /* AP regs start and end */
 #define UMW2631_WCN_DUMP_AP_REGS_END 7

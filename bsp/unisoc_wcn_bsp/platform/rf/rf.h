@@ -1,3 +1,7 @@
+ /*
+ * SPDX-FileCopyrightText: 2021-2023 Unisoc (Shanghai) Technologies Co. Ltd
+ * SPDX-License-Identifier: GPL-2.0-only
+ */
 #ifndef __MARLIN2_RF_H__
 #define __MARLIN2_RF_H__
 
@@ -30,6 +34,7 @@ struct tx_power_control_t {
 	int8_t data_rate_power;
 	int8_t channel_num;
 	int8_t channel_range[6];
+
 	int8_t b_tx_power_dr0[3];
 	int8_t b_tx_power_dr1[3];
 	int8_t g_tx_power_dr0[3];

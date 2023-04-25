@@ -1,19 +1,12 @@
 /*
- * Copyright (C) 2019 Unisoc Technologies Inc.
+ *
+ * SPDX-FileCopyrightText: 2021-2023 Unisoc (Shanghai) Technologies Co. Ltd
+ * SPDX-License-Identifier: GPL-2.0-only
  *
  * Author:	xiaodong.bi
  * File:	wcn_swd_dap.h
  * Description:	Marlin Debug System main file. Dump arm registers
  * or access other address by swd dap method.
- *
- * This software is licensed under the terms of the GNU General Public
- * License version 2, as published by the Free Software Foundation, and
- * may be copied, distributed, and modified under those terms.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
  */
 
 #ifndef __WCN_SWD_DAP_H__
@@ -95,7 +88,7 @@
 				CM33_DBGEN | CM33_DAPEN | CM33_CFGSECEXT |\
 				CM33_CFGDSP | CM33_CFGFPU)
 
-#define DAP_ADDR_PCIE	0x1C
+#define DAP_ADDR_PCIE		0x1C
 #define DAP_ACK_ADDR_PCIE	0x0C
 #define BIT_SEL_MTCKMS_PCIE	BIT(15)
 #define BIT_IN_MTCK_PCIE	BIT(14)

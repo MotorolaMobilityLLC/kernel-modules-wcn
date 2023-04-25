@@ -1,3 +1,8 @@
+ /*
+ * SPDX-FileCopyrightText: 2021-2023 Unisoc (Shanghai) Technologies Co. Ltd
+ * SPDX-License-Identifier: GPL-2.0-only
+ */
+
 #ifndef __WCN_INTEGRATE_BOOT_H__
 #define __WCN_INTEGRATE_BOOT_H__
 
@@ -20,6 +25,7 @@ struct reg_wcn_aon_ahb_reserved2 {
 	u32 reserved : 30;
 };
 #define BTWF_SYS_ABNORMAL 0x0deadbad
+
 #define GNSS_SYS_ABNORMAL 0x1deadbad
 
 #ifndef BTWF_SW_DEEP_SLEEP_MAGIC

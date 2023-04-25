@@ -1,9 +1,6 @@
 /*
- * Copyright (C) 2017 Spreadtrum Communications Inc.
- *
- * This software is licensed under the terms of the GNU General Public
- * License version 2, as published by the Free Software Foundation, and
- * may be copied, distributed, and modified under those terms.
+ * SPDX-FileCopyrightText: 2021-2023 Unisoc (Shanghai) Technologies Co. Ltd
+ * SPDX-License-Identifier: GPL-2.0-only
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -44,7 +41,7 @@ static int wcn_sys_merlion_soft_reset(struct wcn_device *wcn_dev)
 
 	wcn_regmap_read(wcn_dev->rmap[REGMAP_PMU_APB],
 					0x0ba8, &reg_val);
-	WCN_INFO("REG 0x64020ba8:val=0x%x!\n", reg_val);
+	WCN_INFO("REG 0x64020ba8:val = 0x%x!\n", reg_val);
 	wcn_regmap_raw_write_bit(
 			wcn_dev->rmap[REGMAP_PMU_APB],
 			0x2ba8, (1 << 20)); /* bit20 clear to 0 */

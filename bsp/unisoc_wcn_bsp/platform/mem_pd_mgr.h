@@ -1,5 +1,6 @@
 /*
- * Copyright (C) 2013 Spreadtrum Communications Inc.
+ * SPDX-FileCopyrightText: 2021-2023 Unisoc (Shanghai) Technologies Co. Ltd
+ * SPDX-License-Identifier: GPL-2.0-only
  *
  * Filename : sdio_dev.h
  * Abstract : This file is a implementation for itm sipc command/event function
@@ -32,8 +33,8 @@
 	pr_debug(MEM_PD_MGR_HEADER fmt "\n", ## args)
 
 /* cp2 create thread status */
-#define THREAD_CREATE 1
-#define THREAD_DELETE 0
+#define THREAD_CREATE  1
+#define THREAD_DELETE  0
 
 struct mem_pd_debug_t {
 	unsigned int mem_pd_open_bt;

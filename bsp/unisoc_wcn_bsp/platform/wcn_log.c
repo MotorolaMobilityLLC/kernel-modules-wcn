@@ -1,3 +1,7 @@
+ /*
+ * SPDX-FileCopyrightText: 2021-2023 Unisoc (Shanghai) Technologies Co. Ltd
+ * SPDX-License-Identifier: GPL-2.0-only
+ */
 #include <linux/cdev.h>
 #include <linux/delay.h>
 #include <linux/device.h>
@@ -41,7 +45,7 @@ void wcnlog_clear_log(void)
 {
 	if (mdbg_dev->ring_dev->ring->rp
 		!= mdbg_dev->ring_dev->ring->wp) {
-		WCN_INFO("log:%ld left in ringbuf not read\n",
+		WCN_INFO("log : %ld left in ringbuf not read\n",
 			(long int)(mdbg_dev->ring_dev->ring->wp -
 			mdbg_dev->ring_dev->ring->rp));
 		mdbg_ring_clear(mdbg_dev->ring_dev->ring);

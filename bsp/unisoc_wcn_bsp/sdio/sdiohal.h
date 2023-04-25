@@ -1,5 +1,7 @@
-/* SPDX-License-Identifier: GPL-2.0 */
 /*
+ * SPDX-FileCopyrightText: 2021-2023 Unisoc (Shanghai) Technologies Co. Ltd
+ * SPDX-License-Identifier: GPL-2.0-only
+ *
  * Defines for the sdio device driver
  */
 #ifndef __SDIOHAL_H__
@@ -224,6 +226,7 @@ struct sdiohal_debug_t {
 	struct sdiohal_xmit_debug_point tx_list_push[SDIO_DEBUG_POINT_NUM];
 
 	struct sdiohal_xmit_debug_point rx_list_dispatch[SDIO_DEBUG_POINT_NUM];
+	
 	int tx_list_push_index;
 	int rx_list_dispatch_index;
 	char op_enter_comm[TASK_COMM_LEN], op_leave_comm[TASK_COMM_LEN];

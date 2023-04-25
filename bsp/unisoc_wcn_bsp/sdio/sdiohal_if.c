@@ -1,6 +1,6 @@
-// SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (C) 2020 Unisoc Communications Inc.
+ * SPDX-FileCopyrightText: 2021-2023 Unisoc (Shanghai) Technologies Co. Ltd
+ * SPDX-License-Identifier: GPL-2.0-only
  *
  * Filename : sdiohal_if.c
  * Abstract : This file is a implementation for wcn sdio hal function
@@ -66,7 +66,7 @@ static int sdio_chn_deinit(struct mchn_ops_t *ops)
 		}
 		/* rm invalid mbuf in data_list_tx */
 		if (p_data->data_list_tx == NULL)
-			pr_info("p_data->data_list_tx is NULL!\n");
+			pr_info("p_data->data_list_tx was NULL!\n");
 		else if (p_data->data_list_tx->mbuf_head && p_data->data_list_tx->node_num)
 			sdiohal_remove_datalist_invalid_data(ops, p_data->data_list_tx);
 		sprd_wlan_power_status_sync(1, 1);

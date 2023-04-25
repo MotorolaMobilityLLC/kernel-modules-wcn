@@ -1,3 +1,7 @@
+ /*
+ * SPDX-FileCopyrightText: 2021-2023 Unisoc (Shanghai) Technologies Co. Ltd
+ * SPDX-License-Identifier: GPL-2.0-only
+ */
 #ifndef __GNSS_COMMON_H__
 #define __GNSS_COMMON_H__
 
@@ -7,10 +11,10 @@
 #define M3L_GNSS_EFUSE_ADDRESS 0x40aabf40
 #define M3L_GNSS_BOOTSTATUS_ADDRESS  0x40aabf6c
 
-#define GNSS_CALI_ADDRESS 0x40aaff4c
-#define GNSS_CALI_DATA_SIZE 0x14
-#define GNSS_EFUSE_ADDRESS 0x40aaff40
-#define GNSS_BOOTSTATUS_ADDRESS  0x40aaff6c
+#define GNSS_CALI_ADDRESS 	0x40aaff4c
+#define GNSS_CALI_DATA_SIZE 	0x14
+#define GNSS_EFUSE_ADDRESS 	0x40aaff40
+#define GNSS_BOOTSTATUS_ADDRESS 0x40aaff6c
 
 #define GNSS_BOOTSTATUS_SIZE     0x4
 #define GNSS_BOOTSTATUS_MAGIC    0x12345678

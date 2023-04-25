@@ -1,20 +1,11 @@
 /*
- * Copyright (C) 2013 Spreadtrum Communications Inc.
+ * SPDX-FileCopyrightText: 2021-2023 Unisoc (Shanghai) Technologies Co. Ltd
+ * SPDX-License-Identifier: GPL-2.0-only
  *
  * Filename : slp_mgr.c
  * Abstract : This file is a implementation for  sleep manager
  *
  * Authors	: sam.sun
- *
- *
- * This software is licensed under the terms of the GNU General Public
- * License version 2, as published by the Free Software Foundation, and
- * may be copied, distributed, and modified under those terms.
-
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
  */
 #include <linux/init.h>
 #include <linux/interrupt.h>
@@ -68,7 +59,7 @@ int slp_mgr_wakeup(enum slp_subsys subsys)
 	struct wcn_match_data *g_match_config = get_wcn_match_config();
 
 	if (STAY_DEATH == (atomic_read(&slp_mgr.cp2_state))) {
-		WCN_ERR("CP2 has been shutdown, ignoring this wakeup\n");
+		WCN_ERR("CP2 has been shutdown, ignor this wakeup\n");
 		return -1;
 	}
 

@@ -1,18 +1,10 @@
 /*
- * Copyright (C) 2018 Spreadtrum Communications Inc.
+ * SPDX-FileCopyrightText: 2021-2023 Unisoc (Shanghai) Technologies Co. Ltd
+ * SPDX-License-Identifier: GPL-2.0-only
  *
  * File:		wcn_misc.c
  * Description:	WCN misc file for drivers. Some feature or function
  * isn't easy to classify, then write it in this file.
- *
- * This software is licensed under the terms of the GNU General Public
- * License version 2, as published by the Free Software Foundation, and
- * may be copied, distributed, and modified under those terms.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the	1
- * GNU General Public License for more details.
  */
 
 #include <linux/mm.h>
@@ -60,7 +52,7 @@ enum atcmd_owner mdbg_atcmd_owner_peek(void)
 	s_atcmd_owner.head++;
 	mutex_unlock(&s_atcmd_owner.lock);
 
-	WCN_INFO("owner=%d, head=%d\n", owner, s_atcmd_owner.head - 1);
+	WCN_INFO("owner =%d, head=%d\n", owner, s_atcmd_owner.head - 1);
 	return owner;
 }
 

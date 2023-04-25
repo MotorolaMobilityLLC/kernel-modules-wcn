@@ -1,6 +1,6 @@
-// SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (C) 2020 Unisoc Communications Inc.
+ * SPDX-FileCopyrightText: 2021-2023 Unisoc (Shanghai) Technologies Co. Ltd
+ * SPDX-License-Identifier: GPL-2.0-only
  *
  * Filename : wcn_bus.c
  * Abstract : This file is a implementation for wcn sdio hal function
@@ -66,7 +66,7 @@ bool wcn_push_list_condition_check(
 
 	if (sprdwcn_bus_get_carddump_status() || wcn_is_assert()) {
 		if (num != 1) {
-			pr_err("%s mbuf(%d) does not allow sending(WCN ASSERT)\n",
+			pr_err("%s mbuf(%d) did't allow sending(WCN ASSERT)\n",
 				__func__, num);
 			return false;
 		}

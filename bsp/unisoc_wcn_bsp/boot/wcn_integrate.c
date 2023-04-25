@@ -1,9 +1,6 @@
 /*
- * Copyright (C) 2017 Spreadtrum Communications Inc.
- *
- * This software is licensed under the terms of the GNU General Public
- * License version 2, as published by the Free Software Foundation, and
- * may be copied, distributed, and modified under those terms.
+ * SPDX-FileCopyrightText: 2021-2023 Unisoc (Shanghai) Technologies Co. Ltd
+ * SPDX-License-Identifier: GPL-2.0-only
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -97,7 +94,7 @@ void wcn_dfs_poweroff_state_clear(struct wcn_device *wcn_dev)
 								   sizeof(u32));
 		wcn_read_data_from_phy_addr(phy_addr, &dfs_info1,
 			sizeof(struct wcn_dfs_sync_info));
-		WCN_INFO("poweroff_state before btwf clear : 0x%x-0x%x\n",
+		WCN_INFO("poweroff_state before  btwf clear : 0x%x-0x%x\n",
 			temp_btwf, temp_gnss);
 		wcn_dfs_status_show(&dfs_info);
 		WCN_INFO("poweroff_state after btwf clear:\n");

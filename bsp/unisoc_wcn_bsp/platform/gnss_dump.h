@@ -1,8 +1,6 @@
 /*
- * Copyright (C) 2017 Spreadtrum Communications Inc.
- * This software is licensed under the terms of the GNU General Public
- * License version 2, as published by the Free Software Foundation, and
- * may be copied, distributed, and modified under those terms.
+ * SPDX-FileCopyrightText: 2021-2023 Unisoc (Shanghai) Technologies Co. Ltd
+ * SPDX-License-Identifier: GPL-2.0-only
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -18,7 +16,7 @@
 #define GNSS_DUMP_IRAM_START_ADDR_SIPC	0x88240000
 #define SIPC_BUFFER_DATA_NUM		0x40000
 
-#define GNSS_DUMP_IRAM_START_ADDR_PCHANNEL	0x40e40000
+#define GNSS_DUMP_IRAM_START_ADDR_PCHANNEL 0x40e40000
 #define GNSS_PCHANNEL_IRAM_DATA_NUM	32768
 
 /* ap aon registers start */

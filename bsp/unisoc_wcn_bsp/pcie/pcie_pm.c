@@ -1,9 +1,7 @@
 /*
- * Copyright (C) 2019 Spreadtrum Communications Inc.
- * This software is licensed under the terms of the GNU General Public
- * License version 2, as published by the Free Software Foundation, and
- * may be copied, distributed, and modified under those terms.
-
+ * SPDX-FileCopyrightText: 2021-2023 Unisoc (Shanghai) Technologies Co. Ltd
+ * SPDX-License-Identifier: GPL-2.0-only
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -73,7 +71,7 @@ void wcn_aspm_l0s(struct pci_dev *pdev)
 	pci_write_config_dword(pdev,
 			       pdev->pcie_cap + VF_LINK_CAPABILITIES_REG,
 			       val);
-	WCN_INFO("EP: %x=0x%x\n",
+	WCN_INFO(" EP: %x=0x%x\n",
 		 pdev->pcie_cap + VF_LINK_CAPABILITIES_REG,
 		 val);
 

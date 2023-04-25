@@ -1,3 +1,7 @@
+ /*
+ * SPDX-FileCopyrightText: 2021-2023 Unisoc (Shanghai) Technologies Co. Ltd
+ * SPDX-License-Identifier: GPL-2.0-only
+ */
 #ifndef __UMW2652_glb_H__
 #define __UMW2652_glb_H__
 
@@ -53,7 +57,7 @@
 #define M3L_DAP_CTRL			0x4008828c
 #define M3L_CM4_DAP_SEL_BTWF_LITE		BIT(1)
 
-#define M3L_BTWF_XLT_WAIT		0x10
+#define M3L_BTWF_XLT_WAIT	0x10
 #define M3L_BTWF_XLTBUF_WAIT	0x20
 #define M3L_BTWF_PLL_PWR_WAIT	0x40
 #define M3L_BTWF_WAKEUP_LOCK	0x60

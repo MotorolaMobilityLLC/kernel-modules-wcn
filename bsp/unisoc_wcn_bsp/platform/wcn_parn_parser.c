@@ -1,17 +1,9 @@
 /*
- * Copyright (c) 2017 Spreadtrum
+ *
+ * SPDX-FileCopyrightText: 2021-2023 Unisoc (Shanghai) Technologies Co. Ltd
+ * SPDX-License-Identifier: GPL-2.0-only
  *
  * WCN partition parser for different CPU have different path with EMMC and NAND
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
  */
 
 #include <linux/delay.h>
@@ -166,6 +158,7 @@ int parse_firmware_path(char *firmware_path)
 	u32 ret = 0;
 
 	WCN_INFO("%s entry\n", __func__);
+
 	ret = -1;
 #if 0
 	u32 loop;

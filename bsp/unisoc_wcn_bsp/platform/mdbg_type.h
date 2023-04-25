@@ -1,8 +1,6 @@
 /*
- * Copyright (C) 2015 Spreadtrum Communications Inc.
- * This software is licensed under the terms of the GNU General Public
- * License version 2, as published by the Free Software Foundation, and
- * may be copied, distributed, and modified under those terms.
+ * SPDX-FileCopyrightText: 2021-2023 Unisoc (Shanghai) Technologies Co. Ltd
+ * SPDX-License-Identifier: GPL-2.0-only
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -50,7 +48,7 @@
 
 #define MDBG_SUCCESS		0
 #define MDBG_ERR_RING_FULL	1
-#define MDBG_ERR_MALLOC_FAIL 2
+#define MDBG_ERR_MALLOC_FAIL    2
 #define MDBG_ERR_BAD_PARAM	3
 #define MDBG_ERR_SDIO_ERR	4
 #define MDBG_ERR_TIMEOUT	5

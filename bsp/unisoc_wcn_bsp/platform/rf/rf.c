@@ -1,3 +1,7 @@
+ /*
+ * SPDX-FileCopyrightText: 2021-2023 Unisoc (Shanghai) Technologies Co. Ltd
+ * SPDX-License-Identifier: GPL-2.0-only
+ */
 #include <linux/delay.h>
 #include <linux/device.h>
 #include <linux/errno.h>
@@ -62,6 +66,7 @@ static struct nvm_name_table g_config_table[] = {
 	CF_TAB("data_rate_power", tx_power_control.data_rate_power, 1),
 	CF_TAB("channel_num", tx_power_control.channel_num, 1),
 	CF_TAB("channel_range", tx_power_control.channel_range, 1),
+
 	CF_TAB("b_tx_power_dr0", tx_power_control.b_tx_power_dr0, 1),
 	CF_TAB("b_tx_power_dr1", tx_power_control.b_tx_power_dr1, 1),
 	CF_TAB("g_tx_power_dr0", tx_power_control.g_tx_power_dr0, 1),

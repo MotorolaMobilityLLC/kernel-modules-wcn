@@ -1,15 +1,6 @@
 /*
- * Copyright (C) 2017 Spreadtrum Communications Inc.
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * SPDX-FileCopyrightText: 2021-2023 Unisoc (Shanghai) Technologies Co. Ltd
+ * SPDX-License-Identifier: GPL-2.0-only
  *
  */
 
@@ -54,7 +45,7 @@ int gnss_data_init(void)
 
 	gnss_cali_data.cali_done = false;
 
-	pr_info("%s cali_done=%d", __func__, gnss_cali_data.cali_done);
+	pr_info("%s cali_done= %d", __func__, gnss_cali_data.cali_done);
 
 	gnss_cali_data.cali_data = kzalloc(gnss_cali_data_size, GFP_KERNEL);
 	if (gnss_cali_data.cali_data == NULL) {

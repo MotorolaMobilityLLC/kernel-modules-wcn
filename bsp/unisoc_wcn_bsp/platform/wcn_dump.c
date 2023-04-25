@@ -1,8 +1,7 @@
 /*
- * Copyright (C) 2015 Spreadtrum Communications Inc.
- * This software is licensed under the terms of the GNU General Public
- * License version 2, as published by the Free Software Foundation, and
- * may be copied, distributed, and modified under those terms.
+ *
+ * SPDX-FileCopyrightText: 2021-2023 Unisoc (Shanghai) Technologies Co. Ltd
+ * SPDX-License-Identifier: GPL-2.0-only
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -97,7 +96,7 @@ static int mdbg_dump_data(unsigned int start_addr,
 	int temp_len;
 
 	if (unlikely(!mdbg_dev->ring_dev)) {
-		WCN_ERR("mdbg_dump ring_dev is NULL\n");
+		WCN_ERR(" mdbg_dump ring_dev is NULL\n");
 		return -1;
 	}
 	str = NULL;

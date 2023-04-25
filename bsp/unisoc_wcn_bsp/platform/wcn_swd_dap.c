@@ -1,19 +1,12 @@
 /*
- * Copyright (C) 2019 Unisoc Technologies Inc.
+ *
+ * SPDX-FileCopyrightText: 2021-2023 Unisoc (Shanghai) Technologies Co. Ltd
+ * SPDX-License-Identifier: GPL-2.0-only
  *
  * Author:	xiaodong.bi
  * File:	wcn_swd_dap.c
  * Description:	Marlin Debug System main file. Dump arm registers
  * or access other address by swd dap method.
- *
- * This software is licensed under the terms of the GNU General Public
- * License version 2, as published by the Free Software Foundation, and
- * may be copied, distributed, and modified under those terms.
-
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
  */
 
 #include <linux/delay.h>
@@ -39,7 +32,7 @@ static void swd_ext_sel_pcie(bool enable)
 	ahb_ctl = CM33_AHB_CTRL3_VALUE;
 	ret = sprdwcn_bus_reg_write(CM33_AHB_CTRL3_ADDR, &ahb_ctl, 4);
 	if (ret < 0)
-		WCN_ERR("write CM33_AHB_CTRL3 reg error:%d\n", ret);
+		WCN_ERR("write CM33_AHB_CTRL3 reg is error:%d\n", ret);
 	ret = sprdwcn_bus_reg_read(CM33_AHB_CTRL3_ADDR, &ahb_ctl, 4);
 	if (ret < 0)
 		WCN_ERR("read CM33_AHB_CTRL3 reg error:%d\n", ret);

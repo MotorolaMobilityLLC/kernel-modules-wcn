@@ -1,3 +1,7 @@
+/*
+ * SPDX-FileCopyrightText: 2021-2023 Unisoc (Shanghai) Technologies Co. Ltd
+ * SPDX-License-Identifier: GPL-2.0-only
+*/
 #ifndef __UMW2653_GLB_H__
 #define __UMW2653_GLB_H__
 
@@ -16,6 +20,7 @@
 #define MARLIN_AB_CHIPID 0x23550001
 #define MARLIN_AC_CHIPID 0x23550002
 #define MARLIN_AD_CHIPID 0x23550003
+
 #define MARLIN3E_AA_CHIPID 0x56630000
 #define MARLIN3E_AB_CHIPID 0x56630001
 #define MARLIN3E_AC_CHIPID 0x56630002

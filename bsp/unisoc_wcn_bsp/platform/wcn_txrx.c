@@ -1,13 +1,8 @@
 /*
- * Copyright (C) 2015 Spreadtrum Communications Inc.
- * This software is licensed under the terms of the GNU General Public
- * License version 2, as published by the Free Software Foundation, and
- * may be copied, distributed, and modified under those terms.
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
+ * SPDX-FileCopyrightText: 2021-2023 Unisoc (Shanghai) Technologies Co. Ltd
+ * SPDX-License-Identifier: GPL-2.0-only
+ *
  */
 #include <misc/wcn_bus.h>
 
@@ -37,7 +32,7 @@ static int mdbg_log_cb(int channel, struct mbuf_t *head,
 	struct mbuf_t *mbuf_node;
 	int i;
 	/* type=0x98:trace log, type=0x9D:DSP log */
-	WCN_INFO("%s:type=0x%x,seq=0x%x, num=%d\n", __func__,
+	WCN_INFO("%s:type = 0x%x,seq=0x%x, num=%d\n", __func__,
 		 *(head->buf + 7), *((u32 *)(head->buf + 12)), num);
 
 	if ((atomic_read(&ring_reg_flag)) == 0) {

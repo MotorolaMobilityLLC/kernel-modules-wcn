@@ -1,9 +1,7 @@
 /*
- * Copyright (C) 2019 Spreadtrum Communications Inc.
- * This software is licensed under the terms of the GNU General Public
- * License version 2, as published by the Free Software Foundation, and
- * may be copied, distributed, and modified under those terms.
-
+ * SPDX-FileCopyrightText: 2021-2023 Unisoc (Shanghai) Technologies Co. Ltd
+ * SPDX-License-Identifier: GPL-2.0-only
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -18,6 +16,7 @@
 #define PCIE_CAP_ACTIVE_STATE_LINK_PM_SUPPORT	((0x1 << 10) | (0x1 << 11))
 
 #define VF_LINK_CONTROL_LINK_STATUS_REG		0x10
+
 #define PCIE_CAP_ACTIVE_STATE_LINK_PM_CONTROL	(0x1 << 0)
 #define PCIE_CAP_EN_CLK_POWER_MAN		(0x1 << 8)
 

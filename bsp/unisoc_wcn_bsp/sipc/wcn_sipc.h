@@ -1,13 +1,7 @@
 /*
- * Copyright (C) 2015 Spreadtrum Communications Inc.
- * This software is licensed under the terms of the GNU General Public
- * License version 2, as published by the Free Software Foundation, and
- * may be copied, distributed, and modified under those terms.
+ * SPDX-FileCopyrightText: 2021-2023 Unisoc (Shanghai) Technologies Co. Ltd
+ * SPDX-License-Identifier: GPL-2.0-only
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
  */
 
 #ifndef __WCN_SIPC_H__
@@ -30,7 +24,7 @@
 #include "wcn_dbg.h"
 #include "wcn_types.h"
 
-#define SIPC_SBUF_HEAD_RESERV 4
+#define SIPC_SBUF_HEAD_RESERV   4
 #define SIPC_SBLOCK_HEAD_RESERV 0
 
 #define mbuf_list_iter(head, num, pos, posn) \

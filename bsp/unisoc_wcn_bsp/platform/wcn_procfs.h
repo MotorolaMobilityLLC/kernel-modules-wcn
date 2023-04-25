@@ -1,3 +1,7 @@
+ /*
+ * SPDX-FileCopyrightText: 2021-2023 Unisoc (Shanghai) Technologies Co. Ltd
+ * SPDX-License-Identifier: GPL-2.0-only
+ */
 #ifndef _WCN_PROCFS
 #define _WCN_PROCFS
 
@@ -11,6 +15,7 @@ void mdbg_fs_channel_init(void);
 void mdbg_fs_channel_destroy(void);
 int proc_fs_init(void);
 int mdbg_memory_alloc(void);
+
 void proc_fs_exit(void);
 int get_loopcheck_status(void);
 void wakeup_loopcheck_int(void);

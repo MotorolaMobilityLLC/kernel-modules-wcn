@@ -1,4 +1,7 @@
-
+ /*
+ * SPDX-FileCopyrightText: 2021-2023 Unisoc (Shanghai) Technologies Co. Ltd
+ * SPDX-License-Identifier: GPL-2.0-only
+ */
 #include "pcie_dbg.h"
 
 int pcie_hexdump(char *name, char *buf, int len)
@@ -12,7 +15,7 @@ int pcie_hexdump(char *name, char *buf, int len)
 	for (i = 0; i < count; i++) {
 		p = (unsigned int *)(buf + i * 32);
 		WCN_INFO(
-			 "mem[0x%04x] 0x%08x,0x%08x,0x%08x,0x%08x,0x%08x,0x%08x,0x%08x,0x%08x\n",
+			 "mem [0x%04x] 0x%08x,0x%08x,0x%08x,0x%08x,0x%08x,0x%08x,0x%08x,0x%08x\n",
 			 i * 32, p[0], p[1], p[2], p[3], p[4], p[5],
 			 p[6], p[7]);
 	}

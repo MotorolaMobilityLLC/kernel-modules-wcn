@@ -1,9 +1,6 @@
 /*
- * Copyright (C) 2015 Spreadtrum Communications Inc.
- * This software is licensed under the terms of the GNU General Public
- * License version 2, as published by the Free Software Foundation, and
- * may be copied, distributed, and modified under those terms.
- *
+ * SPDX-FileCopyrightText: 2021-2023 Unisoc (Shanghai) Technologies Co. Ltd
+ * SPDX-License-Identifier: GPL-2.0-only
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
@@ -72,7 +69,7 @@ struct mdbg_ring_t *mdbg_ring_alloc(unsigned long int size)
 		}
 		ring = kmalloc(sizeof(struct mdbg_ring_t), GFP_KERNEL);
 		if (ring == NULL) {
-			WCN_ERR("Ring malloc Failed.\n");
+			WCN_ERR(" Ring malloc Failed.\n");
 			break;
 		}
 		ring->pbuff = kmalloc((unsigned int)size, GFP_KERNEL);

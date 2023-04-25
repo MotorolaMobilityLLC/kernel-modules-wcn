@@ -1,9 +1,7 @@
 /*
- * Copyright (C) 2016-2018 Spreadtrum Communications Inc.
- * This software is licensed under the terms of the GNU General Public
- * License version 2, as published by the Free Software Foundation, and
- * may be copied, distributed, and modified under those terms.
-
+ * SPDX-FileCopyrightText: 2021-2023 Unisoc (Shanghai) Technologies Co. Ltd
+ * SPDX-License-Identifier: GPL-2.0-only
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -41,7 +39,7 @@ int mbuf_link_alloc(int chn, struct mbuf_t **head, struct mbuf_t **tail,
 	struct mchn_info_t *mchn = mchn_info();
 	struct buffer_pool *pool = &(mchn->chn_public[chn].pool);
 
-	WCN_DBG("pool=%p, chn=%d, free=%d\n", pool, chn, pool->free);
+	WCN_DBG(" pool=%p, chn=%d, free=%d\n", pool, chn, pool->free);
 	spin_lock_irqsave(&(pool->lock), pool->irq_flags);
 	if ((*num <= 0) || (pool->free <= 0)) {
 		WCN_ERR("[+]%s err, num %d, free %d)\n",

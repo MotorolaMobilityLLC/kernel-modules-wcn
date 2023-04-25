@@ -1,9 +1,7 @@
 /*
- * Copyright (C) 2019 Spreadtrum Communications Inc.
- * This software is licensed under the terms of the GNU General Public
- * License version 2, as published by the Free Software Foundation, and
- * may be copied, distributed, and modified under those terms.
-
+ * SPDX-FileCopyrightText: 2021-2023 Unisoc (Shanghai) Technologies Co. Ltd
+ * SPDX-License-Identifier: GPL-2.0-only
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -50,6 +48,7 @@ int mchn_push_link_wait_complete(int chn, struct mbuf_t *head,
 				 struct mbuf_t *tail, int num, int timeout);
 int mchn_hw_pop_link(int chn, void *head, void *tail, int num);
 int mchn_hw_tx_complete(int chn, int timeout);
+
 int mchn_hw_req_push_link(int chn, int need);
 int mbuf_link_alloc(int chn, struct mbuf_t **head, struct mbuf_t **tail,
 		     int *num);

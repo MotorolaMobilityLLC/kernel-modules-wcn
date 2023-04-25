@@ -1,9 +1,7 @@
 /*
- * Copyright (C) 2016-2018 Spreadtrum Communications Inc.
- * This software is licensed under the terms of the GNU General Public
- * License version 2, as published by the Free Software Foundation, and
- * may be copied, distributed, and modified under those terms.
-
+ * SPDX-FileCopyrightText: 2021-2023 Unisoc (Shanghai) Technologies Co. Ltd
+ * SPDX-License-Identifier: GPL-2.0-only
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -26,7 +24,7 @@
 #define TX 1
 #define RX 0
 #define MPOOL_SIZE	0x10000
-#define MAX_PRINT_BYTE_NUM 8
+#define MAX_PRINT_BYTE_NUM  8
 #define EDMA_TX_TIMER_INTERVAL_MS	1000
 
 #define KTIME_MAX			((s64)~((u64)1 << 63))

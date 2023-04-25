@@ -1,6 +1,6 @@
-// SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (C) 2020 Unisoc Communications Inc.
+ * SPDX-FileCopyrightText: 2021-2023 Unisoc (Shanghai) Technologies Co. Ltd
+ * SPDX-License-Identifier: GPL-2.0-only
  *
  * Filename : sdiohal_tx.c
  * Abstract : This file is a implementation for wcn sdio hal function
@@ -42,7 +42,7 @@ int sdiohal_tx_data_list_send(struct sdiohal_list_t *data_list)
 				    SDIOHAL_ALIGN_BLK(
 				    p_data->send_buf.used_len));
 	if (ret)
-		pr_err("err 2,type:%d subtype:%d num:%d\n",
+		pr_err("err 2, type:%d subtype:%d num:%d\n",
 		       data_list->type, data_list->subtype,
 		       data_list->node_num);
 

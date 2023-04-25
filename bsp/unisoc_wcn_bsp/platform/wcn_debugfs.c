@@ -1,9 +1,7 @@
 /*
- * Copyright (C) 2018 Spreadtrum Communications Inc.
  *
- * This software is licensed under the terms of the GNU General Public
- * License version 2, as published by the Free Software Foundation, and
- * may be copied, distributed, and modified under those terms.
+ * SPDX-FileCopyrightText: 2021-2023 Unisoc (Shanghai) Technologies Co. Ltd
+ * SPDX-License-Identifier: GPL-2.0-only
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -43,7 +41,7 @@ static ssize_t read_wcn_reg(struct file *file, char __user *user_buf,
 	struct wcn_reg_ctl *reg_rd;
 	int i;
 
-	WCN_INFO("__read_wcn_reg\n");
+	WCN_INFO(" __read_wcn_reg\n");
 
 	reg_rd = kmalloc(sizeof(*reg_rd), GFP_KERNEL);
 	if (!reg_rd) {

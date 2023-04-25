@@ -1,5 +1,6 @@
 /*
- * Copyright (C) 2013 Spreadtrum Communications Inc.
+ * SPDX-FileCopyrightText: 2021-2023 Unisoc (Shanghai) Technologies Co. Ltd
+ * SPDX-License-Identifier: GPL-2.0-only
  *
  * Filename : slp_mgr.c
  * Abstract : This file is a implementation for  sleep manager
@@ -7,9 +8,6 @@
  * Authors	: QI.SUN
  *
  *
- * This software is licensed under the terms of the GNU General Public
- * License version 2, as published by the Free Software Foundation, and
- * may be copied, distributed, and modified under those terms.
 
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -41,7 +39,7 @@
 #endif
 #define pr_fmt(fmt) "WCN MEM_PD" fmt
 
-#define MEM_PD_ERR -3
+#define MEM_PD_ERR  -3
 #define CP_NO_MEM_PD_TIMEROUT 2000
 #define CP_TIMEROUT 30000
 /* time out in waiting wifi to come up */

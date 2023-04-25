@@ -1,8 +1,6 @@
 /*
- * Copyright (C) 2017 Spreadtrum Communications Inc.
- * This software is licensed under the terms of the GNU General Public
- * License version 2, as published by the Free Software Foundation, and
- * may be copied, distributed, and modified under those terms.
+ * SPDX-FileCopyrightText: 2021-2023 Unisoc (Shanghai) Technologies Co. Ltd
+ * SPDX-License-Identifier: GPL-2.0-only
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -52,7 +50,7 @@ enum {
 #define DUMP_PACKET_SIZE	(1024)
 
 #define GNSS_DUMP_END_STRING "gnss_memdump_finish"
-#define GNSS_SET_OFFSET                 0x1000
+#define GNSS_SET_OFFSET      0x1000
 #define GNSS_APB_BASE              0x40bc8000
 #define REG_GNSS_APB_MCU_AP_RST        (GNSS_APB_BASE + 0x0280) /* s/c */
 #define BIT_GNSS_APB_MCU_AP_RST_SOFT (1<<0)/*BIT 0*/

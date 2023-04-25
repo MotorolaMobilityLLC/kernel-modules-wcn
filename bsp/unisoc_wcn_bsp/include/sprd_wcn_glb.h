@@ -1,4 +1,7 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* 
+ * SPDX-FileCopyrightText: 2021-2023 Unisoc (Shanghai) Technologies Co. Ltd
+ * SPDX-License-Identifier: GPL-2.0-only
+*/
 #ifndef __SPRD_WCN_GLB_H
 #define __SPRD_WCN_GLB_H
 
@@ -12,6 +15,7 @@ enum cp2_chip_type {
 };
 
 enum cp2_chip_type wcn_get_cp2_type(void);
+
 
 #endif //__SPRD_WCN_GLB_H
 

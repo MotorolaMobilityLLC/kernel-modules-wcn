@@ -1,3 +1,7 @@
+/*
+ * SPDX-FileCopyrightText: 2021-2023 Unisoc (Shanghai) Technologies Co. Ltd
+ * SPDX-License-Identifier: GPL-2.0-only
+ */
 #include <linux/device.h>
 #include <linux/err.h>
 #include <linux/export.h>
@@ -70,7 +74,7 @@ void sdio_wait_pub_int_done(void)
 		WCN_INFO("flag_pub_int_done(%s)-%d\n", ret == 0 ? "timeout" : "success",
 			atomic_read(&flag_pub_int_done));
 	} else
-		WCN_INFO("sdio power_notify is NULL\n");
+		WCN_INFO("sdio power_notify was NULL\n");
 }
 EXPORT_SYMBOL(sdio_wait_pub_int_done);
 

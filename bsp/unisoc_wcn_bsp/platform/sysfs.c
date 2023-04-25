@@ -1,4 +1,7 @@
 /*
+ * SPDX-FileCopyrightText: 2021-2023 Unisoc (Shanghai) Technologies Co. Ltd
+ * SPDX-License-Identifier: GPL-2.0-only
+ *
  * This file is part of wcn sysfs debug
  */
 
@@ -75,7 +78,7 @@ static int wcn_send_atcmd(void *cmd, unsigned char cmd_len,
 
 	if (g_match_config && !g_match_config->unisoc_wcn_integrated) {
 		if (flag_download_done != 1) {
-			WCN_WARN("%s:can not send atcmd before download flag is true\n", __func__);
+			WCN_WARN(" %s:can not send atcmd before download flag is true\n", __func__);
 			return -EIO;
 		}
 	}

@@ -1,4 +1,6 @@
 /*
+ * SPDX-FileCopyrightText: 2021-2023 Unisoc (Shanghai) Technologies Co. Ltd
+ * SPDX-License-Identifier: GPL-2.0-only
  * This function include:
  * 1. register reset callback
  * 2. notify BT FM WIFI GNSS CP2 Assert
@@ -23,6 +25,7 @@ EXPORT_SYMBOL_GPL(wcn_reset_notifier_list);
 void wcn_reset_cp2(void)
 {
 	wcn_chip_power_off();
+
 	atomic_notifier_call_chain(&wcn_reset_notifier_list, 0, NULL);
 }
 EXPORT_SYMBOL_GPL(wcn_reset_cp2);

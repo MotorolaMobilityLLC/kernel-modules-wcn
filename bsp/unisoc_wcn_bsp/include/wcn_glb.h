@@ -1,3 +1,7 @@
+ /*
+ * SPDX-FileCopyrightText: 2021-2023 Unisoc (Shanghai) Technologies Co. Ltd
+ * SPDX-License-Identifier: GPL-2.0-only
+ */
 #ifndef __WCN_GLB_H__
 #define __WCN_GLB_H__
 
@@ -14,6 +18,7 @@
 #include "wcn_txrx.h"
 #include "wcn_log.h"
 #include "wcn_misc.h"
+
 #include "sprd_wcn.h"
 #include "wcn_dump.h"
 #include "wcn_glb_reg.h"

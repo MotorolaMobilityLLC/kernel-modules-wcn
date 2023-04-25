@@ -1,6 +1,6 @@
-// SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (C) 2020 Unisoc Communications Inc.
+ * SPDX-FileCopyrightText: 2021-2023 Unisoc (Shanghai) Technologies Co. Ltd
+ * SPDX-License-Identifier: GPL-2.0-only
  *
  * Filename : sdiohal_rx.c
  * Abstract : This file is a implementation for wcn sdio hal function
@@ -111,7 +111,7 @@ static int sdiohal_rx_list_parser(struct sdiohal_list_t *data_list,
 			mbuf_node->len = MAX_MBUF_SIZE;
 			sdiohal_data_list_assignment(mbuf_node, puh, channel);
 		} else {
-			sdiohal_debug("%s eof pac:%d,parse[%d]%s valid[%d]\n",
+			sdiohal_debug("%s eof pac:%d, parse[%d]%s valid[%d]\n",
 				      __func__, puh->eof, parse_len,
 				      (parse_len < valid_len ? "<":">="),
 				      valid_len);

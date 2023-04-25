@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2021-2023 Unisoc (Shanghai) Technologies Co. Ltd
+ * SPDX-License-Identifier: GPL-2.0-only
+*/
+
 #ifndef __WCN_INTEGRATE_DEV_H__
 #define __WCN_INTEGRATE_DEV_H__
 
@@ -24,6 +29,7 @@ extern uint GNSS_DUMP_REG_NUMBER;
 #define REG_SHUTDOWN_CNT_MAX 4
 
 #define WCN_INTEGRATE_PLATFORM_DEBUG 0
+
 #define SUSPEND_RESUME_ENABLE 0
 
 #define WCN_OPEN_MAX_CNT (0x10)

@@ -1,3 +1,7 @@
+ /*
+ * SPDX-FileCopyrightText: 2021-2023 Unisoc (Shanghai) Technologies Co. Ltd
+ * SPDX-License-Identifier: GPL-2.0-only
+ */
 #include <linux/completion.h>
 #include <linux/delay.h>
 #include <linux/kernel.h>
@@ -42,7 +46,7 @@ static int loopcheck_send_pcie(char *cmd, unsigned int len)
 
 	pcie_dev = get_wcn_device_info();
 	if (!pcie_dev) {
-		WCN_ERR("%s:PCIE device link error\n", __func__);
+		WCN_ERR(" %s:PCIE device link error\n", __func__);
 		return -1;
 	}
 

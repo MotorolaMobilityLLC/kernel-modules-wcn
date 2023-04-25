@@ -1,4 +1,9 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* 
+ *
+ * SPDX-FileCopyrightText: 2021-2023 Unisoc (Shanghai) Technologies Co. Ltd
+ * SPDX-License-Identifier: GPL-2.0-only
+ *
+ */
 
 #ifndef _WCN_BOOT
 #define _WCN_BOOT
@@ -68,8 +73,10 @@ struct marlin_device {
 	int reset;
 	int chip_en;
 	int int_ap;
+
 	/* pmic config */
 	struct regmap *syscon_pmic;
+
 	/* sharkl5 vddgen1 */
 	struct wcn_pmic_config avdd12_parent_bound_chip;
 	struct wcn_pmic_config avdd12_bound_wbreq;

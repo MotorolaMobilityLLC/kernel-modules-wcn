@@ -1,18 +1,11 @@
 /*
- * Copyright (C) 2015 Spreadtrum Communications Inc.
+ *
+ * SPDX-FileCopyrightText: 2021-2023 Unisoc (Shanghai) Technologies Co. Ltd
+ * SPDX-License-Identifier: GPL-2.0-only
  *
  * File:		wcn_procfs.c
  * Description:	Marlin Debug System main file. Module,device &
  * driver related defination.
- *
- * This software is licensed under the terms of the GNU General Public
- * License version 2, as published by the Free Software Foundation, and
- * may be copied, distributed, and modified under those terms.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the	1
- * GNU General Public License for more details.
  */
 
 #include <linux/mutex.h>
@@ -69,7 +62,7 @@ struct mdbg_proc_t {
 	struct mdbg_proc_entry		loopcheck;
 	struct mdbg_proc_entry		at_cmd;
 	struct mdbg_proc_entry		snap_shoot;
-	struct mutex		mutex;
+	struct mutex			mutex;
 	char write_buf[MDBG_WRITE_SIZE];
 	int fail_count;
 	int assert_notify_flag;

@@ -1,4 +1,8 @@
 /*
+ *
+ * SPDX-FileCopyrightText: 2021-2023 Unisoc (Shanghai) Technologies Co. Ltd
+ * SPDX-License-Identifier: GPL-2.0-only
+ *
  * This file is part of wcn platform
  */
 
@@ -21,6 +25,7 @@ void wcn_notify_fw_error(enum wcn_source_type type, char *buf);
 int wcn_sysfs_get_reset_prop(void);
 void wcn_firmware_init_wq(struct work_struct *work);
 void wcn_firmware_init(void);
+
 int init_wcn_sysfs(void);
 void exit_wcn_sysfs(void);
 void wcn_send_atcmd_lock(void);

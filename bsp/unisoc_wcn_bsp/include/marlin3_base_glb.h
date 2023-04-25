@@ -1,3 +1,7 @@
+ /*
+ * SPDX-FileCopyrightText: 2021-2023 Unisoc (Shanghai) Technologies Co. Ltd
+ * SPDX-License-Identifier: GPL-2.0-only
+ */
 #ifndef __MARLIN3_BASE_GLB_H__
 #define __MARLIN3_BASE_GLB_H__
 
@@ -21,6 +25,7 @@
 #define DCACHE_CFG0 (DCACHE_REG_BASE + 0X0040)
 #define DCACHE_CMD_CFG2 (DCACHE_REG_BASE + 0X0058)
 #define DCACHE_INT_RAW_STS (DCACHE_REG_BASE + 0X0064)
+
 #define DCACHE_INT_CLR (DCACHE_REG_BASE + 0X006C)
 #define DCACHE_CMD_IRQ_CLR 0X00000001
 #define DCACHE_CMD_CFG2_MASK 0X8000003F

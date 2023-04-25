@@ -1,5 +1,7 @@
 /*
- * Copyright (C) 2017 Spreadtrum Communications Inc.
+ *
+ * SPDX-FileCopyrightText: 2021-2023 Unisoc (Shanghai) Technologies Co. Ltd
+ * SPDX-License-Identifier: GPL-2.0-only
  *
  * This file is dual-licensed: you can use it either under the terms
  * of the GPL or the X11 license, at your option. Note that this dual
@@ -13,6 +15,7 @@
 #include "sprd_wcn.h"
 #include "sc2342_glb.h"
 #include "umw2631_integrate_glb.h"
+
 #include "sc2355_glb.h"
 #include "umw2652_glb.h"
 #include "umw2653_glb.h"

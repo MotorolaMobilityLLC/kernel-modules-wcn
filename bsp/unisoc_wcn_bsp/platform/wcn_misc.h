@@ -1,3 +1,7 @@
+ /*
+ * SPDX-FileCopyrightText: 2021-2023 Unisoc (Shanghai) Technologies Co. Ltd
+ * SPDX-License-Identifier: GPL-2.0-only
+ */
 #ifndef __WCN_MISC_H__
 #define __WCN_MISC_H__
 
@@ -18,7 +22,7 @@
  * 32bit ms is more than 42days, it's engough
  * for loopcheck debug.
  */
-#define NS_TO_MS                    1000000
+#define NS_TO_MS                  1000000
 #define MARLIN_64B_NS_TO_32B_MS(ns) do_div(ns, NS_TO_MS)
 //#define MARLIN_64B_NS_TO_32B_MS(ns) ((unsigned int)(ns / 1000000))
 

@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2016-2018 Spreadtrum Communications Inc.
+ * SPDX-License-Identifier: GPL-2.0-only
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -44,7 +45,7 @@
 #define OBREG1_OFFSET_ADDR	(0x10000 + (1 * 0x200))
 #define IBREG1_OFFSET_ADDR	(0x10000 + (1 * 0x200) + 0x100)
 
-#define EP_IBAR0_BASE_M3E		0X40800000
+#define EP_IBAR0_BASE_M3E	0X40800000
 #define EDMA_GLB_REG_BASE_M3E	0x600000
 #define EDMA_CHN_REG_BASE_M3E	0x601000
 /* 8M align */

@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0 */
-/*
+ /*
+ * SPDX-FileCopyrightText: 2021-2023 Unisoc (Shanghai) Technologies Co. Ltd
+ * SPDX-License-Identifier: GPL-2.0-only
  * Defines for the sdio device driver
  */
 #ifndef __SPRD_WCN_H__
@@ -48,6 +49,7 @@ void wcn_shutdown(struct platform_device *pdev);
 
 void module_bus_sipc_init(void);
 void module_bus_sipc_deinit(void);
+
 void module_bus_sdio_init(void);
 void module_bus_sdio_deinit(void);
 #ifdef BUILD_WCN_PCIE

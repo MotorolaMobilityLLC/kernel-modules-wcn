@@ -1,6 +1,6 @@
-// SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (C) 2020 Unisoc Communications Inc.
+ * SPDX-FileCopyrightText: 2021-2023 Unisoc (Shanghai) Technologies Co. Ltd
+ * SPDX-License-Identifier: GPL-2.0-only
  *
  * Filename : sdiohal_main.c
  * Abstract : This file is a implementation for wcn sdio hal function
@@ -37,7 +37,7 @@ static int sdiohal_card_lock(struct sdiohal_data_t *p_data)
 {
 	if (atomic_inc_return(&p_data->xmit_cnt) >= SDIOHAL_REMOVE_CARD_VAL) {
 		atomic_dec(&p_data->xmit_cnt);
-		pr_err("%s failed\n", __func__);
+		pr_err("%s is failed\n", __func__);
 		return -1;
 	}
 

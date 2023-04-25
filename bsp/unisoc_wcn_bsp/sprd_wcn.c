@@ -1,6 +1,6 @@
-// SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (C) 2020 Unisoc Communications Inc.
+ * SPDX-FileCopyrightText: 2021-2023 Unisoc (Shanghai) Technologies Co. Ltd
+ * SPDX-License-Identifier: GPL-2.0-only
  *
  * Filename : sprd_wcn.c
  * Abstract : This file is a implementation for wcn bsp driver
@@ -237,7 +237,7 @@ static int sprd_wcn_probe(struct platform_device *pdev)
 		of_match_node(wcn_global_match_table, np);
 
 	if (!of_id) {
-		pr_info("%s not find matched id!", __func__);
+		pr_info("%s is not find matched id!", __func__);
 		return -EINVAL;
 	}
 

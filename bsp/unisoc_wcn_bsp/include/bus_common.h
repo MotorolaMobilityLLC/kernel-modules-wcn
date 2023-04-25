@@ -1,5 +1,7 @@
-/* SPDX-License-Identifier: GPL-2.0 */
 /*
+ * SPDX-FileCopyrightText: 2021-2023 Unisoc (Shanghai) Technologies Co. Ltd
+ * SPDX-License-Identifier: GPL-2.0-only
+ *
  * Defines for the sdio device driver
  */
 #ifndef __BUS_COMMON_H__
@@ -8,6 +10,7 @@
 #include <misc/wcn_bus.h>
 
 int bus_chn_init(struct mchn_ops_t *ops, int hif_type);
+
 int bus_chn_deinit(struct mchn_ops_t *ops);
 int buf_list_alloc(int chn, struct mbuf_t **head,
 		   struct mbuf_t **tail, int *num);

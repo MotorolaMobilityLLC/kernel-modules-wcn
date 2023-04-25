@@ -1,17 +1,13 @@
 /*
- * Copyright (C) 2017 Spreadtrum Communications Inc.
+ * SPDX-FileCopyrightText: 2021-2023 Unisoc (Shanghai) Technologies Co. Ltd
+ * SPDX-License-Identifier: GPL-2.0-only
  *
  * Filename : wcn_integrate_platform.h
  * Abstract : This file is a implementation for driver of integrated marlin:
  *                The marlin chip and GNSS chip were integrated with AP chipset.
  *
- * Authors	: yaoguang.chen
+ * Authors	: chunlin.xia
  *
- *
- * This software is licensed under the terms of the GNU General Public
- * License version 2, as published by the Free Software Foundation, and
- * may be copied, distributed, and modified under those terms.
-
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -126,6 +122,7 @@ struct wcn_dfs_sync_info {
 
 #define WCN_GNSS_DDR_OFFSET (0x600000)
 #define WCN_SYS_DFS_SYNC_ADDR_OFFSET (0x007ffb00)
+
 #define WCN_SYS_RFI_SYNC_ADDR_OFFSET (0x007ffb10)
 
 #define QOGIRL6_WCN_SPECIAL_SHARME_MEM_ADDR	(0x007fdc00)

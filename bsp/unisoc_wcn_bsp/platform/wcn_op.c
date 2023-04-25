@@ -1,3 +1,7 @@
+ /*
+ * SPDX-FileCopyrightText: 2021-2023 Unisoc (Shanghai) Technologies Co. Ltd
+ * SPDX-License-Identifier: GPL-2.0-only
+ */
 #include <linux/device.h>
 #include <linux/delay.h>
 #include <linux/errno.h>
@@ -66,7 +70,7 @@ static int wcn_op_write(struct wcn_op_attr_t *wcn_op_attr, void *ptr)
 
 	ret = sprdwcn_bus_direct_write(wcn_op_attr->addr, ptr, wcn_op_attr->length);
 	if (ret < 0) {
-		pr_err("%s write reg error:%d\n", __func__, ret);
+		pr_err("%s write  reg error:%d\n", __func__, ret);
 		return ret;
 	}
 

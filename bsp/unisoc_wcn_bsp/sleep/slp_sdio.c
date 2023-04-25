@@ -1,3 +1,7 @@
+ /*
+ * SPDX-FileCopyrightText: 2021-2023 Unisoc (Shanghai) Technologies Co. Ltd
+ * SPDX-License-Identifier: GPL-2.0-only
+ */
 #include <linux/err.h>
 #include <linux/export.h>
 #include <linux/gpio.h>
@@ -7,7 +11,6 @@
 #include <linux/module.h>
 #include <linux/spinlock.h>
 #include <linux/delay.h>
-
 #include <misc/wcn_bus.h>
 
 #include "sdio_int.h"

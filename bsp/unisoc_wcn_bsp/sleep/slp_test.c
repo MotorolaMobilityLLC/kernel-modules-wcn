@@ -1,3 +1,7 @@
+ /*
+ * SPDX-FileCopyrightText: 2021-2023 Unisoc (Shanghai) Technologies Co. Ltd
+ * SPDX-License-Identifier: GPL-2.0-only
+ */
 #include <linux/delay.h>
 #include <linux/kthread.h>
 #include <misc/wcn_bus.h>
@@ -22,7 +26,7 @@ static int sleep_test_thread(void *data)
 		slp_mgr_wakeup(DT_READ);
 
 		sprdwcn_bus_reg_read(get_cp_start_addr(), &ram_val, 0x4);
-		WCN_INFO("ram_val is 0x%x\n", ram_val);
+		WCN_INFO("ram_val= 0x%x\n", ram_val);
 
 		msleep(5000);
 		slp_mgr_drv_sleep(DT_READ, TRUE);

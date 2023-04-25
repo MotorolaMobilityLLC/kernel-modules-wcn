@@ -1,3 +1,7 @@
+ /*
+ * SPDX-FileCopyrightText: 2021-2023 Unisoc (Shanghai) Technologies Co. Ltd
+ * SPDX-License-Identifier: GPL-2.0-only
+ */
 #ifndef _WCN_LOG
 #define _WCN_LOG
 
@@ -21,7 +25,6 @@ void wakeup_loopcheck_int(void);
 int get_loopcheck_status(void);
 void marlin_hold_cpu(void);
 void wcnlog_clear_log(void);
-
 int log_dev_init(void);
 int log_dev_exit(void);
 int wake_up_log_wait(void);

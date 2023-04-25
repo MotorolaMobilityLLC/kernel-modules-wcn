@@ -1,9 +1,14 @@
+ /*
+ * SPDX-FileCopyrightText: 2021-2023 Unisoc (Shanghai) Technologies Co. Ltd
+ * SPDX-License-Identifier: GPL-2.0-only
+ */
 #ifndef __WCN_INTEGRATE_BASE_GLB_H__
 #define __WCN_INTEGRATE_BASE_GLB_H__
 
 /* ap cp sync flag */
 #define MARLIN_CP_INIT_READY_MAGIC	(0xababbaba)
 #define MARLIN_CP_INIT_START_MAGIC	(0x5a5a5a5a)
+
 #define MARLIN_CP_INIT_SUCCESS_MAGIC	(0x13579bdf)
 #define MARLIN_CP_INIT_FAILED_MAGIC	(0x88888888)
 
