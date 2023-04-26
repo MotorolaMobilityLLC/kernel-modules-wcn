@@ -1,12 +1,6 @@
 /*
-* SPDX-FileCopyrightText: 2015-2022 Unisoc (Shanghai) Technologies Co., Ltd
-* SPDX-License-Identifier: GPL-2.0
-*
-* Copyright 2021-2022 Unisoc (Shanghai) Technologies Co., Ltd
-*
-* This program is free software; you can redistribute it and/or modify it
-* under the terms of version 2 of the GNU General Public License
-* as published by the Free Software Foundation.
+* SPDX-FileCopyrightText: 2015-2023 Unisoc (Shanghai) Technologies Co. Ltd
+* SPDX-License-Identifier: GPL-2.0-only
 */
 
 #include <linux/of_device.h>

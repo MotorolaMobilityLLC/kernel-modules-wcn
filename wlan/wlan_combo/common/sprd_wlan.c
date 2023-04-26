@@ -1,10 +1,8 @@
-// SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (C) 2020 Unisoc Communications Inc.
- *
- * Filename : sprd_wcn.c
- * Abstract : This file is a implementation for wcn bsp driver
- */
+* SPDX-FileCopyrightText: 2020-2023 Unisoc (Shanghai) Technologies Co. Ltd
+* SPDX-License-Identifier: GPL-2.0-only
+*/
+// SPDX-License-Identifier: GPL-2.0
 #include <linux/clk.h>
 #include <linux/delay.h>
 #include <linux/file.h>

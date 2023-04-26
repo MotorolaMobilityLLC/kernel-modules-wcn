@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2016-2023 Unisoc (Shanghai) Technologies Co. Ltd
+# SPDX-License-Identifier: GPL-2.0-only
 #
 # sprd_wlan_combo.ko
 #
