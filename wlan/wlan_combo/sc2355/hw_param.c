@@ -399,13 +399,25 @@ static int hw_param_nvm_parse(struct sprd_priv *priv, const char *path, void *p_
 	unsigned char *p_buf = NULL;
 	unsigned int buffer_len;
 	char *buffer = NULL;
-	int ret = 0;
+	int ret = 0, i;
 
 	pr_info("%s()...\n", __func__);
 	ret = request_firmware(&fw, path, wiphy_dev(priv->wiphy));
 	if (ret) {
-		pr_err("open file %s error\n", path);
-		return -1;
+		pr_err("first open file %s error\n", path);
+		/*failed to read ini file, try again*/
+		for (i = 0; i < 5; i++) {
+			msleep(50);
+			ret = request_firmware(&fw, path, wiphy_dev(priv->wiphy));
+			if (ret)
+				pr_err("failed to open file %s for the %d time!\n", path, i);
+			else
+				break;
+		}
+		if (ret) {
+			pr_err("open file %s error\n", path);
+			return -1;
+		}
 	}
 
 	if (!fw || !fw->data || fw->size <= 0) {
