@@ -1,5 +1,6 @@
 /*
- * Copyright (C) 2016 Spreadtrum Communications Inc.
+ * SPDX-FileCopyrightText: 2021-2023 Unisoc (Shanghai) Technologies Co. Ltd
+ * SPDX-License-Identifier: GPL-2.0-only
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -15,6 +16,7 @@
 #include <linux/kfifo.h>
 #include "sitm.h"
 #include "../unisoc_bt_log.h"
+
 
 extern struct device *ttyBT_dev;
 static const uint8_t preamble_sizes[] = {

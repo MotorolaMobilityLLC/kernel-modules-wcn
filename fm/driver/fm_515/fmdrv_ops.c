@@ -1,7 +1,6 @@
 /*
- * FM Radio  driver  with SPREADTRUM SC2331FM Radio chip
- *
- * Copyright (c) 2015 Spreadtrum
+ * SPDX-FileCopyrightText: 2021-2023 Unisoc (Shanghai) Technologies Co. Ltd
+ * SPDX-License-Identifier: GPL-2.0-only
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -75,6 +74,7 @@ struct device *fm_miscdev = NULL;
 extern  int  PCIE;
 extern  int  SIPC;
 extern  int  SDIO;
+
 struct platform_device *g_fm_pdev = 0;
 
 long fm_ioctl(struct file *filep, unsigned int cmd, unsigned long arg) {

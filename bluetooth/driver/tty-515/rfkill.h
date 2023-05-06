@@ -1,5 +1,6 @@
 /*
- * Copyright (C) 2016 Spreadtrum Communications Inc.
+ * SPDX-FileCopyrightText: 2021-2023 Unisoc (Shanghai) Technologies Co. Ltd
+ * SPDX-License-Identifier: GPL-2.0-only
  *
  * Filename : marlin_rfkill.h
  * Abstract : This file is a implementation for itm sipc command/event function
@@ -21,5 +22,6 @@
 
 int rfkill_bluetooth_init(struct platform_device *pdev);
 int rfkill_bluetooth_remove(struct platform_device *pdev);
+
 
 #endif

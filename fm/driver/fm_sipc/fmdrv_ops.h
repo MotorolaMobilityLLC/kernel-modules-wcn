@@ -1,9 +1,6 @@
 /*
- *  FM Drivr for Connectivity chip of Spreadtrum.
- *
- *  FM operations module header.
- *
- *  Copyright (C) 2015 Spreadtrum Company
+ * SPDX-FileCopyrightText: 2021-2023 Unisoc (Shanghai) Technologies Co. Ltd
+ * SPDX-License-Identifier: GPL-2.0-only
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License version 2 as
@@ -27,6 +24,7 @@ extern struct wakeup_source *fm_wakelock;
 #define SPRD_FM_RX_BUFID	13
 
 extern struct fmdrv_ops *fmdev;
+
 int  fm_device_init_driver(void);
 void fm_device_exit_driver(void);
 

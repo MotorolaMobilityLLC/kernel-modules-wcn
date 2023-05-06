@@ -1,3 +1,9 @@
+/*
+ * SPDX-FileCopyrightText: 2021-2023 Unisoc (Shanghai) Technologies Co. Ltd
+ * SPDX-License-Identifier: GPL-2.0-only
+ *
+*/
+
 #ifndef __MARLIN3_RF_H__
 #define __MARLIN3_RF_H__
 struct nvm_cali_cmd {
@@ -5,6 +11,7 @@ struct nvm_cali_cmd {
 	int32_t par[256];
 	int32_t num;
 };
+
 
 struct nvm_name_table {
 	int8_t *itm;

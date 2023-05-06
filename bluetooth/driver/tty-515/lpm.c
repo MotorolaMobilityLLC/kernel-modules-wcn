@@ -1,3 +1,9 @@
+/*
+ * SPDX-FileCopyrightText: 2021-2023 Unisoc (Shanghai) Technologies Co. Ltd
+ * SPDX-License-Identifier: GPL-2.0-only
+ *
+*/
+
 #include <linux/module.h>
 #include <linux/errno.h>
 #include <linux/init.h>

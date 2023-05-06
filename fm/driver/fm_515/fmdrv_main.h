@@ -1,9 +1,6 @@
 /*
- *  FM Drivr for Connectivity chip of Spreadtrum.
- *
- *  FM driver main module header.
- *
- *  Copyright (C) 2015 Spreadtrum Company
+ * SPDX-FileCopyrightText: 2021-2023 Unisoc (Shanghai) Technologies Co. Ltd
+ * SPDX-License-Identifier: GPL-2.0-only
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License version 2 as
@@ -38,6 +35,7 @@
 #define FM_CONFIG_DEEMPHASIS 0x0C
 #define FM_GET_CURPAMD	0x0D
 /*audio mode:0:mono, 1:stereo; 2:blending*/
+
 #define FM_GET_AUDIO_MODE 0x0E
 #define FM_GET_VOLUME_CMD		0x0F
 #define FM_SET_VOLUME_CMD		0x10

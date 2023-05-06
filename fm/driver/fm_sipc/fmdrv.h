@@ -1,9 +1,6 @@
 /*
- *  FM Driver for Connectivity chip of Spreadtrum
- *
- *  Common header for all FM driver sub-modules.
- *
- *  Copyright (C) 2015 spreadtrum
+ * SPDX-FileCopyrightText: 2021-2023 Unisoc (Shanghai) Technologies Co. Ltd
+ * SPDX-License-Identifier: GPL-2.0-only
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License version 2 as
@@ -30,6 +27,7 @@
 #define FM_READ_SIZE		(128)
 #define FM_HEADER_ERR		"FM_ERR: "
 #define FM_HEADER		"FM_DRV: "
+
 /* 1: enable RDS, 0:disable RDS */
 #define FM_RDS_ENABLE 0x01
 

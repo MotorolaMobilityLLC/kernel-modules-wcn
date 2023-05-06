@@ -1,5 +1,6 @@
 /*
- * Copyright (C) 2015 Spreadtrum Communications Inc.
+ * SPDX-FileCopyrightText: 2021-2023 Unisoc (Shanghai) Technologies Co. Ltd
+ * SPDX-License-Identifier: GPL-2.0-only
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -31,6 +32,7 @@ extern  int  PCIE;
 extern  int  SIPC;
 extern  int  SIPC2;
 extern  int  SDIO;
+
 
 int set_power_ret = 0;
 

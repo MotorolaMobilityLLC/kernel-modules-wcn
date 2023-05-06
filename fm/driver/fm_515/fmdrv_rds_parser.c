@@ -1,7 +1,6 @@
 /*
- * FM Radio driver for RDS with SPREADTRUM SC2331FM Radio chip
- *
- * Copyright (c) 2015 Spreadtrum
+ * SPDX-FileCopyrightText: 2021-2023 Unisoc (Shanghai) Technologies Co. Ltd
+ * SPDX-License-Identifier: GPL-2.0-only
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -29,6 +28,7 @@
 #include "unisoc_fm_log.h"
 
 extern struct device *fm_miscdev;
+
 
 struct rds_state_machine {
 	signed int state;

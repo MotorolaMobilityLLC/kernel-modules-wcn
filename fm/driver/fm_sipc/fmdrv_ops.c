@@ -1,7 +1,6 @@
 /*
- * FM Radio  driver  with SPREADTRUM SC2331FM Radio chip
- *
- * Copyright (c) 2015 Spreadtrum
+ * SPDX-FileCopyrightText: 2021-2023 Unisoc (Shanghai) Technologies Co. Ltd
+ * SPDX-License-Identifier: GPL-2.0-only
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -43,6 +42,7 @@
 
 #include <linux/version.h>
 #include <linux/pm_wakeup.h>
+
 struct wakeup_source *fm_wakelock;
 struct device *fm_miscdev = NULL;
 

@@ -1,3 +1,9 @@
+/*
+ * SPDX-FileCopyrightText: 2021-2023 Unisoc (Shanghai) Technologies Co. Ltd
+ * SPDX-License-Identifier: GPL-2.0-only
+ *
+*/
+
 #include <linux/types.h>
 #include <linux/kernel.h>
 #include <linux/device.h>
@@ -75,6 +81,7 @@ static int find_type(char key)
 		return 4;
 	return 0;
 }
+
 
 static int fm_nvm_set_cmd(struct nvm_name_table *pTable,
 	struct nvm_cali_cmd *cmd, void *p_data)

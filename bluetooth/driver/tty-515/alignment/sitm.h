@@ -1,3 +1,9 @@
+/*
+ * SPDX-FileCopyrightText: 2021-2023 Unisoc (Shanghai) Technologies Co. Ltd
+ * SPDX-License-Identifier: GPL-2.0-only
+ *
+*/
+
 #ifndef __SITM_H
 #define __SITM_H
 
@@ -16,6 +22,7 @@
 #define HCI_HAL_SERIAL_BUFFER_SIZE 1026
 
 #define BYTE_ALIGNMENT 8
+
 
 enum receive_state_t {
 	BRAND_NEW,

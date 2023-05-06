@@ -1,5 +1,6 @@
 /*
- * Copyright (C) 2015 Spreadtrum Communications Inc.
+ * SPDX-FileCopyrightText: 2021-2023 Unisoc (Shanghai) Technologies Co. Ltd
+ * SPDX-License-Identifier: GPL-2.0-only
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -15,6 +16,7 @@
 #define __UNISOC_FM_LOG_H
 
 #include <linux/device.h>
+
 #define dev_unisoc_fm_err(dev, fmt, ...)        \
     do {                                        \
         if (dev) {                              \

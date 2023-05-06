@@ -1,9 +1,6 @@
 /*
- *  FM Drivr for Connectivity chip of Spreadtrum.
- *
- *  FM RDS Parser module header.
- *
- *  Copyright (C) 2015 Spreadtrum Company
+ * SPDX-FileCopyrightText: 2021-2023 Unisoc (Shanghai) Technologies Co. Ltd
+ * SPDX-License-Identifier: GPL-2.0-only
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License version 2 as
@@ -37,6 +34,7 @@
 #define rds_data_group_size	(3*4)
 #define grp_type_mask		0xF0
 #define grp_ver_mask		0x0F
+
 /* 0:version A, 1: version B */
 #define grp_ver_bit		(0x01<<3)
 #define grp_ver_a		0x0A
