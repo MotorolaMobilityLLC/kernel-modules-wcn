@@ -52,6 +52,7 @@ SPRD_WLAN_COMMON := \
 		common/msg.o \
 		common/npi.o \
 		common/report.o \
+		common/apf.o \
 		common/tdls.o
 
 SC2332_WLAN := \

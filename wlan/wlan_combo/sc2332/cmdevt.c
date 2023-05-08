@@ -133,6 +133,8 @@ static const char *cmdevt_cmd2str(u8 cmd)
 		return "CMD_SET_SAE_PARAM";
 	case CMD_EXTENDED_LLSTAT:
 		return "CMD_EXTENDED_LLSTAT";
+	case CMD_PACKET_FILTER:
+		return "CMD_PACKET_FILTER";
 	default:
 		return "CMD_UNKNOWN";
 	}

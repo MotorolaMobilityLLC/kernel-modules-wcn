@@ -552,6 +552,62 @@ void sprd_debug_record_add(enum debug_record_index index, int num)
 }
 EXPORT_SYMBOL(sprd_debug_record_add);
 
+static int sprd_force_apf_disable_set(void *data, u64 val)
+{
+	struct sprd_priv *priv = data;
+	struct sprd_vif *vif = NULL;
+	int ret;
+	bool force_apf_disable = false;
+
+	vif = sprd_mode_to_vif(priv, SPRD_MODE_STATION);
+	if (!vif) {
+		pr_err("%s error params", __func__);
+		return -EINVAL;
+	}
+
+	if (val == 0xA9FD)
+		force_apf_disable = true;
+	else if (val == 0xA9FC)
+		force_apf_disable = false;
+	else {
+		pr_info("apf val = %llx.\n", val);
+		return -EINVAL;
+	}
+
+	ret = apf_force_disable(vif, force_apf_disable);
+	if (ret) {
+		pr_err("%s apf_send err %d.\n", __func__, ret);
+	}
+
+	return ret;
+}
+
+static int sprd_force_apf_disable_get(void *data, u64 *val)
+{
+	struct sprd_priv *priv = data;
+	struct sprd_vif *vif = NULL;
+	u8 force_dis_apf_status = 0xFF;
+	int ret;
+
+	vif = sprd_mode_to_vif(priv, SPRD_MODE_STATION);
+	if (!vif) {
+		pr_err("%s error params", __func__);
+		return -EINVAL;
+	}
+
+	ret = apf_force_disable_status(vif, &force_dis_apf_status);
+	if (ret) {
+		pr_err("%s apf_send err %d.\n", __func__, ret);
+	} else {
+		*val = (u64) force_dis_apf_status;
+	}
+
+	return ret;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(apf_disable_ops,
+	sprd_force_apf_disable_get, sprd_force_apf_disable_set, "%llu\n");
+
 void sprd_debug_init(struct sprd_debug *dbg)
 {
 	sprd_dbg = dbg;
@@ -562,6 +618,12 @@ void sprd_debug_init(struct sprd_debug *dbg)
 		pr_err("%s, create dir fail!\n", __func__);
 		dbg->dir = NULL;
 		return;
+	}
+
+	if (!debugfs_create_file("apf_disable", S_IRUGO, dbg->dir,
+		container_of(dbg, struct sprd_priv, debug),
+		&apf_disable_ops)) {
+		pr_err("%s create_file fail!\n", __func__);
 	}
 
 	if (!debugfs_create_file("log_level", 0444,

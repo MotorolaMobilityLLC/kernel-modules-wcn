@@ -37,6 +37,7 @@
 #include "tcp_ack.h"
 #include "vendor.h"
 #include "npi.h"
+#include "apf.h"
 
 #define SPRD_DRIVER_VERSION		"v1.0"
 
@@ -287,6 +288,8 @@ struct sprd_priv {
 	unsigned long monitor_data_cnt;
 	unsigned long monitor_mgmt_cnt;
 	volatile bool probe_done;
+
+	struct apf_program_state *apf_state;
 };
 
 extern unsigned int wfa_cap;
