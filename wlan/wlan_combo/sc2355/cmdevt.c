@@ -3972,7 +3972,7 @@ static void cmdevt_report_chan_changed_evt(struct sprd_vif *vif, u8 *data, u16 l
 			cfg80211_chandef_create(&chandef, ch,
 						NL80211_CHAN_HT20);
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
-			cfg80211_ch_switch_notify(vif->ndev, &chandef, 0);
+			cfg80211_ch_switch_notify(vif->ndev, &chandef, 0, 0);
 #else
 			cfg80211_ch_switch_notify(vif->ndev, &chandef);
 #endif
