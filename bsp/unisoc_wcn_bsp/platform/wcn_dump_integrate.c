@@ -423,6 +423,9 @@ int mdbg_snap_shoot_iram(void *buf)
 {
 	u32 ret;
 
+	if (wcn_platform_chip_type() == WCN_PLATFORM_TYPE_QOGIRL6)
+		return -EINVAL;
+
 	ret = mdbg_snap_shoot_iram_data(buf,
 			0x18000000, 1024 * 32);
 
