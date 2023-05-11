@@ -91,11 +91,11 @@ static int npi_nl_handler(struct sk_buff *skb_2, struct genl_info *info)
 		return -EPERM;
 	}
 
-	r_buf = kmalloc(1024, GFP_KERNEL);
+	r_buf = kzalloc(1024, GFP_KERNEL);
 	if (!r_buf)
 		return -ENOMEM;
 
-	sprintf(dbgstr, "[iwnpi][SEND][%d]:", s_len);
+	snprintf(dbgstr, sizeof(dbgstr), "[iwnpi][SEND][%d]:", s_len);
 	hdr = (struct sprd_npi_cmd_hdr *)s_buf;
 	pr_err("%s type is %d, subtype %d\n", dbgstr, hdr->type, hdr->subtype);
 
@@ -167,7 +167,7 @@ static int npi_nl_handler(struct sk_buff *skb_2, struct genl_info *info)
 				}
 
 				sprd_npi_send_recv(priv, vif, s_buf, s_len, r_buf, &r_len);
-				sprintf(dbgstr, "[iwnpi][RECV][%d]:", r_len);
+				snprintf(dbgstr, sizeof(dbgstr), "[iwnpi][RECV][%d]:", r_len);
 				hdr = (struct sprd_npi_cmd_hdr *)r_buf;
 				pr_info("%s type is %d, subtype %d\n", dbgstr, hdr->type,
 					hdr->subtype);
@@ -181,7 +181,7 @@ static int npi_nl_handler(struct sk_buff *skb_2, struct genl_info *info)
 			}
 		} else {
 			sprd_npi_send_recv(priv, vif, s_buf, s_len, r_buf, &r_len);
-			sprintf(dbgstr, "[iwnpi][RECV][%d]:", r_len);
+			snprintf(dbgstr, sizeof(dbgstr), "[iwnpi][RECV][%d]:", r_len);
 			hdr = (struct sprd_npi_cmd_hdr *)r_buf;
 			pr_info("%s type is %d, subtype %d\n", dbgstr, hdr->type,
 				hdr->subtype);
@@ -189,7 +189,7 @@ static int npi_nl_handler(struct sk_buff *skb_2, struct genl_info *info)
 	} else {
 		sprd_npi_send_recv(priv, vif, s_buf, s_len, r_buf, &r_len);
 
-		sprintf(dbgstr, "[iwnpi][RECV][%d]:", r_len);
+		snprintf(dbgstr, sizeof(dbgstr), "[iwnpi][RECV][%d]:", r_len);
 		hdr = (struct sprd_npi_cmd_hdr *)r_buf;
 		pr_err("%s type is %d, subtype %d\n", dbgstr, hdr->type,
 		       hdr->subtype);
@@ -309,7 +309,7 @@ void sprd_npi_set_cca_param(struct sprd_priv *priv, struct sprd_vif *vif)
 	unsigned char dbgstr[64] = { 0 };
 	char tmp_flag = 0;
 
-	r_buf = kmalloc(1024, GFP_KERNEL);
+	r_buf = kzalloc(1024, GFP_KERNEL);
 	if (!r_buf)
 		return;
 
@@ -344,15 +344,16 @@ void sprd_npi_set_cca_param(struct sprd_priv *priv, struct sprd_vif *vif)
 		/* low bit, wifi adaptive enable/disable */
 		*p = tmp_flag & 0x0f;
 
-		sprintf(dbgstr, "[iwnpi][SEND][%d]:", s_len);
+		snprintf(dbgstr, sizeof(dbgstr), "[iwnpi][SEND][%d]:", s_len);
 		pr_info("%s type is %d, subtype %d\n", dbgstr, hdr->type, hdr->subtype);
 		sprd_npi_send_recv(priv, vif, s_buf, s_len, r_buf, &r_len);
-		sprintf(dbgstr, "[iwnpi][RECV][%d]:", r_len);
+		snprintf(dbgstr, sizeof(dbgstr), "[iwnpi][RECV][%d]:", r_len);
 		hdr = (struct sprd_npi_cmd_hdr *)r_buf;
 		pr_info("%s type is %d, subtype %d\n", dbgstr, hdr->type, hdr->subtype);
 	}
 
 	kfree(r_buf);
+	r_buf = NULL;
 	return;
 }
 

@@ -1647,8 +1647,6 @@ struct sprd_priv *sprd_core_create(struct sprd_chip_ops *chip_ops)
 	cfg80211_init_reset_work(priv);
 #endif
 	spin_lock_init(&adap_info.adap_lock);
-	adap_info.special_data_flag = 0;
-	adap_info.wifi_adaptive_flag = 0;
 
 	return priv;
 }
