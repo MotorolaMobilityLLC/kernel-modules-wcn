@@ -358,6 +358,7 @@ sc2355_rx_mh_addr_process(struct rx_mgmt *rx_mgmt, void *data,
 			misc_work->id = SPRD_PCIE_TX_FREE_BUF;
 			memcpy(misc_work->data, &data, sizeof(void *));
 			misc_work->len = buffer_type;
+			misc_work->hw_type = hif->hw_type;
 
 			sprd_queue_work(hif->priv, misc_work);
 		} else {
