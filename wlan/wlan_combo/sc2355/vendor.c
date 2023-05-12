@@ -3275,6 +3275,100 @@ static int vendor_set_sae_password(struct wiphy *wiphy,
 	return ret;
 }
 
+static int vendor_apf_req_send_recv(struct sprd_vif *vif,
+			struct apf_request *apf_req, void *src_slice_prog,
+			struct apf_response *apf_rsp, u16 *r_len)
+{
+	struct sprd_priv *priv = vif->priv;
+	struct sprd_msg *msg;
+	int ret = 0;
+	u16 apf_subcmd, cmd_len, rsp_len;
+
+	if (!priv->apf_state->apf_cmd_id) {
+		pr_err("%s cmd_id err.\n", __func__);
+		return -EINVAL;
+	}
+
+	apf_subcmd = apf_req->apf_hdr.apf_subcmd;
+	cmd_len = apf_req->apf_hdr.length + sizeof(struct apf_cmd_header);
+	rsp_len = apf_rsp->apf_hdr.length + sizeof(struct apf_cmd_header);
+
+	msg = get_cmdbuf(priv, vif, ALIGN(cmd_len, APF_ALIGN_SIZE),
+		priv->apf_state->apf_cmd_id);
+	if (!msg) {
+		netdev_info(vif->ndev, "%s alloc msg failed", __func__);
+		return -ENOMEM;
+	}
+
+	if (apf_subcmd == WLAN_READ_PACKET_FILTER) {
+		memcpy(msg->data, apf_req, sizeof(struct apf_request));
+	} else if (apf_subcmd == WLAN_SET_PACKET_FILTER) {
+		memcpy(msg->data, apf_req, sizeof(struct apf_request));
+		memcpy((u8 *)msg->data + sizeof(struct apf_request), src_slice_prog,
+			apf_req->apf_offset_slice_size);
+	} else if (apf_subcmd == WLAN_WRITE_PACKET_FILTER) {
+		memcpy(msg->data, apf_req, sizeof(struct apf_request));
+		memcpy((u8 *)msg->data + sizeof(struct apf_request), src_slice_prog,
+			apf_req->apf_offset_slice_size);
+	} else {
+		memcpy(msg->data, apf_req,
+			sizeof(struct apf_cmd_header) + apf_req->apf_hdr.length);
+	}
+
+	ret = send_cmd_recv_rsp(priv, msg, (u8 *)apf_rsp, &rsp_len);
+	if (ret != 0) {
+		pr_err("%s ret %d.\n", __func__, ret);
+	}
+
+	*r_len = rsp_len;
+	return ret;
+}
+
+static void sc2355_apf_init(struct sprd_priv *priv) {
+	if (priv->hif.hw_type == SPRD_HW_SC2355_SIPC) {
+		if (!apf_init(priv)) {
+			priv->apf_state->apf_cmd_id = CMD_PACKET_FILTER;
+			priv->apf_state->apf_req_send_rcv = vendor_apf_req_send_recv;
+		}
+	}
+}
+
+static int vendor_get_bus_max_size(struct wiphy *wiphy,
+			struct wireless_dev *wdev, const void *data, int len)
+{
+	#define	VENDOR_ATTR_DRV_INFO_BUS_SIZE 1
+	struct sk_buff *skb;
+	int ret = VENDOR_WIFI_SUCCESS, rsp_len = sizeof(u32);
+
+	skb = cfg80211_vendor_cmd_alloc_reply_skb(wiphy, NLMSG_HDRLEN + rsp_len);
+	if (!skb) {
+		pr_err("%s skb alloc failed.\n", __func__);
+		return -ENOMEM;
+	}
+
+	if (nla_put_u32(skb, VENDOR_ATTR_DRV_INFO_BUS_SIZE, 1024)) {
+		pr_err("%s put fail\n", __func__);
+		ret = -EINVAL;
+		goto exit;
+	}
+
+	ret = cfg80211_vendor_cmd_reply(skb);
+	if (ret) {
+		pr_err("%s failed %d reply skb!\n", __func__, ret);
+	}
+	return ret;
+
+exit:
+	kfree_skb(skb);
+	return ret;
+}
+
+static void sc2355_apf_deinit(struct sprd_priv *priv) {
+	if (priv->hif.hw_type == SPRD_HW_SC2355_SIPC) {
+		apf_deinit(priv);
+	}
+}
+
 static const struct wiphy_vendor_command vendor_cmd[] = {
 	{/* 9 */
 		{
@@ -3625,6 +3719,27 @@ static const struct wiphy_vendor_command vendor_cmd[] = {
 		.doit = vendor_enable_nd_offload,
 		.policy = nd_offload_policy,
 		.maxattr = ATTR_ND_OFFLOAD_MAX,
+	},
+	{/* 83 */
+		{
+		    .vendor_id = OUI_SPREAD,
+		    .subcmd = VENDOR_CMD_PACKET_FILTER,
+		},
+		.flags = WIPHY_VENDOR_CMD_NEED_WDEV |
+			 WIPHY_VENDOR_CMD_NEED_NETDEV,
+		.doit = vendor_apf_packet_filter,
+		.policy = apf_vendor_attr_policy,
+		.maxattr = VENDOR_ATTR_PACKET_FILTER_MAX,
+	},
+	{/* 84 */
+		{
+		    .vendor_id = OUI_SPREAD,
+		    .subcmd = VENDOR_CMD_GET_BUS_SIZE,
+		},
+		.flags = WIPHY_VENDOR_CMD_NEED_WDEV |
+			 WIPHY_VENDOR_CMD_NEED_NETDEV,
+		.doit = vendor_get_bus_max_size,
+		.policy = VENDOR_CMD_RAW_DATA,
 	},
 	{/* 85 */
 		{
@@ -4562,9 +4677,7 @@ out:
 
 int sc2355_vendor_init(struct wiphy *wiphy)
 {
-#ifdef CONFIG_SC2355_WLAN_RTT
 	struct sprd_priv *priv = wiphy_priv(wiphy);
-#endif /* CONFIG_SC2355_WLAN_RTT */
 
 	wiphy->vendor_commands = vendor_cmd;
 	wiphy->n_vendor_commands = ARRAY_SIZE(vendor_cmd);
@@ -4574,6 +4687,7 @@ int sc2355_vendor_init(struct wiphy *wiphy)
 	sc2355_rtt_init(priv);
 #endif /* CONFIG_SC2355_WLAN_RTT */
 
+	sc2355_apf_init(priv);
 	return 0;
 }
 
@@ -4590,5 +4704,6 @@ int sc2355_vendor_deinit(struct wiphy *wiphy)
 	kfree(priv->hotlist_res);
 	kfree(priv->significant_res);
 
+	sc2355_apf_deinit(priv);
 	return 0;
 }

@@ -193,7 +193,10 @@ static const char *cmdevt_cmd2str(u8 cmd)
 #ifdef ENABLE_PAM_WIFI
 	case CMD_UL_RES_STS:
 		return "CMD_UL_RES_STS";
-#endif		
+#endif
+	case CMD_PACKET_FILTER:
+		return "CMD_PACKET_FILTER";
+
 	default:
 		return "CMD_UNKNOWN";
 	}

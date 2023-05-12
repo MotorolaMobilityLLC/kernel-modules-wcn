@@ -308,6 +308,12 @@ struct sprd_api_version_t api_array[] = {
 		.cmd_id = CMD_EXTENDED_LLSTAT,
 		.drv_version = 1,
 	},
+	[90]{
+		/*ID:90*/
+		.cmd_id = CMD_PACKET_FILTER,
+		.drv_version = 1,
+	},
+
 	[128]{	/*ID:0x80*/
 		.cmd_id = EVT_CONNECT,
 		.drv_version = 1,
