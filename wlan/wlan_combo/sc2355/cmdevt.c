@@ -196,7 +196,10 @@ static const char *cmdevt_cmd2str(u8 cmd)
 #endif
 	case CMD_PACKET_FILTER:
 		return "CMD_PACKET_FILTER";
-
+#ifdef ENABLE_CHR
+	case CMD_SET_CHR:
+		return "CMD_SET_CHR";
+#endif
 	default:
 		return "CMD_UNKNOWN";
 	}
@@ -206,6 +209,65 @@ const char *sc2355_cmdevt_cmd2str(u8 cmd)
 {
 	return cmdevt_cmd2str(cmd);
 }
+
+
+#ifdef ENABLE_CHR
+static void cmdevt_report_chr_evt(struct sprd_vif *vif, u8 *data, u16 len)
+{
+	struct evt_chr echr = {0};
+	u8 *pos = data;
+	u16 left = len;
+
+	if (len < CHR_CP2_DATA_LEN) {
+		pr_err("%s, CHR: the data from CP2 is invalid!\n", __func__);
+		return;
+	}
+	/* get version */
+	memcpy(&echr.version, pos, sizeof(echr.version));
+	pos += sizeof(echr.version);
+	left -= sizeof(echr.version);
+
+	/* check chr_version between driver and cp2*/
+	if (echr.version != CHR_VERSION) {
+		pr_err("%s, CP2's chr_version don't match driver's", __func__);
+		return;
+	}
+
+	/* get evt_id */
+	memcpy(&echr.evt_id, pos, sizeof(echr.evt_id));
+	pos += sizeof(echr.evt_id);
+	left -= sizeof(echr.evt_id);
+
+	/* get evt_id_subtype */
+	memcpy(&echr.evt_id_subtype, pos, sizeof(echr.evt_id_subtype));
+	pos += sizeof(echr.evt_id_subtype);
+	left -= sizeof(echr.evt_id_subtype);
+
+	/* get evt_content_len & evt_content */
+	memcpy(&echr.evt_content_len, pos, sizeof(echr.evt_content_len));
+	pos += sizeof(echr.evt_content_len);
+	left -= sizeof(echr.evt_content_len);
+	echr.evt_content = pos;
+
+	pr_info("%s, CHR: version: %u, evt_id: %#x, evt_id_subtype: %u, evt_content_len: %u\n",
+		__func__, echr.version, echr.evt_id, echr.evt_id_subtype, echr.evt_content_len);
+
+	switch (echr.evt_id) {
+	case EVT_CHR_DISC_LINK_LOSS:
+	case EVT_CHR_DISC_SYS_ERR:
+		sprd_report_chr_disconnection(vif, echr.version, echr.evt_id,
+					      echr.evt_id_subtype, echr.evt_content_len,
+					      echr.evt_content);
+		break;
+	default:
+		netdev_err(vif->ndev, "%s, invalid chr_evt_id: %#x\n",
+			   __func__, echr.evt_id);
+		break;
+	}
+
+	return;
+}
+#endif
 
 int cmdevt_report_ip_addr(struct sprd_vif *vif, u8 *data, u16 len)
 {
@@ -298,7 +360,11 @@ static const char *cmdevt_evt2str(u8 evt)
 #ifdef ENABLE_PAM_WIFI
 	case EVT_PAMWIFI_UL_RESOURCE_EVENT:
 		return "EVT_PAMWIFI_UL_RESOURCE_EVENT";
-#endif		
+#endif	
+#ifdef ENABLE_CHR
+	case EVT_CHR:
+		return "EVT_CHR";
+#endif
 	default:
 		return "WIFI_EVENT_UNKNOWN";
 	}
@@ -1318,7 +1384,7 @@ static int cmdevt_download_ini(struct sprd_priv *priv, u8 *data, u32 len, u8 sec
 	return ret;
 }
 
-void sc2355_download_hw_param(struct sprd_priv *priv)
+int sc2355_download_hw_param(struct sprd_priv *priv)
 {
 	int ret;
 	struct wifi_conf_t *wifi_data;
@@ -1330,7 +1396,7 @@ void sc2355_download_hw_param(struct sprd_priv *priv)
 	if (hif->hw_type != SPRD_HW_SC2355_PCIE) {
 		if (!cali_ini_need_download(MARLIN_WIFI)) {
 			pr_err("RF ini download already, skip!\n");
-			return;
+			return -1;
 		}
 	}
 
@@ -1342,7 +1408,7 @@ void sc2355_download_hw_param(struct sprd_priv *priv)
 		pr_err("load ini data failed, return\n");
 		kfree(wifi_data);
 		sc2355_assert_cmd(priv, NULL, CMD_DOWNLOAD_INI, LOAD_INI_DATA_FAILED);
-		return;
+		return ret;
 	}
 
 	pr_info("total config len:%ld,sec1 len:%ld, sec2 len:%ld\n",
@@ -1362,7 +1428,7 @@ void sc2355_download_hw_param(struct sprd_priv *priv)
 		kfree(wifi_data);
 		sc2355_assert_cmd(priv, NULL, CMD_DOWNLOAD_INI,
 				  DOWNLOAD_INI_DATA_FAILED);
-		return;
+		return ret;
 	}
 
 	pr_info("download the second section of config file\n");
@@ -1372,7 +1438,7 @@ void sc2355_download_hw_param(struct sprd_priv *priv)
 		kfree(wifi_data);
 		sc2355_assert_cmd(priv, NULL, CMD_DOWNLOAD_INI,
 				  DOWNLOAD_INI_DATA_FAILED);
-		return;
+		return ret;
 	}
 
 	if (wifi_data->rf_config.rf_data_len) {
@@ -1386,7 +1452,7 @@ void sc2355_download_hw_param(struct sprd_priv *priv)
 			kfree(wifi_data);
 			sc2355_assert_cmd(priv, NULL, CMD_DOWNLOAD_INI,
 					  DOWNLOAD_INI_DATA_FAILED);
-			return;
+			return ret;
 		}
 	}
 
@@ -1401,13 +1467,14 @@ void sc2355_download_hw_param(struct sprd_priv *priv)
 		kfree(wifi_data);
 		sc2355_assert_cmd(priv, NULL, CMD_DOWNLOAD_INI,
 				  DOWNLOAD_INI_DATA_FAILED);
-		return;
+		return ret;
 	}
 
 	kfree(wifi_data);
+	return 0;
 }
 
-void sc2355_sipc_download_hw_param(struct sprd_priv *priv)
+int sc2355_sipc_download_hw_param(struct sprd_priv *priv)
 {
 	int ret;
 	struct merl_wifi_conf_t *wifi_data;
@@ -1423,7 +1490,7 @@ void sc2355_sipc_download_hw_param(struct sprd_priv *priv)
 		pr_err("load ini data failed, return\n");
 		kfree(wifi_data);
 		sc2355_assert_cmd(priv, NULL, CMD_DOWNLOAD_INI, LOAD_INI_DATA_FAILED);
-		return;
+		return -1;
 	}
 
 	pr_info("total config len:%ld,sec1 len:%ld, sec2 len:%ld\n",
@@ -1442,7 +1509,7 @@ void sc2355_sipc_download_hw_param(struct sprd_priv *priv)
 		pr_err("download the first section of ini fail,return\n");
 		kfree(wifi_data);
 		sc2355_assert_cmd(priv, NULL, CMD_DOWNLOAD_INI, LOAD_INI_DATA_FAILED);
-		return;
+		return ret;
 	}
 
 	pr_info("download the second section of config file\n");
@@ -1451,7 +1518,7 @@ void sc2355_sipc_download_hw_param(struct sprd_priv *priv)
 		pr_err("download the second section of ini fail,return\n");
 		kfree(wifi_data);
 		sc2355_assert_cmd(priv, NULL, CMD_DOWNLOAD_INI, LOAD_INI_DATA_FAILED);
-		return;
+		return ret;
 	}
 
 	if (wifi_data->rf_config.rf_data_len) {
@@ -1463,7 +1530,7 @@ void sc2355_sipc_download_hw_param(struct sprd_priv *priv)
 			pr_err("download the third section of ini fail,return\n");
 			kfree(wifi_data);
 			sc2355_assert_cmd(priv, NULL, CMD_DOWNLOAD_INI, LOAD_INI_DATA_FAILED);
-			return;
+			return ret;
 		}
 	}
 	pr_info("download the 4th section of config file\n");
@@ -1473,9 +1540,10 @@ void sc2355_sipc_download_hw_param(struct sprd_priv *priv)
 		pr_err("download the 4th section of ini fail,return\n");
 		kfree(wifi_data);
 		sc2355_assert_cmd(priv, NULL, CMD_DOWNLOAD_INI, LOAD_INI_DATA_FAILED);
-		return;
+		return ret;
 	}
 	kfree(wifi_data);
+	return 0;
 }
 
 static void cmdevt_set_tlv_elmt(u8 *addr, u16 type, u16 len, u8 *data)
@@ -2798,6 +2866,39 @@ int sprd_xmit_data2cmd_wq(struct sk_buff *skb, struct net_device *ndev)
 
 	return 0;
 }
+
+#ifdef ENABLE_CHR
+int sc2355_set_chr(struct sprd_chr *chr)
+{
+	struct sprd_msg *msg;
+	struct cmd_chr_mode *p;
+	struct sprd_priv *priv = chr->priv;
+	struct chr_cmd tcmd = {0};
+	int left = 0;
+	int index = 0;
+
+	msg = get_cmdbuf(priv, NULL, sizeof(*p), CMD_SET_CHR);
+	if (!msg)
+		return -ENOMEM;
+
+	p = (struct cmd_chr_mode *)msg->data;
+	p->on_flag = chr->fw_len == 0 ? 0 : 1;
+	p->version = CHR_VERSION;
+	if (!p->on_flag)
+		pr_info("%s, CHR: inform CP2 to stop monitoring all chr_evt", __func__);
+
+	while (left < chr->fw_len && p->on_flag) {
+		tcmd = chr->fw_cmd_list[index++];
+		if (tcmd.set) {
+			p->chr_evt_id[left++] = tcmd.evt_id;
+			pr_info("%s, CHR: %s the chr_evt, id:0x%x\n",
+				__func__, p->on_flag == 0 ? "close" : "open", tcmd.evt_id);
+		}
+	}
+
+	return send_cmd_recv_rsp(priv, msg, NULL, NULL);
+}
+#endif
 
 int sc2355_set_random_mac(struct sprd_priv *priv, struct sprd_vif *vif,
 			  u8 random_mac_flag, u8 *addr)
@@ -4227,7 +4328,17 @@ unsigned short sc2355_rx_evt_process(struct sprd_priv *priv, u8 *msg)
 	case EVT_PAMWIFI_UL_RESOURCE_EVENT:
 		sprdwl_pamwifi_ul_resource_event(vif, data, len);
 		break;
-#endif		
+#endif	
+#ifdef ENABLE_CHR
+	case EVT_CHR:
+		if (!priv->chr->sock_flag) {
+			pr_info("%s, CHR: chr mode is closed, can't upload evt!",
+				__func__);
+			break;
+		}
+		cmdevt_report_chr_evt(vif, data, len);
+		break;
+#endif
 	default:
 		pr_info("unsupported event: %d\n", hdr->cmd_id);
 		break;

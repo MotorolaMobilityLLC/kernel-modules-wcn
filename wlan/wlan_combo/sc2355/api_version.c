@@ -313,7 +313,13 @@ struct sprd_api_version_t api_array[] = {
 		.cmd_id = CMD_PACKET_FILTER,
 		.drv_version = 1,
 	},
-
+#ifdef ENABLE_CHR
+	[91]{
+		/*ID:91*/
+		.cmd_id = CMD_SET_CHR,
+		.drv_version = 1,
+	},
+#endif
 	[128]{	/*ID:0x80*/
 		.cmd_id = EVT_CONNECT,
 		.drv_version = 1,
@@ -378,6 +384,12 @@ struct sprd_api_version_t api_array[] = {
 		.cmd_id = EVT_SDIO_SEQ_NUM,
 		.drv_version = 1,
 	},
+#ifdef ENABLE_CHR
+	[225]{	/*ID:0xe1*/
+		.cmd_id = EVT_CHR,
+		.drv_version = 1,
+	},
+#endif
 	[242]{	/*ID:0xf2*/
 		.cmd_id = EVT_RTT,
 		.drv_version = 1,

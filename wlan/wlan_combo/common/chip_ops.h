@@ -170,6 +170,9 @@ struct sprd_chip_ops {
 	void (*fc_add_share_credit)(struct sprd_vif *vif);
 	void (*defrag_recover)(struct sprd_vif *vif);
 	int (*set_sniffer)(struct net_device *ndev, struct ifreq *ifr);
+#ifdef ENABLE_CHR
+	int (*set_chr)(struct sprd_chr *chr);
+#endif
 };
 
 static
@@ -930,5 +933,17 @@ static inline int sprd_set_sniffer(struct sprd_priv *priv,
 
 	return 0;
 }
+
+#ifdef ENABLE_CHR
+static inline int sprd_set_chr(struct sprd_chr *chr)
+{
+	struct sprd_priv *priv= chr->priv;
+
+	if (priv->chip.ops->set_chr)
+		return priv->chip.ops->set_chr(chr);
+
+	return 0;
+}
+#endif
 
 #endif

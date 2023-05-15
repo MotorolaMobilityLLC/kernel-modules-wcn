@@ -286,6 +286,11 @@ enum CMD_LIST {
 	CMD_RESVERED_FOR_FILTER = 88,
 	CMD_EXTENDED_LLSTAT = 89,
 	CMD_PACKET_FILTER = 90,
+
+#ifdef ENABLE_CHR
+	/* set the chr module */
+	CMD_SET_CHR = 91,
+#endif
 	CMD_MAX
 };
 
@@ -666,6 +671,11 @@ enum EVT_LIST {
 	/* DEBUG/OTHER */
 	EVT_SDIO_SEQ_NUM = 0xE0,
 
+#ifdef ENABLE_CHR
+	/* CHR Module */
+	EVT_CHR = 0xE1,
+#endif
+
 	EVT_BA = 0xf3,
 	/* RTT */
 	EVT_RTT = 0xf2,
@@ -848,6 +858,46 @@ struct evt_coex_mode_changed {
 	u8 action;
 } __packed;
 
+#ifdef ENABLE_CHR
+/* format negotiated with CP2 */
+struct evt_chr {
+	u8 version; /* reserve for future */
+	u32 evt_id;
+	u32 evt_id_subtype; /* reserve for future */
+	u8 evt_content_len;
+	u8 *evt_content; /* CP2 define the event_content size is 100byte */
+} __packed;
+
+/* used by driver to store CHR params*/
+struct chr_driver_params {
+	u16 refcnt;
+	u32 evt_id;
+	u8 version;
+	u8 evt_content_len;
+	u8 *evt_content;
+};
+
+struct chr_open_error {
+	u8 reason_code; /* 0 is power_on err, 1 is download_ini err*/
+};
+
+struct chr_linkloss_disc_error {
+	u8 reason_code; /* 1 is device power off, 2 is beacon loss */
+};
+
+struct chr_system_disc_error {
+	u8 reason_code;
+};
+
+/* set chr cmd to cp2*/
+struct cmd_chr_mode {
+	u8 on_flag; /* 1 enable, 0 disable*/
+	u8 version; /* reserve for future */
+	u32 chr_evt_id[10];/* each array element represents an event id */
+} __packed;
+
+#endif
+
 struct sprd_priv;
 
 /* TLV info */
@@ -975,7 +1025,13 @@ void sc2355_report_gscan_frame_evt(struct sprd_vif *vif, u8 *data, u16 len);
 int sc2355_gscan_done(struct sprd_vif *vif, u8 bucket_id);
 void sc2355_evt_rssi_monitor(struct sprd_vif *vif, u8 *data, u16 len);
 int sc2355_report_acs_lte_event(struct sprd_vif *vif);
-
+#ifdef ENABLE_CHR
+void sc2355_report_chr_open_error(struct sprd_chr *chr, u32 evt_id,
+				  u8 err_code);
+void sprd_report_chr_disconnection(struct sprd_vif *vif, u8 version,
+				   u32 evt_id, u32 evt_id_subtype,
+				   u8 evt_content_len, u8 *evt_content);
+#endif
 int sc2355_assert_cmd(struct sprd_priv *priv, struct sprd_vif *vif, u8 cmd_id,
 		      u8 reason);
 
@@ -1021,8 +1077,8 @@ void sc2355_setup_wiphy(struct wiphy *wiphy, struct sprd_priv *priv);
 void sc2355_cmd_init(struct sprd_cmd *cmd);
 void sc2355_cmd_deinit(struct sprd_cmd *cmd);
 int sc2355_sync_version(struct sprd_priv *priv);
-void sc2355_download_hw_param(struct sprd_priv *priv);
-void sc2355_sipc_download_hw_param(struct sprd_priv *priv);
+int sc2355_download_hw_param(struct sprd_priv *priv);
+int sc2355_sipc_download_hw_param(struct sprd_priv *priv);
 
 int sc2355_get_fw_info(struct sprd_priv *priv);
 int sc2355_open_fw(struct sprd_priv *priv, struct sprd_vif *vif, u8 *mac_addr);
@@ -1141,4 +1197,8 @@ int sc2355_vendor_deinit(struct wiphy *wiphy);
 int sc2355_dump_survey(struct wiphy *wiphy, struct net_device *ndev,
 		       int idx, struct survey_info *s_info);
 int sc2355_set_sniffer(struct net_device *ndev, struct ifreq *ifr);
+#ifdef ENABLE_CHR
+int sc2355_set_chr(struct sprd_chr *chr);
+#endif
+
 #endif

@@ -4675,6 +4675,109 @@ out:
 	return ret;
 }
 
+#ifdef ENABLE_CHR
+/* This function is used to fill chr_driver_params and sendbuf */
+void sprd_fill_chr_driver(struct chr_driver_params *chr_driver, u16 refcnt, u32 id,
+			  u8 version, u8 content_len, u8 *content, u8 *buf)
+{
+	char temp[64] = {0};
+	chr_driver->refcnt = refcnt;
+	chr_driver->evt_id = id;
+	chr_driver->version = version;
+	chr_driver->evt_content_len = content_len;
+	chr_driver->evt_content = content;
+
+	if (id == EVT_CHR_DISC_LINK_LOSS || id == EVT_CHR_DISC_SYS_ERR
+		|| id == EVT_CHR_OPEN_ERR) {
+		snprintf(temp, sizeof(temp), "%u", (*content));
+		snprintf(buf, CHR_BUF_SIZE, "wcn_chr_ind_event,module=WIFI,"
+			"ref_count=%u,event_id=0x%x,version=0x%x,event_content_len=%d,"
+			"char_info=%s", refcnt, id, version, (int)strlen(temp), temp);
+	}
+	return;
+}
+
+/* This function is used to report chr_disconnect evt from CP2 */
+void sprd_report_chr_disconnection(struct sprd_vif *vif, u8 version,
+				   u32 evt_id, u32 evt_id_subtype,
+				   u8 evt_content_len, u8 *evt_content)
+{
+	int ret;
+	u16 refcnt = 0;
+	struct chr_linkloss_disc_error link_loss = {0};
+	struct chr_system_disc_error system_err = {0};
+	struct chr_driver_params chr_driver = {0};
+	struct sprd_chr *chr = vif->priv->chr;
+	u8 sendbuf[CHR_BUF_SIZE] = {0};
+	u8 *pos = evt_content;
+
+	if (*pos >= CHR_ARR_SIZE) {
+		pr_info("%s, CHR: the content: %u is invalid, reporting not allowed",
+			__func__, *pos);
+		return;
+	}
+
+	if (evt_id == EVT_CHR_DISC_LINK_LOSS) {
+		refcnt = ++chr->chr_refcnt->disc_linkloss_cnt[*pos];
+		memcpy(&link_loss.reason_code, pos, sizeof(link_loss.reason_code));
+		pr_info("%s: CHR: %s, ref_cnt=%u\n", __func__,
+			link_loss.reason_code == 1 ? "Power off AP" : "Beacon Loss",
+			refcnt);
+	} else if (evt_id == EVT_CHR_DISC_SYS_ERR) {
+		refcnt = ++chr->chr_refcnt->disc_systerr_cnt[*pos];
+		memcpy(&system_err.reason_code, pos, sizeof(system_err.reason_code));
+		pr_info("%s: CHR: SYSTEM_ERR_DISCONNECT, ref_cnt=%u\n", __func__, refcnt);
+	}
+
+	sprd_fill_chr_driver(&chr_driver, refcnt, evt_id, version,
+			     evt_content_len, evt_content, sendbuf);
+
+	if (chr->chr_sock) {
+		ret = sprd_chr_sock_sendmsg(chr, sendbuf);
+		if (ret)
+			pr_err("CHR: wifi_driver_sendmsg failed with 0x%x\n", evt_id);
+	} else {
+		pr_err("CHR: connect been closed, can not send msg to server");
+	}
+
+	return;
+}
+
+/* This function is used to report chr_open_error evt from driver */
+void sc2355_report_chr_open_error(struct sprd_chr *chr, u32 evt_id, u8 err_code)
+{
+	int ret;
+	u16 refcnt = 0;
+	struct chr_open_error open_error = {0};
+	struct chr_driver_params chr_driver = {0};
+	u8 sendbuf[CHR_BUF_SIZE] = {0};
+
+	if (err_code >= CHR_ARR_SIZE) {
+		pr_info("%s, CHR: the err_code: %u is invalid, reporting not allowed",
+			__func__, err_code);
+		return;
+	}
+
+	refcnt = ++chr->chr_refcnt->open_err_cnt[err_code];
+	open_error.reason_code = err_code;
+
+	sprd_fill_chr_driver(&chr_driver, refcnt, evt_id, CHR_VERSION, 1, &err_code, sendbuf);
+
+	if (chr->chr_sock) {
+		ret = sprd_chr_sock_sendmsg(chr, sendbuf);
+		if (ret)
+			pr_err("CHR: wifi_driver_sendmsg failed with 0x%x\n", evt_id);
+	} else {
+		pr_err("CHR: connect been closed, can not send msg to server");
+	}
+
+	pr_info("%s: %s, ref_cnt=%u\n", __func__,
+		open_error.reason_code == 0 ? "Power_on Err" : "Download_ini Err",
+		refcnt);
+	return;
+}
+#endif
+
 int sc2355_vendor_init(struct wiphy *wiphy)
 {
 	struct sprd_priv *priv = wiphy_priv(wiphy);

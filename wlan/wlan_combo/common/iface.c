@@ -277,6 +277,9 @@ static int iface_open(struct net_device *ndev)
 {
 	struct sprd_vif *vif = netdev_priv(ndev);
 	struct sprd_hif *hif = &vif->priv->hif;
+#ifdef ENABLE_CHR
+	struct sprd_chr *chr = hif->priv->chr;
+#endif
 	int ret;
 	int count = 0;
 
@@ -298,8 +301,17 @@ static int iface_open(struct net_device *ndev)
 		    atomic_read(&hif->power_cnt));
 
 	ret = sprd_iface_set_power(hif, true);
-	if (ret)
+	if (ret) {
+#ifdef ENABLE_CHR
+		/* If driver have receied enable_chr and required to monitor open_err evt*/
+		/* then start reporting the evt when power on err.*/
+		if (chr->sock_flag == 1 && chr->drv_cmd_list[0].set)
+			sprd_report_chr_open_error(chr, EVT_CHR_OPEN_ERR, ret == -1 ? 1 : 0);
+		else
+			pr_info("%s, CHR: open err appears, but chr module is closed\n");
+#endif
 		return ret;
+	}
 
 	ret = sprd_init_fw(vif);
 	if (!ret && vif->wdev.iftype == NL80211_IFTYPE_AP) {
@@ -307,6 +319,27 @@ static int iface_open(struct net_device *ndev)
 		return 0;
 	}
 	netif_start_queue(ndev);
+
+#ifdef ENABLE_CHR
+	/* Every time Wi-Fi is turned off, CP2 will clen up the global valrables
+	*that record the chr_evt to be monitored*/
+	if (chr->fw_len) {
+		pr_info("%s, CHR: set chr to CP2 each time open", __func__);
+		ret = sprd_set_chr(chr);
+		if (ret)
+			pr_err("%s, CHR: set chr_cmd to CP2 failed", __func__);
+	}
+
+	/* if created chr_client_thread falied in sprd_iface_probe, try to create here */
+	if (!chr->chr_sock) {
+		pr_info("CHR: Creating chr_client_thread\n");
+		ret = sprd_init_chr(chr);
+		if (ret) {
+			pr_err("%s chr init failed: %d\n", __func__, ret);
+			sprd_deinit_chr(chr);
+		}
+	}
+#endif
 
 	return 0;
 }
@@ -1809,12 +1842,19 @@ static int iface_core_deinit(struct sprd_priv *priv)
 	return 0;
 }
 
+#ifdef ENABLE_CHR
+extern struct sprd_chr_ops sc2355_chr_ops;
+#endif
 int sprd_iface_probe(struct platform_device *pdev,
 		     struct sprd_hif_ops *hif_ops,
 		     struct sprd_chip_ops *chip_ops)
 {
 	struct sprd_priv *priv;
 	struct sprd_hif *hif;
+#ifdef ENABLE_CHR
+	struct sprd_chr *chr = NULL;
+#endif
+
 	int ret;
 
 	pr_info("Spreadtrum WLAN Driver (Ver. %s, %s)\n",
@@ -1841,6 +1881,27 @@ int sprd_iface_probe(struct platform_device *pdev,
 		return ret;
 	}
 
+#ifdef ENABLE_CHR
+	/* Int the chr struct and bind its ops*/
+	chr = kzalloc(sizeof(*chr), GFP_KERNEL);
+	if (!chr) {
+		pr_info("%s, kzalloc chr failed", __func__);
+		return -ENOMEM;
+	}
+
+	priv->chr = chr;
+	chr->priv = priv;
+	chr->ops = &sc2355_chr_ops;
+
+	if (!chr->chr_sock) {
+		pr_info("CHR: Creating chr_client_thread\n");
+		ret = sprd_init_chr(chr);
+		if (ret) {
+			pr_err("%s chr init failed: %d\n", __func__, ret);
+			sprd_deinit_chr(chr);
+		}
+	}
+#endif
 	pr_info("Power on WCN (%d time)\n", atomic_read(&hif->power_cnt));
 	ret = sprd_iface_set_power(hif, true);
 	if (ret) {
@@ -1881,6 +1942,10 @@ int sprd_iface_remove(struct platform_device *pdev)
 {
 	struct sprd_priv *priv = platform_get_drvdata(pdev);
 	struct sprd_hif *hif = &priv->hif;
+#ifdef ENABLE_CHR
+	struct sprd_chr *chr = priv->chr;
+#endif
+
 	int ret;
 
 	pr_info("%s\n wlan driver remove.", __func__);
@@ -1890,6 +1955,9 @@ int sprd_iface_remove(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
+#ifdef ENABLE_CHR
+	sprd_deinit_chr(chr);
+#endif
 	iface_notify_deinit(priv);
 	iface_core_deinit(priv);
 	sprd_hif_deinit(hif);
