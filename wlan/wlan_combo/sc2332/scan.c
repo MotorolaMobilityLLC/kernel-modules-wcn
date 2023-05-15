@@ -56,6 +56,8 @@ void sc2332_report_scan_result(struct sprd_vif *vif, u16 chan, s16 rssi,
 	u64 tsf;
 	u8 *ie;
 	size_t ielen;
+	const u8 *ssidie = NULL;
+	u8 ssid_len = 0, ssid[IEEE80211_MAX_SSID_LEN + 1] = {0};
 
 	if (!priv->scan_request && !priv->sched_scan_request) {
 		netdev_err(vif->ndev, "%s Unexpected event\n", __func__);
@@ -93,9 +95,15 @@ void sc2332_report_scan_result(struct sprd_vif *vif, u16 chan, s16 rssi,
 	beacon_interval = le16_to_cpu(mgmt->u.probe_resp.beacon_int);
 	capability = le16_to_cpu(mgmt->u.probe_resp.capab_info);
 
-	netdev_dbg(vif->ndev, "%s, %pM, channel %2u, rssi %d\n",
-		   ieee80211_is_probe_resp(mgmt->frame_control)
-		   ? "proberesp" : "beacon", mgmt->bssid, chan, rssi);
+	ssidie = cfg80211_find_ie(WLAN_EID_SSID, ie, ielen);
+	if (ssidie && ssidie[1] && ssidie[1] <= IEEE80211_MAX_SSID_LEN) {
+		ssid_len = ssidie[1];
+		memcpy(ssid, (ssidie + 2), ssid_len);
+	}
+
+	netdev_dbg(vif->ndev, "%s, %pM(%s)%u, channel %2u, rssi %d, freq %u\n",
+		   ieee80211_is_probe_resp(mgmt->frame_control) ? "proberesp" : "beacon",
+		   mgmt->bssid, ssid, ssid_len, chan, rssi, freq);
 
 	bss = cfg80211_inform_bss(wiphy, channel, CFG80211_BSS_FTYPE_UNKNOWN,
 				  mgmt->bssid, tsf, capability, beacon_interval,
