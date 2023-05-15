@@ -2868,7 +2868,7 @@ int sc2355_set_vowifi(struct net_device *ndev, struct ifreq *ifr)
 		return -EINVAL;
 	}
 
-	tlv = kmalloc(priv_cmd.total_len, GFP_KERNEL);
+	tlv = kzalloc(priv_cmd.total_len + 4, GFP_KERNEL);
 	if (!tlv)
 		return -ENOMEM;
 
@@ -3091,12 +3091,12 @@ int sc2355_set_miracast(struct net_device *ndev, struct ifreq *ifr)
 #endif
 
 	/*add length check to avoid invalid NULL ptr*/
-	if (priv_cmd.total_len <= 0) {
+	if (priv_cmd.total_len <= 0 || priv_cmd.total_len > 4096) {
 		pr_err("%s: priv cmd total len is invalid", __func__);
 		return -EINVAL;
 	}
 
-	command = kmalloc(priv_cmd.total_len, GFP_KERNEL);
+	command = kzalloc(priv_cmd.total_len + 4, GFP_KERNEL);
 	if (command == NULL)
 		return -EINVAL;
 	if (copy_from_user(command, priv_cmd.buf, priv_cmd.total_len)) {
@@ -3552,9 +3552,7 @@ static void cmdevt_report_frame_evt(struct sprd_vif *vif, u8 *data, u16 len, int
 static void cmdevt_report_scan_done_evt(struct sprd_vif *vif, u8 *data, u16 len)
 {
 	struct evt_scan_done *p = (struct evt_scan_done *)data;
-#ifdef CONFIG_SPRD_WLAN_VENDOR_SPECIFIC
 	u8 bucket_id = 0;
-#endif /* CONFIG_SPRD_WLAN_VENDOR_SPECIFIC */
 
 	switch (p->type) {
 	case SPRD_SCAN_DONE:
@@ -3568,14 +3566,12 @@ static void cmdevt_report_scan_done_evt(struct sprd_vif *vif, u8 *data, u16 len)
 		netdev_info(vif->ndev, "%s schedule scan got %d BSSes\n",
 			    __func__, bss_count);
 		break;
-#ifdef CONFIG_SPRD_WLAN_VENDOR_SPECIFIC
 	case SPRD_GSCAN_DONE:
 		bucket_id = ((struct evt_gscan_done *)data)->bucket_id;
 		sc2355_gscan_done(vif, bucket_id);
 		netdev_info(vif->ndev, "%s gscan got %d bucketid done\n",
 			    __func__, bucket_id);
 		break;
-#endif /* CONFIG_SPRD_WLAN_VENDOR_SPECIFIC */
 	case SPRD_SCAN_ABORT_DONE:
 		sc2355_clean_scan(vif);
 		sprd_report_scan_done(vif, true);
@@ -4148,14 +4144,12 @@ unsigned short sc2355_rx_evt_process(struct sprd_priv *priv, u8 *msg)
 	case EVT_MGMT_FRAME:
 		cmdevt_report_frame_evt(vif, data, len, 0);
 		break;
-#ifdef CONFIG_SPRD_WLAN_VENDOR_SPECIFIC
 	case EVT_GSCAN_FRAME:
 		sc2355_report_gscan_frame_evt(vif, data, len);
 		break;
 	case EVT_RSSI_MONITOR:
 		sc2355_evt_rssi_monitor(vif, data, len);
 		break;
-#endif /* CONFIG_SPRD_WLAN_VENDOR_SPECIFIC */
 	case EVT_SCAN_DONE:
 		cmdevt_report_scan_done_evt(vif, data, len);
 		break;
@@ -4220,11 +4214,9 @@ unsigned short sc2355_rx_evt_process(struct sprd_priv *priv, u8 *msg)
 	case EVT_ACS_DONE:
 		cmdevt_report_acs_done_evt(vif, data, len);
 		break;
-#ifdef CONFIG_SPRD_WLAN_VENDOR_SPECIFIC
 	case EVT_ACS_LTE_CONFLICT_EVENT:
 		sc2355_report_acs_lte_event(vif);
 		break;
-#endif /* CONFIG_SPRD_WLAN_VENDOR_SPECIFIC */
 	case EVT_FRESH_POWER_BO:
 		sc2355_evt_pw_backoff(vif, data, len);
 		break;

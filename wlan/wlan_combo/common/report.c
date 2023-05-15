@@ -360,10 +360,8 @@ void sprd_report_disconnection(struct sprd_vif *vif, u16 reason_code)
 		netif_carrier_off(vif->ndev);
 		netif_stop_queue(vif->ndev);
 	}
-#ifdef CONFIG_SPRD_WLAN_VENDOR_SPECIFIC
 	/* clear link layer status data */
 	memset(&vif->priv->pre_radio, 0, sizeof(vif->priv->pre_radio));
-#endif
 }
 EXPORT_SYMBOL(sprd_report_disconnection);
 

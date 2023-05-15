@@ -725,13 +725,13 @@ static int iface_priv_cmd(struct net_device *ndev, struct ifreq *ifr)
 #endif
 
 	/* add length check to avoid invalid NULL ptr */
-	if (priv_cmd.total_len <= 0) {
+	if (priv_cmd.total_len <= 0 || priv_cmd.total_len > 4096) {
 		netdev_info(ndev, "%s: priv cmd total len is invalid\n",
 			    __func__);
 		return -EINVAL;
 	}
 
-	command = kmalloc(priv_cmd.total_len, GFP_KERNEL);
+	command = kzalloc(priv_cmd.total_len + 4, GFP_KERNEL);
 	if (!command)
 		return -ENOMEM;
 	if (copy_from_user(command, priv_cmd.buf, priv_cmd.total_len)) {
@@ -958,13 +958,13 @@ static int iface_set_power_save(struct net_device *ndev, struct ifreq *ifr)
 #endif
 
 	/* add length check to avoid invalid NULL ptr */
-	if (priv_cmd.total_len <= 0) {
+	if (priv_cmd.total_len <= 0 || priv_cmd.total_len > 4096) {
 		netdev_err(ndev, "%s: priv cmd total len is invalid\n",
 			   __func__);
 		return -EINVAL;
 	}
 
-	command = kmalloc(priv_cmd.total_len, GFP_KERNEL);
+	command = kzalloc(priv_cmd.total_len + 4, GFP_KERNEL);
 	if (!command)
 		return -ENOMEM;
 	if (copy_from_user(command, priv_cmd.buf, priv_cmd.total_len)) {
@@ -1049,13 +1049,14 @@ static int iface_set_p2p_mac(struct net_device *ndev, struct ifreq *ifr)
 #endif
 
 	/* add length check to avoid invalid NULL ptr */
-	if (priv_cmd.total_len < P2P_MAC_SKIP_LEN + ETH_ALEN) {
+	if (priv_cmd.total_len < P2P_MAC_SKIP_LEN + ETH_ALEN ||
+		priv_cmd.total_len > 4096) {
 		netdev_err(ndev, "%s: priv cmd total len is invalid\n",
 			   __func__);
 		return -EINVAL;
 	}
 
-	command = kmalloc(priv_cmd.total_len, GFP_KERNEL);
+	command = kzalloc(priv_cmd.total_len + 4, GFP_KERNEL);
 	if (!command)
 		return -ENOMEM;
 	if (copy_from_user(command, priv_cmd.buf, priv_cmd.total_len)) {
@@ -1131,14 +1132,13 @@ static int iface_set_ndev_mac(struct net_device *ndev, struct ifreq *ifr)
 #endif
 
 	/* add length check to avoid invalid NULL ptr */
-	if (priv_cmd.total_len < ETH_ALEN) {
+	if (priv_cmd.total_len < ETH_ALEN || priv_cmd.total_len > 4096) {
 		netdev_info(ndev, "%s: priv cmd total len is invalid\n",
 			    __func__);
 		return -EINVAL;
 	}
 
-
-	command = kmalloc(priv_cmd.total_len, GFP_KERNEL);
+	command = kzalloc(priv_cmd.total_len + 4, GFP_KERNEL);
 	if (!command)
 		return -ENOMEM;
 	if (copy_from_user(command, priv_cmd.buf, priv_cmd.total_len)) {

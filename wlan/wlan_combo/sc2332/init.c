@@ -351,10 +351,8 @@ struct sprd_chip_ops sc2332_chip_ops = {
 	.scan_timeout = sc2332_scan_timeout,
 	.tcp_ack_init = sc2332_tcp_ack_init,
 	.tcp_ack_deinit = sc2332_tcp_ack_deinit,
-#ifdef CONFIG_SPRD_WLAN_VENDOR_SPECIFIC
 	.vendor_init = sc2332_vendor_init,
 	.vendor_deinit = sc2332_vendor_deinit,
-#endif /* CONFIG_SPRD_WLAN_VENDOR_SPECIFIC */
 	.send_data = sc2332_send_data,
 	.send_data_offset = sc2332_send_data_offset,
 	.set_sniffer = sc2332_set_sniffer,

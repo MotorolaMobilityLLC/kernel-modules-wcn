@@ -211,9 +211,7 @@ struct sprd_priv {
 	u32 gscan_buckets_num;
 	struct sprd_gscan_cached_results *gscan_res;
 	int gscan_req_id;
-#ifdef CONFIG_SPRD_WLAN_VENDOR_SPECIFIC
 	struct sprd_llstat_radio pre_radio;
-#endif
 	/* default MAC addr */
 	unsigned char default_mac[ETH_ALEN];
 	unsigned char default_mac_sta_second[ETH_ALEN];

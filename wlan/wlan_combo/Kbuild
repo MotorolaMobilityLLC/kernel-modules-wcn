@@ -18,7 +18,6 @@ ifeq ($(BSP_PAMWIFI_SUPPORT),sprd)
 CONFIG_SPRD_PAMWIFI := y
 endif
 
-ccflags-y += -DCONFIG_SPRD_WLAN_VENDOR_SPECIFIC
 # ccflags-y += -DCONFIG_SC2355_WLAN_NAN
 # ccflags-y += -DCONFIG_SC2355_WLAN_RTT
 # ccflags-y += -DDRV_RESET_SELF

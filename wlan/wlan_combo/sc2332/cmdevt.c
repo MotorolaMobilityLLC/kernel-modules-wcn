@@ -1856,7 +1856,7 @@ int sc2332_set_vowifi(struct net_device *ndev, struct ifreq *ifr)
 		return -EINVAL;
 	}
 
-	command = kmalloc(priv_cmd.total_len, GFP_KERNEL);
+	command = kzalloc(priv_cmd.total_len + 4, GFP_KERNEL);
 	if (!command)
 		return -ENOMEM;
 	if (copy_from_user(command, priv_cmd.buf, priv_cmd.total_len)) {
@@ -2108,9 +2108,7 @@ static void cmdevt_report_new_station_evt(struct sprd_vif *vif, u8 *data,
 static void cmdevt_report_scan_done_evt(struct sprd_vif *vif, u8 *data, u16 len)
 {
 	struct evt_scan_done *p = (struct evt_scan_done *)data;
-#ifdef CONFIG_SPRD_WLAN_VENDOR_SPECIFIC
 	u8 bucket_id = 0;
-#endif /* CONFIG_SPRD_WLAN_VENDOR_SPECIFIC */
 
 	switch (p->type) {
 	case SPRD_SCAN_DONE:
@@ -2123,14 +2121,12 @@ static void cmdevt_report_scan_done_evt(struct sprd_vif *vif, u8 *data, u16 len)
 		netdev_info(vif->ndev, "%s schedule scan got %d BSSes\n",
 			    __func__, bss_count);
 		break;
-#ifdef CONFIG_SPRD_WLAN_VENDOR_SPECIFIC
 	case SPRD_GSCAN_DONE:
 		bucket_id = ((struct evt_gscan_done *)data)->bucket_id;
 		sc2332_gscan_done(vif, bucket_id);
 		netdev_info(vif->ndev, "%s gscan got %d bucketid done\n",
 			    __func__, bucket_id);
 		break;
-#endif /* CONFIG_SPRD_WLAN_VENDOR_SPECIFIC */
 	case SPRD_SCAN_ERROR:
 	default:
 		sprd_report_scan_done(vif, true);
@@ -2396,11 +2392,9 @@ unsigned short sc2332_rx_evt_process(struct sprd_priv *priv, u8 *msg,
 	case EVT_MGMT_FRAME:
 		sc2332_report_frame_evt(vif, data, len, false);
 		break;
-#ifdef CONFIG_SPRD_WLAN_VENDOR_SPECIFIC
 	case EVT_GSCAN_FRAME:
 		sc2332_report_gscan_frame_evt(vif, data, len);
 		break;
-#endif /* CONFIG_SPRD_WLAN_VENDOR_SPECIFIC */
 	case EVT_SCAN_DONE:
 		cmdevt_report_scan_done_evt(vif, data, len);
 		break;
@@ -2424,11 +2418,9 @@ unsigned short sc2332_rx_evt_process(struct sprd_priv *priv, u8 *msg,
 	case EVT_ACS_REPORT:
 		cmdevt_report_acs_evt(vif, data, len);
 		break;
-#ifdef CONFIG_SPRD_WLAN_VENDOR_SPECIFIC
 	case EVT_ACS_LTE_CONFLICT_EVENT:
 		sc2332_report_acs_lte_event(vif);
 		break;
-#endif /* CONFIG_SPRD_WLAN_VENDOR_SPECIFIC */
 	default:
 		wiphy_info(priv->wiphy, "unsupported event: %d\n", hdr->cmd_id);
 		break;

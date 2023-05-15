@@ -517,10 +517,8 @@ struct sprd_chip_ops sc2355_chip_ops = {
 	.scan_timeout = sc2355_scan_timeout,
 	.tcp_ack_init = sc2355_tcp_ack_init,
 	.tcp_ack_deinit = sc2355_tcp_ack_deinit,
-#ifdef CONFIG_SPRD_WLAN_VENDOR_SPECIFIC
 	.vendor_init = sc2355_vendor_init,
 	.vendor_deinit = sc2355_vendor_deinit,
-#endif /* CONFIG_SPRD_WLAN_VENDOR_SPECIFIC */
 	.send_data = sc2355_send_data,
 	.send_data_offset = sc2355_send_data_offset,
 	.fc_add_share_credit = sc2355_fc_add_share_credit,
