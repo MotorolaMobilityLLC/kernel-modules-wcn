@@ -634,25 +634,25 @@ unsigned short sc2332_wapi_dec(struct sprd_vif *vif,
 
 int sc2332_rebuild_wapi_skb(struct sprd_vif *vif, struct sk_buff **skb)
 {
-        int addr_len;
-        struct sk_buff *wskb;
-        struct sk_buff *sskb;
+	int addr_len;
+	struct sk_buff *wskb;
+	struct sk_buff *sskb;
 
-        sskb = *skb;
-        wskb = dev_alloc_skb(sskb->len + vif->ndev->needed_headroom +
-                             SPRD_WAPI_ATTACH_LEN + ETHERNET_HDR_LEN);
-        if (!wskb)
-                return -ENOMEM;
-        skb_reserve(wskb, sizeof(struct sprd_data_hdr) + 2);
-        memcpy(wskb->data, sskb->data, ETHERNET_HDR_LEN);
-        addr_len = sc2332_wapi_enc(vif, sskb->data,
-                                   (sskb->len - ETHERNET_HDR_LEN),
-                                   ((unsigned char *)(wskb->data) +
-                                    ETHERNET_HDR_LEN));
-        addr_len += ETHERNET_HDR_LEN;
-        skb_put(wskb, addr_len);
-        dev_kfree_skb(sskb);
-        *skb = wskb;
+	sskb = *skb;
+	wskb = dev_alloc_skb(sskb->len + vif->ndev->needed_headroom +
+			     SPRD_WAPI_ATTACH_LEN + ETHERNET_HDR_LEN);
+	if (!wskb)
+		return -ENOMEM;
+	skb_reserve(wskb, sizeof(struct sprd_data_hdr) + 2);
+	memcpy(wskb->data, sskb->data, ETHERNET_HDR_LEN);
+	addr_len = sc2332_wapi_enc(vif, sskb->data,
+				   (sskb->len - ETHERNET_HDR_LEN),
+				   ((unsigned char *)(wskb->data) +
+				   ETHERNET_HDR_LEN));
+	addr_len += ETHERNET_HDR_LEN;
+	skb_put(wskb, addr_len);
+	dev_kfree_skb(sskb);
+	*skb = wskb;
 
-        return 0;
+	return 0;
 }

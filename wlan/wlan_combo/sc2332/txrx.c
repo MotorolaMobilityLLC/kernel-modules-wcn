@@ -107,20 +107,20 @@ static int rx_wapi_data_process(struct sprd_vif *vif,
 	decryp_data_len = sc2332_wapi_dec(vif, (unsigned char *)addr,
 					  24, (len - 24), (skb->data + 12));
 	if (!decryp_data_len) {
-	        dev_kfree_skb(skb);
-	        return -EINVAL;
+		dev_kfree_skb(skb);
+		return -EINVAL;
 	}
 
 	if (!memcmp((skb->data + 12), snap_header, sizeof(snap_header))) {
-	        skb_reserve(skb, 6);
-	        memcpy(skb->data, addr->addr1, ETH_ALEN);
-	        memcpy(skb->data + ETH_ALEN, addr->addr2, ETH_ALEN);
-	        skb_put(skb, (decryp_data_len + 6));
+		skb_reserve(skb, 6);
+		memcpy(skb->data, addr->addr1, ETH_ALEN);
+		memcpy(skb->data + ETH_ALEN, addr->addr2, ETH_ALEN);
+		skb_put(skb, (decryp_data_len + 6));
 	} else {
-	        /* copy eth header */
-	        memcpy(skb->data, addr->addr3, ETH_ALEN);
-	        memcpy(skb->data + ETH_ALEN, addr->addr2, ETH_ALEN);
-	        skb_put(skb, (decryp_data_len + 12));
+		/* copy eth header */
+		memcpy(skb->data, addr->addr3, ETH_ALEN);
+		memcpy(skb->data + ETH_ALEN, addr->addr2, ETH_ALEN);
+		skb_put(skb, (decryp_data_len + 12));
 	}
 
 	sprd_netif_rx(ndev, skb);

@@ -980,7 +980,7 @@ int sc2332_add_key(struct sprd_priv *priv, struct sprd_vif *vif,
 	int datalen = sizeof(*p) + sizeof(*sub_cmd) + key_len;
 	u8 pn_key[16] = { 0x5c, 0x36, 0x5c, 0x36, 0x5c, 0x36, 0x5c, 0x36,
 			  0x5c, 0x36, 0x5c, 0x36, 0x5c, 0x36, 0x5c, 0x36
-        };
+	};
 
 	if (vif->prwise_crypto == SPRD_CIPHER_WAPI)
 		memcpy(vif->key_txrsc[pairwise], pn_key, sizeof(pn_key));

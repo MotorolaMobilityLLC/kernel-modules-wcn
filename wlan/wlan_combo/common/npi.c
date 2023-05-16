@@ -101,6 +101,7 @@ static int npi_nl_handler(struct sk_buff *skb_2, struct genl_info *info)
 
 	if (hdr->subtype == SPRD_NPI_CMD_SET_COUNTRY) {
 		char *country;
+
 		if (s_len < (sizeof(struct sprd_npi_cmd_hdr) + 2 * sizeof(char)))
 			goto out;
 		country = s_buf + sizeof(struct sprd_npi_cmd_hdr);
@@ -121,6 +122,7 @@ static int npi_nl_handler(struct sk_buff *skb_2, struct genl_info *info)
 		pr_err("r_len = %d, %s\n", r_len, __func__);
 	} else if (hdr->subtype == SPRD_NPI_CMD_SET_RANDOM_MAC) {
 		char *rand_mac;
+
 		if (s_len < (sizeof(struct sprd_npi_cmd_hdr) + sizeof(char)))
 			goto out;
 		rand_mac = s_buf + sizeof(struct sprd_npi_cmd_hdr);
@@ -133,6 +135,7 @@ static int npi_nl_handler(struct sk_buff *skb_2, struct genl_info *info)
 		memcpy(r_buf + sizeof(*hdr), &ret, hdr->len);
 	} else if (hdr->subtype == SPRD_NPI_CMD_SET_CCA_PARAM) {
 		char *cca_param;
+
 		if (s_len < (sizeof(struct sprd_npi_cmd_hdr) + 2 * sizeof(char)))
 			goto out;
 

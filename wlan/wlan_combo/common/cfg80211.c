@@ -1180,7 +1180,7 @@ void sprd_cfg80211_mgmt_frame_register(struct wiphy *wiphy,
 	change_mask = new_mask ^ old_mask;
 	vif->mgmt_reg = new_mask;
 	for_each_set_bit(i, &change_mask, MGMT_REG_MASK_BIT)  {
-		if(test_bit(i, &old_mask))
+		if (test_bit(i, &old_mask))
 			reg = 0;
 		else
 			reg = 1;
@@ -1472,7 +1472,7 @@ int sprd_init_fw(struct sprd_vif *vif)
 		if (!ret) {
 			sprdwl_pamwifi_enable(vif);
 		} else {
- 			pr_err("softap open fail, because pamwifi init fail\n");
+			pr_err("softap open fail, because pamwifi init fail\n");
 			return ret;
 		}
 	}

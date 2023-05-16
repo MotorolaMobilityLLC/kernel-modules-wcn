@@ -2293,7 +2293,8 @@ static int vendor_apf_req_send_recv(struct sprd_vif *vif,
 	return ret;
 }
 
-static void sc2332_apf_init(struct sprd_priv *priv) {
+static void sc2332_apf_init(struct sprd_priv *priv)
+{
 	if (priv->hif.hw_type == SPRD_HW_SC2332_SIPC) {
 		if (!apf_init(priv)) {
 			priv->apf_state->apf_cmd_id = CMD_PACKET_FILTER;
@@ -2332,7 +2333,8 @@ exit:
 	return ret;
 }
 
-static void sc2332_apf_deinit(struct sprd_priv *priv) {
+static void sc2332_apf_deinit(struct sprd_priv *priv)
+{
 	if (priv->hif.hw_type == SPRD_HW_SC2332_SIPC) {
 		apf_deinit(priv);
 	}

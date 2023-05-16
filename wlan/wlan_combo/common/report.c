@@ -218,8 +218,8 @@ void sprd_report_connection(struct sprd_vif *vif,
 	  2100599:unlink all bsses that only channel different with the current connected one.
 	  to fix the issue:UI will show the old channel result even if AP has changed channel
 	*/
-	if(bss) {
-		while(1) {
+	if (bss) {
+		while (1) {
 			other_bss = cfg80211_get_bss(wiphy, NULL, bss->bssid,
 						     ssid, ssid_len,
 						     IEEE80211_BSS_TYPE_ESS,
@@ -249,10 +249,9 @@ done:
 		  roam doesn't need to put bss, because after cfg80211_roamed
 		  the ref_count is 1.when disconnect the bssid,the system will crash.
 		*/
-		if(bss)
+		if (bss)
 			cfg80211_put_bss(wiphy, bss);
-	}
-	else if (vif->sm_state == SPRD_CONNECTED &&
+	} else if (vif->sm_state == SPRD_CONNECTED &&
 		 status_code == SPRD_ROAM_SUCCESS) {
 		memset(&roam_info, 0, sizeof(roam_info));
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
@@ -301,7 +300,7 @@ err:
 	memset(vif->bssid, 0, sizeof(vif->bssid));
 	memset(vif->ssid, 0, sizeof(vif->ssid));
 	vif->sm_state = SPRD_DISCONNECTED;
-	if(bss)
+	if (bss)
 		cfg80211_put_bss(wiphy, bss);
 }
 EXPORT_SYMBOL(sprd_report_connection);
@@ -325,7 +324,7 @@ void sprd_report_disconnection(struct sprd_vif *vif, u16 reason_code)
 		  unlink all bssid that has the same ssid
 		  2055772: to fix reconnect the 2.4g ssid when hiding the dual band AP
 		*/
-		while(1) {
+		while (1) {
 			bss = cfg80211_get_bss(wiphy, NULL, NULL,
 				       vif->ssid, vif->ssid_len,
 				       IEEE80211_BSS_TYPE_ESS,

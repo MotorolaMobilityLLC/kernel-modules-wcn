@@ -470,7 +470,7 @@ static int get_apf_request(struct sprd_vif *vif, struct nlattr **tb,
 	int ret = 0;
 	u16 rsp_len = 0;
 
-	if (!vif || !vif->priv || !vif->priv->apf_state ||!tb || !apf_req) {
+	if (!vif || !vif->priv || !vif->priv->apf_state || !tb || !apf_req) {
 		pr_err("%s(%d).\n", __func__, __LINE__);
 		return -EINVAL;
 	}

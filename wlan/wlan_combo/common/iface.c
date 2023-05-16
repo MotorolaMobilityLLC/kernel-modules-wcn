@@ -28,7 +28,7 @@
 
 static struct sprd_priv *sprd_prv;
 
-const char *dhcp_str_info[] ={
+const char *dhcp_str_info[] = {
 	"INVALID DHCP",
 	"DHCP DISCOVER",
 	"DHCP OFFER",
@@ -385,7 +385,7 @@ void sprd_net_flowcontrl(struct sprd_priv *priv, enum sprd_mode mode,
 EXPORT_SYMBOL(sprd_net_flowcontrl);
 
 void sprd_filter_ip_pkt_debug(struct sk_buff *skb,
-			      struct net_device *ndev, const char* direct)
+			      struct net_device *ndev, const char *direct)
 {
 	unsigned char *dhcpdata = NULL;
 	struct udphdr *udphdr;
@@ -415,15 +415,13 @@ void sprd_filter_ip_pkt_debug(struct sk_buff *skb,
 	     (udphdr->source == htons(DHCP_CLIENT_PORT)))) {
 		dhcpdata = skb->data + ETHER_HDR_LEN + iphdrlen + 250;
 
-		if(*dhcpdata < ARRAY_SIZE(dhcp_str_info))
+		if (*dhcpdata < ARRAY_SIZE(dhcp_str_info))
 			pr_info("[%s] [%s]\n", direct, dhcp_str_info[*dhcpdata]);
-	}
-	else if ((ethhdr->h_proto == htons(ETH_P_IPV6)) &&
+	} else if ((ethhdr->h_proto == htons(ETH_P_IPV6)) &&
 		 ((udphdr->source == htons(DHCP_SERVER_PORT_IPV6)) ||
 		 (udphdr->source == htons(DHCP_CLIENT_PORT_IPV6)))) {
 		pr_info("[%s] special data: DHCP\n", direct);
-	}
-	else if ((ethhdr->h_proto == htons(ETH_P_IP) ||
+	} else if ((ethhdr->h_proto == htons(ETH_P_IP) ||
 		  ethhdr->h_proto == htons(ETH_P_IPV6))
 		&& (udphdr->source == htons(DNS_SERVER_PORT) ||
 		    udphdr->dest == htons(DNS_SERVER_PORT))) {
@@ -916,12 +914,12 @@ static int iface_priv_cmd(struct net_device *ndev, struct ifreq *ifr)
 		ret = sprd_set_max_clients_allowed(priv, vif, n_clients);
 	} else if (!strncasecmp(command, CMD_BT_COEX_MODE,
 				strlen(CMD_BT_COEX_MODE))) {
-		netdev_info(ndev, "%s recieved command BTCOEXMODE", __func__);
+		netdev_info(ndev, "%s received command BTCOEXMODE", __func__);
 		/* To pass vts test, for details, please see Bug 1881011*/
 		ret = 0;
 	} else if (!strncasecmp(command, CMD_BT_COEX_SCAN,
 				strlen(CMD_BT_COEX_SCAN))) {
-		netdev_info(ndev, "%s recieved command BTCOEXSCAN", __func__);
+		netdev_info(ndev, "%s received command BTCOEXSCAN", __func__);
 		/* To pass vts test, for details, please see Bug 1881011*/
 		ret = 0;
 	} else {
