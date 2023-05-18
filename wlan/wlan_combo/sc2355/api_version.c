@@ -510,10 +510,9 @@ int sc2355_api_version_need_compat_operation(struct sprd_priv *priv, u8 cmd_id)
 	fw_ver = (api + cmd_id)->fw_version;
 
 	if (drv_ver != fw_ver && fw_ver == min(fw_ver, drv_ver)) {
-		pr_info("drv ver:%d higher than fw ver:%d\n", drv_ver, fw_ver);
-		pr_info("need compat operation!!\n");
+		pr_info("drv ver:%d higher than fw ver:%d, need compat operation!!\n",
+			drv_ver, fw_ver);
 		return fw_ver;
-
 	} else {
 		if (drv_ver != fw_ver)
 			pr_info("drv ver:%d, fw_ver:%d\n no need compat!!",

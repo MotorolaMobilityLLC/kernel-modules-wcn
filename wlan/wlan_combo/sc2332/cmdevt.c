@@ -964,8 +964,8 @@ int sc2332_set_power_backoff(struct sprd_priv *priv, struct sprd_vif *vif,
 	p->value = value;
 	p->mode = mode;
 	p->channel = channel;
-	pr_info("CMD_POWER_SAVE subtype is SPRD_SET_POWER_BACKOFF\n");
-	pr_err("sub_type:%d, value : %d, mode : %d, channel:%d\n",
+	pr_info("CMD_POWER_SAVE subtype is SPRD_SET_POWER_BACKOFF, "
+		"sub_type:%d, value:%d, mode:%d, channel:%d\n",
 		sub_type, value, mode, channel);
 	return send_cmd_recv_rsp(priv, msg, NULL, NULL);
 }

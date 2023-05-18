@@ -89,7 +89,7 @@ static int apf_subcmd_rsp(struct sprd_vif *vif, struct apf_request *apf_req,
 	struct sk_buff *skb;
 	struct apf_program_state *apf_st = priv->apf_state;
 	u32 apf_version = APF_VERSION_4, apf_max_capa_prog_len = APF_MAX_PROG_SIZE;
-	int ret = 0, rsp_len;
+	int ret = 0, rsp_hal_len;
 	void *slice_prog;
 
 	if (!apf_st || !apf_req) {
@@ -111,19 +111,19 @@ static int apf_subcmd_rsp(struct sprd_vif *vif, struct apf_request *apf_req,
 			return -EINVAL;
 		}
 		slice_prog = apf_rsp->rsp_data;
-		rsp_len = apf_req->apf_offset_slice_size + sizeof(u32);
+		rsp_hal_len = apf_req->apf_offset_slice_size + sizeof(u32);
 	} else {
-		rsp_len = sizeof(u32) + sizeof(u32);
+		rsp_hal_len = sizeof(u32) + sizeof(u32);
 	}
 
 	skb = cfg80211_vendor_cmd_alloc_reply_skb(wiphy,
-			NLMSG_HDRLEN + ALIGN(rsp_len, APF_ALIGN_SIZE));
+			NLMSG_HDRLEN + ALIGN(rsp_hal_len, APF_ALIGN_SIZE));
 	if (!skb) {
 		netdev_info(vif->ndev, "%s skb alloc failed.\n", __func__);
 		return -ENOMEM;
 	}
 
-	pr_info("%s cmd%u rsp_len%d.\n", __func__, apf_req->apf_hdr.apf_subcmd, rsp_len);
+	pr_info("%s cmd%u rsp_hal_len%d.\n", __func__, apf_req->apf_hdr.apf_subcmd, rsp_hal_len);
 	if (apf_req->apf_hdr.apf_subcmd == WLAN_READ_PACKET_FILTER) {
 		if (nla_put_u32(skb, VENDOR_ATTR_PACKET_FILTER_SUB_CMD,
 			WLAN_READ_PACKET_FILTER) ||

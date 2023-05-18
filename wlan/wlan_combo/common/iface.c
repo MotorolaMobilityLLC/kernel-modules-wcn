@@ -1902,7 +1902,7 @@ int sprd_iface_probe(struct platform_device *pdev,
 		}
 	}
 #endif
-	pr_info("Power on WCN (%d time)\n", atomic_read(&hif->power_cnt));
+	pr_info("%s Power on WCN (%d time)\n", __func__, atomic_read(&hif->power_cnt));
 	ret = sprd_iface_set_power(hif, true);
 	if (ret) {
 		sprd_hif_deinit(hif);
@@ -1930,7 +1930,7 @@ int sprd_iface_probe(struct platform_device *pdev,
 	}
 
 	/* Power off chipset in order to save power */
-	pr_info("Power off WCN (%d time)\n", atomic_read(&hif->power_cnt));
+	pr_info("%s Power off WCN (%d time)\n", __func__, atomic_read(&hif->power_cnt));
 	sprd_iface_set_power(hif, false);
 	priv->probe_done = true;
 
@@ -1948,9 +1948,7 @@ int sprd_iface_remove(struct platform_device *pdev)
 
 	int ret;
 
-	pr_info("%s\n wlan driver remove.", __func__);
-
-	pr_info("Power on WCN (%d time)\n", atomic_read(&hif->power_cnt));
+	pr_info("%s Power on WCN (%d time)\n", __func__, atomic_read(&hif->power_cnt));
 	ret = sprd_iface_set_power(hif, true);
 	if (ret)
 		return ret;
@@ -1963,7 +1961,7 @@ int sprd_iface_remove(struct platform_device *pdev)
 	sprd_hif_deinit(hif);
 	sprd_core_free(priv);
 	iface_set_priv(NULL);
-	pr_info("Power off WCN (%d time)\n", atomic_read(&hif->power_cnt));
+	pr_info("%s Power off WCN (%d time)\n", __func__, atomic_read(&hif->power_cnt));
 	sprd_iface_set_power(hif, false);
 
 	return 0;
