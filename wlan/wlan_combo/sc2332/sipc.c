@@ -567,7 +567,7 @@ static int sipc_rx_handle(void *data, unsigned int len)
 	rdata = kmalloc(len, GFP_KERNEL);
 	if (unlikely(!rdata))
 		return -ENOMEM;
-	memcpy(rdata, data, len);
+	memcpy_fromio(rdata, data, len);
 
 	sipc_rx_process(rdata, len);
 	kfree(rdata);
