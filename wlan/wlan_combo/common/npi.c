@@ -21,16 +21,16 @@
 
 struct sprd_wlan_adap_param adap_info;
 
-static int npi_nl_send_generic(struct genl_info *info, u8 attr, u8 cmd, u32 len,
-			       u8 *data);
+static int npi_nl_send_generic(struct genl_info *info, u8 attr, u8 cmd,
+			       u32 len, u8 *data);
 
 static int npi_pre_doit(const struct genl_ops *ops,
 			struct sk_buff *skb, struct genl_info *info)
 {
-	struct net_device *ndev;
-	struct sprd_vif *vif;
-	struct sprd_priv *priv;
-	int ifindex;
+	struct net_device *ndev = NULL;
+	struct sprd_vif *vif = NULL;
+	struct sprd_priv *priv = NULL;
+	int ifindex = 0;
 
 	if (!info) {
 		pr_err("%s NULL info!\n", __func__);
@@ -40,10 +40,12 @@ static int npi_pre_doit(const struct genl_ops *ops,
 	if (info->attrs[SPRD_NL_ATTR_IFINDEX]) {
 		ifindex = nla_get_u32(info->attrs[SPRD_NL_ATTR_IFINDEX]);
 		ndev = dev_get_by_index(genl_info_net(info), ifindex);
+
 		if (!(ndev && (ndev->flags & IFF_UP))) {
 			pr_err("%s NPI: net device is not ready yet\n", __func__);
 			return -EFAULT;
 		}
+
 		vif = netdev_priv(ndev);
 		priv = vif->priv;
 		info->user_ptr[0] = ndev;
@@ -68,10 +70,10 @@ static int npi_nl_handler(struct sk_buff *skb_2, struct genl_info *info)
 	struct sprd_vif *vif = NULL;
 	struct sprd_priv *priv = NULL;
 	struct sprd_npi_cmd_hdr *hdr = NULL;
-	unsigned short r_len = 1024, s_len;
+	unsigned short s_len = 0, r_len = 0;
 	unsigned char *s_buf = NULL, *r_buf = NULL;
-	unsigned char dbgstr[64] = { 0 };
-	int err = -100, ret = 0;
+	unsigned char dbgstr[SPRD_NPI_DEBUG_STR_LEN] = { 0 };
+	int ret = 0;
 	const char *id_name = NULL;
 	unsigned char status = 0;
 	const char *vendor = "UniSoC,";
@@ -91,13 +93,13 @@ static int npi_nl_handler(struct sk_buff *skb_2, struct genl_info *info)
 		return -EPERM;
 	}
 
-	r_buf = kzalloc(1024, GFP_KERNEL);
+	r_buf = kzalloc(SPRD_NPI_RECV_BUF_LEN, GFP_KERNEL);
 	if (!r_buf)
 		return -ENOMEM;
 
 	snprintf(dbgstr, sizeof(dbgstr), "[iwnpi][SEND][%d]:", s_len);
 	hdr = (struct sprd_npi_cmd_hdr *)s_buf;
-	pr_err("%s type is %d, subtype %d\n", dbgstr, hdr->type, hdr->subtype);
+	pr_info("%s type is %d, subtype %d\n", dbgstr, hdr->type, hdr->subtype);
 
 	if (hdr->subtype == SPRD_NPI_CMD_SET_COUNTRY) {
 		char *country;
@@ -105,21 +107,22 @@ static int npi_nl_handler(struct sk_buff *skb_2, struct genl_info *info)
 		if (s_len < (sizeof(struct sprd_npi_cmd_hdr) + 2 * sizeof(char)))
 			goto out;
 		country = s_buf + sizeof(struct sprd_npi_cmd_hdr);
-		/*no need send npi command to firmware*/
-		pr_err("%s show country code : %c%c\n", __func__, country[0], country[1]);
-		err = regulatory_hint(priv->wiphy, country);
+		pr_info("%s show country code : %c%c\n", __func__, country[0], country[1]);
+
+		ret = regulatory_hint(priv->wiphy, country);
 		hdr->len = sizeof(int);
 		hdr->type = SPRD_CP2HT_REPLY;
 		r_len = sizeof(*hdr) + hdr->len;
 		memcpy(r_buf, hdr, sizeof(*hdr));
-		memcpy(r_buf + sizeof(*hdr), &err, hdr->len);
+		memcpy(r_buf + sizeof(*hdr), &ret, hdr->len);
 	} else if (hdr->subtype == SPRD_NPI_CMD_GET_CHIPID) {
 		id_name = (char *)wcn_get_chip_name();
-		sprintf(r_buf, "%d", status);
+
+		snprintf(r_buf, SPRD_NPI_RECV_BUF_LEN, "%d", status);
 		strcat(r_buf, vendor);
 		strcat(r_buf, id_name);
 		r_len = strlen(r_buf);
-		pr_err("r_len = %d, %s\n", r_len, __func__);
+		pr_info("%s show chip name: %s\n", __func__, r_buf);
 	} else if (hdr->subtype == SPRD_NPI_CMD_SET_RANDOM_MAC) {
 		char *rand_mac;
 
@@ -127,7 +130,8 @@ static int npi_nl_handler(struct sk_buff *skb_2, struct genl_info *info)
 			goto out;
 		rand_mac = s_buf + sizeof(struct sprd_npi_cmd_hdr);
 		priv->rand_mac_flag = *((unsigned int *)rand_mac);
-		pr_err("%s NPI random mac flag%d\n", dbgstr, priv->rand_mac_flag);
+		pr_info("%s NPI random mac flag %d\n", __func__, priv->rand_mac_flag);
+
 		hdr->len = sizeof(int);
 		hdr->type = SPRD_CP2HT_REPLY;
 		r_len = sizeof(*hdr) + hdr->len;
@@ -141,14 +145,18 @@ static int npi_nl_handler(struct sk_buff *skb_2, struct genl_info *info)
 
 		cca_param = s_buf + sizeof(struct sprd_npi_cmd_hdr);
 		/*
-			set_cca_param type value
-			enable wifi adaptive: set_cca_param 3 1
-			disable wifi adaptive: set_cca_param 3 0
-		*/
+		 * set_cca_param type value
+		 * enable wifi adaptive: set_cca_param 3 1
+		 * disable wifi adaptive: set_cca_param 3 0
+		 */
 		if (cca_param[0] == SPRD_NPI_CCA_CE) {
 			spin_lock_bh(&adap_info.adap_lock);
-			/* high bit: iwnpi control, low bit: adaptive value */
-			adap_info.wifi_adaptive_flag = 0x10 | (cca_param[1] & 0xf);
+			/*
+			 * wifi_adaptive_flag
+			 * BIT(4): iwnpi control
+			 * BIT(0): adaptive value, enable/disable
+			 */
+			adap_info.wifi_adaptive_flag = BIT(4) | (cca_param[1] & BIT(0));
 
 			/* when enable wifi adaptive, send data by normal channel */
 			if (cca_param[1] == SPRD_NPI_CE_ENABLE)
@@ -165,7 +173,7 @@ static int npi_nl_handler(struct sk_buff *skb_2, struct genl_info *info)
 			if (vif->sm_state == SPRD_CONNECTED) {
 				if (cca_param[1] == SPRD_NPI_CE_DISABLE) {
 					spin_lock_bh(&adap_info.adap_lock);
-					adap_info.wifi_adaptive_flag = 0;
+					adap_info.wifi_adaptive_flag = SPRD_NPI_CE_DISABLE;
 					spin_unlock_bh(&adap_info.adap_lock);
 				}
 
@@ -194,7 +202,7 @@ static int npi_nl_handler(struct sk_buff *skb_2, struct genl_info *info)
 
 		snprintf(dbgstr, sizeof(dbgstr), "[iwnpi][RECV][%d]:", r_len);
 		hdr = (struct sprd_npi_cmd_hdr *)r_buf;
-		pr_err("%s type is %d, subtype %d\n", dbgstr, hdr->type,
+		pr_info("%s type is %d, subtype %d\n", dbgstr, hdr->type,
 		       hdr->subtype);
 	}
 
@@ -203,6 +211,7 @@ static int npi_nl_handler(struct sk_buff *skb_2, struct genl_info *info)
 
 out:
 	kfree(r_buf);
+	r_buf = NULL;
 	return ret;
 }
 
@@ -218,7 +227,7 @@ static int npi_nl_get_info_handler(struct sk_buff *skb_2,
 	if (vif) {
 		ether_addr_copy(r_buf, vif->ndev->dev_addr);
 		sprd_put_vif(vif);
-		r_len = 6;
+		r_len = ETH_ALEN;
 		ret = npi_nl_send_generic(info, SPRD_NL_ATTR_CP2AP,
 				      SPRD_NL_CMD_GET_INFO, r_len, r_buf);
 	} else {
@@ -258,22 +267,24 @@ static struct genl_family sprd_nl_genl_family = {
 	.n_ops = ARRAY_SIZE(sprd_nl_ops),
 };
 
-static int npi_nl_send_generic(struct genl_info *info, u8 attr, u8 cmd, u32 len,
-			       u8 *data)
+static int npi_nl_send_generic(struct genl_info *info, u8 attr, u8 cmd,
+			       u32 len, u8 *data)
 {
-	struct sk_buff *skb;
-	void *hdr;
-	int ret;
+	struct sk_buff *skb = NULL;
+	void *hdr = NULL;
+	int ret = -1;
 
 	skb = nlmsg_new(NLMSG_GOODSIZE, GFP_KERNEL);
 	if (!skb)
 		return -ENOMEM;
+
 	hdr = genlmsg_put(skb, info->snd_portid, info->snd_seq,
 			  &sprd_nl_genl_family, 0, cmd);
 	if (IS_ERR(hdr)) {
 		ret = PTR_ERR(hdr);
 		goto err_put;
 	}
+
 	if (nla_put(skb, attr, len, data)) {
 		ret = -1;
 		goto err_put;
@@ -303,16 +314,16 @@ void sprd_deinit_npi(void)
 		pr_err("genl_unregister_family error:%d\n", ret);
 }
 
-void sprd_npi_set_cca_param(struct sprd_priv *priv, struct sprd_vif *vif)
+static void sprd_npi_set_cca_param(struct sprd_priv *priv, struct sprd_vif *vif)
 {
 	struct sprd_npi_cmd_hdr *hdr = NULL;
-	unsigned short r_len = 1024, s_len;
-	unsigned char s_buf[128] = { 0 }, *r_buf = NULL;
+	unsigned short s_len = 0, r_len = 0;
+	unsigned char s_buf[SPRD_NPI_SEND_BUF_LEN] = { 0 }, *r_buf = NULL;
+	unsigned char dbgstr[SPRD_NPI_DEBUG_STR_LEN] = { 0 };
 	char *p = NULL;
-	unsigned char dbgstr[64] = { 0 };
 	char tmp_flag = 0;
 
-	r_buf = kzalloc(1024, GFP_KERNEL);
+	r_buf = kzalloc(SPRD_NPI_RECV_BUF_LEN, GFP_KERNEL);
 	if (!r_buf)
 		return;
 
@@ -321,31 +332,33 @@ void sprd_npi_set_cca_param(struct sprd_priv *priv, struct sprd_vif *vif)
 	spin_lock_bh(&adap_info.adap_lock);
 	tmp_flag = adap_info.wifi_adaptive_flag;
 
-	/* set the special data flag to SPRD_NPI_NORMAL_ALL firstly */
-	adap_info.special_data_flag = SPRD_NPI_NORMAL_ALL;
-
-	/* if adaptive disabled, reset all flags */
-	if (!(tmp_flag & 0xf)) {
-		adap_info.special_data_flag = 0;
-		adap_info.wifi_adaptive_flag = 0;
+	/*
+	 * wifi_adaptive_flag
+	 * BIT(4): iwnpi control
+	 * BIT(0): adaptive value, enable/disable
+	 */
+	if (tmp_flag & BIT(4)) {
+		if (!(tmp_flag & BIT(0))) {
+			adap_info.special_data_flag = SPRD_NPI_DATA_SPECIAL;
+			adap_info.wifi_adaptive_flag = SPRD_NPI_CE_DISABLE;
+		} else {
+			adap_info.special_data_flag = SPRD_NPI_NORMAL_ALL;
+		}
 	}
 	pr_info("%s wifi_adaptive_flag: 0x%x, special_data_flag: %d\n",
 		__func__, adap_info.wifi_adaptive_flag,
 		adap_info.special_data_flag);
 	spin_unlock_bh(&adap_info.adap_lock);
 
-	/* high bit, iwnpi control */
-	if (tmp_flag & 0xf0) {
+	if (tmp_flag & BIT(4)) {
 		hdr = (struct sprd_npi_cmd_hdr *)s_buf;
 		hdr->type = SPRD_HT2CP_CMD;
 		hdr->subtype = SPRD_NPI_CMD_SET_CCA_PARAM;
 		hdr->len = 2 * sizeof(char);
 		s_len = sizeof(struct sprd_npi_cmd_hdr) + hdr->len;
 
-		/* set_cca_param type 3, wifi CE adaptive subtype*/
 		*p++ = SPRD_NPI_CCA_CE;
-		/* low bit, wifi adaptive enable/disable */
-		*p = tmp_flag & 0x0f;
+		*p = tmp_flag & BIT(0);
 
 		snprintf(dbgstr, sizeof(dbgstr), "[iwnpi][SEND][%d]:", s_len);
 		pr_info("%s type is %d, subtype %d\n", dbgstr, hdr->type, hdr->subtype);
@@ -360,7 +373,6 @@ void sprd_npi_set_cca_param(struct sprd_priv *priv, struct sprd_vif *vif)
 	return;
 }
 
-/* trigger this evt when connect to ap */
 void sprd_evt_adaptive(struct sprd_vif *vif)
 {
 	struct sprd_work *misc_work;
@@ -377,7 +389,6 @@ void sprd_evt_adaptive(struct sprd_vif *vif)
 	sprd_queue_work(vif->priv, misc_work);
 }
 
-/* wifi adaptive work */
 void sprd_wifi_adaptive_work(struct sprd_priv *priv, struct sprd_vif *vif)
 {
 	sprd_npi_set_cca_param(priv, vif);

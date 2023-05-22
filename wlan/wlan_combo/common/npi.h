@@ -6,28 +6,30 @@
 #ifndef __NPI_H__
 #define __NPI_H__
 
-#define SPRD_NPI_CMD_START			(0)
-#define SPRD_NPI_CMD_SET_WLAN_CAP		(40)
-#define SPRD_STA_GC_EN_SLEEP			(0x3)
-#define SPRD_STA_GC_NO_SLEEP			(0x0)
-#define SPRD_PSM_PATH				"/opt/etc/.psm.info"
-#define SPRD_NPI_CMD_GET_CHIPID			(136)
-#define SPRD_NPI_CMD_SET_COUNTRY		200
+/*
+#define SPRD_NPI_CMD_SET_PROTECTION_MODE  (50)
+#define SPRD_NPI_CMD_GET_PROTECTION_MODE  (51)
+#define SPRD_NPI_CMD_SET_RTS_THRESHOLD    (52)
+*/
+#define SPRD_NPI_CMD_GET_CHIPID           (136)
+#define SPRD_NPI_CMD_SET_CCA_PARAM        (198)
+#define SPRD_NPI_CMD_SET_RANDOM_MAC       (199)
+#define SPRD_NPI_CMD_SET_COUNTRY          (200)
+/*
+#define SPRD_NPI_CMD_START                (0)
+#define SPRD_NPI_CMD_SET_WLAN_CAP         (40)
+#define SPRD_STA_GC_EN_SLEEP              (0x3)
+#define SPRD_STA_GC_NO_SLEEP              (0x0)
+#define SPRD_PSM_PATH                     ("/opt/etc/.psm.info")
+*/
 
-#define SPRD_NPI_CMD_SET_PROTECTION_MODE	50
-#define SPRD_NPI_CMD_GET_PROTECTION_MODE	51
-#define SPRD_NPI_CMD_SET_RTS_THRESHOLD		52
-#define SPRD_NPI_CMD_SET_CCA_PARAM          198
-#define SPRD_NPI_CMD_SET_RANDOM_MAC         199
+#define SPRD_NPI_RECV_BUF_LEN             (1024)
+#define SPRD_NPI_SEND_BUF_LEN             (128)
+#define SPRD_NPI_DEBUG_STR_LEN            (64)
 
 struct sprd_priv;
 struct sprd_vif;
 
-/* enable: 0x0
- * disable: 0x1
- * STA: bit 0
- * GC: bit 1
- */
 enum sprd_nl_commands {
 	SPRD_NL_CMD_UNSPEC,
 	SPRD_NL_CMD_NPI,
@@ -91,7 +93,6 @@ struct sprd_wlan_adap_param {
 
 void sprd_init_npi(void);
 void sprd_deinit_npi(void);
-void sprd_npi_set_cca_param(struct sprd_priv *priv, struct sprd_vif *vif);
 void sprd_evt_adaptive(struct sprd_vif *vif);
 void sprd_wifi_adaptive_work(struct sprd_priv *priv, struct sprd_vif *vif);
 
