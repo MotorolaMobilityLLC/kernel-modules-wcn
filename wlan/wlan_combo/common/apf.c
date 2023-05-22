@@ -552,7 +552,7 @@ int vendor_apf_packet_filter(struct wiphy *wiphy,
 
 	if (!apf_st) {
 		pr_err("%s(%d) apf_st.\n", __func__, __LINE__);
-		return -EINVAL;
+		return -EOPNOTSUPP;
 	}
 
 	if (nla_parse(tb, VENDOR_ATTR_PACKET_FILTER_MAX, data, len, NULL, NULL)) {
