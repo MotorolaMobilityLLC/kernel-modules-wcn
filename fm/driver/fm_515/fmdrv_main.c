@@ -259,6 +259,7 @@ static int fm_pcie_send_cmd(unsigned char subcmd, void *payload, int payload_len
             printk(KERN_ERR "dma_set_mask err ret %d\n", ret);
             if ((ret = dma_set_coherent_mask(dm, DMA_BIT_MASK(64)))) {
                 printk(KERN_ERR "dma_set_coherent_mask err ret %d\n", ret);
+                kfree(cmd_buf);
                 return -ENOMEM;
             }
         }
@@ -275,6 +276,7 @@ static int fm_pcie_send_cmd(unsigned char subcmd, void *payload, int payload_len
 		tx_head->buf = (unsigned char *)dma_alloc_coherent(dm, size, (dma_addr_t *)(&(tx_head->phy)), GFP_DMA);
 		if(!tx_head->buf){
 			pr_err("%s:line:%d dma_alloc_coherent err dev %p size %d phy %p\n", __func__, __LINE__, &fmdev->pdev->dev, size, &(tx_head->phy));
+            kfree(cmd_buf);
             return -ENOMEM;
         }
 		//fmdev->tx_head->buf = cmd_buf;
@@ -524,8 +526,8 @@ static void receive_tasklet(unsigned long arg){
     /* the data from SDIO is event data */
     struct mbuf_t *head, *tail;
     unsigned int channel, num;
-    struct fm_sdio_hdr *sdio_hdr;
-    struct fm_sipc_hdr *sipc_hdr;
+    struct fm_sdio_hdr *sdio_hdr = NULL;
+    struct fm_sipc_hdr *sipc_hdr = NULL;
     unsigned char *receive_buf = NULL;
 
     fmdev = (struct fmdrv_ops *)arg;
@@ -980,7 +982,7 @@ int fm_dma_buf_alloc(int chn, int size, int num)
 {
 	int ret, i;
 	struct dma_buf temp = {0};
-	struct mbuf_t *mbuf, *head, *tail;
+	struct mbuf_t *mbuf = NULL, *head = NULL, *tail = NULL;
 	dm_rx_t = &g_fm_pdev ->dev;
 
 	if (!dm_rx_t) {
