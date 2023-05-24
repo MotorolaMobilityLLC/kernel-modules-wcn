@@ -1730,9 +1730,11 @@ static void iface_unregister_netdev(struct sprd_vif *vif)
 {
 	pr_info("iface '%s' deleted\n", vif->ndev->name);
 
+	iface_deinit_vif(vif);
+
 	if (vif->priv->fw_capa & SPRD_CAPA_MC_FILTER)
 		kfree(vif->mc_filter);
-	iface_deinit_vif(vif);
+
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
 	cfg80211_unregister_netdevice(vif->ndev);
 #else
