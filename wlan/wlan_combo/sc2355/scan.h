@@ -14,5 +14,6 @@
 void sc2355_abort_scan(struct wiphy *wiphy, struct wireless_dev *wdev);
 void sc2355_report_scan_result(struct sprd_vif *vif, u16 chan, s16 rssi,
 			       u8 *frame, u16 len);
+void clean_survey_info_list(struct sprd_vif *vif);
 
 #endif

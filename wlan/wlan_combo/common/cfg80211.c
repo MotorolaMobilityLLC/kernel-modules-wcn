@@ -19,6 +19,7 @@
 #ifdef ENABLE_PAM_WIFI
 #include "pamwifi/pamwifi.h"
 #endif
+
 static char type_name[16][32] = {
 	"ASSO REQ",
 	"ASSO RESP",
@@ -102,7 +103,8 @@ void sprd_dump_frame_prot_info(int send, int freq, const unsigned char *buf,
 				idx += snprintf(p + idx, PRINT_BUF_LEN - idx, "P2P:%s ",
 				       p2p_action_name[action_subtype]);
 		} else {
-			idx += snprintf(p + idx, PRINT_BUF_LEN - idx, "Unknown ACTION(0x%x)", action);
+			idx += snprintf(p + idx, PRINT_BUF_LEN - idx,
+					"Unknown ACTION(0x%x)", action);
 		}
 	}
 
@@ -117,8 +119,8 @@ EXPORT_SYMBOL(sprd_dump_frame_prot_info);
 static void cfg80211_do_work(struct work_struct *work)
 {
 	struct sprd_work *sprd_work = NULL;
-	struct sprd_reg_mgmt *reg_mgmt;
-	struct sprd_vif *vif;
+	struct sprd_reg_mgmt *reg_mgmt = NULL;
+	struct sprd_vif *vif = NULL;
 	struct sprd_priv *priv = container_of(work, struct sprd_priv, work);
 
 	while (1) {
@@ -359,7 +361,7 @@ int sprd_cfg80211_del_iface(struct wiphy *wiphy, struct wireless_dev *wdev)
 {
 	struct sprd_priv *priv = wiphy_priv(wiphy);
 	struct sprd_vif *vif = NULL, *tmp_vif = NULL;
-	struct sprd_hif *hif;
+	struct sprd_hif *hif = NULL;
 
 	if (!priv) {
 		pr_err("can not get priv!\n");
@@ -410,8 +412,9 @@ int sprd_cfg80211_change_iface(struct wiphy *wiphy, struct net_device *ndev,
 
 	netdev_info(ndev, "%s type %d -> %d\n", __func__, old_type, type);
 
-	if (vif->mode == SPRD_MODE_NONE  && ((old_type == NL80211_IFTYPE_STATION && type == NL80211_IFTYPE_AP) ||
-		(old_type == NL80211_IFTYPE_AP && type == NL80211_IFTYPE_STATION))) {
+	if (vif->mode == SPRD_MODE_NONE &&
+	    ((old_type == NL80211_IFTYPE_STATION && type == NL80211_IFTYPE_AP) ||
+	    (old_type == NL80211_IFTYPE_AP && type == NL80211_IFTYPE_STATION))) {
 		netdev_err(ndev, "%s change iface but current mode 0!\n", __func__);
 		vif->wdev.iftype = type;
 		return 0;
@@ -542,7 +545,7 @@ int sprd_cfg80211_start_ap(struct wiphy *wiphy, struct net_device *ndev,
 {
 	struct sprd_vif *vif = netdev_priv(ndev);
 	struct cfg80211_beacon_data *beacon = &settings->beacon;
-	struct ieee80211_mgmt *mgmt;
+	struct ieee80211_mgmt *mgmt = NULL;
 	u16 mgmt_len, index = 0, hidden_index;
 	int hidden_len = SPRD_AP_HIDDEN_FLAG_LEN;
 	u8 *data = NULL;
@@ -568,7 +571,7 @@ int sprd_cfg80211_start_ap(struct wiphy *wiphy, struct net_device *ndev,
 	if (beacon->tail)
 		mgmt_len += beacon->tail_len;
 
-	mgmt = kmalloc(mgmt_len, GFP_KERNEL);
+	mgmt = kzalloc(mgmt_len, GFP_KERNEL);
 	if (!mgmt)
 		return -ENOMEM;
 	data = (u8 *)mgmt;
@@ -619,7 +622,8 @@ int sprd_cfg80211_change_beacon(struct wiphy *wiphy, struct net_device *ndev,
 }
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
-int sprd_cfg80211_stop_ap(struct wiphy *wiphy, struct net_device *ndev, unsigned int link_id)
+int sprd_cfg80211_stop_ap(struct wiphy *wiphy, struct net_device *ndev,
+			  unsigned int link_id)
 #else
 int sprd_cfg80211_stop_ap(struct wiphy *wiphy, struct net_device *ndev)
 #endif
@@ -640,7 +644,7 @@ int sprd_cfg80211_add_station(struct wiphy *wiphy, struct net_device *ndev,
 int sprd_p2p_go_del_station(struct sprd_priv *priv, struct sprd_vif *vif,
 				  const u8 *mac_addr, u16 reason_code)
 {
-	struct sprd_work *misc_work;
+	struct sprd_work *misc_work = NULL;
 
 	misc_work = sprd_alloc_work(ETH_ALEN + sizeof(u16));
 	if (!misc_work) {
@@ -679,8 +683,7 @@ out:
 }
 
 int sprd_cfg80211_change_station(struct wiphy *wiphy, struct net_device *ndev,
-				 const u8 *mac,
-				 struct station_parameters *params)
+				 const u8 *mac, struct station_parameters *params)
 {
 	return 0;
 }
@@ -689,9 +692,9 @@ int sprd_cfg80211_get_station(struct wiphy *wiphy, struct net_device *ndev,
 			      const u8 *mac, struct station_info *sinfo)
 {
 	struct sprd_vif *vif = netdev_priv(ndev);
-	struct sprd_sta_info sta;
-	struct sprd_rate_info *tx_rate;
-	struct sprd_rate_info *rx_rate;
+	struct sprd_sta_info sta = { 0 };
+	struct sprd_rate_info *tx_rate = NULL;
+	struct sprd_rate_info *rx_rate = NULL;
 	int ret;
 
 	sinfo->filled |= BIT(NL80211_STA_INFO_TX_BYTES) |
@@ -774,7 +777,8 @@ int sprd_cfg80211_get_station(struct wiphy *wiphy, struct net_device *ndev,
 	}
 
 	netdev_info(ndev,
-		    "%s signal %d noise=%d, txlegacy %d txmcs:%d txflags:0x:%x, rxlegacy %d rxmcs:%d rxflags:0x:%x\n",
+		    "%s signal %d noise=%d, txlegacy %d txmcs:%d txflags:0x:%x, \
+		    rxlegacy %d rxmcs:%d rxflags:0x:%x\n",
 		    __func__, sinfo->signal, sta.noise,
 		    sinfo->txrate.legacy, tx_rate->mcs, tx_rate->flags,
 		    sinfo->rxrate.legacy, rx_rate->mcs, rx_rate->flags);
@@ -1161,8 +1165,8 @@ void sprd_cfg80211_mgmt_frame_register(struct wiphy *wiphy,
 				       struct mgmt_frame_regs *upd)
 {
 	struct sprd_vif *vif = container_of(wdev, struct sprd_vif, wdev);
-	struct sprd_work *misc_work;
-	struct sprd_reg_mgmt *reg_mgmt;
+	struct sprd_work *misc_work = NULL;
+	struct sprd_reg_mgmt *reg_mgmt = NULL;
 	unsigned long new_mask, old_mask, change_mask;
 	u16 frame_type;
 	bool reg;
@@ -1207,8 +1211,8 @@ void sprd_cfg80211_mgmt_frame_register(struct wiphy *wiphy,
 				       u16 frame_type, bool reg)
 {
 	struct sprd_vif *vif = container_of(wdev, struct sprd_vif, wdev);
-	struct sprd_work *misc_work;
-	struct sprd_reg_mgmt *reg_mgmt;
+	struct sprd_work *misc_work = NULL;
+	struct sprd_reg_mgmt *reg_mgmt = NULL;
 	u16 mgmt_type;
 
 	if (vif->mode == SPRD_MODE_NONE)
@@ -1606,9 +1610,9 @@ void sprd_timer_scan_timeout(struct timer_list *t)
 
 struct sprd_priv *sprd_core_create(struct sprd_chip_ops *chip_ops)
 {
-	struct wiphy *wiphy;
-	struct sprd_priv *priv;
-	struct sprd_chip *chip;
+	struct wiphy *wiphy = NULL;
+	struct sprd_priv *priv = NULL;
+	struct sprd_chip *chip = NULL;
 
 	wiphy = wiphy_new(&sprd_cfg80211_ops, sizeof(*priv));
 	if (!wiphy) {

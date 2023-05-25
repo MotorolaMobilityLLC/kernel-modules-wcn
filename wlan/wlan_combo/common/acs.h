@@ -19,7 +19,7 @@ struct bssid_node {
 struct scan_result {
 	struct list_head list;
 	int signal;
-	unsigned char bssid[6];
+	unsigned char bssid[ETH_ALEN];
 };
 
 struct survey_info_node {
@@ -46,8 +46,5 @@ struct survey_info_new_node {
 	struct ieee80211_channel *channel;
 	struct list_head survey_list;
 };
-
-void clean_survey_info_list(struct sprd_vif *vif);
-void transfer_survey_info(struct sprd_vif *vif);
 
 #endif

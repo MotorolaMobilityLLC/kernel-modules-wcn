@@ -70,7 +70,7 @@ static int npi_nl_handler(struct sk_buff *skb_2, struct genl_info *info)
 	struct sprd_vif *vif = NULL;
 	struct sprd_priv *priv = NULL;
 	struct sprd_npi_cmd_hdr *hdr = NULL;
-	unsigned short s_len = 0, r_len = 0;
+	unsigned short s_len = 0, r_len = SPRD_NPI_RECV_BUF_LEN;
 	unsigned char *s_buf = NULL, *r_buf = NULL;
 	unsigned char dbgstr[SPRD_NPI_DEBUG_STR_LEN] = { 0 };
 	int ret = 0;
@@ -317,7 +317,7 @@ void sprd_deinit_npi(void)
 static void sprd_npi_set_cca_param(struct sprd_priv *priv, struct sprd_vif *vif)
 {
 	struct sprd_npi_cmd_hdr *hdr = NULL;
-	unsigned short s_len = 0, r_len = 0;
+	unsigned short s_len = 0, r_len = SPRD_NPI_RECV_BUF_LEN;
 	unsigned char s_buf[SPRD_NPI_SEND_BUF_LEN] = { 0 }, *r_buf = NULL;
 	unsigned char dbgstr[SPRD_NPI_DEBUG_STR_LEN] = { 0 };
 	char *p = NULL;

@@ -13,83 +13,82 @@
 #endif
 
 /* auth type */
-#define SPRD_AUTH_OPEN			0
-#define SPRD_AUTH_SHARED		1
-#define SPRD_AUTH_SAE			4
+#define SPRD_AUTH_OPEN			(0)
+#define SPRD_AUTH_SHARED		(1)
+#define SPRD_AUTH_SAE			(4)
 /* parise or group key type */
-#define SPRD_GROUP			0
-#define SPRD_PAIRWISE			1
+#define SPRD_GROUP			(0)
+#define SPRD_PAIRWISE			(1)
 /* WPA version */
-#define SPRD_WPA_VERSION_NONE		0
-#define SPRD_WPA_VERSION_1		BIT(0)
-#define SPRD_WPA_VERSION_2		BIT(1)
-#define SPRD_WAPI_VERSION_1		BIT(2)
-#define SPRD_WPA_VERSION_3		BIT(3)
+#define SPRD_WPA_VERSION_NONE		(0)
+#define SPRD_WPA_VERSION_1		(BIT(0))
+#define SPRD_WPA_VERSION_2		(BIT(1))
+#define SPRD_WAPI_VERSION_1		(BIT(2))
+#define SPRD_WPA_VERSION_3		(BIT(3))
 /* cipher type */
-#define SPRD_CIPHER_NONE		0
-#define SPRD_CIPHER_WEP40		1
-#define SPRD_CIPHER_WEP104		2
-#define SPRD_CIPHER_TKIP		3
-#define SPRD_CIPHER_CCMP		4
-#define SPRD_CIPHER_AP_TKIP		5
-#define SPRD_CIPHER_AP_CCMP		6
-#define SPRD_CIPHER_WAPI		7
-#define SPRD_CIPHER_AES_CMAC		8
+#define SPRD_CIPHER_NONE		(0)
+#define SPRD_CIPHER_WEP40		(1)
+#define SPRD_CIPHER_WEP104		(2)
+#define SPRD_CIPHER_TKIP		(3)
+#define SPRD_CIPHER_CCMP		(4)
+#define SPRD_CIPHER_AP_TKIP		(5)
+#define SPRD_CIPHER_AP_CCMP		(6)
+#define SPRD_CIPHER_WAPI		(7)
+#define SPRD_CIPHER_AES_CMAC		(8)
 /* cipher suite */
-#define WLAN_CIPHER_SUITE_PMK		0x000FACFF
-#define WLAN_CIPHER_SUITE_DPP		0x506F9A02
+#define WLAN_CIPHER_SUITE_PMK		(0x000FACFF)
+#define WLAN_CIPHER_SUITE_DPP		(0x506F9A02)
 /* AKM suite */
-#define WLAN_AKM_SUITE_WAPI_CERT	0x00147201
-#define WLAN_AKM_SUITE_WAPI_PSK		0x00147202
+#define WLAN_AKM_SUITE_WAPI_CERT	(0x00147201)
+#define WLAN_AKM_SUITE_WAPI_PSK		(0x00147202)
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
-//#define WLAN_AKM_SUITE_OWE		0x000FAC12
-#define MGMT_REG_MASK_BIT	32
+//#define WLAN_AKM_SUITE_OWE		(0x000FAC12)
+#define MGMT_REG_MASK_BIT		(32)
 #else
-#define WLAN_AKM_SUITE_OWE		0x000FAC12
+#define WLAN_AKM_SUITE_OWE		(0x000FAC12)
 #endif
 
 
 #define SPRD_AKM_SUITE_NONE		(0)
 #define SPRD_AKM_SUITE_8021X		(1)
 #define SPRD_AKM_SUITE_PSK		(2)
-#define SPRD_AKM_SUITE_FT_8021X	(3)
+#define SPRD_AKM_SUITE_FT_8021X		(3)
 #define SPRD_AKM_SUITE_FT_PSK		(4)
-#define SPRD_AKM_SUITE_WAPI_PSK	(4)
+#define SPRD_AKM_SUITE_WAPI_PSK		(4)
 #define SPRD_AKM_SUITE_8021X_SHA256	(5)
 #define SPRD_AKM_SUITE_PSK_SHA256	(6)
 #define SPRD_AKM_SUITE_SAE		(8)
 #define SPRD_AKM_SUITE_WAPI_CERT	(12)
 #define SPRD_AKM_SUITE_OWE		(18)
 
-#define WLAN_REASON_DEAUTH_LEAVING	3
+#define WLAN_REASON_DEAUTH_LEAVING	(3)
 
-#define WIPHY_FLAG_SUPPORTS_SCHED_SCAN	BIT(11)
+#define WIPHY_FLAG_SUPPORTS_SCHED_SCAN	(BIT(11))
 
 /* determine the actual values for the macros below*/
-#define SPRD_MAX_SCAN_SSIDS		12
-#define SPRD_MAX_SCAN_IE_LEN		2304
-#define SPRD_MAX_NUM_PMKIDS		4
-#define SPRD_MAX_KEY_INDEX		5
-#define SPRD_SCAN_TIMEOUT_MS		8000
-#define SPRD_MIN_IE_LEN			6
-#define SPRD_MAX_IE_LEN			500
-#define SPRD_SCAN_RESULT_MAX_IE_LEN	1500
+#define SPRD_MAX_SCAN_SSIDS		(12)
+#define SPRD_MAX_SCAN_IE_LEN		(2304)
+#define SPRD_MAX_NUM_PMKIDS		(4)
+#define SPRD_MAX_KEY_INDEX		(5)
+#define SPRD_SCAN_TIMEOUT_MS		(8000)
+#define SPRD_MIN_IE_LEN			(6)
+#define SPRD_MAX_IE_LEN			(500)
+#define SPRD_SCAN_RESULT_MAX_IE_LEN	(1500)
 
-#define SPRD_2G_CHAN_NR			14
-#define SPRD_5G_CHAN_NR			25
-#define SPRD_TOTAL_CHAN_NR		\
-	(SPRD_2G_CHAN_NR + SPRD_5G_CHAN_NR)
-#define SPRD_TOTAL_SSID_NR		9
+#define SPRD_2G_CHAN_NR			(14)
+#define SPRD_5G_CHAN_NR			(25)
+#define SPRD_TOTAL_CHAN_NR		(SPRD_2G_CHAN_NR + SPRD_5G_CHAN_NR)
+#define SPRD_TOTAL_SSID_NR		(9)
 
-#define SPRD_AP_HIDDEN_FLAG_LEN		1
+#define SPRD_AP_HIDDEN_FLAG_LEN		(1)
 #define SPRD_AP_SSID_LEN_OFFSET		(37)
 /* set wfa_cap a specified value to pass WFA Certification */
-#define SPRD_WFA_CAP_11R		BIT(0)
-#define SPRD_WFA_CAP_11K		BIT(1)
-#define SPRD_WFA_CAP_WMM_AC		BIT(2)
-#define SPRD_WFA_CAP_11U_QOS_MAP	BIT(3)
-#define SPRD_WFA_CAP_11N_WMM		BIT(4)
-#define SPRD_WFA_CAP_NON_RAN_MAC	BIT(5)
+#define SPRD_WFA_CAP_11R		(BIT(0))
+#define SPRD_WFA_CAP_11K		(BIT(1))
+#define SPRD_WFA_CAP_WMM_AC		(BIT(2))
+#define SPRD_WFA_CAP_11U_QOS_MAP	(BIT(3))
+#define SPRD_WFA_CAP_11N_WMM		(BIT(4))
+#define SPRD_WFA_CAP_NON_RAN_MAC	(BIT(5))
 
 #define RATETAB_ENT(_rate, _rateid, _flags)				\
 {									\

@@ -1,12 +1,6 @@
 /*
-* SPDX-FileCopyrightText: 2021-2022 Unisoc (Shanghai) Technologies Co., Ltd
-* SPDX-License-Identifier: GPL-2.0
-*
-* Copyright 2021-2022 Unisoc (Shanghai) Technologies Co., Ltd
-*
-* This program is free software; you can redistribute it and/or modify it
-* under the terms of version 2 of the GNU General Public License
-* as published by the Free Software Foundation.
+* SPDX-FileCopyrightText: 2021-2023 Unisoc (Shanghai) Technologies Co. Ltd
+* SPDX-License-Identifier: GPL-2.0-only
 */
 
 #ifndef __APF_H__
@@ -14,11 +8,11 @@
 
 #include <linux/types.h>
 
-#define APF_ALIGN_SIZE 4
+#define APF_ALIGN_SIZE      (4)
+#define APF_VERSION_4       (4)
+#define APF_MAX_PROG_SIZE   (2048)
+#define PACKET_FILTER_ID    (0)
 
-#define APF_VERSION_4 4
-#define APF_MAX_PROG_SIZE 2048
-#define PACKET_FILTER_ID 0
 /* enum packet_filter_sub_cmd - Packet filter sub commands */
 enum packet_filter_subcmd {
 	WLAN_SET_PACKET_FILTER = 1,
