@@ -93,13 +93,14 @@ unsigned long mbufpop;
 static int sdio_tx_one(struct sprd_hif *hif, unsigned char *data,
 		       int len, int chn)
 {
-	int ret;
+	int ret = 0;
 	struct mbuf_t *head = NULL, *tail = NULL, *mbuf = NULL;
 	int num = 1;
 
+	/* ret: -1 indicate get mbuf failed, but 0 indicate success or (wcn_bus_ops==NULL) */
 	ret = sprdwcn_bus_list_alloc(chn, &head, &tail, &num);
-	ret = 0;
 	if (ret || !head || !tail) {
+		kfree(data);
 		pr_err("%s:%d sprdwcn_bus_list_alloc fail\n",
 		       __func__, __LINE__);
 		return -1;
@@ -113,8 +114,10 @@ static int sdio_tx_one(struct sprd_hif *hif, unsigned char *data,
 	if (sprd_get_debug_level() >= L_DBG)
 		sc2355_hex_dump("tx to cp2 cmd data dump", data + 4, len);
 
+	/* ret: (<0) indicate send failed, but 0 indicate success or (wcn_bus_ops==NULL) */
 	ret = sprdwcn_bus_push_list(chn, head, tail, num);
 
+	/* if send successful, bsp will callback sc2355_tx_cmd_pop_list to free buf */
 	if (ret) {
 		mbuf = head;
 		kfree(mbuf->buf);
@@ -820,7 +823,7 @@ int sc2355_hif_fill_msdu_dscr(struct sprd_vif *vif,
 	dscr->pkt_len = cpu_to_le16(skb->len - DSCR_LEN - dscr_rsvd);
 	dscr->offset = DSCR_LEN;
 /*TODO*/
-	//dscr->tx_ctrl.sw_rate = (is_special_data == 1 ? 1 : 0);
+	dscr->tx_ctrl.sw_rate = (is_special_data == 1 ? 1 : 0);
 	//dscr->tx_ctrl.wds = 0; /*TBD*/
 	//dscr->tx_ctrl.swq_flag = 0; /*TBD*/
 	//dscr->tx_ctrl.rsvd = 0; /*TBD*/

@@ -202,6 +202,7 @@ static void rx_skb_process(struct sprd_priv *priv, struct sk_buff *skb)
 			    ("%s, drop loopback pkt, macaddr:%02x:%02x:%02x:%02x:%02x:%02x\n",
 			     __func__, skb->data[0], skb->data[1], skb->data[2],
 			     skb->data[3], skb->data[4], skb->data[5]);
+			sprd_put_vif(vif);
 			goto err;
 		}
 

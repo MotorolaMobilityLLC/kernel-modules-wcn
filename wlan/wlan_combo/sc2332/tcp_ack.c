@@ -92,7 +92,7 @@ static int tcp_ack_check(unsigned char *buf, struct tcp_ack_msg *ack_msg)
 	ip_hdr_len = iphdr->ihl * 4;
 	temp = (unsigned char *)(iphdr) + ip_hdr_len;
 	tcphdr = (struct tcphdr *)temp;
-	/* TCP_FLAG_ACK */
+	/* TCP_FLAG_ACK, only indicates whether ack seq is valid, not means ACK packet */
 	if (!(temp[13] & 0x10))
 		return 0;
 	if (temp[13] != 0x10) {
@@ -232,6 +232,8 @@ static int tcp_ack_handle(struct sprd_msg *new_msg,
 			sprd_chip_drop_tcp_msg(&ack_m->priv->chip, ack_info->msg);
 			ack_info->msg = NULL;
 		}
+		/* the short packet(len<200B) carrying psh_flag has just been recieved
+		   on the link, and its ack need to be sent immediately */
 		if (ack_info->psh_flag &&
 		    !SPRD_U32_BEFORE(ack_msg->seq, ack_info->psh_seq)) {
 			ack_info->drop_cnt = 0;
@@ -251,6 +253,7 @@ static int tcp_ack_handle(struct sprd_msg *new_msg,
 		spin_lock_bh(&ack_info->lock);
 		ack_info->msg = new_msg;
 		spin_unlock_bh(&ack_info->lock);
+		/* no other ack was issued within 10ms, send it out */
 		if (!timer_pending(&ack_info->timer))
 			mod_timer(&ack_info->timer, jiffies + ack_m->drop_time);
 		return 1;

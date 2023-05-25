@@ -73,6 +73,11 @@ static int tcp_ack_check_quick(unsigned char *buf, struct tcp_ack_msg *ack_msg)
 	return 0;
 }
 
+/* drop:
+ * 0 Except for the head,it also carries data(no pure ack)  for not filter
+ * 1 only carries TCPOPT_TIMESTAMP and TCPOPT_WINDOW        for filter
+ * 2 carries more info                                      for not filter
+ */
 static int tcp_ack_is_drop(struct tcphdr *tcphdr, int tcp_tot_len,
 			   unsigned short *win_scale)
 {
@@ -123,9 +128,10 @@ static int tcp_ack_is_drop(struct tcphdr *tcphdr, int tcp_tot_len,
 	return drop;
 }
 
-/* flag:0 for not tcp ack
- *	1 for ack which can be drop
- *	2 for other ack whith more info
+/* return val:
+ * 0 for not tcp ack
+ * 1 for ack which can be drop
+ * 2 for other ack whith more info
  */
 static int tcp_ack_check(unsigned char *buf, struct tcp_ack_msg *ack_msg,
 			 unsigned short *win_scale)
@@ -147,7 +153,7 @@ static int tcp_ack_check(unsigned char *buf, struct tcp_ack_msg *ack_msg,
 	ip_hdr_len = iphdr->ihl * 4;
 	temp = (unsigned char *)(iphdr) + ip_hdr_len;
 	tcphdr = (struct tcphdr *)temp;
-	/* TCP_FLAG_ACK */
+	/* TCP_FLAG_ACK, only indicates whether ack seq is valid, not means ACK packet */
 	if (!(temp[13] & 0x10))
 		return 0;
 
@@ -299,7 +305,8 @@ static int tcp_ack_handle(struct sprd_msg *new_msg,
 			drop_msg = ack_info->msg;
 			ack_info->msg = NULL;
 		}
-
+		/* the short packet(len<200B) carrying psh_flag has just been recieved
+		   on the link, and its ack need to be sent immediately */
 		if (ack_info->psh_flag &&
 		    !SPRD_U32_BEFORE(ack_msg->seq, ack_info->psh_seq)) {
 			ack_info->psh_flag = 0;
@@ -319,6 +326,7 @@ static int tcp_ack_handle(struct sprd_msg *new_msg,
 		} else {
 			ret = 1;
 			ack_info->msg = new_msg;
+			/* no other ack was issued within 5ms, send it out */
 			if (!timer_pending(&ack_info->timer))
 				mod_timer(&ack_info->timer,
 					  (jiffies + msecs_to_jiffies(5)));
@@ -402,6 +410,7 @@ int sc2355_tcp_ack_filter_send(struct sprd_priv *priv, struct sprd_msg *msg,
 		return 0;
 
 	tcp_ack_update(ack_m);
+	/* 0/2: carries data or special ack, 1: can drop */
 	drop = tcp_ack_check(buf, &ack_msg, &win_scale);
 	if (!drop && !win_scale)
 		return 0;
@@ -417,6 +426,7 @@ int sc2355_tcp_ack_filter_send(struct sprd_priv *priv, struct sprd_msg *msg,
 
 		if (drop > 0) {
 			win = ack_info->win_scale * ack_msg.win;
+			/* drop tcp ack when small window, it may reduce throughput. th=256KB */
 			if (win < (ack_m->ack_winsize * SIZE_KB))
 				drop = 2;
 

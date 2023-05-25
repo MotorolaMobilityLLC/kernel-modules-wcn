@@ -2861,8 +2861,8 @@ int sc2355_xmit_data2cmd_wq(struct sk_buff *skb, struct net_device *ndev)
 	}
 	    /*send group in BK to avoid FW hang*/
 	    dscr = (struct tx_msdu_dscr *)skb->data;
-	if ((vif->mode == SPRD_MODE_AP ||
-	     vif->mode == SPRD_MODE_P2P_GO) && dscr->sta_lut_index < 6) {
+	if ((vif->mode == SPRD_MODE_AP || vif->mode == SPRD_MODE_P2P_GO) &&
+		dscr->sta_lut_index < 6) {
 		dscr->buffer_info.msdu_tid = prio_1;
 		pr_info("%s, %d, SOFTAP/GO group go as BK\n", __func__,
 			__LINE__);

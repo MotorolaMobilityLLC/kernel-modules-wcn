@@ -260,6 +260,7 @@ static int tx_handle_timeout(struct tx_mgmt *tx_mgmt,
 	if (time_after(jiffies, tailbuf->timeout)) {
 		mode = tailbuf->mode;
 		sprd_net_flowcontrl(priv, mode, false);
+		atomic_set(&msg_list->flow, 1);
 		i = 0;
 		spin_lock_bh(lock);
 		del_list_num = TX_TIMEOUT_DROP_RATE *
@@ -550,8 +551,10 @@ static void tx_prepare_addba(struct sprd_hif *hif, unsigned char lut_index,
 
 		if (vif->mode == SPRD_MODE_STATION ||
 		    vif->mode == SPRD_MODE_P2P_CLIENT) {
-			if (!peer_entry->ip_acquired)
+			if (!peer_entry->ip_acquired) {
+				sprd_put_vif(vif);
 				return;
+			}
 		}
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
@@ -1532,6 +1535,8 @@ struct sprd_msg *sc2355_tx_get_msg(struct sprd_chip *chip,
 #endif
 		if (type == SPRD_TYPE_DATA)
 			msg->msg_type = SPRD_TYPE_DATA;
+		else
+			msg->msg_type = SPRD_TYPE_CMD;
 		msg->type = type;
 		msg->msglist = list;
 		msg->mode = mode;
