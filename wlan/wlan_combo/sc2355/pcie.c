@@ -1963,7 +1963,12 @@ int pcie_init(struct sprd_hif *hif)
 	int ret = -EINVAL;
 
 	hif->hw_type = SPRD_HW_SC2355_PCIE;
-	dma_coerce_mask_and_coherent(&hif->pdev->dev, DMA_BIT_MASK(39));
+	ret = dma_coerce_mask_and_coherent(&hif->pdev->dev, DMA_BIT_MASK(39));
+
+	if (ret) {
+                pr_err("%s dma_coerce_mask_and_coherent fail.\n", __func__);
+                return ret;
+        }
 
 	for (i = 0; i < MAX_LUT_NUM; i++)
 		hif->peer_entry[i].ctx_id = 0xff;
