@@ -1,7 +1,13 @@
 /*
-* SPDX-FileCopyrightText: 2016-2023 Unisoc (Shanghai) Technologies Co. Ltd
-* SPDX-License-Identifier: GPL-2.0-only
-*/
+ * SPDX-FileCopyrightText: 2015-2022 Unisoc (Shanghai) Technologies Co., Ltd
+ * SPDX-License-Identifier: GPL-2.0
+ *
+ * Copyright 2015-2022 Unisoc (Shanghai) Technologies Co., Ltd
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms of version 2 of the GNU General Public License
+ * as published by the Free Software Foundation.
+ */
 
 #ifndef _PAM_WIFI_LOG_H__
 #define _PAM_WIFI_LOG_H__

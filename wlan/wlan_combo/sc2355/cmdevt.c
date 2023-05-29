@@ -190,10 +190,8 @@ static const char *cmdevt_cmd2str(u8 cmd)
 		return "CMD_SET_SNIFFER";
 	case CMD_EXTENDED_LLSTAT:
 		return "CMD_EXTENDED_LLSTAT";
-#ifdef ENABLE_PAM_WIFI
 	case CMD_UL_RES_STS:
 		return "CMD_UL_RES_STS";
-#endif
 	case CMD_PACKET_FILTER:
 		return "CMD_PACKET_FILTER";
 #ifdef ENABLE_CHR
@@ -1574,8 +1572,10 @@ int sc2355_get_fw_info(struct sprd_priv *priv)
 	u8 ap_version = NOTIFY_AP_VERSION_USER;
 #endif
 #ifdef ENABLE_PAM_WIFI
-    /*get pamwifi capability from CP2*/
-	tlv_len += sizeof(struct tlv_data) + sprdwl_pamwifi_get_captlv_size();
+	if(sprd_pamwifi_hw_supported(priv->hif.pdev)){
+		/*get pamwifi capability from CP2*/
+		tlv_len += sizeof(struct tlv_data) + sprd_pamwifi_get_captlv_size();
+	}
 #endif
 	memset(r_buf, 0, r_len);
 	msg = get_cmdbuf(priv, NULL, tlv_len, CMD_GET_INFO);
@@ -1606,8 +1606,10 @@ int sc2355_get_fw_info(struct sprd_priv *priv)
 	cmdevt_set_tlv_elmt((u8 *)msg->data, NOTIFY_AP_VERSION, sizeof(ap_version),
 			    &ap_version);
 #ifdef ENABLE_PAM_WIFI
-    sprdwl_pamwifi_settlv_cmd((u8 *)msg->data + sizeof(ap_version), 
-                            tlv_len - sizeof(ap_version));   
+	if(sprd_pamwifi_hw_supported(priv->hif.pdev)){
+	    sprd_pamwifi_settlv_cmd((u8 *)msg->data + sizeof(ap_version),
+	                            tlv_len - sizeof(ap_version));
+	}
 #endif
 	ret = send_cmd_recv_rsp(priv, msg, r_buf, &r_len);
 	if (!ret && r_len) {
@@ -1672,13 +1674,13 @@ int sc2355_get_fw_info(struct sprd_priv *priv)
 					break;
 #ifdef ENABLE_PAM_WIFI
 				case GET_INFO_TLV_PAM_WIFI_CP_CAP:
-					if (tlv->len == 31) {
-						sprdwl_pamwifi_save_capability((void *)(tlv->data));
+					if (tlv->len == 31 && sprd_pamwifi_hw_supported(priv->hif.pdev)){
+						sprd_pamwifi_save_capability((void *)(tlv->data));
 						//sprdwl_hex_dump("pam_wifi", (unsigned char *)(&priv->cp_cap), sizeof(struct pam_wifi_cap_cp));
 						b_tlv_data_chk = true;
 					}
 					break;
-#endif					
+#endif
 				default:
 					break;
 				}
@@ -1792,10 +1794,12 @@ int sc2355_open_fw(struct sprd_priv *priv, struct sprd_vif *vif, u8 *mac_addr)
 	else
 		pr_err("%s, %d, mac_addr error!\n", __func__, __LINE__);
 #ifdef ENABLE_PAM_WIFI
-	if (vif->mode == SPRD_MODE_AP)
-		p->enable_pamwifi = 1;
-	else
-		p->enable_pamwifi = 0;
+       if(sprd_pamwifi_supported(priv->hif.pdev)){
+		if (vif->mode == SPRD_MODE_AP)
+			p->enable_pamwifi = 1;
+		else
+			p->enable_pamwifi = 0;
+       }
 #endif
 	p->reserved = 0;
 	if (wfa_cap) {
@@ -3455,7 +3459,7 @@ bool sc2355_do_delay_work(struct sprd_work *work)
 		break;
 #ifdef ENABLE_PAM_WIFI
 	case SPRD_WORK_UL_RES_STS_CMD:
-		sprdwl_pamwifi_send_ul_res_cmd(vif->priv, vif->ctx_id, work->data, work->len);
+		sprd_pamwifi_send_ul_res_cmd(vif->priv, vif->ctx_id, work->data, work->len);
 		break;
 #endif
 	case SPRD_WORK_ADAPTIVE:
@@ -3917,18 +3921,18 @@ static void cmdevt_report_hang_recovery_evt(struct sprd_vif *vif, u8 *data, u16 
 		__func__, __LINE__,
 		hang->action, tx_mgmt->hang_recovery_status);
 	if (hang->action == HANG_RECOVERY_BEGIN){
+		cmdevt_add_hang_cmd(vif);
 #ifdef ENABLE_PAM_WIFI
 		//pause pamwifi
-		sprdwl_pamwifi_pause_chip();
-#endif		
-		cmdevt_add_hang_cmd(vif);
+		sprd_pamwifi_pause_chip();
+#endif
 	}
-	if (hang->action == HANG_RECOVERY_END){	
+	else if (hang->action == HANG_RECOVERY_END){
 		sc2355_tx_up(tx_mgmt);
 #ifdef ENABLE_PAM_WIFI
 		//start pamwifi
-		sprdwl_pamwifi_resume_chip();
-#endif		
+		sprd_pamwifi_resume_chip();
+#endif
 	}
 }
 
@@ -4324,11 +4328,6 @@ unsigned short sc2355_rx_evt_process(struct sprd_priv *priv, u8 *msg)
 	case EVT_REPORT_IP_ADDR:
 		cmdevt_report_ip_addr(vif, data, len);
 		break;
-#ifdef ENABLE_PAM_WIFI
-	case EVT_PAMWIFI_UL_RESOURCE_EVENT:
-		sprdwl_pamwifi_ul_resource_event(vif, data, len);
-		break;
-#endif	
 #ifdef ENABLE_CHR
 	case EVT_CHR:
 		if (!priv->chr->sock_flag) {
@@ -4337,6 +4336,11 @@ unsigned short sc2355_rx_evt_process(struct sprd_priv *priv, u8 *msg)
 			break;
 		}
 		cmdevt_report_chr_evt(vif, data, len);
+		break;
+#endif
+#ifdef ENABLE_PAM_WIFI
+	case EVT_PAMWIFI_UL_RESOURCE_EVENT:
+		sprd_pamwifi_ul_resource_event(vif, data, len);
 		break;
 #endif
 	default:

@@ -1,7 +1,15 @@
-/*
-* SPDX-FileCopyrightText: 2016-2023 Unisoc (Shanghai) Technologies Co. Ltd
-* SPDX-License-Identifier: GPL-2.0-only
-*/
+/* SPDX-License-Identifier: GPL-2.0-only */
+/* Copyright (C) 2019 Spreadtrum Communications Inc.
+ *
+ * This software is licensed under the terms of the GNU General Public
+ * License version 2, as published by the Free Software Foundation, and
+ * may be copied, distributed, and modified under those terms.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
 
 #ifndef _PAMWIFI_PRIV_H_
 #define _PAMWIFI_PRIV_H_
@@ -32,8 +40,8 @@
 #define PAMWIFI_DL_FILL_TYPE2	       (BIT(5))
 #define PAMWIFI_DL_FILL_TYPE3	       (BIT(6))
 #define PAMWIFI_DL_FILL_TYPE4	       (BIT(7))
-#define PAMWIFI_DL_MISS_RX	       (BIT(8))
-#define PAMWIFI_DL_MISS_TX	       (BIT(9))
+#define PAMWIFI_DL_MISS_RX	           (BIT(8))
+#define PAMWIFI_DL_MISS_TX	           (BIT(9))
 #define PAMWIFI_4IN1_TYPE1_OVERFLOW    (BIT(10))
 #define PAMWIFI_4IN1_TYPE2_OVERFLOW    (BIT(11))
 #define PAMWIFI_4IN1_TYPE3_OVERFLOW    (BIT(12))
@@ -41,7 +49,7 @@
 
 #define PAMWIFI_TX_FIFO_DELAY_TIMER	(BIT(0))
 #define PAMWIFI_TX_FIFO_THRESHOLD	(BIT(1))
-#define PAMWIFI_TX_FIFO_INTR            (BIT(2))
+#define PAMWIFI_TX_FIFO_INTR        (BIT(2))
 
 
 #define PW_OVERFLOW_ENTER_INTR         (BIT(3))
@@ -66,14 +74,14 @@ enum pamwifi_start_type {
 	PW_START_DL = 4,
 };
 
-enum pamwifi_hw_status {	
+enum pamwifi_hw_status {
 	PWHW_STS_ALL_STARTED =1,
 	PWHW_STS_UL_STARTED =2,
 	PWHW_STS_DL_STARTED = 4,
 	PWHW_STS_IDLE =8,
 	PWHW_STS_UL_IDLE =16,
 	PWHW_STS_DL_IDLE =32,
-	PWHW_STS_PAUSED = 64,       
+	PWHW_STS_PAUSED = 64,
 };
 
 enum pamwifi_cmn_fifo_index {
@@ -106,7 +114,7 @@ enum pamwifi_overflow_mode {
 	PAMWIFI_HW_OVERFLOW, //
 };
 
-enum pamwifi_dir_type {	
+enum pamwifi_dir_type {
 	PAMWIFI_INTR_TO_CP, //interrupt to cp
 	PAMWIFI_INTR_TO_AP, //interrupt to ap
 };
@@ -159,7 +167,7 @@ struct pamwifi_buffer_watermark {
 	u32 ul_ap_free;
 	u32 ul_cp_free;
 	u32 ul_cp_filled;
-	u32 ul_ap_filled;	
+	u32 ul_ap_filled;
 };
 
 struct pamwifi_buffer_type {
@@ -202,7 +210,7 @@ struct pamwifi_route_table_node {
 struct pamwifi_fifo_phy_ops {
 	int (*set_rx_addr)(enum pamwifi_cmn_fifo_index id,
 			void __iomem *reg_base,
-			u64 addr);	
+			u64 addr);
 	int (*set_rx_depth)(enum pamwifi_cmn_fifo_index id,
 			void __iomem *reg_base,
 			u32 depth);
@@ -212,14 +220,14 @@ struct pamwifi_fifo_phy_ops {
 			void __iomem *reg_base, u32 depth);
 	int (*set_tx_addr)(enum pamwifi_cmn_fifo_index id,
 			void __iomem *reg_base,
-			u64 addr);	
+			u64 addr);
 	int (*get_tx_depth)(enum pamwifi_cmn_fifo_index id,
 			void __iomem *reg_base);
 	int (*set_intr_timeout)(enum pamwifi_cmn_fifo_index id,
-			void __iomem *reg_base, 
+			void __iomem *reg_base,
 			bool enable, u32 time);
 	int (*set_intr_thres)(enum pamwifi_cmn_fifo_index id,
-			void __iomem *reg_base, 
+			void __iomem *reg_base,
 			bool enable, u32 cnt);
 	int (*enable_flowctrl_irq)(enum pamwifi_cmn_fifo_index id,
 			void __iomem *reg_base,
@@ -233,7 +241,7 @@ struct pamwifi_fifo_phy_ops {
 			u32 rx_exit_watermark);;
 	void (*clr_tx_fifo_intr)(enum pamwifi_cmn_fifo_index id,
 			void __iomem *reg_base,
-			u32 src);	
+			u32 src);
 	int (*get_rx_ptr)(enum pamwifi_cmn_fifo_index id,
 			void __iomem *reg_base,
 			u32 *wr, u32 *rd);
@@ -254,8 +262,8 @@ struct pamwifi_fifo_phy_ops {
 			bool add);
 	u32 (*get_fifo_int_sts)(enum pamwifi_cmn_fifo_index id,
 			void __iomem *reg_base);
-	void (*register_dump)(void __iomem *reg_base, 
-			enum pamwifi_cmn_fifo_index id);	
+	void (*register_dump)(void __iomem *reg_base,
+			enum pamwifi_cmn_fifo_index id);
 };
 
 struct pawwifi_glb_phy_ops {
@@ -276,15 +284,15 @@ struct pawwifi_glb_phy_ops {
 	int (*set_dl_netid)(void __iomem *reg_base,
 			u32 netid);
 	int (*set_dl_dstid)(void __iomem *reg_base,
-			u32 dstid);	
+			u32 dstid);
 	int (*set_buffer_watermark)(void __iomem *reg_base,
-			struct pamwifi_buffer_watermark *value);	
+			struct pamwifi_buffer_watermark *value);
 	int (*set_ul_free_mem_offset)(void __iomem *reg_base,
 			u64 value);
 	int (*set_ul_filled_mem_offset)(void __iomem *reg_base,
-			u64 value);	
+			u64 value);
 	int (*set_dl_free_mem_offset)(void __iomem *reg_base,
-			u64 value);	
+			u64 value);
 	int (*set_dl_filled_mem_offset)(void __iomem *reg_base,
 			u64 value);
 	int (*set_msdu_base_addr)(void __iomem *reg_base,
@@ -297,11 +305,11 @@ struct pawwifi_glb_phy_ops {
 	int (*set_ipi_mode)(void __iomem *reg_base,
 			enum pamwifi_ipi_mode mode);
 	int (*set_ac_ax_mode)(void __iomem *reg_base,
-			enum pamwifi_acax_mode mode);	
+			enum pamwifi_acax_mode mode);
 	int (*set_4in1_mode)(void __iomem *reg_base,
 			bool enable);
 	int (*set_4in1_threshold)(void __iomem *reg_base,
-			u8 value);	
+			u8 value);
 	int (*set_overflow_mode)(void __iomem *reg_base,
 			enum pamwifi_overflow_mode mode);
 	int (*enable_flow_count)(void __iomem *reg_base,
@@ -309,15 +317,15 @@ struct pawwifi_glb_phy_ops {
 	int (*get_flow_count)(void __iomem *reg_base,
 			struct pamwifi_pkt_cnt *pkt_cnt);
 	int (*set_interrup_direction)(void __iomem *reg_base,
-			u32 src, enum pamwifi_dir_type dir);	
+			u32 src, enum pamwifi_dir_type dir);
 	int (*enable_interrup_src)(void __iomem *reg_base,
 			u32 src, bool enable);
 	int (*clr_interrup_src)(void __iomem *reg_base,
-			u32 src);	
-	u32 (*get_interrup_status_src)(void __iomem *reg_base);	
+			u32 src);
+	u32 (*get_interrup_status_src)(void __iomem *reg_base);
 	u32 (*get_interrup_raw_status_src)(void __iomem *reg_base);
 	int (*set_ipi_ul1_base_addr)(void __iomem *reg_base,
-			u64 addr);	
+			u64 addr);
 	int (*set_ipi_ul2_base_addr)(void __iomem *reg_base,
 			u64 addr);
 	int (*set_ipi_dl1_base_addr)(void __iomem *reg_base,
@@ -336,7 +344,7 @@ struct pawwifi_glb_phy_ops {
 			u32 depth);
 	bool (*lock_router_table)(void __iomem *reg_base);
 	int (*unlock_router_table)(void __iomem *reg_base);
-	void (*register_dump)(void __iomem *reg_base);	
+	void (*register_dump)(void __iomem *reg_base);
 };
 
 struct pamwifi_ops {
@@ -423,20 +431,20 @@ struct ax_tx_msdu_dscr {
 
 struct pamwifi_miss_node_tx_dscr{
 	u64 address : 34;
-	u16 length : 15;
-	u8 offset : 7;
-	u8 src_id : 5;
-	u8 tos : 2;
-	u8 flag : 1;
+	u64 length : 15;
+	u64 offset : 7;
+	u64 src_id : 5;
+	u64 tos : 2;
+	u64 flag : 1;
 };
 
 struct pamwifi_miss_node_rx_dscr{
 	u64 address : 34;
-	u16 length : 11;
-	u16 offset : 11;
-	u8 src_id : 5;
-	u8 tos : 2;
-	u8 flag : 1;
+	u64 length : 15;
+	u64 offset : 7;
+	u64 src_id : 5;
+	u64 tos : 2;
+	u64 flag : 1;
 };
 
 struct sprdwl_pamwifi_msg_buf{
@@ -474,23 +482,22 @@ struct pamwifi_tp_info {
 /**
  * struct pamwifi_t - PAMWIFI information
  * @pdev:		    Platform device
- * @status:              pamwifi system status 
- * @irq:                   pamwifi interrupt handle 
+ * @status:              pamwifi system status
+ * @irq:                   pamwifi interrupt handle
  * @tx_completed:	Used to signal pipeline clear transfer complete
  */
 struct pamwifi_t{
-	struct platform_device *pdev; 
-	struct sprd_priv *priv;	
-	struct pamwifi_route_table_node router_table[PAMWIFI_MAX_LUT_LEN]; 
+	struct platform_device *pdev;
+	struct sprd_priv *priv;
+	struct pamwifi_route_table_node router_table[PAMWIFI_MAX_LUT_LEN];
 	u32 suspend_stage;
+	bool enabled;
 	unsigned int irq;
 	struct sipa_connect_params sipa_params;
 	struct sipa_rm_register_params	ul_param;
 	struct sipa_to_pam_info sipa_info;
-	enum sipa_nic_id nic_id;
 	struct sk_buff_head buffer_list;
 	struct delayed_work power_work;
-	struct workqueue_struct *power_wq;
 	bool power_status;
 	//requested: 1, released: 0
 	u8 ul_resource_flag;
@@ -501,10 +508,10 @@ struct pamwifi_t{
 	u32 timescale;
 	struct pamwifi_intr_thres tx_thres;
 	struct pamwifi_buffer_watermark watermark;
-	struct pamwifi_ul_node ul_node;		
+	struct pamwifi_ul_node ul_node;
 	void __iomem *glb_base;
 	void __iomem *subsys_base;
 	struct pawwifi_glb_phy_ops *glb_ops;
-	struct pamwifi_fifo_phy_ops *fifo_ops;		
+	struct pamwifi_fifo_phy_ops *fifo_ops;
 };
 #endif /* _PAMWIFI_PRIV_H_ */

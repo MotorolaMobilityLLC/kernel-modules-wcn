@@ -507,12 +507,12 @@ static int pcie_suspend_resume_handle(int chn, int mode)
 
 	if (mode == 0) {
 #ifdef ENABLE_PAM_WIFI
-		if (vif->mode == SPRD_MODE_AP && sprdwl_pamwifi_using_ap()) {
+		if (vif->mode == SPRD_MODE_AP && sprd_pamwifi_using_ap()) {
 			pr_err("ul resource not released, can not sleep!");
 			sprd_put_vif(vif);
 			return -EBUSY;
 		}
-#endif		
+#endif
 		if (atomic_read(&tx_mgmt->tx_list_qos_pool.ref) > 0 ||
 		    atomic_read(&tx_mgmt->tx_list_cmd.ref) > 0 ||
 		    !list_empty(&tx_mgmt->xmit_msg_list.to_send_list) ||
@@ -1590,12 +1590,14 @@ void sc2355_pcie_event_sta_lut(struct sprd_vif *vif, u8 *data, u16 len)
 		hif->tx_num[i] = 0;
 		sc2355_pcie_dis_flush_txlist(hif, i);
 #ifdef ENABLE_PAM_WIFI
-	       hif->peer_entry[i].vif = NULL;
-		memset(hif->peer_entry[i].tx.sa, 0x0, ETHER_ADDR_LEN);
-		if(vif->mode == SPRD_MODE_AP && sta_lut->sta_lut_index > 5) {
-			sprdwl_pamwifi_update_router_table(vif->priv, sta_lut, vif->mode, 0, 0);
-		}
-#endif		
+              if(sprd_pamwifi_supported(hif->pdev)){
+		       hif->peer_entry[i].vif = NULL;
+			memset(hif->peer_entry[i].tx.sa, 0x0, ETHER_ADDR_LEN);
+			if(vif->mode == SPRD_MODE_AP && sta_lut->sta_lut_index > 5) {
+				sprd_pamwifi_update_router_table(vif->priv, sta_lut, vif->mode, 0, 0);
+			}
+              }
+#endif
 		break;
 	case UPD_LUT_INDEX:
 		sc2355_peer_entry_delba(hif, i);
@@ -1615,15 +1617,17 @@ void sc2355_pcie_event_sta_lut(struct sprd_vif *vif, u8 *data, u16 len)
 			sta_lut->ra[3], sta_lut->ra[4], sta_lut->ra[5]);
 		ether_addr_copy(hif->peer_entry[i].tx.da, sta_lut->ra);
 #ifdef ENABLE_PAM_WIFI
-		hif->peer_entry[i].vif = vif;
-		if(vif->mode == SPRD_MODE_AP && sta_lut->sta_lut_index > 5) {
-			if (!vif->ndev)
-				ether_addr_copy(hif->peer_entry[i].tx.sa, vif->wdev.address);
-			else
-				ether_addr_copy(hif->peer_entry[i].tx.sa, vif->ndev->dev_addr);
-			sprdwl_pamwifi_update_router_table(vif->priv, sta_lut, vif->mode, 0, 1);
+		if(sprd_pamwifi_supported(hif->pdev)){
+			hif->peer_entry[i].vif = vif;
+			if(vif->mode == SPRD_MODE_AP && sta_lut->sta_lut_index > 5) {
+				if (!vif->ndev)
+					ether_addr_copy(hif->peer_entry[i].tx.sa, vif->wdev.address);
+				else
+					ether_addr_copy(hif->peer_entry[i].tx.sa, vif->ndev->dev_addr);
+				sprd_pamwifi_update_router_table(vif->priv, sta_lut, vif->mode, 0, 1);
+			}
 		}
-#endif		
+#endif
 		break;
 	default:
 		break;

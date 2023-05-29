@@ -1,7 +1,13 @@
 /*
-* SPDX-FileCopyrightText: 2016-2023 Unisoc (Shanghai) Technologies Co. Ltd
-* SPDX-License-Identifier: GPL-2.0-only
-*/
+ * SPDX-FileCopyrightText: 2015-2022 Unisoc (Shanghai) Technologies Co., Ltd
+ * SPDX-License-Identifier: GPL-2.0
+ *
+ * Copyright 2015-2022 Unisoc (Shanghai) Technologies Co., Ltd
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms of version 2 of the GNU General Public License
+ * as published by the Free Software Foundation.
+ */
 #include <linux/dma-direction.h>
 #include <linux/platform_device.h>
 #include <linux/dma-mapping.h>
@@ -47,7 +53,7 @@ static int set_rx_depth(enum pamwifi_cmn_fifo_index id,
 	old_value = readl_relaxed((void *)(reg_base +addr_offset + ROFF_COMMON_RX_FIFO_DEPTH));
 	old_value  &= 0x0000FFFFl;
 	old_value |= (depth << 16);
-	writel_relaxed(old_value, (void *)(reg_base +addr_offset + ROFF_COMMON_RX_FIFO_DEPTH));			  	
+	writel_relaxed(old_value, (void *)(reg_base +addr_offset + ROFF_COMMON_RX_FIFO_DEPTH));
 	return 0;
 }
 static int get_rx_depth(enum pamwifi_cmn_fifo_index id,
@@ -59,7 +65,7 @@ static int get_rx_depth(enum pamwifi_cmn_fifo_index id,
 	}
 	CMN_FIFO_OFFSET(id, addr_offset);
 	return readl_relaxed((void *)(reg_base +addr_offset + ROFF_COMMON_RX_FIFO_DEPTH)) >> 16;
-}			
+}
 static int set_tx_depth(enum pamwifi_cmn_fifo_index id,
 		void __iomem *reg_base, u32 depth)
 {
@@ -72,7 +78,7 @@ static int set_tx_depth(enum pamwifi_cmn_fifo_index id,
 	old_value = readl_relaxed((void *)(reg_base +addr_offset +ROFF_COMMON_TX_FIFO_DEPTH));
 	old_value  &= 0x0000FFFFl;
 	old_value |= (depth << 16);
-	writel_relaxed(old_value, (void *)(reg_base +addr_offset + ROFF_COMMON_TX_FIFO_DEPTH));	
+	writel_relaxed(old_value, (void *)(reg_base +addr_offset + ROFF_COMMON_TX_FIFO_DEPTH));
 	return 0;
 }
 
@@ -88,11 +94,11 @@ static int get_tx_depth(enum pamwifi_cmn_fifo_index id,
 }
 
 static int set_intr_timeout(enum pamwifi_cmn_fifo_index id,
-		void __iomem *reg_base, 
+		void __iomem *reg_base,
 		bool enable, u32 time)
 {
 	u32 old_value;
-	u32 addr_offset;	
+	u32 addr_offset;
 
 	if(!reg_base){
 		return -1;
@@ -109,11 +115,11 @@ static int set_intr_timeout(enum pamwifi_cmn_fifo_index id,
 	return 0;
 }
 static int set_intr_thres(enum pamwifi_cmn_fifo_index id,
-		void __iomem *reg_base, 
+		void __iomem *reg_base,
 		bool enable, u32 cnt)
 {
 	u32 old_value;
-	u32 addr_offset;	
+	u32 addr_offset;
 
 	if(!reg_base){
 		return -1;
@@ -136,19 +142,19 @@ static int enable_flowctrl_irq(enum pamwifi_cmn_fifo_index id,
 		u32 enable, u32 irq_mode)
 {
 	u32 old_value;
-	u32 addr_offset;	
+	u32 addr_offset;
 
 	if(!reg_base){
 		return -1;
 	}
-	if(irq_mode != PW_OVERFLOW_ENTER_INTR 
+	if(irq_mode != PW_OVERFLOW_ENTER_INTR
 			&& irq_mode != PW_OVERFLOW_EXIT_INTR){
 		return -1;
 	}
 	CMN_FIFO_OFFSET(id, addr_offset);
 	/*[3]:Rx_FIFO_interrupt_enter_flow_ctrl_en [4]:Rx_FIFO_interrupt_exit_flow_ctrl_en*/
 	old_value = readl_relaxed((void *)(reg_base +addr_offset + ROFF_GEN_CTL_EN));
-	if(enable) 
+	if(enable)
 		old_value |=irq_mode;
 	else
 		old_value &= ~irq_mode;
@@ -173,7 +179,7 @@ static int set_flowctrl_mode(enum pamwifi_cmn_fifo_index id,
 	CMN_FIFO_OFFSET(id, addr_offset);
 	/*set workmode : [1:0]:00: flow ctrl by Rx FIFO empty; 01:flow ctrl by Tx FIFO full
 11: flow ctrl by Rx FIFO empty or y Tx FIFO full*/
-	old_value = readl_relaxed((void *)(reg_base +addr_offset + ROFF_FLOW_CTL_CFG)) 
+	old_value = readl_relaxed((void *)(reg_base +addr_offset + ROFF_FLOW_CTL_CFG))
 		& 0xFFFFFFFC; //clean bit 0 and bit 1
 	old_value |= work_mode &0x3;
 	writel_relaxed(old_value, (void *)(reg_base +addr_offset + ROFF_FLOW_CTL_CFG));
@@ -201,13 +207,13 @@ static int get_rx_ptr(enum pamwifi_cmn_fifo_index id,
 		void __iomem *reg_base,
 		u32 *wr, u32 *rd)
 {
-	u32 addr_offset;	
+	u32 addr_offset;
 
 	if(!reg_base){
 		return -1;
 	}
 	CMN_FIFO_OFFSET(id, addr_offset);
-	if(wr) 
+	if(wr)
 		*wr = readl_relaxed((void *)(reg_base +addr_offset + ROFF_COMMON_RX_FIFO_WR)) >> 16;
 	if(rd)
 		*rd = readl_relaxed((void *)(reg_base +addr_offset + ROFF_COMMON_RX_FIFO_RD)) >> 16;
@@ -217,13 +223,13 @@ static int get_tx_ptr(enum pamwifi_cmn_fifo_index id,
 		void __iomem *reg_base,
 		u32 *wr, u32 *rd)
 {
-	u32 addr_offset;	
+	u32 addr_offset;
 
 	if(!reg_base){
 		return -1;
 	}
 	CMN_FIFO_OFFSET(id, addr_offset);
-	if(wr) 
+	if(wr)
 		*wr = readl_relaxed((void *)(reg_base +addr_offset + ROFF_COMMON_TX_FIFO_WR)) >> 16;
 	if(rd)
 		*rd = readl_relaxed((void *)(reg_base +addr_offset + ROFF_COMMON_TX_FIFO_RD)) >> 16;
@@ -316,13 +322,13 @@ static int set_tx_addr(enum pamwifi_cmn_fifo_index id,
  *  update_route_table - update pamwifi search index table
  * 	@node: route table's node.
  *	@add: true: update or add new, false: clean this index
- *   
+ *
  *	The node of route table as follows:
  *		[47:0]: mac_src_addr;[95:48]: mac_dst_addr;
  *		[105:96]: lut_index;[107:106]: ctxt_id;
  *		[119: 108]: reserved;[127:120]: Index
  *
- *	consider uc w2w pkt, sa maybe not be marlin3 self mac addr, so only set da 
+ *	consider uc w2w pkt, sa maybe not be marlin3 self mac addr, so only set da
  */
 static int update_route_table(void __iomem *reg_base,
 		struct pamwifi_route_table_node *node,
@@ -332,7 +338,7 @@ static int update_route_table(void __iomem *reg_base,
 	u32 value;
 	u32 index, router_lut;
 
-	if(!reg_base || !node){
+	if(!reg_base || !node || node->sta_lut_index < 6){
 		return -1;
 	}
 	router_lut = node->sta_lut_index -6;
@@ -342,32 +348,32 @@ static int update_route_table(void __iomem *reg_base,
 		CMN_FIFO_OFFSET(CMNFIFO_TYPE_RAM1, addr_offset);
 	}
 	else{
-		/*save to ram2 */ 
+		/*save to ram2 */
 		CMN_FIFO_OFFSET(CMNFIFO_TYPE_RAM2, addr_offset);
 	}
 
 	pw_info(" %s add %d ctx_id%d,lut%d,\
-		       	index %d router_lut %d ,sd: %x:%x:%x:%x:%x:%x da: %x:%x:%x:%x:%x:%x \n", 
+			index %d router_lut %d ,sd: %x:%x:%x:%x:%x:%x da: %x:%x:%x:%x:%x:%x \n",
 			 __func__, add,
 			node->ctx_id, node->sta_lut_index, index,router_lut,
 			node->sa[0], node->sa[1], node->sa[2],
 			node->sa[3], node->sa[4], node->sa[5],
 			node->da[0], node->da[1], node->da[2],
-			node->da[3], node->da[4], node->da[5]);	
+			node->da[3], node->da[4], node->da[5]);
 	if(add){
 		/*[31:0] : sa[0] ~  sa[3]*/
 		value = (u32)(node->sa[0] | node->sa[1] << 8 | node->sa[2] << 16 |  node->sa[3] <<24);
 		writel_relaxed(value, (void *)(reg_base +addr_offset + 16 *index));
-		/*[47:32]: sa[4]~sa[5]; [63:48]: da[0]~da[1]*/		
+		/*[47:32]: sa[4]~sa[5]; [63:48]: da[0]~da[1]*/
 		value =  (u32)(node->sa[4] | node->sa[5] << 8 | node->da[0] << 16 |  node->da[1] <<24);
-		writel_relaxed(value, (void *)(reg_base +addr_offset + 0x04 + 16 *index)); 
-		/*[95:64]: da[2] ~ da[5]*/		
+		writel_relaxed(value, (void *)(reg_base +addr_offset + 0x04 + 16 *index));
+		/*[95:64]: da[2] ~ da[5]*/
 		value =  (u32)(node->da[2] | node->da[3] << 8 | node->da[4] << 16 |  node->da[5] <<24);
-		writel_relaxed(value, (void *)(reg_base +addr_offset + 0x08 + 16 *index)); 		
+		writel_relaxed(value, (void *)(reg_base +addr_offset + 0x08 + 16 *index));
 		/*[105:96]: lut_index;[107:106]: ctxt_id;[107:106]: ctxt_id [119: 108]: reserved;[127:120]: Index */
 		value =  (node->sta_lut_index& 0x3FF) | ((node->ctx_id & 0x7) << 10)  | ((node->index & 0xFF) << 24);
-		writel_relaxed(value, (void *)(reg_base +addr_offset + 0x0C + 16 *index));	 		
-	}else{		
+		writel_relaxed(value, (void *)(reg_base +addr_offset + 0x0C + 16 *index));
+	}else{
 		writel_relaxed(0x0, (void *)(reg_base +addr_offset +  16 *index));
 		writel_relaxed(0x0, (void *)(reg_base +addr_offset + 0x04 + 16 *index));
 		writel_relaxed(0x0, (void *)(reg_base +addr_offset + 0x08 + 16 *index));
@@ -383,7 +389,7 @@ static u32 get_fifo_int_sts(enum pamwifi_cmn_fifo_index id,
 
 	if(!reg_base){
 		return 0;
-	}	
+	}
 	CMN_FIFO_OFFSET(id, addr_offset);
 	return readl_relaxed((void *)(reg_base +addr_offset + ROFF_GEN_CTL_EN));
 }
@@ -394,19 +400,19 @@ void fifo_register_dump(void __iomem *reg_base, enum pamwifi_cmn_fifo_index id){
 
 	if(!reg_base){
 		return;
-	}	
+	}
 
 	if(id == CMNFIFO_TYPE_RAM1 || id == CMNFIFO_TYPE_RAM2){
 		u32 ram1_offset, ram2_offset;
 		CMN_FIFO_OFFSET(CMNFIFO_TYPE_RAM1, ram1_offset);
 		CMN_FIFO_OFFSET(CMNFIFO_TYPE_RAM2, ram2_offset);
-		dump_pamwifiram_seachtable(reg_base +ram1_offset, 
+		dump_pamwifiram_seachtable(reg_base +ram1_offset,
 				reg_base +ram2_offset);
 	}else{
 		CMN_FIFO_OFFSET(id, addr_offset);
 		dump_commonfifo_register(reg_base+addr_offset);
-	}	
-#endif	
+	}
+#endif
 }
 
 //////////////////////////////////////////////////////////////////
@@ -447,7 +453,7 @@ static int stop(void __iomem *reg_base,enum pamwifi_start_type type )
 			value &= ~0x2;
 		if(type & PW_START_DL)
 			value &= ~0x4;
-	}	
+	}
 	writel_relaxed(value, (void *)(reg_base + ROFF_CFG_START));
 	return 0;
 }
@@ -456,8 +462,8 @@ static enum pamwifi_start_type get_pamwifi_status(void __iomem *reg_base)
 {
 	if(!reg_base){
 		return -1;
-	}	
-	return readl_relaxed((void *)(reg_base + ROFF_CFG_START)) &0x7;
+	}
+	return readl_relaxed((void *)(reg_base + ROFF_CFG_START));
 }
 static int pause(void __iomem *reg_base)
 {
@@ -598,7 +604,7 @@ static int set_dl_dstid(void __iomem *reg_base,
  *  set_buffer_watermark - set fifo watermark
  * 	@reg_base: base register
  *	@value: all types of watermark
- *   
+ *
  *	The value  follows:in cfg_buffer_watermark
  *	[31:28]	cfg_dl_ap_filled_buffer_watermark
  *	[27:24]	cfg_dl_ap_free_buffer_watermark
@@ -610,11 +616,11 @@ static int set_dl_dstid(void __iomem *reg_base,
  *	[11:8]	cfg_ul_ap_free_buffer_watermark
  *	[7:4]	cfg_ul_cp_filled_buffer_watermark
  *	[3:0]	cfg_ul_ap_filled_buffer_watermark
- * 
+ *
  *	The value  follows:in cfg_dl_filled_buffer_ctrl
  *	[7:4]	cfg_dl_cp_filled_buffer_watermark
  *	[3:0]	cfg_dl_cp_miss_buffer_watermark
- *	
+ *
  */
 static int set_buffer_watermark(void __iomem *reg_base,
 		struct pamwifi_buffer_watermark *value)
@@ -625,7 +631,7 @@ static int set_buffer_watermark(void __iomem *reg_base,
 		return -1;
 	}
 	/*set [7:4] :cfg_dl_cp_filled_buffer_watermark  [3:0]:cfg_dl_cp_miss_buffer_watermark*/
-	value_mask = BIT_DL_CP_MISS_WATERMARK(value->dl_cp_miss) 
+	value_mask = BIT_DL_CP_MISS_WATERMARK(value->dl_cp_miss)
 		|BIT_DL_CP_FILLED_WATERMARK(value->dl_cp_filled);
 	set_val =  readl_relaxed((void *)(reg_base + ROFF_DL_FILLED_BUFFER_CTRL)) &(~0xFF) ;
 	set_val |= value_mask;
@@ -651,7 +657,7 @@ static int set_ul_free_mem_offset(void __iomem *reg_base,
 	u32 set_val;
 	if(!reg_base){
 		return -1;
-	}	
+	}
 	/*set dl free low 32bits*/
 	writel_relaxed((u32)value,(void *)(reg_base + ROFF_UL_FREE_DDR_MAPPING_OFFSETL));
 	/*set high 8 bits: ddr_mapping_offset_h[31:24] ul_free_ddr_mapping_offset_h*/
@@ -666,7 +672,7 @@ static int set_ul_filled_mem_offset(void __iomem *reg_base,
 	u32 set_val;
 	if(!reg_base){
 		return -1;
-	}	
+	}
 	/*set dl filled low 32bits*/
 	writel_relaxed((u32)value,(void *)(reg_base + ROFF_UL_FILLED_DDR_MAPPING_OFFSETL));
 	/*set high 8 bits: ddr_mapping_offset_h[23:16] ul_fill_ddr_mapping_offset_h*/
@@ -681,7 +687,7 @@ static int set_dl_free_mem_offset(void __iomem *reg_base,
 	u32 set_val;
 	if(!reg_base){
 		return -1;
-	}	
+	}
 	/*set dl filled low 32bits*/
 	writel_relaxed((u32)value,(void *)(reg_base + ROFF_DL_FREE_DDR_MAPPING_OFFSETL));
 	/*set high 8 bits: ddr_mapping_offset_h[31:24] dl_filled_ddr_mapping_offset_h*/
@@ -696,7 +702,7 @@ static int set_dl_filled_mem_offset(void __iomem *reg_base,
 	u32 set_val;
 	if(!reg_base){
 		return -1;
-	}	
+	}
 	/*set dl filled low 32bits*/
 	writel_relaxed((u32)value,(void *)(reg_base + ROFF_DL_FILLED_DDR_MAPPING_OFFSETL));
 	/*set high 8 bits: ddr_mapping_offset_h[31:24] dl_filled_ddr_mapping_offset_h*/
@@ -712,13 +718,13 @@ static int set_msdu_base_addr(void __iomem *reg_base,
 
 	if(!reg_base){
 		return -1;
-	}	
+	}
 	/*set msdu address low 32bits*/
-	writel_relaxed((u32)value,(void *)(reg_base + ROFF_MSDU_ADDRL));   
+	writel_relaxed((u32)value,(void *)(reg_base + ROFF_MSDU_ADDRL));
 	/*set msdu address high 8 bits :rf_dl_cfg[31:24]: MSDU_Base_Addr_h*/
 	set_val =  readl_relaxed((void *)(reg_base + ROFF_RF_DL_CFG))& (~PW_MSDU_ADDRH_MASK);
 	set_val |= (u32)((value >>32)&0xFF) << 24;
-	writel_relaxed((u32)set_val,(void *)(reg_base + ROFF_RF_DL_CFG));   
+	writel_relaxed((u32)set_val,(void *)(reg_base + ROFF_RF_DL_CFG));
 	return 0;
 }
 
@@ -726,14 +732,14 @@ static int set_msdu_base_addr(void __iomem *reg_base,
  *  set_ul_node - set ul node
  * 	@reg_base: base register
  *	@node: node value
- *   
+ *
  *	The value  follows:in UL_node_info_config
  *	[31:26]	msdu_length
  *	[25:18]	offset_before_msdu
  *	[17:10]	ul_net_id
  *	[9:5]	ul_dst_id
  *	[4:0]	ul_src_id
- *	
+ *
  */
 static int set_ul_node(void __iomem *reg_base,
 		struct pamwifi_ul_node *node)
@@ -833,7 +839,7 @@ static int get_flow_count(void __iomem *reg_base,
 
 	if(!reg_base || !pkt_cnt){
 		return -1;
-	}	
+	}
 	/*[31:16]:rf_type1_pkt_num_cnt, [15:0]:rf_type2_pkt_num_cnt*/
 	value = readl_relaxed((void *)(reg_base + ROFF_RF_DL_FLOW_PKT_NUM_CNT1));
 	pkt_cnt->type1_cnt = (u16)((value >>16)&0xFFFF);
@@ -841,7 +847,7 @@ static int get_flow_count(void __iomem *reg_base,
 	/*[31:16]:rf_type3_pkt_num_cnt [15:0]:rf_type4_pkt_num_cnt*/
 	value = readl_relaxed((void *)(reg_base + ROFF_RF_DL_FLOW_PKT_NUM_CNT2));
 	pkt_cnt->type3_cnt = (u16)((value >>16)&0xFFFF);
-	pkt_cnt->type4_cnt = (u16)((value)&0xFFFF);		
+	pkt_cnt->type4_cnt = (u16)((value)&0xFFFF);
 	return 0;
 }
 static int set_interrup_direction(void __iomem *reg_base, u32 src,
@@ -889,7 +895,7 @@ static int clr_interrup_src(void __iomem *reg_base,
 	value |= (src);
 	writel_relaxed(value, (void *)(reg_base + ROFF_INT_CLR));
 	value &= ~src;;
-	writel_relaxed(value, (void *)(reg_base + ROFF_INT_CLR));	
+	writel_relaxed(value, (void *)(reg_base + ROFF_INT_CLR));
 	return 0;
 }
 static u32 get_interrup_status_src(void __iomem *reg_base){
@@ -907,7 +913,7 @@ static u32 get_interrup_raw_status_src(void __iomem *reg_base){
 		return -1;
 	}
 	/*pam_wifi_int_sts[29:16]*/
-	value = readl_relaxed((void *)(reg_base + ROFF_INT_STS));		
+	value = readl_relaxed((void *)(reg_base + ROFF_INT_STS));
 	return value >> 16;
 }
 static int set_ipi_ul1_base_addr(void __iomem *reg_base,
@@ -920,11 +926,11 @@ static int set_ipi_ul1_base_addr(void __iomem *reg_base,
 	}
 	value = (u32)(addr&0xFFFFFFFF);
 	writel_relaxed(value, (void *)(reg_base + ROFF_IPI_UL1_ADDRL));
-	/*ROFF_IPI_ADDRH: [[31:24]:ipi_ul1_base_addrh*/	
+	/*ROFF_IPI_ADDRH: [[31:24]:ipi_ul1_base_addrh*/
 	value = readl_relaxed((void *)(reg_base + ROFF_IPI_ADDRH))&(~0xFF000000);
 	high_value = (u32)(addr >> 32);
 	value |=  (high_value << 24)&0xFF000000;
-	writel_relaxed(value, (void *)(reg_base + ROFF_IPI_ADDRH));	
+	writel_relaxed(value, (void *)(reg_base + ROFF_IPI_ADDRH));
 	return 0;
 }
 static int set_ipi_ul2_base_addr(void __iomem *reg_base,
@@ -937,11 +943,11 @@ static int set_ipi_ul2_base_addr(void __iomem *reg_base,
 	}
 	value = (u32)(addr&0xFFFFFFFF);
 	writel_relaxed(value, (void *)(reg_base + ROFF_IPI_UL2_ADDRL));
-	/*ROFF_IPI_ADDRH: [23:16]:ipi_ul2_base_addrh*/	
+	/*ROFF_IPI_ADDRH: [23:16]:ipi_ul2_base_addrh*/
 	value = readl_relaxed((void *)(reg_base + ROFF_IPI_ADDRH))&(~0x00FF0000);
 	high_value = (u32)(addr >> 32);
 	value |=  (high_value << 16)&0x00FF0000;
-	writel_relaxed(value, (void *)(reg_base + ROFF_IPI_ADDRH));	
+	writel_relaxed(value, (void *)(reg_base + ROFF_IPI_ADDRH));
 	return 0;
 }
 static int set_ipi_dl1_base_addr(void __iomem *reg_base,
@@ -954,11 +960,11 @@ static int set_ipi_dl1_base_addr(void __iomem *reg_base,
 	}
 	value = (u32)(addr&0xFFFFFFFF);
 	writel_relaxed(value, (void *)(reg_base + ROFF_IPI_DL1_ADDRL));
-	/*ROFF_IPI_ADDRH: [15:8]:ipi_dl1_base_addrh*/	
+	/*ROFF_IPI_ADDRH: [15:8]:ipi_dl1_base_addrh*/
 	value = readl_relaxed((void *)(reg_base + ROFF_IPI_ADDRH))& (~0x0000FF00);
 	high_value = (u32)(addr >> 32);
-	value |=  (high_value << 8)&0x0000FF00; 
-	writel_relaxed(value, (void *)(reg_base + ROFF_IPI_ADDRH));	
+	value |=  (high_value << 8)&0x0000FF00;
+	writel_relaxed(value, (void *)(reg_base + ROFF_IPI_ADDRH));
 	return 0;
 }
 static int set_ipi_dl2_base_addr(void __iomem *reg_base,
@@ -971,7 +977,7 @@ static int set_ipi_dl2_base_addr(void __iomem *reg_base,
 	}
 	value = (u32)(addr&0xFFFFFFFF);
 	writel_relaxed(value, (void *)(reg_base + ROFF_IPI_DL2_ADDRL));
-	/*ROFF_IPI_ADDRH: [15:8]:ipi_dl1_base_addrh*/	
+	/*ROFF_IPI_ADDRH: [15:8]:ipi_dl1_base_addrh*/
 	value = readl_relaxed((void *)(reg_base + ROFF_IPI_ADDRH))&(~0x000000FF);
 	high_value = (u32)(addr >> 32);
 	value |=  (high_value)&0x000000FF;
@@ -1043,7 +1049,7 @@ static int set_router_table_depth(void __iomem *reg_base,
 	/*[6:0]	index_search_depth*/
 	value = readl_relaxed((void *)(reg_base + ROFF_INDEX_SEARCH_DEPTH))&~0x7F;
 	value |= depth;
-	writel_relaxed(value, (void *)(reg_base + ROFF_INDEX_SEARCH_DEPTH));	
+	writel_relaxed(value, (void *)(reg_base + ROFF_INDEX_SEARCH_DEPTH));
 	return 0;
 }
 
@@ -1056,7 +1062,7 @@ static int set_4in1_threshold(void __iomem *reg_base,
 		return -1;
 	}
 	set_val = (u32) (value) | (u32) (value) << 8 | (u32) (value) << 16 | (u32) (value) <<24;
-	writel_relaxed(set_val, (void *)(reg_base + ROFF_RF_DL_FLOW_THRESHOLD));	
+	writel_relaxed(set_val, (void *)(reg_base + ROFF_RF_DL_FLOW_THRESHOLD));
 	return 0;
 }
 
@@ -1070,7 +1076,7 @@ static bool wait_route_table_done(void __iomem *reg_base)
 		return false;
 	}
 	do{
-		value = readl_relaxed((void *)(reg_base + ROFF_CFG_START)) 
+		value = readl_relaxed((void *)(reg_base + ROFF_CFG_START))
 			& BIT_TABLE_RD_STOPED;
 
 	}while(value != BIT_TABLE_RD_STOPED && timeout--);
@@ -1089,7 +1095,7 @@ static bool lock_router_table(void __iomem *reg_base)
 	}
 	value = readl_relaxed((void *)(reg_base + ROFF_CFG_START));
 	value |= BIT_SOFT_TABLE_UPDATE_REQ;
-	writel_relaxed(value, (void *)(reg_base + ROFF_CFG_START));	
+	writel_relaxed(value, (void *)(reg_base + ROFF_CFG_START));
 	return wait_route_table_done(reg_base);
 }
 static int unlock_router_table(void __iomem *reg_base)
@@ -1100,7 +1106,7 @@ static int unlock_router_table(void __iomem *reg_base)
 		return -1;
 	}
 	value = readl_relaxed((void *)(reg_base + ROFF_CFG_START)) & ~BIT_SOFT_TABLE_UPDATE_REQ;
-	writel_relaxed(value, (void *)(reg_base + ROFF_CFG_START));	
+	writel_relaxed(value, (void *)(reg_base + ROFF_CFG_START));
 	return 0;
 }
 
@@ -1154,7 +1160,7 @@ struct pawwifi_glb_phy_ops g_pamwifi_r2p0_glb_ops = {
 	.update_soft_table =update_soft_table,
 	.set_rf_timescale = set_rf_timescale,
 	.set_ipi_mode=set_ipi_mode,
-	.set_ac_ax_mode=set_ac_ax_mode,	
+	.set_ac_ax_mode=set_ac_ax_mode,
 	.set_4in1_mode=set_4in1_mode,
 	.set_4in1_threshold = set_4in1_threshold,
 	.set_overflow_mode= set_overflow_mode,
@@ -1162,11 +1168,11 @@ struct pawwifi_glb_phy_ops g_pamwifi_r2p0_glb_ops = {
 	.get_flow_count=get_flow_count,
 	.set_interrup_direction =set_interrup_direction,
 	.enable_interrup_src= enable_interrup_src,
-	.clr_interrup_src= clr_interrup_src,	
+	.clr_interrup_src= clr_interrup_src,
 	.get_interrup_status_src= get_interrup_status_src,
 	.get_interrup_raw_status_src= get_interrup_raw_status_src,
 	.set_ipi_ul1_base_addr= set_ipi_ul1_base_addr,
-	.set_ipi_ul2_base_addr= set_ipi_ul2_base_addr,	             
+	.set_ipi_ul2_base_addr= set_ipi_ul2_base_addr,
 	.set_ipi_dl1_base_addr=set_ipi_dl1_base_addr,
 	.set_ipi_dl2_base_addr= set_ipi_dl2_base_addr,
 	.set_ipi_ul1_base_wdata=set_ipi_ul1_base_wdata,
@@ -1175,7 +1181,7 @@ struct pawwifi_glb_phy_ops g_pamwifi_r2p0_glb_ops = {
 	.set_ipi_dl2_base_wdata=  set_ipi_dl2_base_wdata,
 	.set_router_table_depth = set_router_table_depth,
 	.lock_router_table = lock_router_table,
-	.unlock_router_table = unlock_router_table,	
+	.unlock_router_table = unlock_router_table,
 	.register_dump = pamwifi_register_dump,
 };
 

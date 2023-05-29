@@ -38,9 +38,7 @@
 #define SPRD_PCIE_TX_MOVE_BUF			22
 #define SPRD_PCIE_TX_FREE_BUF			23
 #define SPRD_WORK_FRESH_BO			24
-#ifdef ENABLE_PAM_WIFI
 #define SPRD_WORK_UL_RES_STS_CMD                25
-#endif
 #define SPRD_WORK_ADAPTIVE			26
 
 struct sprd_work {

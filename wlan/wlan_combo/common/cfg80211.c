@@ -1461,13 +1461,13 @@ int sprd_init_fw(struct sprd_vif *vif)
 	else
 		mac = vif->ndev->dev_addr;
 #ifdef ENABLE_PAM_WIFI
-	if (vif->mode == SPRD_MODE_AP) {
+	if (vif->mode == SPRD_MODE_AP && sprd_pamwifi_supported(priv->hif.pdev)) {
 		/*init pamwifi*/
-		ret = sprdwl_pamwifi_init(priv->hif.pdev, priv);
+		ret = sprd_pamwifi_init(priv->hif.pdev, priv);
 		/*software conf enable*/
 		if (!ret) {
-			sprdwl_pamwifi_enable(vif);
-		} else {
+			sprd_pamwifi_enable(vif);
+		} else if(ret != PAMWIFI_DISABLED) {
 			pr_err("softap open fail, because pamwifi init fail\n");
 			return ret;
 		}
@@ -1533,13 +1533,12 @@ int sprd_uninit_fw(struct sprd_vif *vif)
 	if (hif->hw_type == SPRD_HW_SC2355_PCIE ||
 		hif->hw_type == SPRD_HW_SC2355_SIPC)
 		sc2355_handle_tx_status_after_close(vif);
-
 #ifdef ENABLE_PAM_WIFI
-	if (vif->mode == SPRD_MODE_AP) {
+	if (vif->mode == SPRD_MODE_AP && sprd_pamwifi_supported(hif->pdev)) {
 		/*software conf disable*/
-		sprdwl_pamwifi_disable(vif);
+		sprd_pamwifi_disable(vif);
 		/*uninit pamwifi*/
-		sprdwl_pamwifi_uninit(hif->pdev);
+		sprd_pamwifi_uninit(hif->pdev);
 	}
 #endif
 	netdev_info(vif->ndev, "%s type %d, mode %d\n", __func__,

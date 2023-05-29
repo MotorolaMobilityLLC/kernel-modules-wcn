@@ -14,7 +14,7 @@ ifeq ($(BSP_BUILD_VARIANT),userdebug)
 ccflags-y += -DCONFIG_SPRD_WLAN_DEBUG
 endif
 
-ifeq ($(BSP_PAMWIFI_SUPPORT),sprd)
+ifeq ($(BSP_MODULE_ION_VERSION),ums9620)
 CONFIG_SPRD_PAMWIFI := y
 endif
 

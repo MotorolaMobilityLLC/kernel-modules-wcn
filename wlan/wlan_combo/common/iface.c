@@ -662,10 +662,14 @@ static netdev_tx_t iface_start_xmit(struct sk_buff *skb, struct net_device *ndev
 		dev_kfree_skb(skb);
 		return NETDEV_TX_OK;
 	}
+	/*to improve tx throughput at start */
+	if(skb->sk)
+		sk_pacing_shift_update(skb->sk, 7);
 #ifdef ENABLE_PAM_WIFI
-	if (vif->mode == SPRD_MODE_AP) {
-		ret = sprdwl_pamwifi_xmit_to_ipa(skb, ndev);
-		return ret;
+	if (vif->mode == SPRD_MODE_AP && sprd_pamwifi_supported(hif->pdev)) {
+		ret = sprd_pamwifi_xmit_to_ipa(skb, ndev);
+		if(ret != PAMWIFI_DISABLED)
+			return ret;
 	}
 #endif
 	msg = sprd_chip_get_msg(&vif->priv->chip, SPRD_TYPE_DATA, vif->mode);
