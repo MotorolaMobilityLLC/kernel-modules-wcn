@@ -29,20 +29,6 @@
 #include <net/if_inet6.h>
 #include <uapi/linux/sched/types.h>
 
-#ifdef ENABLE_CHR
-#include <linux/delay.h>
-#include <linux/err.h>
-#include <linux/inet.h>
-#include <linux/kernel.h>
-#include <linux/kthread.h>
-#include <linux/net.h>
-#include <linux/sched.h>
-#include <net/net_namespace.h>
-#include <net/sock.h>
-#include <uapi/asm-generic/errno.h>
-#include <uapi/linux/in.h>
-#endif
-
 #include "cfg80211.h"
 #include "cmd.h"
 #include "debug.h"
@@ -52,6 +38,9 @@
 #include "vendor.h"
 #include "npi.h"
 #include "apf.h"
+#ifdef ENABLE_CHR
+#include "chr.h"
+#endif
 
 #define SPRD_DRIVER_VERSION		"v1.0"
 

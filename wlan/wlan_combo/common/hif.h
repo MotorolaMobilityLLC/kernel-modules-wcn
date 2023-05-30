@@ -23,19 +23,6 @@
 #define SPRD_PS_SUSPENDED	2
 #define SPRD_PS_RESUMING	3
 #define SPRD_PS_RESUMED		0
-#ifdef ENABLE_CHR
-#define CHR_ARR_SIZE		64
-
-/* The val corresponds to the format of CMD sent by upper*/
-struct chr_cmd {
-	u8 evt_type[18];
-	u8 module[12];
-	u32 evt_id;
-	u32 set;
-	u32 maxcount;
-	u32 timerlimit;
-};
-#endif
 
 enum sprd_hif_type {
 	SPRD_HW_SC2332_SDIO,
@@ -116,53 +103,17 @@ struct sprd_peer_entry {
 #endif
 #ifdef ENABLE_PAM_WIFI
 	struct sprd_vif *vif;
-#endif	
-};
-
-#ifdef ENABLE_CHR
-/* The struct records the refcnt of each chr_evt */
-struct chr_refcnt_arr {
-	u16 open_err_cnt[CHR_ARR_SIZE];
-	u16 disc_linkloss_cnt[CHR_ARR_SIZE];
-	u16 disc_systerr_cnt[CHR_ARR_SIZE];
-};
-
-struct sprd_chr {
-	/* 0 means haven't received any messages,
-	* 1 is have received messages about open chr_evt,
-	* 2 is have received messages about close all chr_evt
-	*/
-	u8 sock_flag;
-	u8 thread_exit;
-	const struct sprd_chr_ops *ops;
-	struct sprd_priv *priv;
-
-	struct task_struct *chr_client_thread;
-	/* this struct saves all chr_evt's refcnt*/
-	struct chr_refcnt_arr *chr_refcnt;
-	struct socket *chr_sock;
-
-	/* this val only stores the chr_buf for CP2*/
-	struct chr_cmd fw_cmd_list[CHR_ARR_SIZE];
-	u32 fw_len;
-	/* this val only stores the chr_buf for drv */
-	struct chr_cmd drv_cmd_list[CHR_ARR_SIZE];
-	u32 drv_len;
-};
-
-struct sprd_chr_ops {
-	int (*init_chr)(struct sprd_chr *chr);
-	void (*deinit_chr)(struct sprd_chr *chr);
-	int (*chr_sock_sendmsg)(struct sprd_chr *chr, u8 *data);
-	void (*chr_report_openerr)(struct sprd_chr *chr, u32 evt_id, u8 err_code);
-};
 #endif
+};
 
 struct sprd_hif {
 	struct platform_device *pdev;
 	const struct sprd_hif_ops *ops;
 	struct sprd_priv *priv;
 	netdev_features_t feature;
+#ifdef ENABLE_CHR
+	struct sprd_chr *chr;
+#endif
 
 	int exit;
 	atomic_t power_cnt;
@@ -275,7 +226,7 @@ struct sprd_hif_ops {
 	void (*post_deinit)(struct sprd_hif *hif);
 	int (*reserv_len)(struct sprd_hif *hif);
 	int (*sync_version)(struct sprd_priv *priv);
-	int (*download_hw_param)(struct sprd_priv *priv);
+	void (*download_hw_param)(struct sprd_priv *priv);
 	void (*fill_all_buffer)(struct sprd_hif *hif);
 	int (*tx_special_data)(struct sk_buff *skb,
 			       struct net_device *ndev);
@@ -320,17 +271,14 @@ static inline int sprd_sync_version(struct sprd_hif *hif)
 	return 0;
 }
 
-static inline int sprd_download_hw_param(struct sprd_hif *hif)
+static inline void sprd_download_hw_param(struct sprd_hif *hif)
 {
 	if (hif->ops->download_hw_param)
-		return hif->ops->download_hw_param(hif->priv);
-
-	return 0;
+		hif->ops->download_hw_param(hif->priv);
 }
 
 static inline int sprd_hif_power_on(struct sprd_hif *hif)
 {
-	int ret;
 	atomic_add(1, &hif->power_cnt);
 
 	if (atomic_read(&hif->power_cnt) != 1)
@@ -358,13 +306,7 @@ static inline int sprd_hif_power_on(struct sprd_hif *hif)
 		return -EIO;
 	}
 
-	ret = sprd_download_hw_param(hif);
-	if (ret) {
-		pr_err("download_hw_param err %d.\n", ret);
-#ifdef ENABLE_CHR
-		return ret;
-#endif
-	}
+	sprd_download_hw_param(hif);
 
 	return 0;
 }
@@ -427,34 +369,5 @@ static inline void sprd_hif_tx_flush(struct sprd_hif *hif, struct sprd_vif *vif)
 	if (hif->ops->tx_flush)
 		hif->ops->tx_flush(hif, vif);
 }
-
-#ifdef ENABLE_CHR
-static inline int sprd_init_chr(struct sprd_chr *chr)
-{
-	if (chr->ops->init_chr)
-		return chr->ops->init_chr(chr);
-	return -1;
-}
-
-static inline void sprd_deinit_chr(struct sprd_chr *chr)
-{
-	if (chr->ops->deinit_chr)
-		chr->ops->deinit_chr(chr);
-}
-
-static inline int sprd_chr_sock_sendmsg(struct sprd_chr *chr, u8 *data)
-{
-	if (chr->ops->chr_sock_sendmsg)
-		return chr->ops->chr_sock_sendmsg(chr, data);
-	return -1;
-}
-
-static inline void sprd_report_chr_open_error(struct sprd_chr *chr, u32 evt_id,
-					      u8 err_code)
-{
-	if (chr->ops->chr_report_openerr)
-		chr->ops->chr_report_openerr(chr, evt_id, err_code);
-}
-#endif
 
 #endif

@@ -16,12 +16,6 @@
 #define MAX_AP_CACHE_PER_SCAN		32
 #define OUI_SPREAD			0x001374
 
-#ifdef ENABLE_CHR
-#define CHR_VERSION			1
-#define CHR_BUF_SIZE			1024
-#define CHR_CP2_DATA_LEN		11
-#endif
-
 enum {
 	/* Memory dump of FW */
 	WIFI_LOGGER_MEMORY_DUMP_SUPPORTED = (1 << (0)),
@@ -1628,28 +1622,5 @@ struct sprd_gscan_cached_results {
 	int num_results;
 	struct gscan_result results[MAX_AP_CACHE_PER_SCAN];
 };
-
-#ifdef ENABLE_CHR
-/* The following is about CHR */
-enum REPORT_CHR_LIST {
-	EVT_CHR_WIFI_MIN = 0x11501,
-
-	/* Error From Driver */
-	EVT_CHR_DRV_MIN = EVT_CHR_WIFI_MIN,
-
-	EVT_CHR_OPEN_ERR = EVT_CHR_DRV_MIN,
-
-	EVT_CHR_DRV_MAX = 0X13000,
-	/* Wi-Fi Disconnect */
-	EVT_CHR_FW_MIN = 0X13001,
-
-	EVT_CHR_DISC_LINK_LOSS = EVT_CHR_FW_MIN,
-	EVT_CHR_DISC_SYS_ERR,
-
-	EVT_CHR_FW_MAX = 0X15000,
-
-	REPORT_CHR_WIFI_MAX = 0X15000
-};
-#endif
 
 #endif
