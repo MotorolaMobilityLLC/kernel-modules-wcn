@@ -104,9 +104,13 @@ static int parse_event(char *buf, int len)
 		tmp2 += strlen("set=");
 
 		tmp = strchr(tmp2, ',');
+		if (!tmp)
+			return -EINVAL;
 		*tmp = '\0';
 
 		tmp = strchr(tmp1, ',');
+		if (!tmp)
+			return -EINVAL;
 		*tmp = '\0';
 
 		ret = kstrtol(tmp1, 16, &event_id);
@@ -177,6 +181,10 @@ retry:
 	while (atomic_read(&wcn_chr_enable)) {
 		memset(recv_buf, 0, sizeof(recv_buf));
 		ret = kernel_recvmsg(cl_sock, &recv_msg, &recv_vec, 1, BUF_SIZE, 0);
+		if (ret < 0) {
+			WCN_ERR("kernel_recvmsg failed with %d\n", ret);
+			continue;
+		}
 		WCN_INFO("%s\n", recv_buf);
 		parse_event(recv_buf, strlen(recv_buf));
 	}
