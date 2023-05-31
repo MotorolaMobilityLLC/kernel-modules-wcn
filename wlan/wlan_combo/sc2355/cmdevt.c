@@ -1422,7 +1422,7 @@ void sc2355_download_hw_param(struct sprd_priv *priv)
 	pr_info("download the first section of config file\n");
 	ret = cmdevt_download_ini(priv, (u8 *)sec1, sizeof(*sec1), SEC1);
 	if (ret) {
-		pr_err("download the first section of ini fail,return\n");
+		pr_err("download the first section of ini fail,ret=%d\n", ret);
 		kfree(wifi_data);
 #ifdef ENABLE_CHR
 		CHR_OPENERR_FLAGSET(&hif->chr->open_err_flag, OPEN_ERR_DOWNLOAD_INI);
@@ -1435,7 +1435,7 @@ void sc2355_download_hw_param(struct sprd_priv *priv)
 	pr_info("download the second section of config file\n");
 	ret = cmdevt_download_ini(priv, (u8 *)sec2, sizeof(*sec2), SEC2);
 	if (ret) {
-		pr_err("download the second section of ini fail,return\n");
+		pr_err("download the second section of ini fail,ret=%d\n", ret);
 		kfree(wifi_data);
 #ifdef ENABLE_CHR
 		CHR_OPENERR_FLAGSET(&hif->chr->open_err_flag, OPEN_ERR_DOWNLOAD_INI);
@@ -1452,7 +1452,7 @@ void sc2355_download_hw_param(struct sprd_priv *priv)
 					  wifi_data->rf_config.rf_data_len, SEC3);
 		if (ret) {
 			pr_err
-			    ("download the third section of ini fail,return\n");
+			    ("download the third section of ini fail,ret=%d\n", ret);
 			kfree(wifi_data);
 #ifdef ENABLE_CHR
 			CHR_OPENERR_FLAGSET(&hif->chr->open_err_flag, OPEN_ERR_DOWNLOAD_INI);
@@ -1470,7 +1470,7 @@ void sc2355_download_hw_param(struct sprd_priv *priv)
 		wifi_param->roaming_param.band_5g_prefer);
 	ret = cmdevt_download_ini(priv, (u8 *)wifi_param, sizeof(*wifi_param), SEC4);
 	if (ret) {
-		pr_err("download the 4th section of ini fail,return\n");
+		pr_err("download the 4th section of ini fail,ret=%d\n", ret);
 		kfree(wifi_data);
 #ifdef ENABLE_CHR
 		CHR_OPENERR_FLAGSET(&hif->chr->open_err_flag, OPEN_ERR_DOWNLOAD_INI);

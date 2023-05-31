@@ -243,20 +243,26 @@ static int hw_param_nvm_set_cmd(struct nvm_name_table *ptable,
 				struct nvm_cali_cmd *cmd, void *p_data)
 {
 	int i;
-	unsigned char *p;
+	unsigned char *p = NULL;
+	unsigned char val_str[512] = { 0 };
+	unsigned char *ptr = val_str;
+	unsigned int val_size = 512;
+	unsigned int j = 0;
 
 	if (ptable->type != 1 && ptable->type != 2 && ptable->type != 4)
 		return -1;
 
 	p = (unsigned char *)(p_data) + ptable->mem_offset;
 
-	pr_info("[g_table]%s, offset:%u, num:%u, value:"
-		"%d %d %d %d %d %d %d %d %d %d\n",
-		ptable->itm, ptable->mem_offset, cmd->num,
-		cmd->par[0], cmd->par[1], cmd->par[2],
-		cmd->par[3], cmd->par[4], cmd->par[5],
-		cmd->par[6], cmd->par[7], cmd->par[8],
-		cmd->par[9]);
+	while (j < cmd->num) {
+		snprintf(ptr, val_size, "%d ", cmd->par[j]);
+		val_size -= strlen(ptr);
+		ptr += strlen(ptr);
+		j++;
+	}
+
+	pr_info("[g_table]%s, offset:%u, num:%u value:%s",
+		ptable->itm, ptable->mem_offset, cmd->num, val_str);
 
 	for (i = 0; i < cmd->num; i++) {
 		if (ptable->type == 1)
@@ -279,6 +285,9 @@ static void hw_param_nvm_get_cmd_par(char *str, struct nvm_cali_cmd *cmd)
 	int i, j, buftype, ctype, flag;
 	unsigned int m_cmd_num = ARRAY_SIZE(cmd->par);
 	char tmp[64];
+	char sec_name[128] = { 0 };
+	char *p = sec_name;
+	unsigned int sec_size = sizeof(sec_name);
 	char c;
 	long val;
 
@@ -311,8 +320,12 @@ static void hw_param_nvm_get_cmd_par(char *str, struct nvm_cali_cmd *cmd)
 				strcpy(cmd->itm, tmp);
 				flag = 1;
 			} else {
-				if (kstrtol(tmp, 0, &val))
-					pr_info(" %s ", tmp);
+				if (kstrtol(tmp, 0, &val)) {
+					snprintf(p, sec_size, "%s ", tmp);
+					sec_size -= strlen(p);
+					p += strlen(p);
+				}
+
 				/* pr_err("kstrtol %s: error\n", tmp); */
 				if (cmd->num >= m_cmd_num) {
 					pr_err("cmd_num(%d) exceed max_num(%d)", cmd->num + 1, m_cmd_num);
@@ -326,8 +339,12 @@ static void hw_param_nvm_get_cmd_par(char *str, struct nvm_cali_cmd *cmd)
 		}
 		if (!ctype)
 			continue;
-		if (ctype == 4)
+		if (ctype == 4) {
+			if (p != sec_name)
+				pr_info("[%s %d: %s]", cmd->itm, cmd->par[0], sec_name);
+
 			return;
+		}
 	}
 	tmp[j - 1] = '\0';
 	pr_err("too long str : %s..., max strlen is %d\n", tmp, sizeof(tmp) - 1);
@@ -355,8 +372,8 @@ static struct nvm_name_table *hw_param_nvm_cf_table_match(struct nvm_cali_cmd *c
 static int hw_param_nvm_buf_operate(char *pbuf, int file_len, void *p_data)
 {
 	int i, p;
-	struct nvm_cali_cmd *cmd;
-	struct wifi_conf_t *conf;
+	struct nvm_cali_cmd *cmd = NULL;
+	struct wifi_conf_t *conf = NULL;
 	struct nvm_name_table *ptable = NULL;
 
 	if (!pbuf || !file_len)
@@ -401,7 +418,7 @@ static int hw_param_nvm_parse(struct sprd_priv *priv, const char *path, void *p_
 	char *buffer = NULL;
 	int ret = 0, i;
 
-	pr_info("%s()...\n", __func__);
+	pr_info("%s enter\n", __func__);
 	ret = request_firmware(&fw, path, wiphy_dev(priv->wiphy));
 	if (ret) {
 		pr_err("first open file %s error\n", path);
@@ -431,7 +448,7 @@ static int hw_param_nvm_parse(struct sprd_priv *priv, const char *path, void *p_
 	if (!buffer) {
 		pr_err("%s no memory\n", __func__);
 		release_firmware(fw);
-		return -1;
+		return -ENOMEM;
 	}
 
 	memcpy(buffer, fw->data, fw->size);

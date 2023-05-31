@@ -88,7 +88,6 @@ struct sprd_wlan_adap_param {
 	int special_data_flag;
 	char wifi_adaptive_flag;
 	spinlock_t adap_lock;
-
 };
 
 void sprd_init_npi(void);
