@@ -706,6 +706,58 @@ static void iface_tx_timeout(struct net_device *ndev)
 	netif_wake_queue(ndev);
 }
 
+static int iface_set_blacklist(struct net_device *ndev, char *command,
+			       struct android_wifi_priv_cmd priv_cmd,
+			       u8 sub_type, int skip)
+{
+	struct sprd_vif *vif = netdev_priv(ndev);
+	struct sprd_priv *priv = vif->priv;
+	u8 addr[ETH_ALEN] = { 0 };
+	int ret = 0;
+
+	if (priv_cmd.total_len < skip + MAC_ADDR_STR_LEN)
+		return ret;
+
+	iface_str2mac(command + skip, addr);
+	if (!is_valid_ether_addr(addr))
+		return ret;
+
+	if (sub_type == SUBCMD_ADD)
+		netdev_info(ndev, "%s: block %pM\n", __func__, addr);
+	else if (sub_type == SUBCMD_DEL)
+		netdev_info(ndev, "%s: unblock %pM\n", __func__, addr);
+
+	ret = sprd_set_blacklist(priv, vif, sub_type, 1, addr);
+
+	return ret;
+}
+
+static int iface_set_whitelist(struct net_device *ndev, char *command,
+			       struct android_wifi_priv_cmd priv_cmd,
+			       u8 sub_type, int skip)
+{
+	struct sprd_vif *vif = netdev_priv(ndev);
+	struct sprd_priv *priv = vif->priv;
+	u8 addr[ETH_ALEN] = { 0 };
+	int ret = 0;
+
+	if (priv_cmd.total_len < skip + MAC_ADDR_STR_LEN)
+		return ret;
+
+	iface_str2mac(command + skip, addr);
+	if (!is_valid_ether_addr(addr))
+		return ret;
+
+	if (sub_type == SUBCMD_ADD)
+		netdev_info(ndev, "%s: add whitelist %pM\n", __func__, addr);
+	else if (sub_type == SUBCMD_DEL)
+		netdev_info(ndev, "%s: delete whitelist %pM\n", __func__, addr);
+
+	ret = sprd_set_whitelist(priv, vif, sub_type, 1, addr);
+
+	return ret;
+}
+
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
 static int iface_priv_cmd(struct net_device *ndev, void __user *data)
 #else
@@ -719,9 +771,8 @@ static int iface_priv_cmd(struct net_device *ndev, struct ifreq *ifr)
 	char *command = NULL, *country = NULL;
 	u16 interval = 0;
 	u8 feat = 0, status = 0;
-	u8 addr[ETH_ALEN] = { 0 }, *mac_addr = NULL, *tmp, *mac_list;
+	u8 *mac_addr = NULL, *tmp, *mac_list;
 	int ret = 0, skip, counter, index;
-	#define MAC_ADDR_STR_LEN strlen("00:11:22:33:44:55")
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
 	if (!data)
@@ -753,37 +804,19 @@ static int iface_priv_cmd(struct net_device *ndev, struct ifreq *ifr)
 	if (!strncasecmp(command, CMD_BLACKLIST_ENABLE,
 			 strlen(CMD_BLACKLIST_ENABLE))) {
 		skip = strlen(CMD_BLACKLIST_ENABLE) + 1;
-		if (priv_cmd.total_len < skip + MAC_ADDR_STR_LEN)
-			goto out;
-		iface_str2mac(command + skip, addr);
-		if (!is_valid_ether_addr(addr))
-			goto out;
-		netdev_info(ndev, "%s: block %pM\n", __func__, addr);
-		ret = sprd_set_blacklist(priv, vif, SUBCMD_ADD, 1, addr);
+		ret = iface_set_blacklist(ndev, command, priv_cmd, SUBCMD_ADD, skip);
 	} else if (!strncasecmp(command, CMD_BLACKLIST_DISABLE,
 				strlen(CMD_BLACKLIST_DISABLE))) {
 		skip = strlen(CMD_BLACKLIST_DISABLE) + 1;
-		iface_str2mac(command + skip, addr);
-		if (!is_valid_ether_addr(addr))
-			goto out;
-		netdev_info(ndev, "%s: unblock %pM\n", __func__, addr);
-		ret = sprd_set_blacklist(priv, vif, SUBCMD_DEL, 1, addr);
+		ret = iface_set_blacklist(ndev, command, priv_cmd, SUBCMD_DEL, skip);
 	} else if (!strncasecmp(command, CMD_ADD_WHITELIST,
 				strlen(CMD_ADD_WHITELIST))) {
 		skip = strlen(CMD_ADD_WHITELIST) + 1;
-		iface_str2mac(command + skip, addr);
-		if (!is_valid_ether_addr(addr))
-			goto out;
-		netdev_info(ndev, "%s: add whitelist %pM\n", __func__, addr);
-		ret = sprd_set_whitelist(priv, vif, SUBCMD_ADD, 1, addr);
+		ret = iface_set_whitelist(ndev, command, priv_cmd, SUBCMD_ADD, skip);
 	} else if (!strncasecmp(command, CMD_DEL_WHITELIST,
 				strlen(CMD_DEL_WHITELIST))) {
 		skip = strlen(CMD_DEL_WHITELIST) + 1;
-		iface_str2mac(command + skip, addr);
-		if (!is_valid_ether_addr(addr))
-			goto out;
-		netdev_info(ndev, "%s: delete whitelist %pM\n", __func__, addr);
-		ret = sprd_set_whitelist(priv, vif, SUBCMD_DEL, 1, addr);
+		ret = iface_set_whitelist(ndev, command, priv_cmd, SUBCMD_DEL, skip);
 	} else if (!strncasecmp(command, CMD_ENABLE_WHITELIST,
 				strlen(CMD_ENABLE_WHITELIST))) {
 		skip = strlen(CMD_ENABLE_WHITELIST) + 1;

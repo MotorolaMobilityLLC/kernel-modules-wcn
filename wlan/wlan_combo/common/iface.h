@@ -48,6 +48,7 @@
 #define CMD_BT_COEX_MODE		"BTCOEXMODE"
 #define CMD_BT_COEX_SCAN		"BTCOEXSCAN"
 
+#define MAC_ADDR_STR_LEN		strlen("00:11:22:33:44:55")
 
 struct sprd_priv;
 struct sprd_hif_ops;
