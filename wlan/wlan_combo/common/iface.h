@@ -50,10 +50,27 @@
 
 #define MAC_ADDR_STR_LEN		strlen("00:11:22:33:44:55")
 
+#define IPV4_DHCP(ethhdr, udphdr)				\
+	((ethhdr->h_proto == htons(ETH_P_IP)) &&		\
+	 ((udphdr->source == htons(DHCP_SERVER_PORT)) ||	\
+	  (udphdr->source == htons(DHCP_CLIENT_PORT))))
+
+#define IPV6_DHCP(ethhdr, udphdr)				\
+	((ethhdr->h_proto == htons(ETH_P_IPV6)) &&		\
+	 ((udphdr->source == htons(DHCP_SERVER_PORT_IPV6)) ||	\
+	  (udphdr->source == htons(DHCP_CLIENT_PORT_IPV6))))
+
+#define IP_DNS(ethhdr, udphdr)					\
+	(((ethhdr->h_proto == htons(ETH_P_IP)) ||		\
+	  (ethhdr->h_proto == htons(ETH_P_IPV6))) &&		\
+	 ((udphdr->source == htons(DNS_SERVER_PORT)) ||		\
+	  (udphdr->dest == htons(DNS_SERVER_PORT))))
+
 struct sprd_priv;
 struct sprd_hif_ops;
 struct sprd_chip_ops;
 struct sprd_hif;
+extern const char *dhcp_str_info[];
 
 struct sprd_vif {
 	struct net_device *ndev;	/* Linux net device */
@@ -124,5 +141,6 @@ int sprd_iface_remove(struct platform_device *pdev);
 
 int sprd_iface_set_power(struct sprd_hif *hif, int val);
 void sprd_filter_data_debug(struct sk_buff *skb, struct net_device *ndev, const char *direct);
+struct udphdr *sprd_get_udphdr(struct sk_buff *skb, unsigned char *iphdrlen);
 
 #endif

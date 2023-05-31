@@ -2825,7 +2825,7 @@ int sprd_send_data2cmd(struct sprd_priv *priv, struct sprd_vif *vif, void *data,
 	return send_cmd_recv_rsp(priv, msg, NULL, NULL);
 }
 
-int sprd_xmit_data2cmd_wq(struct sk_buff *skb, struct net_device *ndev)
+int sc2355_xmit_data2cmd_wq(struct sk_buff *skb, struct net_device *ndev)
 {
 #define FLAG_SIZE 5
 	struct sprd_vif *vif = netdev_priv(ndev);

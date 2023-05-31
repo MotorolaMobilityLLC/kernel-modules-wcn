@@ -393,47 +393,50 @@ void sprd_net_flowcontrl(struct sprd_priv *priv, enum sprd_mode mode,
 }
 EXPORT_SYMBOL(sprd_net_flowcontrl);
 
-void sprd_filter_ip_pkt_debug(struct sk_buff *skb,
-			      struct net_device *ndev, const char *direct)
+struct udphdr *sprd_get_udphdr(struct sk_buff *skb, unsigned char *iphdrlen)
 {
-	unsigned char *dhcpdata = NULL;
-	struct udphdr *udphdr;
+	struct udphdr *udphdr = NULL;
 	struct iphdr *iphdr;
 	struct ipv6hdr *ipv6hdr;
 	struct ethhdr *ethhdr = (struct ethhdr *)skb->data;
-	unsigned char iphdrlen = 0;
 
 	if (ethhdr->h_proto == htons(ETH_P_IPV6)) {
 		ipv6hdr = (struct ipv6hdr *)(skb->data + ETHER_HDR_LEN);
 		/* check for udp header */
 		if (ipv6hdr->nexthdr != IPPROTO_UDP)
-			return;
-		iphdrlen = sizeof(*ipv6hdr);
+			return udphdr;
+		*iphdrlen = sizeof(*ipv6hdr);
 	} else if (ethhdr->h_proto == htons(ETH_P_IP)) {
 		iphdr = (struct iphdr *)(skb->data + ETHER_HDR_LEN);
 		if (iphdr->protocol != IPPROTO_UDP)
-			return;
-		iphdrlen = iphdr->ihl * 4;
+			return udphdr;
+		*iphdrlen = iphdr->ihl * 4;
 	} else {
-		return;
+		return udphdr;
 	}
 
-	udphdr = (struct udphdr *)(skb->data + ETHER_HDR_LEN + iphdrlen);
-	if ((ethhdr->h_proto == htons(ETH_P_IP)) &&
-	     ((udphdr->source == htons(DHCP_SERVER_PORT)) ||
-	     (udphdr->source == htons(DHCP_CLIENT_PORT)))) {
-		dhcpdata = skb->data + ETHER_HDR_LEN + iphdrlen + 250;
+	udphdr = (struct udphdr *)(skb->data + ETHER_HDR_LEN + *iphdrlen);
+	return udphdr;
+}
 
+void sprd_filter_ip_pkt_debug(struct sk_buff *skb,
+			      struct net_device *ndev, const char *direct)
+{
+	unsigned char *dhcpdata = NULL;
+	struct ethhdr *ethhdr = (struct ethhdr *)skb->data;
+	struct udphdr *udphdr;
+	unsigned char iphdrlen = 0;
+
+	udphdr = sprd_get_udphdr(skb, &iphdrlen);
+	if (!udphdr)
+		return;
+	if (IPV4_DHCP(ethhdr, udphdr)) {
+		dhcpdata = skb->data + ETHER_HDR_LEN + iphdrlen + 250;
 		if (*dhcpdata < ARRAY_SIZE(dhcp_str_info))
 			pr_info("[%s] [%s]\n", direct, dhcp_str_info[*dhcpdata]);
-	} else if ((ethhdr->h_proto == htons(ETH_P_IPV6)) &&
-		 ((udphdr->source == htons(DHCP_SERVER_PORT_IPV6)) ||
-		 (udphdr->source == htons(DHCP_CLIENT_PORT_IPV6)))) {
+	} else if (IPV6_DHCP(ethhdr, udphdr)) {
 		pr_info("[%s] special data: DHCP\n", direct);
-	} else if ((ethhdr->h_proto == htons(ETH_P_IP) ||
-		  ethhdr->h_proto == htons(ETH_P_IPV6))
-		&& (udphdr->source == htons(DNS_SERVER_PORT) ||
-		    udphdr->dest == htons(DNS_SERVER_PORT))) {
+	} else if (IP_DNS(ethhdr, udphdr)) {
 		pr_info("[%s] special data: DNS\n", direct);
 	}
 }

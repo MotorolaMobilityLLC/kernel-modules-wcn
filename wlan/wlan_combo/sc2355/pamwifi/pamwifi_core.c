@@ -2233,7 +2233,7 @@ static int __pamwifi_xmit_to_ipa(struct sk_buff *skb, struct net_device *ndev)
 
 	pkt_checksum(skb, ndev);
 	//sprdwl_hex_dump("sprdwl xmit dump:", skb->data, 100);
-	sprd_xmit_data2cmd_wq(skb, ndev);
+	sc2355_xmit_data2cmd_wq(skb, ndev);
 	return NETDEV_TX_OK;
 }
 

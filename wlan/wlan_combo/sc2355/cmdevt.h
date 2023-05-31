@@ -961,7 +961,7 @@ int sc2355_set_gscan_scan_config(struct sprd_priv *priv, struct sprd_vif *vif,
 				 void *data, u16 len, u8 *r_buf, u16 *r_len);
 int sc2355_enable_gscan(struct sprd_priv *priv, struct sprd_vif *vif,
 			void *data, u8 *r_buf, u16 *r_len);
-int sprd_xmit_data2cmd_wq(struct sk_buff *skb, struct net_device *ndev);
+int sc2355_xmit_data2cmd_wq(struct sk_buff *skb, struct net_device *ndev);
 void sc2355_vowifi_data_protection(struct sprd_vif *vif);
 int sc2355_get_gscan_capabilities(struct sprd_priv *priv, struct sprd_vif *vif,
 				  u8 *r_buf, u16 *r_len);

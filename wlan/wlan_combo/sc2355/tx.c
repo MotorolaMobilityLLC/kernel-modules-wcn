@@ -984,7 +984,7 @@ static int tx_mc_pkt(struct sk_buff *skb, struct net_device *ndev)
 		     __func__, hif->skb_da[0], hif->skb_da[1], hif->skb_da[2],
 		     hif->skb_da[3], hif->skb_da[4], hif->skb_da[5]);
 		tx_mc_pkt_checksum(skb, ndev);
-		sprd_xmit_data2cmd_wq(skb, ndev);
+		sc2355_xmit_data2cmd_wq(skb, ndev);
 		return NETDEV_TX_OK;
 	}
 	return 1;
@@ -993,13 +993,11 @@ static int tx_mc_pkt(struct sk_buff *skb, struct net_device *ndev)
 static int tx_filter_ip_pkt(struct sk_buff *skb, struct net_device *ndev)
 {
 	bool is_data2cmd;
-	bool is_ipv4_dhcp, is_ipv6_dhcp;
+	bool is_ipv4_dhcp = false, is_ipv6_dhcp = false;
 	bool is_vowifi2cmd;
-	bool is_ipv4_dns = false, is_ipv6_dns = false;
+	bool is_dns = false;
 	unsigned char *dhcpdata = NULL;
 	struct udphdr *udphdr;
-	struct iphdr *iphdr;
-	struct ipv6hdr *ipv6hdr;
 	__sum16 checksum = 0;
 	struct ethhdr *ethhdr = (struct ethhdr *)skb->data;
 	unsigned char iphdrlen = 0;
@@ -1010,52 +1008,20 @@ static int tx_filter_ip_pkt(struct sk_buff *skb, struct net_device *ndev)
 	vif = netdev_priv(ndev);
 	hif = &vif->priv->hif;
 
-	if (ethhdr->h_proto == htons(ETH_P_IPV6)) {
-		ipv6hdr = (struct ipv6hdr *)(skb->data + ETHER_HDR_LEN);
-		/* check for udp header */
-		if (ipv6hdr->nexthdr != IPPROTO_UDP)
-			return 1;
-		iphdrlen = sizeof(*ipv6hdr);
-	} else if (ethhdr->h_proto == htons(ETH_P_IP)) {
-		iphdr = (struct iphdr *)(skb->data + ETHER_HDR_LEN);
-		/* check for udp header */
-		if (iphdr->protocol != IPPROTO_UDP)
-			return 1;
-		iphdrlen = ip_hdrlen(skb);
-	} else {
+	udphdr = sprd_get_udphdr(skb, &iphdrlen);
+	if (!udphdr)
 		return 1;
+
+	if (IP_DNS(ethhdr, udphdr)) {
+		is_dns = true;
+		pr_info("dns,check:%x,skb->ip_summed:%d\n",
+			udphdr->check, skb->ip_summed);
 	}
-
-	udphdr = (struct udphdr *)(skb->data + ETHER_HDR_LEN + iphdrlen);
-
-	is_ipv4_dhcp =
-	    ((ethhdr->h_proto == htons(ETH_P_IP)) &&
-	     ((udphdr->source == htons(DHCP_SERVER_PORT)) ||
-	      (udphdr->source == htons(DHCP_CLIENT_PORT))));
-	is_ipv6_dhcp =
-	    ((ethhdr->h_proto == htons(ETH_P_IPV6)) &&
-	     ((udphdr->source == htons(DHCP_SERVER_PORT_IPV6)) ||
-	      (udphdr->source == htons(DHCP_CLIENT_PORT_IPV6))));
-
-	is_ipv4_dns =
-	    ((ethhdr->h_proto == htons(ETH_P_IP)) &&
-	     ((udphdr->source == htons(DNS_SERVER_PORT)) ||
-	      (udphdr->dest == htons(DNS_SERVER_PORT))));
-	is_ipv6_dns =
-	    ((ethhdr->h_proto == htons(ETH_P_IPV6)) &&
-	     ((udphdr->source == htons(DNS_SERVER_PORT)) ||
-	      (udphdr->dest == htons(DNS_SERVER_PORT))));
 
 	if (sc2355_is_vowifi_pkt(skb, &is_vowifi2cmd)) {
 		if (!is_vowifi2cmd) {
 			struct sprd_peer_entry *peer_entry = NULL;
-
-			if (hif->hw_type == SPRD_HW_SC2355_PCIE)
-				lut_index = sc2355_pcie_find_lut_index(hif, vif);
-			else if (hif->hw_type == SPRD_HW_SC2355_SIPC)
-				lut_index = sc2355_sipc_find_lut_index(hif, vif);
-			else
-				lut_index = sc2355_find_lut_index(hif, vif);
+			lut_index = sc2355_find_lut_index(hif, vif);
 			peer_entry = &hif->peer_entry[lut_index];
 			if (peer_entry->vowifi_enabled == 1) {
 				if (peer_entry->vowifi_pkt_cnt < 11)
@@ -1063,57 +1029,40 @@ static int tx_filter_ip_pkt(struct sk_buff *skb, struct net_device *ndev)
 				if (peer_entry->vowifi_pkt_cnt == 10)
 					sc2355_vowifi_data_protection(vif);
 			}
+		} else if (ethhdr->h_proto == htons(ETH_P_IP)) {
+			pr_info("vowifi, proto=0x%x, dest=0x%x\n",
+				ethhdr->h_proto, udphdr->dest);
 		}
 	} else {
 		is_vowifi2cmd = false;
 	}
 
-	is_data2cmd = (is_ipv4_dhcp || is_ipv6_dhcp || is_vowifi2cmd ||
-		       is_ipv4_dns || is_ipv6_dns);
-
-	if (is_ipv4_dhcp) {
+	if (IPV4_DHCP(ethhdr, udphdr)) {
+		is_ipv4_dhcp = true;
 		if (skb->data) {
 			memcpy(hif->skb_da, skb->data, ETH_ALEN);
 		}
-		if (hif->hw_type == SPRD_HW_SC2355_PCIE) {
-			lut_index = sc2355_pcie_find_lut_index(hif, vif);
-		} else if (hif->hw_type == SPRD_HW_SC2355_SIPC) {
-			lut_index = sc2355_sipc_find_lut_index(hif, vif);
-		} else {
-			lut_index = sc2355_find_lut_index(hif, vif);
-		}
 		dhcpdata = skb->data + ETHER_HDR_LEN + iphdrlen + 250;
-		if (*dhcpdata == 0x01) {
-			pr_info("DHCP: TX DISCOVER\n");
-		} else if (*dhcpdata == 0x02) {
-			pr_info("DHCP: TX OFFER\n");
-		} else if (*dhcpdata == 0x03) {
-			pr_info("DHCP: TX REQUEST\n");
+
+		if (*dhcpdata < 0x07)
+			pr_info("TX: [%s],check:%x,skb->ip_summed:%d\n",
+				dhcp_str_info[*dhcpdata], udphdr->check,
+				skb->ip_summed);
+		if (*dhcpdata == 0x03 || *dhcpdata == 0x05) {
+			lut_index = sc2355_find_lut_index(hif, vif);
 			hif->peer_entry[lut_index].ip_acquired = 1;
-			if (sc2355_is_group(skb->data))
+			if (*dhcpdata == 0x03 && sc2355_is_group(skb->data))
 				hif->peer_entry[lut_index].ba_tx_done_map = 0;
-		} else if (*dhcpdata == 0x04) {
-			pr_info("DHCP: TX DECLINE\n");
-		} else if (*dhcpdata == 0x05) {
-			pr_info("DHCP: TX ACK\n");
-			hif->peer_entry[lut_index].ip_acquired = 1;
-		} else if (*dhcpdata == 0x06) {
-			pr_info("DHCP: TX NACK\n");
 		}
+	} else if (IPV6_DHCP(ethhdr, udphdr)) {
+		is_ipv6_dhcp = true;
+		pr_info("dhcp,check:%x,skb->ip_summed:%d\n",
+			udphdr->check, skb->ip_summed);
 	}
 
+	is_data2cmd = (is_ipv4_dhcp || is_ipv6_dhcp || is_vowifi2cmd || is_dns);
 	/*as CP request, send data with CMD */
 	if (is_data2cmd) {
-		if (is_ipv4_dhcp || is_ipv6_dhcp)
-			pr_info("dhcp,check:%x,skb->ip_summed:%d\n",
-				udphdr->check, skb->ip_summed);
-		if (is_vowifi2cmd && ethhdr->h_proto == htons(ETH_P_IP))
-			pr_info("vowifi, proto=0x%x, tos=0x%x, dest=0x%x\n",
-				ethhdr->h_proto, iphdr->tos, udphdr->dest);
-		if (is_ipv4_dns || is_ipv6_dns)
-			pr_info("dns,check:%x,skb->ip_summed:%d\n",
-				udphdr->check, skb->ip_summed);
-
 		if (skb->ip_summed == CHECKSUM_PARTIAL) {
 			checksum =
 			    (__force __sum16)tx_do_csum(skb->data +
@@ -1130,8 +1079,7 @@ static int tx_filter_ip_pkt(struct sk_buff *skb, struct net_device *ndev)
 		spin_lock_bh(&adap_info.adap_lock);
 		pr_info("%s special_data_flag: %d\n",
 			__func__, adap_info.special_data_flag);
-		if ((is_ipv4_dns || is_ipv6_dns) &&
-		    (adap_info.special_data_flag == SPRD_NPI_NORMAL_ALL ||
+		if (is_dns && (adap_info.special_data_flag == SPRD_NPI_NORMAL_ALL ||
 		    (adap_info.special_data_flag == SPRD_NPI_NORMAL_UNENCRYP &&
 		    vif->prwise_crypto == SPRD_CIPHER_NONE))) {
 				spin_unlock_bh(&adap_info.adap_lock);
@@ -1139,7 +1087,7 @@ static int tx_filter_ip_pkt(struct sk_buff *skb, struct net_device *ndev)
 			}
 		spin_unlock_bh(&adap_info.adap_lock);
 
-		sprd_xmit_data2cmd_wq(skb, ndev);
+		sc2355_xmit_data2cmd_wq(skb, ndev);
 		return NETDEV_TX_OK;
 	}
 
@@ -2279,7 +2227,7 @@ int sprd_tx_filter_packet(struct sk_buff *skb, struct net_device *ndev)
 			}
 		spin_unlock_bh(&adap_info.adap_lock);
 
-		sprd_xmit_data2cmd_wq(skb, ndev);
+		sc2355_xmit_data2cmd_wq(skb, ndev);
 		return NETDEV_TX_OK;
 	}
 	if (ethhdr->h_proto == htons(ETH_P_TDLS))
@@ -2291,12 +2239,7 @@ int sprd_tx_filter_packet(struct sk_buff *skb, struct net_device *ndev)
 		memcpy(hif->skb_da, skb->data, ETH_ALEN);
 	}
 	if (ethhdr->h_proto == htons(ETH_P_IPV6)) {
-		if (hif->hw_type == SPRD_HW_SC2355_PCIE)
-			lut_index = sc2355_pcie_find_lut_index(hif, vif);
-		else if (hif->hw_type == SPRD_HW_SC2355_SIPC)
-			lut_index = sc2355_sipc_find_lut_index(hif, vif);
-		else
-			lut_index = sc2355_find_lut_index(hif, vif);
+		lut_index = sc2355_find_lut_index(hif, vif);
 		if ((vif->mode == SPRD_MODE_AP || vif->mode == SPRD_MODE_P2P_GO) &&
 			(lut_index != 4) && hif->peer_entry[lut_index].ip_acquired == 0) {
 			pr_info("ipv6 ethhdr->h_proto=%x\n", ethhdr->h_proto);
@@ -2321,7 +2264,7 @@ int sc2355_tx_special_data(struct sk_buff *skb, struct net_device *ndev)
 		skb->protocol == cpu_to_be16(WAPI_TYPE)) {
 		pr_err("send %s frame by CMD_TX_DATA\n",
 		skb->protocol == cpu_to_be16(ETH_P_PAE) ? "802.1X" : "WAI");
-		if (sprd_xmit_data2cmd_wq(skb, ndev) == -EAGAIN)
+		if (sc2355_xmit_data2cmd_wq(skb, ndev) == -EAGAIN)
 			return NETDEV_TX_BUSY;
 		return NETDEV_TX_OK;
 	} else {
