@@ -2661,17 +2661,11 @@ int sc2355_notify_ip(struct sprd_priv *priv, struct sprd_vif *vif, u8 ip_type,
 	struct sprd_peer_entry *entry;
 	u8 *ip_value;
 	u8 ip_len;
-	struct sprd_hif *hif = &priv->hif;
 
 	if (ip_type != SPRD_IPV4 && ip_type != SPRD_IPV6)
 		return -EINVAL;
 
-	if (hif->hw_type == SPRD_HW_SC2355_PCIE)
-		entry = sc2355_pcie_find_peer_entry_using_addr(vif, vif->bssid);
-	else if (hif->hw_type == SPRD_HW_SC2355_SIPC)
-		entry = sc2355_sipc_find_peer_entry_using_addr(vif, vif->bssid);
-	else
-		entry = sc2355_find_peer_entry_using_addr(vif, vif->bssid);
+	entry = sc2355_find_peer_entry_using_addr(vif, vif->bssid);
 	if (entry && ip_type == SPRD_IPV4) {
 		if (entry->ctx_id == vif->ctx_id)
 			entry->ip_acquired = 1;
@@ -2843,6 +2837,189 @@ int sprd_send_data2cmd(struct sprd_priv *priv, struct sprd_vif *vif, void *data,
 	return send_cmd_recv_rsp(priv, msg, NULL, NULL);
 }
 
+/* It is tx private function, just use in sc2355_hif_fill_msdu_dscr()  */
+unsigned char sc2355_find_lut_index(struct sprd_hif *hif, struct sprd_vif *vif)
+{
+	unsigned char i;
+
+	if (is_zero_ether_addr(hif->skb_da))
+		goto out;
+
+	pr_debug("%s,bssid: %02x:%02x:%02x:%02x:%02x:%02x\n", __func__,
+		 hif->skb_da[0], hif->skb_da[1], hif->skb_da[2],
+		 hif->skb_da[3], hif->skb_da[4], hif->skb_da[5]);
+	if (sc2355_is_group(hif->skb_da) &&
+	    (vif->mode == SPRD_MODE_AP || vif->mode == SPRD_MODE_P2P_GO)) {
+		for (i = 0; i < MAX_LUT_NUM; i++) {
+			if ((sc2355_is_group(hif->peer_entry[i].tx.da)) &&
+			    hif->peer_entry[i].ctx_id == vif->ctx_id) {
+				pr_info("%s, %d, group lut_index=%d\n",
+					__func__, __LINE__,
+					hif->peer_entry[i].lut_index);
+				return hif->peer_entry[i].lut_index;
+			}
+		}
+		if (vif->mode == SPRD_MODE_AP) {
+			pr_info("%s,AP mode, group bssid,\n"
+				"lut not found, ctx_id:%d, return lut:4\n",
+				__func__, vif->ctx_id);
+			return 4;
+		}
+		if (vif->mode == SPRD_MODE_P2P_GO) {
+			pr_info("%s,GO mode, group bssid,\n"
+				"lut not found, ctx_id:%d, return lut:5\n",
+				__func__, vif->ctx_id);
+			return 5;
+		}
+	}
+
+	for (i = 0; i < MAX_LUT_NUM; i++) {
+		if ((memcmp(hif->peer_entry[i].tx.da,
+			    hif->skb_da, ETH_ALEN) == 0) &&
+		    hif->peer_entry[i].ctx_id == vif->ctx_id) {
+			pr_debug("%s, %d, lut_index=%d\n", __func__, __LINE__,
+				 hif->peer_entry[i].lut_index);
+			return hif->peer_entry[i].lut_index;
+		}
+	}
+
+	if (vif->mode == SPRD_MODE_STATION ||
+	    vif->mode == SPRD_MODE_STATION_SECOND ||
+	    vif->mode == SPRD_MODE_P2P_CLIENT) {
+		for (i = 0; i < MAX_LUT_NUM; i++) {
+			if (hif->peer_entry[i].ctx_id == vif->ctx_id) {
+				pr_debug("%s, %d, lut_index=%d\n",
+					 __func__, __LINE__,
+					 hif->peer_entry[i].lut_index);
+				return hif->peer_entry[i].lut_index;
+			}
+		}
+	}
+
+out:
+	if (vif->mode == SPRD_MODE_STATION ||
+	    vif->mode == SPRD_MODE_STATION_SECOND ||
+	    vif->mode == SPRD_MODE_P2P_CLIENT) {
+		pr_err("%s,%d,bssid not found, multicast?\n"
+		       "default of STA/GC = 0,\n", __func__, vif->ctx_id);
+		return 0;
+	}
+	if (vif->mode == SPRD_MODE_AP) {
+		pr_err("%s,%d,bssid not found, multicast?\n"
+		       "default of AP = 4\n", __func__, vif->ctx_id);
+		return 4;
+	}
+	if (vif->mode == SPRD_MODE_P2P_GO) {
+		pr_err("%s,%d,bssid not found, multicast?\n"
+		       "default of GO = 5\n", __func__, vif->ctx_id);
+		return 5;
+	}
+	return 0;
+}
+
+int sc2355_hif_fill_msdu_dscr(struct sprd_vif *vif,
+			      struct sk_buff *skb, u8 type, u8 offset)
+{
+	u8 protocol;
+	struct tx_msdu_dscr *dscr;
+	struct sprd_hif *hif;
+	u8 lut_index;
+	struct sk_buff *temp_skb;
+	unsigned char dscr_rsvd = 0;
+	struct ethhdr *ethhdr = (struct ethhdr *)skb->data;
+	u8 is_special_data = 0;
+	bool is_vowifi2cmd = false;
+
+#define MSG_PTR_LEN 8
+
+	if (ethhdr->h_proto == htons(ETH_P_ARP) ||
+	    ethhdr->h_proto == htons(ETH_P_TDLS) ||
+	    ethhdr->h_proto == htons(ETH_P_PREAUTH))
+		is_special_data = 1;
+	else if ((type == SPRD_TYPE_CMD) &&
+		 sc2355_is_vowifi_pkt(skb, &is_vowifi2cmd))
+		is_special_data = 1;
+
+	hif = &vif->priv->hif;
+
+	if (hif->hw_type == SPRD_HW_SC2355_SDIO)
+		dscr_rsvd = 0;
+	else
+		dscr_rsvd = MSDU_DSCR_RSVD;
+
+	if (skb_headroom(skb) < (DSCR_LEN + hif->hif_offset +
+				 MSG_PTR_LEN + dscr_rsvd)) {
+		temp_skb = skb;
+
+		skb = skb_realloc_headroom(skb, (DSCR_LEN + hif->hif_offset +
+						 MSG_PTR_LEN + dscr_rsvd));
+		kfree_skb(temp_skb);
+		if (!skb) {
+			pr_err("%s:%d failed to unshare skbuff: NULL\n",
+			       __func__, __LINE__);
+			return -EPERM;
+		}
+#if defined(MORE_DEBUG)
+		hif->stats.tx_realloc++;
+#endif
+	}
+
+	if (skb->data) {
+		memcpy(hif->skb_da, skb->data, ETH_ALEN);
+	}
+
+	lut_index = sc2355_find_lut_index(hif, vif);
+	if (lut_index < 6 && (!sc2355_is_group(hif->skb_da))) {
+		pr_err("%s, %d, sta disconn, no data tx!", __func__, __LINE__);
+		return -EPERM;
+	}
+	skb_push(skb, sizeof(struct tx_msdu_dscr) + offset);
+	dscr = (struct tx_msdu_dscr *)(skb->data);
+	memset(dscr, 0x00, sizeof(struct tx_msdu_dscr));
+	dscr->common.type = (type == SPRD_TYPE_CMD ?
+			     SPRD_TYPE_CMD : SPRD_TYPE_DATA);
+/*remove unnecessary repeated assignment*/
+	//dscr->common.direction_ind = 0;
+	//dscr->common.need_rsp = 0;/*TODO*/
+	dscr->common.interface = vif->ctx_id;
+	dscr->pkt_len = cpu_to_le16(skb->len - DSCR_LEN);
+	dscr->offset = DSCR_LEN;
+/*TODO*/
+	dscr->tx_ctrl.sw_rate = (is_special_data == 1 ? 1 : 0);
+	//dscr->tx_ctrl.wds = 0; /*TBD*/
+	//dscr->tx_ctrl.swq_flag = 0; /*TBD*/
+	//dscr->tx_ctrl.rsvd = 0; /*TBD*/
+	//dscr->tx_ctrl.next_buffer_type = 0;
+	//dscr->tx_ctrl.pcie_mh_readcomp = 0;
+	//dscr->buffer_info.msdu_tid = 0;
+	//dscr->buffer_info.mac_data_offset = 0;
+	dscr->sta_lut_index = lut_index;
+
+	/* For MH to get phys addr */
+	if (hif->hw_type != SPRD_HW_SC2355_SDIO) {
+		unsigned long dma_addr = 0;
+		skb_push(skb, dscr_rsvd);
+		dma_addr = virt_to_phys(skb->data) | SPRD_MH_ADDRESS_BIT;
+		memcpy(skb->data, &dma_addr, dscr_rsvd);
+	}
+
+	if (skb->ip_summed == CHECKSUM_PARTIAL) {
+		dscr->tx_ctrl.checksum_offload = 1;
+		if (ethhdr->h_proto == htons(ETH_P_IPV6))
+			protocol = ipv6_hdr(skb)->nexthdr;
+		else
+			protocol = ip_hdr(skb)->protocol;
+
+		dscr->tx_ctrl.checksum_type = protocol == IPPROTO_TCP ? 1 : 0;
+		dscr->tcp_udp_header_offset =
+		    skb->transport_header - skb->mac_header;
+		pr_debug("%s: offload: offset: %d, protocol: %d\n",
+			 __func__, dscr->tcp_udp_header_offset, protocol);
+	}
+
+	return 0;
+}
+
 int sc2355_xmit_data2cmd_wq(struct sk_buff *skb, struct net_device *ndev)
 {
 #define FLAG_SIZE 5
@@ -2853,21 +3030,9 @@ int sc2355_xmit_data2cmd_wq(struct sk_buff *skb, struct net_device *ndev)
 	struct sprd_hif *hif = &vif->priv->hif;
 
 	/*fill dscr header first*/
-	if (hif->hw_type == SPRD_HW_SC2355_PCIE) {
-		if (sc2355_pcie_hif_fill_msdu_dscr(vif, skb, SPRD_TYPE_CMD, 0)) {
-			dev_kfree_skb(skb);
-			return -EPERM;
-		}
-	} else if (hif->hw_type == SPRD_HW_SC2355_SIPC) {
-		if (sc2355_sipc_hif_fill_msdu_dscr(vif, skb, SPRD_TYPE_CMD, 0)) {
-			dev_kfree_skb(skb);
-			return -EPERM;
-		}
-	} else {
-		if (sc2355_hif_fill_msdu_dscr(vif, skb, SPRD_TYPE_CMD, 0)) {
-			dev_kfree_skb(skb);
-			return -EPERM;
-		}
+	if (sc2355_hif_fill_msdu_dscr(vif, skb, SPRD_TYPE_CMD, 0)) {
+		dev_kfree_skb(skb);
+		return -EPERM;
 	}
 	/*alloc five byte for fw 16 byte need
 	 *dscr:11+flag:5 =16
@@ -3023,12 +3188,7 @@ int sc2355_set_vowifi(struct net_device *ndev, struct ifreq *ifr)
 		if (hif == NULL)
 			return -EINVAL;
 
-		if (hif->hw_type == SPRD_HW_SC2355_PCIE)
-			peer_entry = sc2355_pcie_find_peer_entry_using_addr(vif, vif->bssid);
-		else if (hif->hw_type == SPRD_HW_SC2355_SIPC)
-			peer_entry = sc2355_sipc_find_peer_entry_using_addr(vif, vif->bssid);
-		else
-			peer_entry = sc2355_find_peer_entry_using_addr(vif, vif->bssid);
+		peer_entry = sc2355_find_peer_entry_using_addr(vif, vif->bssid);
 		if (hif && peer_entry) {
 			pr_info("lut:%d, vowifi_enabled, txba_map:%lu\n",
 				peer_entry->lut_index,
@@ -3397,19 +3557,10 @@ bool sc2355_do_delay_work(struct sprd_work *work)
 		cmdevt_send_ba_mgmt(vif->priv, vif, work->data, work->len);
 		break;
 	case SPRD_WORK_ADDBA:
-		if (hw_type == SPRD_HW_SC2355_PCIE)
-			sc2355_pcie_tx_send_addba(vif, work->data, work->len);
-		else if (hw_type == SPRD_HW_SC2355_SIPC)
-			sc2355_sipc_tx_send_addba(vif, work->data, work->len);
-		else
-			sc2355_tx_send_addba(vif, work->data, work->len);
+		sc2355_tx_send_addba(vif, work->data, work->len);
 		break;
 	case SPRD_WORK_DELBA:
-		if (hw_type == SPRD_HW_SC2355_PCIE)
-			sc2355_pcie_tx_send_delba(vif, work->data, work->len);
-		else
-			sc2355_tx_send_delba(vif, work->data, work->len);
-		break;
+		sc2355_tx_send_delba(vif, work->data, work->len);
 	case SPRD_HANG_RECEIVED:
 		cmdevt_send_hang_received_cmd(vif->priv, vif);
 		break;
@@ -3446,16 +3597,7 @@ bool sc2355_do_delay_work(struct sprd_work *work)
 		sc2355_rx_flush_buffer(&vif->priv->hif);
 		break;
 	case SPRD_PCIE_TX_MOVE_BUF:
-		if (hw_type == SPRD_HW_SC2355_PCIE)
-			sc2355_pcie_add_to_free_list(vif->priv,
-					(struct list_head *)work->data,
-					work->len);
-		else if (hw_type == SPRD_HW_SC2355_SIPC)
-			sc2355_sipc_add_to_free_list(vif->priv,
-					(struct list_head *)work->data,
-					work->len);
-		else
-			sc2355_add_to_free_list(vif->priv,
+		sc2355_add_to_free_list(vif->priv,
 					(struct list_head *)work->data,
 					work->len);
 		break;
@@ -4467,4 +4609,53 @@ unsigned short sc2355_rx_rsp_process(struct sprd_priv *priv, u8 *msg)
 		sc2355_assert_cmd(priv, NULL, hdr->cmd_id, HANDLE_FLAG_ERROR);
 
 	return plen;
+}
+
+struct sprd_peer_entry
+*sc2355_find_peer_entry_using_addr(struct sprd_vif *vif, u8 *addr)
+{
+	struct sprd_hif *hif;
+	struct sprd_peer_entry *peer_entry = NULL;
+	u8 i;
+
+	hif = &vif->priv->hif;
+	for (i = 0; i < MAX_LUT_NUM; i++) {
+		if (ether_addr_equal(hif->peer_entry[i].tx.da, addr)) {
+			peer_entry = &hif->peer_entry[i];
+			break;
+		}
+	}
+	if (!peer_entry)
+		pr_err("not find peer_entry at :%s\n", __func__);
+
+	return peer_entry;
+}
+
+
+struct sprd_peer_entry
+*sc2355_find_peer_entry_using_lut_index(struct sprd_hif *hif,
+					unsigned char sta_lut_index)
+{
+	int i = 0;
+	struct sprd_peer_entry *peer_entry = NULL;
+
+	for (i = 0; i < MAX_LUT_NUM; i++) {
+		if (sta_lut_index == hif->peer_entry[i].lut_index) {
+			peer_entry = &hif->peer_entry[i];
+			break;
+		}
+	}
+
+	return peer_entry;
+}
+
+void sc2355_add_to_free_list(struct sprd_priv *priv,
+			     struct list_head *tx_list_head, int tx_count)
+{
+	struct sprd_hif *hif = &priv->hif;
+	struct tx_mgmt *tx_mgmt = (struct tx_mgmt *)hif->tx_mgmt;
+
+	spin_lock_bh(&tx_mgmt->xmit_msg_list.free_lock);
+	list_splice_tail(tx_list_head, &tx_mgmt->xmit_msg_list.to_free_list);
+	spin_unlock_bh(&tx_mgmt->xmit_msg_list.free_lock);
 }

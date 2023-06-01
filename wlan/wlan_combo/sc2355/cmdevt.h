@@ -1151,5 +1151,14 @@ int sc2355_set_sniffer(struct net_device *ndev, struct ifreq *ifr);
 #ifdef ENABLE_CHR
 int sc2355_set_chr(struct sprd_chr *chr);
 #endif
-
+int sc2355_hif_fill_msdu_dscr(struct sprd_vif *vif,
+			      struct sk_buff *skb, u8 type, u8 offset);
+unsigned char sc2355_find_lut_index(struct sprd_hif *hif, struct sprd_vif *vif);
+struct sprd_peer_entry
+*sc2355_find_peer_entry_using_addr(struct sprd_vif *vif, u8 *addr);
+struct sprd_peer_entry
+*sc2355_find_peer_entry_using_lut_index(struct sprd_hif *hif,
+					unsigned char sta_lut_index);
+void sc2355_add_to_free_list(struct sprd_priv *priv,
+			     struct list_head *tx_list_head, int tx_count);
 #endif

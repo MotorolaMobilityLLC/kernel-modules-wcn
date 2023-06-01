@@ -600,53 +600,6 @@ struct mchn_ops_t sc2355_pcie_hif_ops[] = {
 			NULL, NULL, NULL),
 };
 
-static void pcie_tx_ba_mgmt(struct sprd_priv *priv, struct sprd_vif *vif,
-			    void *data, int len, unsigned char cmd_id)
-{
-	struct sprd_msg *msg;
-	unsigned char *data_ptr;
-	u8 *rbuf;
-	u16 rlen = (1 + sizeof(struct host_addba_param));
-
-	msg = get_cmdbuf(priv, vif, len, cmd_id);
-	if (!msg) {
-		pr_err("%s, %d, get msg err\n", __func__, __LINE__);
-		return;
-	}
-	rbuf = kzalloc(rlen, GFP_KERNEL);
-	if (!rbuf) {
-		pr_err("%s, %d, alloc rbuf err\n", __func__, __LINE__);
-		return;
-	}
-	memcpy(msg->data, data, len);
-	data_ptr = (unsigned char *)data;
-
-	if (sprd_get_debug_level() >= L_INFO)
-		sc2355_hex_dump("pcie_tx_ba_mgmt", data_ptr, len);
-
-	if (send_cmd_recv_rsp(priv, msg, rbuf, &rlen))
-		goto out;
-	/*if tx ba req failed, need to clear txba map*/
-	if (cmd_id == CMD_ADDBA_REQ && rbuf[0] != ADDBA_REQ_RESULT_SUCCESS) {
-		struct host_addba_param *addba;
-		struct sprd_peer_entry *peer_entry = NULL;
-		struct sprd_hif *hif = sc2355_pcie_get_hif();
-		u16 tid = 0;
-
-		addba = (struct host_addba_param *)(rbuf + 1);
-		peer_entry = &hif->peer_entry[addba->lut_index];
-		tid = addba->addba_param.tid;
-		if (!test_and_clear_bit(tid, &peer_entry->ba_tx_done_map))
-			goto out;
-		pr_err
-		    ("%s, %d, tx_addba failed, reason=%d, lut_index=%d, tid=%d, map=%lu\n",
-		     __func__, __LINE__, rbuf[0], addba->lut_index, tid,
-		     peer_entry->ba_tx_done_map);
-	}
-out:
-	kfree(rbuf);
-}
-
 struct sprd_hif *sc2355_pcie_get_hif(void)
 {
 	return (struct sprd_hif *)sc2355_hif.hif;
@@ -758,17 +711,6 @@ static inline void sprdwl_mbuf_list_free(struct sprd_hif *hif,
 		mbuf_pos = mbuf_pos->next;
 	}
 	sprdwcn_bus_list_free(hif->tx_data_port, head, tail, count);
-}
-
-void sc2355_pcie_add_to_free_list(struct sprd_priv *priv,
-			     struct list_head *tx_list_head, int tx_count)
-{
-	struct sprd_hif *hif = &priv->hif;
-	struct tx_mgmt *tx_mgmt = (struct tx_mgmt *)hif->tx_mgmt;
-
-	spin_lock_bh(&tx_mgmt->xmit_msg_list.free_lock);
-	list_splice_tail(tx_list_head, &tx_mgmt->xmit_msg_list.to_free_list);
-	spin_unlock_bh(&tx_mgmt->xmit_msg_list.free_lock);
 }
 
 int sc2355_pcie_hif_tx_list(struct sprd_hif *hif,
@@ -978,201 +920,6 @@ int sc2355_pcie_hif_tx_list(struct sprd_hif *hif,
 	return ret;
 }
 
-struct sprd_peer_entry
-*sc2355_pcie_find_peer_entry_using_addr(struct sprd_vif *vif, u8 *addr)
-{
-	struct sprd_hif *hif;
-	struct sprd_peer_entry *peer_entry = NULL;
-	u8 i;
-
-	hif = &vif->priv->hif;
-	for (i = 0; i < MAX_LUT_NUM; i++) {
-		if (ether_addr_equal(hif->peer_entry[i].tx.da, addr)) {
-			peer_entry = &hif->peer_entry[i];
-			break;
-		}
-	}
-	if (!peer_entry)
-		pr_err("not find peer_entry at :%s\n", __func__);
-
-	return peer_entry;
-}
-
-/* It is tx private function, just use in sc2355_hif_fill_msdu_dscr()  */
-unsigned char sc2355_pcie_find_lut_index(struct sprd_hif *hif, struct sprd_vif *vif)
-{
-	unsigned char i;
-
-	if (is_zero_ether_addr(hif->skb_da))/*TODO*/
-		goto out;
-
-	pr_debug("%s,bssid: %02x:%02x:%02x:%02x:%02x:%02x\n", __func__,
-		 hif->skb_da[0], hif->skb_da[1], hif->skb_da[2],
-		 hif->skb_da[3], hif->skb_da[4], hif->skb_da[5]);
-	if (sc2355_is_group(hif->skb_da) &&
-	    (vif->mode == SPRD_MODE_AP || vif->mode == SPRD_MODE_P2P_GO)) {
-		for (i = 0; i < MAX_LUT_NUM; i++) {
-			if ((sc2355_is_group(hif->peer_entry[i].tx.da)) &&
-			    hif->peer_entry[i].ctx_id == vif->ctx_id) {
-				pr_info("%s, %d, group lut_index=%d\n",
-					__func__, __LINE__,
-					hif->peer_entry[i].lut_index);
-				return hif->peer_entry[i].lut_index;
-			}
-		}
-		if (vif->mode == SPRD_MODE_AP) {
-			pr_info("%s,AP mode, group bssid,\n"
-				"lut not found, ctx_id:%d, return lut:4\n",
-				__func__, vif->ctx_id);
-			return 4;
-		}
-		if (vif->mode == SPRD_MODE_P2P_GO) {
-			pr_info("%s,GO mode, group bssid,\n"
-				"lut not found, ctx_id:%d, return lut:5\n",
-				__func__, vif->ctx_id);
-			return 5;
-		}
-	}
-
-	for (i = 0; i < MAX_LUT_NUM; i++) {
-		if ((memcmp(hif->peer_entry[i].tx.da,
-			    hif->skb_da, ETH_ALEN) == 0) &&
-		    hif->peer_entry[i].ctx_id == vif->ctx_id) {
-			pr_debug("%s, %d, lut_index=%d\n",
-				 __func__, __LINE__,
-				 hif->peer_entry[i].lut_index);
-			return hif->peer_entry[i].lut_index;
-		}
-	}
-
-	for (i = 0; i < MAX_LUT_NUM; i++) {
-		if ((vif->mode == SPRD_MODE_STATION ||
-		     vif->mode == SPRD_MODE_P2P_CLIENT) &&
-		    hif->peer_entry[i].ctx_id == vif->ctx_id) {
-			pr_debug("%s, %d, lut_index=%d\n",
-				 __func__, __LINE__,
-				 hif->peer_entry[i].lut_index);
-			return hif->peer_entry[i].lut_index;
-		}
-	}
-
-out:
-	if (vif->mode == SPRD_MODE_STATION ||
-	    vif->mode == SPRD_MODE_P2P_CLIENT) {
-		pr_err("%s,%d,bssid not found, multicast?\n"
-		       "default of STA/GC = 0,\n", __func__, vif->ctx_id);
-		return 0;
-	}
-	if (vif->mode == SPRD_MODE_AP) {
-		pr_err("%s,%d,bssid not found, multicast?\n"
-		       "default of AP = 4\n", __func__, vif->ctx_id);
-		return 4;
-	}
-	if (vif->mode == SPRD_MODE_P2P_GO) {
-		pr_err("%s,%d,bssid not found, multicast?\n"
-		       "default of GO = 5\n", __func__, vif->ctx_id);
-		return 5;
-	}
-	return 0;
-}
-
-int sc2355_pcie_hif_fill_msdu_dscr(struct sprd_vif *vif,
-			      struct sk_buff *skb, u8 type, u8 offset)
-{
-	u8 protocol;
-	struct tx_msdu_dscr *dscr;
-	struct sprd_hif *hif;
-	u8 lut_index;
-	struct sk_buff *temp_skb;
-	unsigned char dscr_rsvd = 0;
-	struct ethhdr *ethhdr = (struct ethhdr *)skb->data;
-	u8 is_special_data = 0;
-	unsigned long dma_addr = 0;
-	bool is_vowifi2cmd = false;
-
-#define MSG_PTR_LEN 8
-
-	if (ethhdr->h_proto == htons(ETH_P_ARP) ||
-	    ethhdr->h_proto == htons(ETH_P_TDLS) ||
-	    ethhdr->h_proto == htons(ETH_P_PREAUTH))
-		is_special_data = 1;
-	else if ((type == SPRD_TYPE_CMD) &&
-		 sc2355_is_vowifi_pkt(skb, &is_vowifi2cmd))
-		is_special_data = 1;
-
-	hif = &vif->priv->hif;
-	dscr_rsvd = INTF_IS_PCIE ? MSDU_DSCR_RSVD : 0;
-	if (skb_headroom(skb) < (DSCR_LEN + hif->hif_offset +
-				 MSG_PTR_LEN + dscr_rsvd)) {
-		temp_skb = skb;
-
-		skb = skb_realloc_headroom(skb, (DSCR_LEN + hif->hif_offset +
-						 MSG_PTR_LEN + dscr_rsvd));
-		kfree_skb(temp_skb);
-		if (!skb) {
-			pr_err("%s:%d failed to unshare skbuff: NULL\n",
-			       __func__, __LINE__);
-			return -EPERM;
-		}
-#if defined(MORE_DEBUG)
-		hif->stats.tx_realloc++;
-#endif
-	}
-
-	memcpy(hif->skb_da, skb->data, ETH_ALEN);
-
-	lut_index = sc2355_pcie_find_lut_index(hif, vif);
-	if (lut_index < 6 && (!sc2355_is_group(hif->skb_da))) {
-		pr_err("%s, %d, sta disconn, no data tx!", __func__, __LINE__);
-		return -EPERM;
-	}
-	//skb_push(skb, sizeof(struct tx_msdu_dscr) + offset + dscr_rsvd);
-	skb_push(skb, sizeof(struct tx_msdu_dscr) + offset);
-	dscr = (struct tx_msdu_dscr *)(skb->data);
-	memset(dscr, 0x00, sizeof(struct tx_msdu_dscr));
-	dscr->common.type = (type == SPRD_TYPE_CMD ?
-			     SPRD_TYPE_CMD : SPRD_TYPE_DATA);
-/*remove unnecessary repeated assignment*/
-	//dscr->common.direction_ind = 0;
-	//dscr->common.need_rsp = 0;/*TODO*/
-	dscr->common.interface = vif->ctx_id;
-	//dscr->pkt_len = cpu_to_le16(skb->len - DSCR_LEN - dscr_rsvd);
-	dscr->pkt_len = cpu_to_le16(skb->len - DSCR_LEN);
-	dscr->offset = DSCR_LEN;
-/*TODO*/
-	dscr->tx_ctrl.sw_rate = (is_special_data == 1 ? 1 : 0);
-	//dscr->tx_ctrl.wds = 0; /*TBD*/
-	//dscr->tx_ctrl.swq_flag = 0; /*TBD*/
-	//dscr->tx_ctrl.rsvd = 0; /*TBD*/
-	//dscr->tx_ctrl.next_buffer_type = 0;
-	//dscr->tx_ctrl.pcie_mh_readcomp = 0;
-	//dscr->buffer_info.msdu_tid = 0;
-	//dscr->buffer_info.mac_data_offset = 0;
-	dscr->sta_lut_index = lut_index;
-
-	/* For MH to get phys addr */
-	if (INTF_IS_PCIE) {
-		skb_push(skb, dscr_rsvd);
-		dma_addr = virt_to_phys(skb->data) | SPRD_MH_ADDRESS_BIT;
-		memcpy(skb->data, &dma_addr, dscr_rsvd);
-	}
-
-	if (skb->ip_summed == CHECKSUM_PARTIAL) {
-		dscr->tx_ctrl.checksum_offload = 1;
-		if (ethhdr->h_proto == htons(ETH_P_IPV6))
-			protocol = ipv6_hdr(skb)->nexthdr;
-		else
-			protocol = ip_hdr(skb)->protocol;
-
-		dscr->tx_ctrl.checksum_type = protocol == IPPROTO_TCP ? 1 : 0;
-		dscr->tcp_udp_header_offset =
-		    skb->transport_header - skb->mac_header;
-		pr_debug("%s: offload: offset: %d, protocol: %d\n",
-			 __func__, dscr->tcp_udp_header_offset, protocol);
-	}
-
-	return 0;
-}
 #if 0
 inline void *sc2355_get_rx_data(struct sprd_hif *hif,
 				void *pos, void **data,
@@ -1528,22 +1275,6 @@ int sc2355_pcie_push_link(struct sprd_hif *hif, int chn,
 	return ret;
 }
 
-struct sprd_peer_entry
-*sc2355_pcie_find_peer_entry_using_lut_index(struct sprd_hif *hif,
-					unsigned char sta_lut_index)
-{
-	int i = 0;
-	struct sprd_peer_entry *peer_entry = NULL;
-
-	for (i = 0; i < MAX_LUT_NUM; i++) {
-		if (sta_lut_index == hif->peer_entry[i].lut_index) {
-			peer_entry = &hif->peer_entry[i];
-			break;
-		}
-	}
-
-	return peer_entry;
-}
 
 /* update lut-inidex if event_sta_lut received
  * at CP side, lut_index range 0-31
@@ -1588,7 +1319,7 @@ void sc2355_pcie_event_sta_lut(struct sprd_vif *vif, u8 *data, u16 len)
 		       sizeof(struct sprd_peer_entry));
 		hif->peer_entry[i].ctx_id = 0xFF;
 		hif->tx_num[i] = 0;
-		sc2355_pcie_dis_flush_txlist(hif, i);
+		sc2355_dis_flush_txlist(hif, i);
 #ifdef ENABLE_PAM_WIFI
               if(sprd_pamwifi_supported(hif->pdev)){
 		       hif->peer_entry[i].vif = NULL;
@@ -1601,7 +1332,7 @@ void sc2355_pcie_event_sta_lut(struct sprd_vif *vif, u8 *data, u16 len)
 		break;
 	case UPD_LUT_INDEX:
 		sc2355_peer_entry_delba(hif, i);
-		sc2355_pcie_dis_flush_txlist(hif, i);
+		sc2355_dis_flush_txlist(hif, i);
 	case ADD_LUT_INDEX:
 		hif->peer_entry[i].lut_index = i;
 		hif->peer_entry[i].ctx_id = sta_lut->ctx_id;
@@ -1632,109 +1363,6 @@ void sc2355_pcie_event_sta_lut(struct sprd_vif *vif, u8 *data, u16 len)
 	default:
 		break;
 	}
-}
-
-void sc2355_pcie_tx_send_addba(struct sprd_vif *vif, void *data, int len)
-{
-	pcie_tx_ba_mgmt(vif->priv, vif, data, len, CMD_ADDBA_REQ);
-}
-
-void sc2355_pcie_tx_send_delba(struct sprd_vif *vif, void *data, int len)
-{
-	struct host_delba_param *delba;
-
-	delba = (struct host_delba_param *)data;
-	pcie_tx_ba_mgmt(vif->priv, vif, delba,
-			sizeof(struct host_delba_param), CMD_DELBA_REQ);
-}
-
-void sc2355_pcie_tx_addba(struct sprd_hif *hif,
-		     struct sprd_peer_entry *peer_entry, unsigned char tid)
-{
-#define WIN_SIZE 64
-	struct host_addba_param addba;
-	struct sprd_work *misc_work;
-	struct sprd_vif *vif;
-
-	vif = sc2355_ctxid_to_vif(hif->priv, peer_entry->ctx_id);
-	if (!vif)
-		return;
-	memset(&addba, 0x0, sizeof(struct host_addba_param));
-
-	addba.lut_index = peer_entry->lut_index;
-	ether_addr_copy(addba.perr_mac_addr, peer_entry->tx.da);
-	pr_info("%s, lut=%d, tid=%d\n", __func__, peer_entry->lut_index, tid);
-	addba.dialog_token = 1;
-	addba.addba_param.amsdu_permit = 0;
-	addba.addba_param.ba_policy = DOT11_ADDBA_POLICY_IMMEDIATE;
-	addba.addba_param.tid = tid;
-	addba.addba_param.buffer_size = WIN_SIZE;
-	misc_work = sprd_alloc_work(sizeof(struct host_addba_param));
-	if (!misc_work) {
-		pr_err("%s out of memory\n", __func__);
-		sprd_put_vif(vif);
-		return;
-	}
-	misc_work->vif = vif;
-	misc_work->id = SPRD_WORK_ADDBA;
-	misc_work->hw_type = SPRD_HW_SC2355_PCIE;
-	memcpy(misc_work->data, &addba, sizeof(struct host_addba_param));
-
-	sprd_queue_work(vif->priv, misc_work);
-	sprd_put_vif(vif);
-}
-
-void sc2355_pcie_tx_delba(struct sprd_hif *hif,
-		     struct sprd_peer_entry *peer_entry, unsigned int ac_index)
-{
-	struct host_delba_param delba;
-	struct sprd_work *misc_work;
-	struct sprd_vif *vif;
-
-	vif = sc2355_ctxid_to_vif(hif->priv, peer_entry->ctx_id);
-	if (!vif)
-		return;
-	memset(&delba, 0x0, sizeof(delba));
-
-	pr_info("enter--at %s\n", __func__);
-	ether_addr_copy(delba.perr_mac_addr, peer_entry->tx.da);
-	delba.lut_index = peer_entry->lut_index;
-	delba.delba_param.initiator = 1;
-	delba.delba_param.tid = qos_index_2_tid(ac_index);
-	delba.reason_code = 0;
-
-	misc_work = sprd_alloc_work(sizeof(struct host_delba_param));
-	if (!misc_work) {
-		pr_err("%s out of memory\n", __func__);
-		sprd_put_vif(vif);
-		return;
-	}
-	misc_work->vif = vif;
-	misc_work->id = SPRD_WORK_DELBA;
-	misc_work->hw_type = SPRD_HW_SC2355_PCIE;
-	memcpy(misc_work->data, &delba, sizeof(struct host_delba_param));
-	clear_bit(qos_index_2_tid(ac_index), &peer_entry->ba_tx_done_map);
-
-	sprd_queue_work(vif->priv, misc_work);
-	sprd_put_vif(vif);
-}
-
-int sc2355_pcie_dis_flush_txlist(struct sprd_hif *hif, u8 lut_index)
-{
-	struct tx_mgmt *tx_mgmt;
-	int i, j;
-
-	if (lut_index <= 5) {
-		pr_err("err lut_index:%d, %s, %d\n",
-		       lut_index, __func__, __LINE__);
-		return -1;
-	}
-	pr_err("disconnect, flush qoslist, %s, %d\n", __func__, __LINE__);
-	tx_mgmt = (struct tx_mgmt *)hif->tx_mgmt;
-	for (i = 0; i < SPRD_MODE_MAX; i++)
-		for (j = 0; j < SPRD_AC_MAX; j++)
-			sc2355_flush_tx_qoslist(tx_mgmt, i, j, lut_index);
-	return 0;
 }
 
 unsigned short sc2355_pcie_get_data_csum(void *entry, void *data)

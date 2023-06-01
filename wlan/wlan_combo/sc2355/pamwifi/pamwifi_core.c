@@ -2179,7 +2179,7 @@ static int __pamwifi_xmit_to_ipa(struct sk_buff *skb, struct net_device *ndev)
 	struct sprd_peer_entry *peer_entry = NULL;
 	unsigned char tid = 0, tos = 0;
 
-	lut_index = sc2355_pcie_find_lut_index(intf, vif);
+	lut_index = sc2355_find_lut_index(intf, vif);
 	/*filter pkt to pam wifi*/
 	if ((ethhdr->h_proto == htons(ETH_P_IPV6) ||ethhdr->h_proto == htons(ETH_P_IP)) &&
 			lut_index > 5) {

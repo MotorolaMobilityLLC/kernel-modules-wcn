@@ -289,4 +289,11 @@ int sc2355_send_data(struct sprd_vif *vif, struct sprd_msg *msg,
 int sc2355_tx_do_csum(const unsigned char *buff, int len);
 void sc2355_tx_prepare_addba(struct sprd_hif *hif, unsigned char lut_index,
 		     struct sprd_peer_entry *peer_entry,unsigned char tid);
+void sc2355_tx_addba(struct sprd_hif *hif,
+		     struct sprd_peer_entry *peer_entry, unsigned char tid);
+void sc2355_tx_delba(struct sprd_hif *hif,
+		     struct sprd_peer_entry *peer_entry, unsigned int ac_index);
+void sc2355_tx_send_addba(struct sprd_vif *vif, void *data, int len);
+void sc2355_tx_send_delba(struct sprd_vif *vif, void *data, int len);
+int sc2355_dis_flush_txlist(struct sprd_hif *hif, u8 lut_index);
 #endif

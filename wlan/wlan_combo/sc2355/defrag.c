@@ -6,6 +6,7 @@
 #include "common/debug.h"
 #include "defrag.h"
 #include "rx.h"
+#include "cmdevt.h"
 
 static struct rx_defrag_node
 *defrag_find_defrag_node(struct rx_defrag_entry *defrag_entry,

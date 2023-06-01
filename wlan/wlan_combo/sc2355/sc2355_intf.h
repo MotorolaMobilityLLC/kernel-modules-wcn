@@ -96,59 +96,13 @@ int sc2355_sipc_hif_tx_list(struct sprd_hif *hif,
 		       struct list_head *tx_list,
 		       struct list_head *tx_list_head,
 		       int tx_count, int ac_index, u8 coex_bt_on);
-int sc2355_hif_fill_msdu_dscr(struct sprd_vif *vif,
-			      struct sk_buff *skb, u8 type, u8 offset);
-int sc2355_pcie_hif_fill_msdu_dscr(struct sprd_vif *vif,
-			      struct sk_buff *skb, u8 type, u8 offset);
-int sc2355_sipc_hif_fill_msdu_dscr(struct sprd_vif *vif,
-			      struct sk_buff *skb, u8 type, u8 offset);
 void *sc2355_get_rx_data(struct sprd_hif *hif, void *pos, void **data,
 			 void **tran_data, int *len, int offset);
 void sc2355_free_rx_data(struct sprd_hif *hif,
 			 int chn, void *head, void *tail, int num);
-
-struct sprd_peer_entry
-*sc2355_find_peer_entry_using_lut_index(struct sprd_hif *hif,
-					unsigned char sta_lut_index);
-struct sprd_peer_entry
-*sc2355_pcie_find_peer_entry_using_lut_index(struct sprd_hif *hif,
-					unsigned char sta_lut_index);
-struct sprd_peer_entry
-*sc2355_sipc_find_peer_entry_using_lut_index(struct sprd_hif *hif,
-					unsigned char sta_lut_index);
 void sc2355_event_sta_lut(struct sprd_vif *vif, u8 *data, u16 len);
 void sc2355_pcie_event_sta_lut(struct sprd_vif *vif, u8 *data, u16 len);
 void sc2355_sipc_event_sta_lut(struct sprd_vif *vif, u8 *data, u16 len);
-struct sprd_peer_entry
-*sc2355_find_peer_entry_using_addr(struct sprd_vif *vif, u8 *addr);
-struct sprd_peer_entry
-*sc2355_pcie_find_peer_entry_using_addr(struct sprd_vif *vif, u8 *addr);
-struct sprd_peer_entry
-*sc2355_sipc_find_peer_entry_using_addr(struct sprd_vif *vif, u8 *addr);
-void sc2355_tx_addba(struct sprd_hif *hif,
-		     struct sprd_peer_entry *peer_entry, unsigned char tid);
-void sc2355_pcie_tx_addba(struct sprd_hif *hif,
-		     struct sprd_peer_entry *peer_entry, unsigned char tid);
-void sc2355_sipc_tx_addba(struct sprd_hif *hif,
-		     struct sprd_peer_entry *peer_entry, unsigned char tid);
-void sc2355_tx_delba(struct sprd_hif *hif,
-		     struct sprd_peer_entry *peer_entry, unsigned int ac_index);
-void sc2355_pcie_tx_delba(struct sprd_hif *hif,
-		     struct sprd_peer_entry *peer_entry, unsigned int ac_index);
-void sc2355_sipc_tx_delba(struct sprd_hif *hif,
-		     struct sprd_peer_entry *peer_entry, unsigned int ac_index);
-void sc2355_tx_send_addba(struct sprd_vif *vif, void *data, int len);
-void sc2355_pcie_tx_send_addba(struct sprd_vif *vif, void *data, int len);
-void sc2355_sipc_tx_send_addba(struct sprd_vif *vif, void *data, int len);
-void sc2355_tx_send_delba(struct sprd_vif *vif, void *data, int len);
-void sc2355_pcie_tx_send_delba(struct sprd_vif *vif, void *data, int len);
-void sc2355_sipc_tx_send_delba(struct sprd_vif *vif, void *data, int len);
-unsigned char sc2355_find_lut_index(struct sprd_hif *hif, struct sprd_vif *vif);
-unsigned char sc2355_pcie_find_lut_index(struct sprd_hif *hif, struct sprd_vif *vif);
-unsigned char sc2355_sipc_find_lut_index(struct sprd_hif *hif, struct sprd_vif *vif);
-int sc2355_dis_flush_txlist(struct sprd_hif *hif, u8 lut_index);
-int sc2355_pcie_dis_flush_txlist(struct sprd_hif *hif, u8 lut_index);
-int sc2355_sipc_dis_flush_txlist(struct sprd_hif *hif, u8 lut_index);
 void sc2355_handle_pop_list(void *data);
 void sc2355_pcie_handle_pop_list(void *data);
 void sc2355_sipc_handle_pop_list(void *data);
@@ -158,11 +112,11 @@ int sc2355_pcie_add_topop_list(int chn, struct mbuf_t *head,
 			  struct mbuf_t *tail, int num);
 int sc2355_sipc_add_topop_list(int chn, struct mbuf_t *head,
 			  struct mbuf_t *tail, int num);
+int sc2355_tx_data_pop_list(int channel, struct mbuf_t *head,
+			    struct mbuf_t *tail, int num);
 void sc2355_set_coex_bt_on_off(u8 action);
 void sc2355_pcie_set_coex_bt_on_off(u8 action);
 void sc2355_sipc_set_coex_bt_on_off(u8 action);
-int sc2355_tx_data_pop_list(int channel, struct mbuf_t *head,
-			    struct mbuf_t *tail, int num);
 int sc2355_push_link(struct sprd_hif *hif, int chn,
 		     struct mbuf_t *head, struct mbuf_t *tail, int num,
 		     int (*pop)(int, struct mbuf_t *, struct mbuf_t *, int));
@@ -176,12 +130,6 @@ enum sprd_hif_type get_hwintf_type(void);
 void sc2355_tx_addr_trans_free(struct sprd_hif *hif);
 void sc2355_pcie_tx_addr_trans_free(struct sprd_hif *hif);
 void sc2355_sipc_tx_addr_trans_free(struct sprd_hif *hif);
-void sc2355_add_to_free_list(struct sprd_priv *priv,
-			     struct list_head *tx_list_head, int tx_count);
-void sc2355_pcie_add_to_free_list(struct sprd_priv *priv,
-			     struct list_head *tx_list_head, int tx_count);
-void sc2355_sipc_add_to_free_list(struct sprd_priv *priv,
-			     struct list_head *tx_list_head, int tx_count);
 struct sprd_hif *sc2355_get_hif(void);
 struct sprd_hif *sc2355_sipc_get_hif(void);
 struct sprd_hif *sc2355_pcie_get_hif(void);

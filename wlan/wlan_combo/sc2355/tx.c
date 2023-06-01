@@ -572,13 +572,7 @@ static void tx_prepare_addba(struct sprd_hif *hif, unsigned char lut_index,
 					hif->fw_power_down = 0;
 					sc2355_work_host_wakeup_fw(vif);
 				}
-				if (hif->hw_type == SPRD_HW_SC2355_PCIE) {
-					sc2355_pcie_tx_addba(hif, peer_entry, tid);
-				} else if (hif->hw_type == SPRD_HW_SC2355_SIPC) {
-					sc2355_sipc_tx_addba(hif, peer_entry, tid);
-				} else {
-					sc2355_tx_addba(hif, peer_entry, tid);
-				}
+				sc2355_tx_addba(hif, peer_entry, tid);
 			}
 		}
 #else
@@ -596,13 +590,7 @@ static void tx_prepare_addba(struct sprd_hif *hif, unsigned char lut_index,
 					hif->fw_power_down = 0;
 					sc2355_work_host_wakeup_fw(vif);
 				}
-				if (hif->hw_type == SPRD_HW_SC2355_PCIE) {
-					sc2355_pcie_tx_addba(hif, peer_entry, tid);
-				} else if (hif->hw_type == SPRD_HW_SC2355_SIPC) {
-					sc2355_sipc_tx_addba(hif, peer_entry, tid);
-				} else {
-					sc2355_tx_addba(hif, peer_entry, tid);
-				}
+				sc2355_tx_addba(hif, peer_entry, tid);
 			}
 		}
 #endif
@@ -1765,12 +1753,7 @@ int sc2355_reset(struct sprd_hif *hif)
 		       sizeof(struct sprd_peer_entry));
 		hif->peer_entry[i].ctx_id = 0xFF;
 		hif->tx_num[i] = 0;
-		if (hif->hw_type == SPRD_HW_SC2355_PCIE)
-			sc2355_pcie_dis_flush_txlist(hif, i);
-		else if (hif->hw_type == SPRD_HW_SC2355_SIPC)
-			sc2355_sipc_dis_flush_txlist(hif, i);
-		else
-			sc2355_dis_flush_txlist(hif, i);
+		sc2355_dis_flush_txlist(hif, i);
 	}
 
 	/* flush cmd and data buffer */
@@ -2295,21 +2278,9 @@ int sc2355_send_data(struct sprd_vif *vif, struct sprd_msg *msg,
 
 	buf = skb->data;
 
-	if (hif->hw_type == SPRD_HW_SC2355_PCIE) {
-		if (sc2355_pcie_hif_fill_msdu_dscr(vif, skb, SPRD_TYPE_DATA, offset)) {
-			sprd_free_msg(msg, msg->msglist);
-			return -EPERM;
-		}
-	} else if (hif->hw_type == SPRD_HW_SC2355_SIPC) {
-		if (sc2355_sipc_hif_fill_msdu_dscr(vif, skb, SPRD_TYPE_DATA, offset)) {
-			sprd_free_msg(msg, msg->msglist);
-			return -EPERM;
-		}
-	} else {
-		if (sc2355_hif_fill_msdu_dscr(vif, skb, SPRD_TYPE_DATA, offset)) {
-			sprd_free_msg(msg, msg->msglist);
-			return -EPERM;
-		}
+	if (sc2355_hif_fill_msdu_dscr(vif, skb, SPRD_TYPE_DATA, offset)) {
+		sprd_free_msg(msg, msg->msglist);
+		return -EPERM;
 	}
 
 	sprd_fill_msg(msg, skb, skb->data, skb->len);
@@ -2342,4 +2313,155 @@ int sc2355_send_data(struct sprd_vif *vif, struct sprd_msg *msg,
 int sc2355_send_data_offset(void)
 {
 	return SPRD_SEND_DATA_OFFSET;
+}
+
+void sc2355_tx_addba(struct sprd_hif *hif,
+		     struct sprd_peer_entry *peer_entry, unsigned char tid)
+{
+#define WIN_SIZE 64
+	struct host_addba_param addba;
+	struct sprd_work *misc_work;
+	struct sprd_vif *vif;
+
+	vif = sc2355_ctxid_to_vif(hif->priv, peer_entry->ctx_id);
+	if (!vif)
+		return;
+	memset(&addba, 0x0, sizeof(struct host_addba_param));
+
+	addba.lut_index = peer_entry->lut_index;
+	ether_addr_copy(addba.perr_mac_addr, peer_entry->tx.da);
+	pr_info("%s, lut=%d, tid=%d\n", __func__, peer_entry->lut_index, tid);
+	addba.dialog_token = 1;
+	addba.addba_param.amsdu_permit = 0;
+	addba.addba_param.ba_policy = DOT11_ADDBA_POLICY_IMMEDIATE;
+	addba.addba_param.tid = tid;
+	addba.addba_param.buffer_size = WIN_SIZE;
+	misc_work = sprd_alloc_work(sizeof(struct host_addba_param));
+	if (!misc_work) {
+		pr_err("%s out of memory\n", __func__);
+		sprd_put_vif(vif);
+		return;
+	}
+	misc_work->vif = vif;
+	misc_work->id = SPRD_WORK_ADDBA;
+	misc_work->hw_type = hif->hw_type;
+	memcpy(misc_work->data, &addba, sizeof(struct host_addba_param));
+
+	sprd_queue_work(vif->priv, misc_work);
+	sprd_put_vif(vif);
+}
+
+
+void sc2355_tx_delba(struct sprd_hif *hif,
+		     struct sprd_peer_entry *peer_entry, unsigned int ac_index)
+{
+	struct host_delba_param delba;
+	struct sprd_work *misc_work;
+	struct sprd_vif *vif;
+
+	vif = sc2355_ctxid_to_vif(hif->priv, peer_entry->ctx_id);
+	if (!vif)
+		return;
+	memset(&delba, 0x0, sizeof(delba));
+
+	pr_info("enter--at %s\n", __func__);
+	ether_addr_copy(delba.perr_mac_addr, peer_entry->tx.da);
+	delba.lut_index = peer_entry->lut_index;
+	delba.delba_param.initiator = 1;
+	delba.delba_param.tid = qos_index_2_tid(ac_index);
+	delba.reason_code = 0;
+
+	misc_work = sprd_alloc_work(sizeof(struct host_delba_param));
+	if (!misc_work) {
+		pr_err("%s out of memory\n", __func__);
+		sprd_put_vif(vif);
+		return;
+	}
+	misc_work->vif = vif;
+	misc_work->id = SPRD_WORK_DELBA;
+	misc_work->hw_type = hif->hw_type;
+	memcpy(misc_work->data, &delba, sizeof(struct host_delba_param));
+	clear_bit(qos_index_2_tid(ac_index), &peer_entry->ba_tx_done_map);
+
+	sprd_queue_work(vif->priv, misc_work);
+	sprd_put_vif(vif);
+}
+
+void sc2355_tx_ba_mgmt(struct sprd_priv *priv, struct sprd_vif *vif,
+			    void *data, int len, unsigned char cmd_id)
+{
+	struct sprd_msg *msg;
+	unsigned char *data_ptr;
+	u8 *rbuf;
+	u16 rlen = (1 + sizeof(struct host_addba_param));
+
+	msg = get_cmdbuf(priv, vif, len, cmd_id);
+	if (!msg) {
+		pr_err("%s, %d, get msg err\n", __func__, __LINE__);
+		return;
+	}
+
+	rbuf = kzalloc(rlen, GFP_KERNEL);
+	if (!rbuf)
+		return;
+
+	memcpy(msg->data, data, len);
+	data_ptr = (unsigned char *)data;
+
+	if (sprd_get_debug_level() >= L_INFO)
+		sc2355_hex_dump("sc2355_tx_ba_mgmt", data_ptr, len);
+
+	if (send_cmd_recv_rsp(priv, msg, rbuf, &rlen))
+		goto out;
+	/*if tx ba req failed, need to clear txba map*/
+	if (cmd_id == CMD_ADDBA_REQ && rbuf[0] != ADDBA_REQ_RESULT_SUCCESS) {
+		struct host_addba_param *addba;
+		struct sprd_peer_entry *peer_entry = NULL;
+		struct sprd_hif *hif = &priv->hif;
+		u16 tid = 0;
+
+		addba = (struct host_addba_param *)(rbuf + 1);
+		peer_entry = &hif->peer_entry[addba->lut_index];
+		tid = addba->addba_param.tid;
+		if (!test_and_clear_bit(tid, &peer_entry->ba_tx_done_map))
+			goto out;
+		pr_err
+		    ("%s, %d, tx_addba failed, reason=%d, lut_index=%d, tid=%d, map=%lu\n",
+		     __func__, __LINE__, rbuf[0], addba->lut_index, tid,
+		     peer_entry->ba_tx_done_map);
+	}
+out:
+	kfree(rbuf);
+}
+
+void sc2355_tx_send_addba(struct sprd_vif *vif, void *data, int len)
+{
+  	sc2355_tx_ba_mgmt(vif->priv, vif, data, len, CMD_ADDBA_REQ);
+}
+
+void sc2355_tx_send_delba(struct sprd_vif *vif, void *data, int len)
+{
+	struct host_delba_param *delba;
+
+	delba = (struct host_delba_param *)data;
+	sc2355_tx_ba_mgmt(vif->priv, vif, delba,
+			sizeof(struct host_delba_param), CMD_DELBA_REQ);
+}
+
+int sc2355_dis_flush_txlist(struct sprd_hif *hif, u8 lut_index)
+{
+	struct tx_mgmt *tx_mgmt;
+	int i, j;
+
+	if (lut_index <= 5) {
+		pr_err("err lut_index:%d, %s, %d\n",
+		       lut_index, __func__, __LINE__);
+		return -1;
+	}
+	pr_err("disconnect, flush qoslist, %s, %d\n", __func__, __LINE__);
+	tx_mgmt = (struct tx_mgmt *)hif->tx_mgmt;
+	for (i = 0; i < SPRD_MODE_MAX; i++)
+		for (j = 0; j < SPRD_AC_MAX; j++)
+			sc2355_flush_tx_qoslist(tx_mgmt, i, j, lut_index);
+	return 0;
 }
