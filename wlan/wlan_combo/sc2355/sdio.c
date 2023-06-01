@@ -106,7 +106,6 @@ static int sdio_tx_one(struct sprd_hif *hif, unsigned char *data,
 		return -1;
 	}
 
-	mbufalloc += num;
 	mbuf = head;
 	mbuf->buf = data;
 	mbuf->len = len;
@@ -124,7 +123,6 @@ static int sdio_tx_one(struct sprd_hif *hif, unsigned char *data,
 		mbuf->buf = NULL;
 
 		sprdwcn_bus_list_free(chn, head, tail, num);
-		mbufalloc -= num;
 	}
 
 	return ret;
@@ -653,8 +651,8 @@ int sc2355_hif_tx_list(struct sprd_hif *hif,
 #endif
 		INIT_LIST_HEAD(tx_list_head);
 		tx_packets += tx_count;
-		wl_info("%s,tx_count=%d,total=%lu,mbuf=%lu,%lu\n",
-			__func__, tx_count, tx_packets, mbufalloc, mbufpop);
+		wl_info("tx_list,cnt=%d,total=%lu,m/p=%lu/%lu\n",
+			tx_count, tx_packets, mbufalloc, mbufpop);
 		sc2355_add_topop_list(hif->tx_data_port, head, tail, tx_count);
 	}
 	return ret;
@@ -992,7 +990,7 @@ int sc2355_tx_cmd_pop_list(int channel, struct mbuf_t *head,
 	}
 
 	tx_mgmt->cmd_poped += num;
-	pr_info("tx_cmd_pop num: %d,cmd_poped=%d, cmd_send=%d\n",
+	pr_info("tx_cmd_pop num: %d,poped=%d, send=%d\n",
 		num, tx_mgmt->cmd_poped, tx_mgmt->cmd_send);
 	sprdwcn_bus_list_free(channel, head, tail, num);
 

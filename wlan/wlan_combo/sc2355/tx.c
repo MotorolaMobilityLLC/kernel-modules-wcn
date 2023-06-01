@@ -1457,8 +1457,8 @@ out:
 	if (tx_mgmt->kt == 0 || in_count == 0) {
 		tx_mgmt->kt = kt;
 	} else {
-		pr_info("%s, %d, %s, %dadded, %lld usec per flow\n",
-			__func__, __LINE__,
+		/* (us/c) means time interval between two updates for each credit */
+		wl_info("update_credit, %s, %dadded, %lld us/c\n",
 			(ret == -1) ? "event" : "data",
 			in_count,
 			div_u64(div_u64(kt - tx_mgmt->kt, NSEC_PER_USEC),

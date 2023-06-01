@@ -500,7 +500,7 @@ static int cmdevt_lock_cmd(struct sprd_cmd *cmd, struct sprd_hif *hif)
 
 	if (hif->priv->is_suspending == 0)
 		__pm_stay_awake(cmd->wake_lock);
-	pr_info("cmd->refcnt=%x\n", atomic_read(&cmd->refcnt));
+	wl_debug("cmd->refcnt=%x\n", atomic_read(&cmd->refcnt));
 
 	return 0;
 }
@@ -531,7 +531,7 @@ static int cmdevt_send_cmd(struct sprd_priv *priv, struct sprd_msg *msg)
 	if (hdr->common.rsp)
 		cmdevt_set_cmd(&priv->cmd, hdr);
 
-	pr_warn("[%u]ctx_id %d send[%s]\n",
+	pr_warn("[%u]cid %d tx[%s]\n",
 		le32_to_cpu(hdr->mstime),
 		hdr->common.mode, cmdevt_cmd2str(hdr->cmd_id));
 
@@ -815,13 +815,13 @@ int sc2355_send_cmd_recv_rsp(struct sprd_priv *priv, struct sprd_msg *msg, u8 *r
 			*rlen = min(*rlen, plen);
 			ctx_id = hdr->common.mode;
 			memcpy(rbuf, hdr->paydata, *rlen);
-			pr_warn("ctx_id:%d cmd_id:%d [%s]rsp received\n",
+			wl_debug("cid:%d cmd_id:%d [%s]rsp recv\n",
 				ctx_id, cmd_id, cmdevt_cmd2str(cmd_id));
 			if (cmd_id == CMD_OPEN)
 				rbuf[0] = ctx_id;
 		}
 	} else {
-		pr_err("ctx_id %d [%s]rsp timeout, printk=%d\n",
+		pr_err("cid %d [%s]rsp timeout, printk=%d\n",
 		       ctx_id, cmdevt_cmd2str(cmd_id), console_loglevel);
 		vif = sc2355_ctxid_to_vif(priv, ctx_id);
 		if (cmd_id == CMD_CLOSE) {
@@ -1647,7 +1647,7 @@ int sc2355_get_fw_info(struct sprd_priv *priv)
 		/*check sec2 data length got from fw*/
 		if ((r_len - len_count) >= sizeof(struct wiphy_sec2_t)) {
 			priv->wiphy_sec2_flag = 1;
-			pr_info("save wiphy section2 info to sprd_priv\n");
+			wl_info("save wiphy section2 info to sprd_priv\n");
 			memcpy(&priv->wiphy_sec2, &p->wiphy_sec2,
 			       sizeof(struct wiphy_sec2_t));
 			pr_debug("%s, %d, priv->wiphy_sec2.ht_cap_info=%x\n",
@@ -1703,7 +1703,7 @@ int sc2355_get_fw_info(struct sprd_priv *priv)
 					break;
 				}
 
-				pr_info
+				wl_info
 				    ("%s, TLV type=%d, len=%d, data_chk=%d\n",
 				     __func__, tlv->type, tlv->len,
 				     b_tlv_data_chk);
@@ -1737,24 +1737,21 @@ int sc2355_get_fw_info(struct sprd_priv *priv)
 		}
 
 out:
-		pr_info("%s, drv_version=%d, fw_version=%d, compat_ver=%d, ap_version=%d\n",
+		wl_info("%s, drv_ver=%d, fw_ver=%d, compat_ver=%d, ap_ver=%d\n",
 			__func__,
 			(&priv->sync_api)->api_array[CMD_GET_INFO].drv_version,
 			(&priv->sync_api)->api_array[CMD_GET_INFO].fw_version,
 			compat_ver, ap_version);
-		pr_info("chip_model:0x%x, chip_ver:0x%x\n", priv->chip_model,
+		wl_info("chip_model:0x%x, chip_ver:0x%x\n", priv->chip_model,
 			priv->chip_ver);
-		pr_info("fw_ver:%d, fw_std:0x%x, fw_capa:0x%x\n", priv->fw_ver,
+		wl_info("fw_ver:%d, fw_std:0x%x, fw_capa:0x%x\n", priv->fw_ver,
 			priv->fw_std, priv->fw_capa);
 		if (is_valid_ether_addr(priv->mac_addr))
-			pr_info("mac_addr:%02x:%02x:%02x:%02x:%02x:%02x\n",
-				priv->mac_addr[0], priv->mac_addr[1],
-				priv->mac_addr[2], priv->mac_addr[3],
-				priv->mac_addr[4], priv->mac_addr[5]);
-		pr_info("credit_capa:%s\n",
+			wl_info("mac_addr:%pM\n", priv->mac_addr);
+		wl_info("credit_capa:%s\n",
 			(priv->credit_capa ==
 			 TX_WITH_CREDIT) ? "TX_WITH_CREDIT" : "TX_NO_CREDIT");
-		pr_info("ott support:%d\n", priv->ott_supt);
+		wl_info("ott support:%d\n", priv->ott_supt);
 	}
 
 	return ret;
@@ -4212,9 +4209,9 @@ unsigned short sc2355_rx_evt_process(struct sprd_priv *priv, u8 *msg)
 		return plen;
 	}
 
-	wl_info("[%u]ctx_id %d recv[%s]len: %d,rsp_cnt=%d\n",
-		le32_to_cpu(hdr->mstime), ctx_id,
-		cmdevt_evt2str(hdr->cmd_id), plen, hdr->rsp_cnt);
+	if (hdr->cmd_id != EVT_SDIO_FLOWCON)
+		pr_info("cid %d rx[%s]len: %d,rsp_n=%d\n", ctx_id,
+			cmdevt_evt2str(hdr->cmd_id), plen, hdr->rsp_cnt);
 
 	if (plen < sizeof(struct sprd_cmd_hdr)) {
 		pr_err("%s plen is invalid!\n", __func__);
@@ -4423,10 +4420,10 @@ unsigned short sc2355_rx_rsp_process(struct sprd_priv *priv, u8 *msg)
 	spin_lock_bh(&cmd->lock);
 	if (!cmd->data && SPRD_GET_LE32(hdr->mstime) == cmd->mstime &&
 	    hdr->cmd_id == cmd->cmd_id) {
-		pr_info("ctx_id %d recv rsp[%s]\n",
+		pr_info("mode %d rx rsp[%s]\n",
 			hdr->common.mode, cmdevt_cmd2str(hdr->cmd_id));
 		if (unlikely(hdr->status != 0)) {
-			pr_err("%s ctx_id %d recv rsp[%s] status[%s]\n",
+			pr_err("%s cid %d recv rsp[%s] status[%s]\n",
 			       __func__, hdr->common.mode,
 			       cmdevt_cmd2str(hdr->cmd_id), cmdevt_err2str(hdr->status));
 			handle_flag = cmdevt_handle_rsp_status_err(hdr->cmd_id,
@@ -4440,7 +4437,7 @@ unsigned short sc2355_rx_rsp_process(struct sprd_priv *priv, u8 *msg)
 		complete(&cmd->completed);
 	} else {
 		kfree(data);
-		pr_err("%s ctx_id %d recv mismatched rsp[%s] status[%s]\n",
+		pr_err("%s cid %d recv mismatched rsp[%s] status[%s]\n",
 		       __func__, hdr->common.mode,
 		       cmdevt_cmd2str(hdr->cmd_id), cmdevt_err2str(hdr->status));
 		pr_err("%s mstime:[%u %u]\n", __func__,

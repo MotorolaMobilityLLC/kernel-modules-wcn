@@ -261,8 +261,8 @@ static int hw_param_nvm_set_cmd(struct nvm_name_table *ptable,
 		j++;
 	}
 
-	pr_info("[g_table]%s, offset:%u, num:%u value:%s",
-		ptable->itm, ptable->mem_offset, cmd->num, val_str);
+	wl_debug("[g_table]%s, offset:%u, num:%u value:%s",
+		 ptable->itm, ptable->mem_offset, cmd->num, val_str);
 
 	for (i = 0; i < cmd->num; i++) {
 		if (ptable->type == 1)
@@ -275,7 +275,7 @@ static int hw_param_nvm_set_cmd(struct nvm_name_table *ptable,
 			*((unsigned int *)p + i) =
 			    (unsigned int)(cmd->par[i]);
 		else
-			pr_info("%s, type err\n", __func__);
+			wl_err("%s, type err\n", __func__);
 	}
 	return 0;
 }
@@ -341,7 +341,7 @@ static void hw_param_nvm_get_cmd_par(char *str, struct nvm_cali_cmd *cmd)
 			continue;
 		if (ctype == 4) {
 			if (p != sec_name)
-				pr_info("[%s %d: %s]", cmd->itm, cmd->par[0], sec_name);
+				wl_debug("[%s %d: %s]", cmd->itm, cmd->par[0], sec_name);
 
 			return;
 		}
@@ -396,8 +396,8 @@ static int hw_param_nvm_buf_operate(char *pbuf, int file_len, void *p_data)
 					if (strcmp(ptable->itm, "value") == 0) {
 						spin_lock_bh(&adap_info.adap_lock);
 						adap_info.special_data_flag = cmd->par[4];
-						pr_info("%s special_data_flag: %d\n",
-							__func__, adap_info.special_data_flag);
+						wl_debug("%s special_data_flag: %d\n",
+							 __func__, adap_info.special_data_flag);
 						spin_unlock_bh(&adap_info.adap_lock);
 					}
 				}
@@ -455,10 +455,10 @@ static int hw_param_nvm_parse(struct sprd_priv *priv, const char *path, void *p_
 	release_firmware(fw);
 	p_buf = buffer;
 
-	pr_info("%s read %s data_len:0x%x\n", __func__, path, buffer_len);
+	wl_info("%s read %s data_len:0x%x\n", __func__, path, buffer_len);
 	ret = hw_param_nvm_buf_operate(buffer, buffer_len, p_data);
 	vfree(buffer);
-	pr_info("%s(), parsing ini data result=%d\n", __func__, ret);
+	wl_info("%s(), parsing ini data result=%d\n", __func__, ret);
 	return ret;
 }
 

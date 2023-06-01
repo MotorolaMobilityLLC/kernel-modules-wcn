@@ -457,9 +457,8 @@ void sc2355_api_version_fill_fw(struct sprd_priv *priv,
 		p = &api_array[count];
 		p->fw_version = fw_api->api_map[count];
 		if (p->fw_version != p->drv_version) {
-			pr_info
-			    ("API version not match!! CMD ID:%d,drv:%d,fw:%d\n",
-			     count, p->drv_version, p->fw_version);
+			wl_debug("API version not match!! CMD ID:%d,drv:%d,fw:%d\n",
+			         count, p->drv_version, p->fw_version);
 		}
 	}
 }

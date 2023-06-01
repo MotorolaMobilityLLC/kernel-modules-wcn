@@ -19,7 +19,7 @@ static unsigned int vi_ratio = 90;
 static unsigned int be_ratio = 81;
 static unsigned int wmmac_ratio = 10;
 static atomic_t tcp_ack_enable;
-int sprd_dbg_level = L_INFO;
+int sprd_dbg_level = L_WARN;
 
 int get_max_fw_tx_dscr(void)
 {
