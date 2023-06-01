@@ -1493,6 +1493,11 @@ void sc2355_sipc_download_hw_param(struct sprd_priv *priv)
 	struct merl_wifi_config_param_t *wifi_param;
 
 	wifi_data = kzalloc(sizeof( *wifi_data), GFP_KERNEL);
+
+	if (!wifi_data) {
+		pr_err("kzalloc fail, return\n");
+		return;
+	}
 	/*init INI data struct */
 	/*got ini data from file*/
 	ret = get_wifi_config_param(priv, wifi_data);

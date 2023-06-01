@@ -1395,7 +1395,6 @@ int sc2355_sipc_push_link(struct sprd_hif *hif, int chn,
 		     int (*pop)(int, struct mbuf_t *, struct mbuf_t *, int))
 {
 	int ret = 0;
-	unsigned long time = 0;
 	struct mbuf_t *pos = head;
 	int i = 0;
 
@@ -1405,9 +1404,8 @@ int sc2355_sipc_push_link(struct sprd_hif *hif, int chn,
 
 		pos = pos->next;
 	}
-	time = jiffies;
+
 	ret = sprdwcn_bus_push_list(chn, head, tail, num);
-	time = jiffies - time;
 
 	if (ret) {
 		pr_err("%s: push link fail: %d, chn: %d!\n", __func__, ret,
