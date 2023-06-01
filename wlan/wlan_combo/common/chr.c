@@ -294,6 +294,9 @@ retry:
 	while (chr->chr_sock->ops->connect(chr->chr_sock,
 	       (struct sockaddr *)&s_addr, sizeof(s_addr), 0)) {
 		msleep(1000);
+
+		if (chr->thread_exit)
+			goto exit;
 	}
 
 	pr_info("CHR: wifi_client connected\n");
@@ -353,7 +356,6 @@ retry:
 	goto retry;
 
 exit:
-
 	chr->thread_exit = 0;
 	usleep_range(50, 100);
 	pr_info("%s, CHR: exit client_thread\n", __func__);
@@ -405,16 +407,17 @@ void sprd_chr_handle_open(struct sprd_chr *chr)
 	return;
 }
 
-int sprd_chr_handle_probe(struct sprd_hif *hif, struct sprd_chr *chr)
+struct sprd_chr *sprd_chr_handle_probe(struct sprd_hif *hif)
 {
 	int ret;
+	struct sprd_chr *chr = NULL;
 	struct sprd_priv *priv = hif->priv;
 
-	/* Int the chr struct and bind its ops*/
+	/* int the chr struct */
 	chr = kzalloc(sizeof(*chr), GFP_KERNEL);
 	if (!chr) {
 		pr_info("%s, CHR: kzalloc chr failed", __func__);
-		return -ENOMEM;
+		return NULL;
 	}
 	hif->chr = chr;
 	chr->hif = hif;
@@ -429,7 +432,7 @@ int sprd_chr_handle_probe(struct sprd_hif *hif, struct sprd_chr *chr)
 			pr_err("%s, CHR: chr init failed: %d\n", __func__, ret);
 		}
 	}
-	return 0;
+	return chr;
 }
 
 int sprd_chr_init(struct sprd_chr *chr)
@@ -460,22 +463,42 @@ int sprd_chr_init(struct sprd_chr *chr)
 	return 0;
 }
 
-void sprd_chr_deinit(struct sprd_chr *chr)
+void sprd_chr_deinit(struct sprd_chr *chr, int exit_type)
 {
+	if (!chr) {
+		pr_err("%s, CHR: struct chr has been free!", __func__);
+		return;
+	}
+
 	if (chr->chr_client_thread) {
 		chr->thread_exit = 1;
 
 		if (chr->chr_sock) {
-			if (chr->chr_sock->ops) {
+			/*
+			 * sprd_chr_thread may have just received the msg from upper and
+			 * is processing it at this time, and it needs to wait for its processing
+			 * to complete before re-entering blocking.The max long time is 20ms;
+			 */
+			msleep(100);
+
+			if (chr->chr_sock->ops && exit_type == REMOVE_DEINIT)
 				chr->chr_sock->ops->shutdown(chr->chr_sock, SHUT_RDWR);
-				kthread_stop(chr->chr_client_thread);
-				chr->chr_client_thread = NULL;
-				sock_release(chr->chr_sock);
-				chr->chr_sock = NULL;
-			}
+			/* wait the sprd_chr_client_thread exit */
+			while (chr->thread_exit)
+				msleep(100);
+
+			chr->chr_client_thread = NULL;
+			sock_release(chr->chr_sock);
+			chr->chr_sock = NULL;
 		}
-		pr_info("%s, CHR: stop chr_client_thread!\n", __func__);
+	}
+
+	if (chr->chr_refcnt) {
+		kfree(chr->chr_refcnt);
+		chr->chr_refcnt = NULL;
 	}
 	kfree(chr);
+	chr = NULL;
+	pr_info("%s, CHR: stop chr_client_thread!\n", __func__);
 	return;
 }

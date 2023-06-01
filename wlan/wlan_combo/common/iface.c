@@ -1867,9 +1867,8 @@ int sprd_iface_probe(struct platform_device *pdev,
 	struct sprd_priv *priv;
 	struct sprd_hif *hif;
 #ifdef ENABLE_CHR
-	struct sprd_chr *chr = NULL;
+	struct sprd_chr *chr;
 #endif
-
 	int ret;
 
 	pr_info("Spreadtrum WLAN Driver (Ver. %s, %s)\n",
@@ -1897,19 +1896,20 @@ int sprd_iface_probe(struct platform_device *pdev,
 	}
 
 #ifdef ENABLE_CHR
-	ret = sprd_chr_handle_probe(hif, chr);
-	if (ret) {
+	chr = sprd_chr_handle_probe(hif);
+	if (!chr) {
 		pr_err("%s, CHR: chr struct malloc failed", __func__);
 		sprd_hif_deinit(hif);
 		sprd_core_free(priv);
-		return ret;
+		return -ENOMEM;
 	}
 #endif
 	pr_info("%s Power on WCN (%d time)\n", __func__, atomic_read(&hif->power_cnt));
+
 	ret = sprd_iface_set_power(hif, true);
 	if (ret) {
 #ifdef ENABLE_CHR
-		sprd_chr_deinit(chr);
+		sprd_chr_deinit(chr, PROBE_DEINIT);
 #endif
 		sprd_hif_deinit(hif);
 		sprd_core_free(priv);
@@ -1920,7 +1920,7 @@ int sprd_iface_probe(struct platform_device *pdev,
 	if (ret) {
 		pr_err("%s core init failed: %d\n", __func__, ret);
 #ifdef ENABLE_CHR
-		sprd_chr_deinit(chr);
+		sprd_chr_deinit(chr, PROBE_DEINIT);
 #endif
 		sprd_hif_deinit(hif);
 		sprd_core_free(priv);
@@ -1932,7 +1932,7 @@ int sprd_iface_probe(struct platform_device *pdev,
 	if (ret) {
 		pr_err("%s notify init failed: %d\n", __func__, ret);
 #ifdef ENABLE_CHR
-		sprd_chr_deinit(chr);
+		sprd_chr_deinit(chr, PROBE_DEINIT);
 #endif
 		iface_core_deinit(priv);
 		sprd_hif_deinit(hif);
@@ -1963,7 +1963,7 @@ int sprd_iface_remove(struct platform_device *pdev)
 		return ret;
 
 #ifdef ENABLE_CHR
-	sprd_chr_deinit(hif->chr);
+	sprd_chr_deinit(hif->chr, REMOVE_DEINIT);
 #endif
 	iface_notify_deinit(priv);
 	iface_core_deinit(priv);

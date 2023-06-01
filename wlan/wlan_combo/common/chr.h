@@ -76,6 +76,12 @@ enum OPEN_ERR_LIST {
 	OPEN_ERR_DOWNLOAD_INI
 };
 
+/* The flag is used to determine wher is calling sprd_chr_deinit*/
+enum CHR_DEINIT_TYPE {
+	PROBE_DEINIT = 0,
+	REMOVE_DEINIT
+};
+
 /* set chr cmd to cp2*/
 struct cmd_chr_mode {
 	u8 on_flag; /* 1 enable, 0 disable*/
@@ -130,7 +136,7 @@ struct sprd_chr {
 
 
 int sprd_chr_init(struct sprd_chr *chr);
-void sprd_chr_deinit(struct sprd_chr *chr);
+void sprd_chr_deinit(struct sprd_chr *chr, int exit_type);
 
 /* This function is used to report chr_disconnect evt from CP2 */
 void sprd_chr_report_disconnect(struct sprd_vif *vif, u8 version,
@@ -140,6 +146,7 @@ void sprd_chr_report_open_error(struct sprd_chr *chr, u32 evt_id,
 				u8 err_code);
 void sprd_chr_handle_open(struct sprd_chr *chr);
 void sprd_chr_handle_power(struct sprd_chr *chr);
-int sprd_chr_handle_probe(struct sprd_hif *hif, struct sprd_chr *chr);
+struct sprd_chr *sprd_chr_handle_probe(struct sprd_hif *hif);
+
 
 #endif
