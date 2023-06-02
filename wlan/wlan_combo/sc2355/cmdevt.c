@@ -1399,12 +1399,17 @@ void sc2355_download_hw_param(struct sprd_priv *priv)
 	}
 
 	wifi_data = kzalloc(sizeof(*wifi_data), GFP_KERNEL);
+	if (!wifi_data) {
+		pr_err("%s malloc wifi_data failed", __func__);
+		return;
+	}
 	/*init INI data struct */
 	/*got ini data from file*/
 	ret = sc2355_get_nvm_table(priv, wifi_data);
 	if (ret) {
 		pr_err("load ini data failed, return\n");
 		kfree(wifi_data);
+		wifi_data = NULL;
 		sc2355_assert_cmd(priv, NULL, CMD_DOWNLOAD_INI, LOAD_INI_DATA_FAILED);
 		return;
 	}
@@ -1424,6 +1429,7 @@ void sc2355_download_hw_param(struct sprd_priv *priv)
 	if (ret) {
 		pr_err("download the first section of ini fail,ret=%d\n", ret);
 		kfree(wifi_data);
+		wifi_data = NULL;
 #ifdef ENABLE_CHR
 		CHR_OPENERR_FLAGSET(&hif->chr->open_err_flag, OPEN_ERR_DOWNLOAD_INI);
 #endif
@@ -1437,6 +1443,7 @@ void sc2355_download_hw_param(struct sprd_priv *priv)
 	if (ret) {
 		pr_err("download the second section of ini fail,ret=%d\n", ret);
 		kfree(wifi_data);
+		wifi_data = NULL;
 #ifdef ENABLE_CHR
 		CHR_OPENERR_FLAGSET(&hif->chr->open_err_flag, OPEN_ERR_DOWNLOAD_INI);
 #endif
@@ -1454,6 +1461,7 @@ void sc2355_download_hw_param(struct sprd_priv *priv)
 			pr_err
 			    ("download the third section of ini fail,ret=%d\n", ret);
 			kfree(wifi_data);
+			wifi_data = NULL;
 #ifdef ENABLE_CHR
 			CHR_OPENERR_FLAGSET(&hif->chr->open_err_flag, OPEN_ERR_DOWNLOAD_INI);
 #endif
@@ -1472,6 +1480,7 @@ void sc2355_download_hw_param(struct sprd_priv *priv)
 	if (ret) {
 		pr_err("download the 4th section of ini fail,ret=%d\n", ret);
 		kfree(wifi_data);
+		wifi_data = NULL;
 #ifdef ENABLE_CHR
 		CHR_OPENERR_FLAGSET(&hif->chr->open_err_flag, OPEN_ERR_DOWNLOAD_INI);
 #endif
@@ -1481,6 +1490,7 @@ void sc2355_download_hw_param(struct sprd_priv *priv)
 	}
 
 	kfree(wifi_data);
+	wifi_data = NULL;
 	return;
 }
 
@@ -1504,6 +1514,7 @@ void sc2355_sipc_download_hw_param(struct sprd_priv *priv)
 	if (ret) {
 		pr_err("load ini data failed, return\n");
 		kfree(wifi_data);
+		wifi_data = NULL;
 		sc2355_assert_cmd(priv, NULL, CMD_DOWNLOAD_INI, LOAD_INI_DATA_FAILED);
 		return;
 	}
@@ -1523,6 +1534,7 @@ void sc2355_sipc_download_hw_param(struct sprd_priv *priv)
 	if (ret) {
 		pr_err("download the first section of ini fail,return\n");
 		kfree(wifi_data);
+		wifi_data = NULL;
 		sc2355_assert_cmd(priv, NULL, CMD_DOWNLOAD_INI, LOAD_INI_DATA_FAILED);
 		return;
 	}
@@ -1532,6 +1544,7 @@ void sc2355_sipc_download_hw_param(struct sprd_priv *priv)
 	if (ret) {
 		pr_err("download the second section of ini fail,return\n");
 		kfree(wifi_data);
+		wifi_data = NULL;
 		sc2355_assert_cmd(priv, NULL, CMD_DOWNLOAD_INI, LOAD_INI_DATA_FAILED);
 		return;
 	}
@@ -1544,6 +1557,7 @@ void sc2355_sipc_download_hw_param(struct sprd_priv *priv)
 		if (ret) {
 			pr_err("download the third section of ini fail,return\n");
 			kfree(wifi_data);
+			wifi_data = NULL;
 			sc2355_assert_cmd(priv, NULL, CMD_DOWNLOAD_INI, LOAD_INI_DATA_FAILED);
 			return;
 		}
@@ -1555,10 +1569,12 @@ void sc2355_sipc_download_hw_param(struct sprd_priv *priv)
 	if (ret) {
 		pr_err("download the 4th section of ini fail,return\n");
 		kfree(wifi_data);
+		wifi_data = NULL;
 		sc2355_assert_cmd(priv, NULL, CMD_DOWNLOAD_INI, LOAD_INI_DATA_FAILED);
 		return;
 	}
 	kfree(wifi_data);
+	wifi_data = NULL;
 	return;
 }
 
