@@ -131,6 +131,7 @@ static struct gnss_ring_t *gnss_ring_init(unsigned long size,
 			pr_err("Ring malloc Failed\n");
 			break;
 		}
+		memset(pring, 0, sizeof(struct gnss_ring_t));
 		pring->pbuff = vmalloc(size);
 		if (!pring->pbuff) {
 			pr_err("Ring buff malloc Failed\n");
@@ -141,6 +142,7 @@ static struct gnss_ring_t *gnss_ring_init(unsigned long size,
 			pr_err("Ring lock malloc Failed\n");
 			break;
 		}
+		memset(pring->plock, 0, sizeof(struct mutex));
 		mutex_init(pring->plock);
 		memset(pring->pbuff, 0, size);
 		pring->size = size;
