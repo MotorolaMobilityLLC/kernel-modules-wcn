@@ -450,8 +450,8 @@ static ssize_t gnss_subsys_show(struct device *dev,
 	if (gnss_common_ctl_dev.gnss_status == GNSS_STATUS_POWERON) {
 		memset(gnss_common_ctl_dev.firmware_path, 0x0,
 		       FIRMWARE_FILEPATHNAME_LENGTH_MAX);
-		strcpy(&gnss_common_ctl_dev.firmware_path[0],
-		       gnss_firmware_path_get());
+		strncpy(&gnss_common_ctl_dev.firmware_path[0],
+		       gnss_firmware_path_get(), FIRMWARE_FILEPATHNAME_LENGTH_MAX - 1);
 
 		dev_info(dev, "%s fpath=[%s]\n", __func__,
 			 gnss_common_ctl_dev.firmware_path);
@@ -498,7 +498,7 @@ static void gnss_dump_mem_ctrl_co(char *trigStr)
 	struct device *dev = gnss_common_ctl_dev.dev;
 
 	memset(triggerStr, 0, 64);
-	strcpy(triggerStr, trigStr);
+	strncpy(triggerStr, trigStr, 63);
 
 	dev_info(dev, "%s flag[%d],str[%s]\n", __func__, dump_flag, triggerStr);
 
@@ -524,7 +524,7 @@ static void gnss_dump_mem_ctrl(char *trigStr)
 	struct device *dev = gnss_common_ctl_dev.dev;
 
 	memset(triggerStr, 0, 64);
-	strcpy(triggerStr, trigStr);
+	strncpy(triggerStr, trigStr, 63);
 
 	dev_info(dev, "%s flag[%d],str[%s]\n", __func__, dump_flag, triggerStr);
 
