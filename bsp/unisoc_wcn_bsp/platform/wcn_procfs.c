@@ -16,6 +16,7 @@
 #include <linux/sched/clock.h>
 #include <linux/seq_file.h>
 #include <linux/wait.h>
+#include <linux/version.h>
 #include <misc/marlin_platform.h>
 #include <misc/wcn_bus.h>
 
@@ -525,8 +526,13 @@ static const struct proc_ops mdbg_snap_shoot_seq_fops = {
 
 static int mdbg_proc_open(struct inode *inode, struct file *filp)
 {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 17, 15)
+	struct mdbg_proc_entry *entry =
+		(struct mdbg_proc_entry *)pde_data(inode);
+#else
 	struct mdbg_proc_entry *entry =
 		(struct mdbg_proc_entry *)PDE_DATA(inode);
+#endif
 	filp->private_data = entry;
 
 	return 0;
@@ -1093,7 +1099,7 @@ static ssize_t mdbg_wcn_chr_write(struct file *filp,
 
 	tmp = kzalloc(count, GFP_KERNEL);
 	if (!tmp) {
-		WCN_ERR("%s: alloc %d byte memory failed\n", __func__, count);
+		WCN_ERR("%s: alloc %ld byte memory failed\n", __func__, count);
 		return -ENOMEM;
 	}
 

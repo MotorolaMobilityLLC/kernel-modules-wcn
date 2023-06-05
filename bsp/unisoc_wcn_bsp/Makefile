@@ -8,8 +8,15 @@
 #   done in this Makefile
 #
 
+ifneq ($(strip $(BSP_KERNEL_VERSION)),kernel5.15)
+BSP_MODULES_OUT := ${COMMON_OUT_DIR}/unisoc_modules/kernel6.1/wcn/bsp/unisoc_wcn_bsp
+BSP_KERNEL_PATH := ${ROOT_DIR}/kernel6.1
+KO_MODULE_OUT := $(BSP_MODULES_OUT)
+else
 KO_MODULE_NAME := unisoc_wcn_bsp
 KO_MODULE_OUT := $(BSP_MODULES_OUT)/$(KO_MODULE_NAME)
+endif
+
 KO_MODULE_KBUILD := $(CURDIR)/Kbuild
 
 .PHONY: modules modules_install clean

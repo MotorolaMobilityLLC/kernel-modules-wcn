@@ -907,17 +907,17 @@ static int reg_set_bit(unsigned long reg, unsigned long bit)
 
 	ret = sprdwcn_bus_reg_read(reg, &reg_data, 4);
 	if (ret < 0) {
-		WCN_ERR("%s: read reg 0x%x failed with %d\n", __func__, reg, ret);
+		WCN_ERR("%s: read reg 0x%lx failed with %d\n", __func__, reg, ret);
 		return ret;
 	}
 
-	WCN_INFO("ADDR 0x%x = 0x%x, %s\n", reg, reg_data, __func__);
+	WCN_INFO("ADDR 0x%lx = 0x%x, %s\n", reg, reg_data, __func__);
 
 	if ((reg_data & bit) == 0) {
 		reg_data |= bit;
 		ret = sprdwcn_bus_reg_write(reg, &reg_data, 4);
 		if (ret < 0) {
-			WCN_ERR("%s: write reg:0x%x bit:0x%x failed with %d\n", __func__, reg, bit, ret);
+			WCN_ERR("%s: write reg:0x%lx bit:0x%lx failed with %d\n", __func__, reg, bit, ret);
 			return ret;
 		}
 	}
@@ -1032,7 +1032,7 @@ static int btwifi_download_firmware(void)
 	}
 
 	pr_info(" %s tx_img_size = %d\n", __func__, tx_img_size);
-	pr_info(" %s tx_img_ptr = %x\n", __func__, tx_img_ptr);
+	pr_info(" %s tx_img_ptr = %p\n", __func__, tx_img_ptr);
 	pr_info(" %s firmware->size = %ld\n", __func__, firmware->size);
 	if (tx_img_size > M3L_FIRMWARE_MAX_SIZE) {
 		if ((marlin_get_wcn_xpe_efuse_data() == WCN_XPE_EFUSE_DATA)) {

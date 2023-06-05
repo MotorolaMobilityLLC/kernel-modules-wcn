@@ -125,7 +125,7 @@ static int parse_event(char *buf, int len)
                         return ret;
                 }
 
-		WCN_INFO("%s: %s: 0x%x-%d\n", __func__, WCN_CHR_SET_EVENT_HEAD, event_id, set);
+		WCN_INFO("%s: %s: 0x%lx-%ld\n", __func__, WCN_CHR_SET_EVENT_HEAD, event_id, set);
 
 		for (i = 0; i < ARRAY_SIZE(event_list); i++) {
 			if (event_list[i].event_id == event_id) {

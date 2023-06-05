@@ -31,6 +31,7 @@
 #include <linux/workqueue.h>
 #include <linux/nvmem-consumer.h>
 #include <linux/thermal.h>
+#include <linux/version.h>
 
 #include "../platform/gnss/gnss.h"
 #include "gnss_firmware_bin.h"
@@ -1137,8 +1138,13 @@ static int wcn_parse_dt(struct platform_device *pdev,
 
 static int wcn_platform_open(struct inode *inode, struct file *filp)
 {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 17, 15)
+	struct platform_proc_file_entry
+	*entry = (struct platform_proc_file_entry *)pde_data(inode);
+#else
 	struct platform_proc_file_entry
 	*entry = (struct platform_proc_file_entry *)PDE_DATA(inode);
+#endif
 
 	WCN_INFO("entry name:%s\n!", entry->name);
 
