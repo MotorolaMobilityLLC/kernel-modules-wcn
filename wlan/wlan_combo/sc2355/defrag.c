@@ -23,7 +23,7 @@ static struct rx_defrag_node
 			    msdu_desc->frag_num) {
 				/* Node alive & fragment avail */
 				pos_node->last_frag_num = msdu_desc->frag_num;
-				pr_debug("%s: last_frag_num: %d\n",
+				wl_all("%s: last_frag_num: %d\n",
 					 __func__, pos_node->last_frag_num);
 				node = pos_node;
 			}
@@ -68,13 +68,13 @@ static struct rx_defrag_node
 			if (!seqno_leq(msdu_desc->seq_num,
 				       pos_node->desc.seq_num)) {
 				/* Replace this entry */
-				pr_err("%s: fragment replace: %d, %d\n",
+				wl_err("%s: fragment replace: %d, %d\n",
 				       __func__, msdu_desc->seq_num,
 				       pos_node->desc.seq_num);
 				node = pos_node;
 			} else {
 				/* fragment not avail */
-				pr_err("%s: fragment not avail: %d, %d\n",
+				wl_err("%s: fragment not avail: %d, %d\n",
 				       __func__, msdu_desc->seq_num,
 				       pos_node->desc.seq_num);
 				ret = false;
@@ -108,7 +108,7 @@ static struct rx_defrag_node
 {
 	struct rx_defrag_node *node = NULL;
 
-	pr_debug("%s: frag_num: %d\n", __func__, msdu_desc->frag_num);
+	wl_all("%s: frag_num: %d\n", __func__, msdu_desc->frag_num);
 
 	/* HW do not record entry time when HW suspend
 	 * So we need to judge whether this entry is alive
@@ -140,12 +140,12 @@ static struct sk_buff
 			frag_len = msdu_desc->msdu_len - 2 * ETH_ALEN;
 		node->msdu_len += frag_len;
 
-		pr_debug("%s: more_frag_bit: %d, node msdu_len: %d\n",
+		wl_all("%s: more_frag_bit: %d, node msdu_len: %d\n",
 			 __func__, msdu_desc->more_frag_bit, node->msdu_len);
 		if (!msdu_desc->more_frag_bit) {
 			skb = skb_dequeue(&node->skb_list);
 			if (!skb) {
-				pr_err("%s:get skb buffer failed\n", __func__);
+				wl_err("%s:get skb buffer failed\n", __func__);
 				return NULL;
 			}
 			msdu_desc = (struct rx_msdu_desc *)skb->data;
@@ -156,7 +156,7 @@ static struct sk_buff
 			pos_skb = dev_alloc_skb(node->msdu_len);
 			if (unlikely(!pos_skb)) {
 				/* Free all skbs */
-				pr_err("%s: expand skb fail\n", __func__);
+				wl_err("%s: expand skb fail\n", __func__);
 				skb_queue_purge(&node->skb_list);
 				dev_kfree_skb(skb);
 				skb = NULL;
@@ -182,7 +182,7 @@ static struct sk_buff
 					    2 * ETH_ALEN;
 				}
 
-				pr_debug("%s: frag_len: %d, frag_offset: %d\n",
+				wl_all("%s: frag_len: %d, frag_offset: %d\n",
 					 __func__, frag_len, frag_offset);
 				memcpy((skb->data + offset),
 				       (pos_skb->data + frag_offset), frag_len);
@@ -235,7 +235,7 @@ int sc2355_defrag_init(struct rx_defrag_entry *defrag_entry)
 			skb_queue_head_init(&node->skb_list);
 			list_add(&node->list, &defrag_entry->list);
 		} else {
-			pr_err("%s: fail to alloc rx_defrag_node\n", __func__);
+			wl_err("%s: fail to alloc rx_defrag_node\n", __func__);
 			ret = -ENOMEM;
 			break;
 		}
@@ -273,8 +273,8 @@ void sc2355_defrag_recover(struct sprd_vif *vif)
 		if ((lut_index == node->desc.sta_lut_index) &&
 		    (!skb_queue_empty(&node->skb_list))) {
 			skb_queue_purge(&node->skb_list);
-			pr_err("%s:defrag clear cache\n", __func__);
+			wl_err("%s:defrag clear cache\n", __func__);
 		}
-		pr_err("%s:msdu len %d\n", __func__, node->msdu_len);
+		wl_err("%s:msdu len %d\n", __func__, node->msdu_len);
 	}
 }

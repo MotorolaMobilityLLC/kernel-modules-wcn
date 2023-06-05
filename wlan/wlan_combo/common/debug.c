@@ -19,7 +19,7 @@ static unsigned int vi_ratio = 90;
 static unsigned int be_ratio = 81;
 static unsigned int wmmac_ratio = 10;
 static atomic_t tcp_ack_enable;
-int sprd_dbg_level = L_WARN;
+int sprd_dbg_level = INIT_DBG_LEVEL;
 
 int get_max_fw_tx_dscr(void)
 {
@@ -89,10 +89,9 @@ void adjust_max_fw_tx_dscr(char *buf, unsigned char offset)
 		}
 	}
 	max_fw_tx_dscr = value;
-	pr_err("%s, change max_fw_tx_dscr to %d\n", __func__, value);
+	wl_err("%s, change max_fw_tx_dscr to %d\n", __func__, value);
 }
 EXPORT_SYMBOL(adjust_max_fw_tx_dscr);
-#ifdef CONFIG_SPRD_WLAN_DEBUG
 
 static struct sprd_debug *sprd_dbg;
 static struct debug_ctrl dbg_ctrl;
@@ -173,26 +172,11 @@ static void debug_adjust_debug_level(char *buf, unsigned char offset)
 {
 	int level = buf[offset] - '0';
 
-	pr_err("input debug level: %d!\n", level);
-	switch (level) {
-	case L_ERR:
-		sprd_dbg_level = L_ERR;
-		break;
-	case L_WARN:
-		sprd_dbg_level = L_WARN;
-		break;
-	case L_INFO:
-		sprd_dbg_level = L_INFO;
-		break;
-	case L_DBG:
-		sprd_dbg_level = L_DBG;
-		break;
-	default:
-		sprd_dbg_level = L_ERR;
-		pr_err("input wrong debug level\n");
-	}
-
-	pr_err("set debug_level: %d\n", sprd_dbg_level);
+	if (level >= L_ERR && level <= L_ALL)
+		sprd_dbg_level = level;
+	else
+		wl_err("invalid debug_level: %d\n", level);
+	wl_err("set debug_level: %d\n", sprd_dbg_level);
 }
 
 static void debug_adjust_qos_ratio(char *buf, unsigned char offset)
@@ -211,7 +195,7 @@ static void debug_adjust_qos_ratio(char *buf, unsigned char offset)
 		wmmac_ratio = qos_ratio;
 	}
 
-	pr_err("vo ratio:%u, vi ratio:%u, be ratio:%u, wmmac_ratio:%u\n",
+	wl_err("vo ratio:%u, vi ratio:%u, be ratio:%u, wmmac_ratio:%u\n",
 	       vo_ratio, vi_ratio, be_ratio, wmmac_ratio);
 }
 
@@ -252,7 +236,7 @@ static void debug_adjust_tcpack_delay(char *buf, unsigned char offset)
 		}
 	}
 
-	pr_err("cnt: %d\n", cnt);
+	wl_err("cnt: %d\n", cnt);
 
 	if (cnt >= 100)
 		cnt = SPRD_TCP_ACK_DROP_CNT;
@@ -262,7 +246,7 @@ static void debug_adjust_tcpack_delay(char *buf, unsigned char offset)
 		ack_m = &priv->ack_m;
 
 		atomic_set(&ack_m->max_drop_cnt, cnt);
-		pr_err("drop time: %d, atomic drop time: %d\n", cnt,
+		wl_err("drop time: %d, atomic drop time: %d\n", cnt,
 		       atomic_read(&ack_m->max_drop_cnt));
 	}
 #undef MAX_LEN
@@ -288,7 +272,7 @@ static void debug_adjust_tcpack_delay_win(char *buf, unsigned char offset)
 		priv = container_of(sprd_dbg, struct sprd_priv, debug);
 		ack_m = &priv->ack_m;
 		ack_m->ack_winsize = value;
-		pr_err("%s, change tcpack_delay_win to %dKB\n", __func__, value);
+		wl_err("%s, change tcpack_delay_win to %dKB\n", __func__, value);
 	}
 }
 
@@ -307,7 +291,7 @@ static void debug_adjust_tdls_threshold(char *buf, unsigned char offset)
 		}
 	}
 	tdls_threshold = value;
-	pr_err("%s, change tdls_threshold to %d\n", __func__, value);
+	wl_err("%s, change tdls_threshold to %d\n", __func__, value);
 }
 
 static void debug_adjust_tsq_shift(char *buf, unsigned char offset)
@@ -325,7 +309,7 @@ static void debug_adjust_tsq_shift(char *buf, unsigned char offset)
 		}
 	}
 	sprd_dbg->tsq_shift = value;
-	pr_err("%s, change tsq_shift to %d\n", __func__, value);
+	wl_err("%s, change tsq_shift to %d\n", __func__, value);
 }
 
 static void debug_adjust_tcpack_th_in_mb(char *buf, unsigned char offset)
@@ -346,7 +330,7 @@ static void debug_adjust_tcpack_th_in_mb(char *buf, unsigned char offset)
 	if (cnt < 0 || cnt > 9999)
 		cnt = DROPACK_TP_TH_IN_M;
 	sprd_dbg->tcpack_delay_th_in_mb = cnt;
-	pr_info("tcpack_delay_th_in_mb: %d\n", sprd_dbg->tcpack_delay_th_in_mb);
+	wl_info("tcpack_delay_th_in_mb: %d\n", sprd_dbg->tcpack_delay_th_in_mb);
 #undef MAX_LEN
 }
 
@@ -368,7 +352,7 @@ static void debug_adjust_tcpack_time_in_ms(char *buf, unsigned char offset)
 	if (cnt < 0 || cnt > 9999)
 		cnt = RX_TP_COUNT_IN_MS;
 	sprd_dbg->tcpack_time_in_ms = cnt;
-	pr_info("tcpack_time_in_ms: %d\n", sprd_dbg->tcpack_time_in_ms);
+	wl_info("tcpack_time_in_ms: %d\n", sprd_dbg->tcpack_time_in_ms);
 #undef MAX_LEN
 }
 
@@ -417,17 +401,17 @@ static ssize_t intf_write(struct file *file, const char __user *__user_buf,
 	int debug_size = sizeof(dbg_info) / sizeof(struct debug_info_s);
 
 	if (!count || count >= sizeof(buf)) {
-		pr_err("write len too long:%zu >= %zu\n", count, sizeof(buf));
+		wl_err("write len too long:%zu >= %zu\n", count, sizeof(buf));
 		return -EINVAL;
 	}
 	if (copy_from_user(buf, __user_buf, count))
 		return -EFAULT;
 	buf[count] = '\0';
-	pr_err("write info:%s\n", buf);
+	wl_err("write info:%s\n", buf);
 	for (type = 0; type < debug_size; type++)
 		if (!strncmp(dbg_info[type].str, buf,
 			     strlen(dbg_info[type].str))) {
-			pr_err("write info:type %d\n", type);
+			wl_err("write info:type %d\n", type);
 			dbg_info[type].func(buf, strlen(dbg_info[type].str));
 			break;
 		}
@@ -472,7 +456,7 @@ static ssize_t debug_write_txrx(struct file *file,
 	unsigned char len = strlen(buf);
 
 	if (!count || (count + len) >= sizeof(buf)) {
-		pr_err("write len too long:%zu >= %zu\n", count, sizeof(buf));
+		wl_err("write len too long:%zu >= %zu\n", count, sizeof(buf));
 		return -EINVAL;
 	}
 
@@ -480,7 +464,7 @@ static ssize_t debug_write_txrx(struct file *file,
 		return -EFAULT;
 
 	buf[count + len] = '\0';
-	pr_err("write info:%s\n", buf);
+	wl_err("write info:%s\n", buf);
 
 	debug_adjust_ts_cnt(buf, len);
 
@@ -561,7 +545,7 @@ static int sprd_force_apf_disable_set(void *data, u64 val)
 
 	vif = sprd_mode_to_vif(priv, SPRD_MODE_STATION);
 	if (!vif) {
-		pr_err("%s error params", __func__);
+		wl_err("%s error params", __func__);
 		return -EINVAL;
 	}
 
@@ -570,13 +554,13 @@ static int sprd_force_apf_disable_set(void *data, u64 val)
 	else if (val == 0xA9FC)
 		force_apf_disable = false;
 	else {
-		pr_info("apf val = %llx.\n", val);
+		wl_info("apf val = %llx.\n", val);
 		return -EINVAL;
 	}
 
 	ret = apf_force_disable(vif, force_apf_disable);
 	if (ret) {
-		pr_err("%s apf_send err %d.\n", __func__, ret);
+		wl_err("%s apf_send err %d.\n", __func__, ret);
 	}
 
 	return ret;
@@ -591,13 +575,13 @@ static int sprd_force_apf_disable_get(void *data, u64 *val)
 
 	vif = sprd_mode_to_vif(priv, SPRD_MODE_STATION);
 	if (!vif) {
-		pr_err("%s error params", __func__);
+		wl_err("%s error params", __func__);
 		return -EINVAL;
 	}
 
 	ret = apf_force_disable_status(vif, &force_dis_apf_status);
 	if (ret) {
-		pr_err("%s apf_send err %d.\n", __func__, ret);
+		wl_err("%s apf_send err %d.\n", __func__, ret);
 	} else {
 		*val = (u64) force_dis_apf_status;
 	}
@@ -611,11 +595,17 @@ DEFINE_SIMPLE_ATTRIBUTE(apf_disable_ops,
 void sprd_debug_init(struct sprd_debug *dbg)
 {
 	sprd_dbg = dbg;
+#ifdef CONFIG_SPRD_WLAN_DEBUG
+	sprd_dbg_level = L_DBG;
+#else
 	sprd_dbg_level = L_INFO;
-	/* create debugfs */
+#endif
+	/* create debugfs
+	 * run "mount -t debugfs none /sys/kernel/debug"
+	 * on user_root version */
 	dbg->dir = debugfs_create_dir("sprd_wlan", NULL);
 	if (IS_ERR(dbg->dir)) {
-		pr_err("%s, create dir fail!\n", __func__);
+		wl_err("%s, create dir fail!\n", __func__);
 		dbg->dir = NULL;
 		return;
 	}
@@ -623,16 +613,16 @@ void sprd_debug_init(struct sprd_debug *dbg)
 	if (!debugfs_create_file("apf_disable", S_IRUGO, dbg->dir,
 		container_of(dbg, struct sprd_priv, debug),
 		&apf_disable_ops)) {
-		pr_err("%s create_file fail!\n", __func__);
+		wl_err("%s create_file fail!\n", __func__);
 	}
 
 	if (!debugfs_create_file("log_level", 0444,
 				 dbg->dir, NULL, &intf_debug_fops))
-		pr_err("%s, create file fail!\n", __func__);
+		wl_err("%s, create file fail!\n", __func__);
 
 	if (!debugfs_create_file("txrx_dbg", 0444,
 				 dbg->dir, NULL, &txrx_debug_fops))
-		pr_err("%s, %d, create_file fail!\n", __func__, __LINE__);
+		wl_err("%s, %d, create_file fail!\n", __func__, __LINE__);
 	else
 		debug_ctrl_init();
 }
@@ -640,6 +630,7 @@ EXPORT_SYMBOL(sprd_debug_init);
 
 void sprd_debug_deinit(struct sprd_debug *dbg)
 {
+	sprd_dbg_level = INIT_DBG_LEVEL;
 	/* remove debugfs */
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
 	debugfs_remove(dbg->dir);
@@ -648,5 +639,3 @@ void sprd_debug_deinit(struct sprd_debug *dbg)
 #endif
 }
 EXPORT_SYMBOL(sprd_debug_deinit);
-
-#endif /* CONFIG_SPRD_WLAN_DEBUG */

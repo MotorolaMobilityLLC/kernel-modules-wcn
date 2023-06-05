@@ -369,14 +369,14 @@ int sc2355_sync_wmm_param(struct sprd_priv *priv,
 				   WMM_OUI_TYPE);
 	if (wmm_params != NULL) {
 		for (i = 0; i < NUM_AC; i++) {
-			pr_info("%s: wmm_params->ac[%d].aci_aifsn: %x",
+			wl_info("%s: wmm_params->ac[%d].aci_aifsn: %x",
 				__func__, i, wmm_params->ac[i].aci_aifsn);
 			priv->wmmac.ac[i].aci_aifsn =
 				wmm_params->ac[i].aci_aifsn;
 		}
 		return 1;
 	} else {
-		pr_err("%s, wmm_params is NULL!!!!", __func__);
+		wl_err("%s, wmm_params is NULL!!!!", __func__);
 		return 0;
 	}
 }

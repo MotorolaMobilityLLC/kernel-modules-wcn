@@ -41,7 +41,7 @@ void sc2332_fcc_match_country(struct sprd_priv *priv, const char *alpha2)
 		if (g_fcc_power_table[i].country[0] == alpha2[0] &&
 			g_fcc_power_table[i].country[1] == alpha2[1]) {
 			found_fcc = true;
-			pr_info("need set fcc power\n");
+			wl_info("need set fcc power\n");
 			for (index = 0; index < g_fcc_power_table[i].num; index++) {
 				sc2332_set_power_backoff(priv, NULL,
 					g_fcc_power_table[i].power_backoff[index].sub_type,
@@ -54,7 +54,7 @@ void sc2332_fcc_match_country(struct sprd_priv *priv, const char *alpha2)
 	}
 
 	if (!found_fcc) {
-		pr_info("not fcc country,need reset fcc power\n");
+		wl_info("not fcc country,need reset fcc power\n");
 		sc2332_set_power_backoff(priv, NULL, 0, 0, 0, 1);
 	}
 }

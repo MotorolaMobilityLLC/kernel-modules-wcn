@@ -209,7 +209,7 @@ static u8 rtt_get_channel(struct wiphy *wiphy, const u8 *mac_addr, u32 freq)
 	if (freq) {
 		chan = ieee80211_get_channel(wiphy, freq);
 		if (!chan) {
-			pr_err("invalid freq: %d\n", freq);
+			wl_err("invalid freq: %d\n", freq);
 			return 0;
 		}
 		channel = chan->hw_value;
@@ -218,14 +218,14 @@ static u8 rtt_get_channel(struct wiphy *wiphy, const u8 *mac_addr, u32 freq)
 				       NULL, 0, WLAN_CAPABILITY_ESS,
 				       WLAN_CAPABILITY_ESS);
 		if (!bss) {
-			pr_err("Unable to find BSS\n");
+			wl_err("Unable to find BSS\n");
 			return 0;
 		}
 		channel = bss->channel->hw_value;
 		cfg80211_put_bss(wiphy, bss);
 	}
 
-	pr_info("target %pM at channel %d\n", mac_addr, channel);
+	wl_info("target %pM at channel %d\n", mac_addr, channel);
 	return channel;
 }
 
@@ -342,7 +342,7 @@ static int rtt_append_peer_meas_res(struct sprd_priv *priv,
 	nla_nest_end(msg, nl_mres);
 	return 0;
 out_put_failure:
-	pr_err("%s: fail to append peer result\n", __func__);
+	wl_err("%s: fail to append peer result\n", __func__);
 	return -ENOBUFS;
 }
 
@@ -353,7 +353,7 @@ static void rtt_send_meas_result(struct sprd_priv *priv,
 	struct nlattr *nl_res;
 	int rc = 0;
 
-	pr_info("sending %d results for peer %pM\n",
+	wl_info("sending %d results for peer %pM\n",
 		res->n_meas, res->mac_addr);
 
 	skb = cfg80211_vendor_event_alloc(priv->wiphy, NULL,
@@ -361,7 +361,7 @@ static void rtt_send_meas_result(struct sprd_priv *priv,
 					  SPRD_EVENT_RTT_MEAS_RESULT_INDEX,
 					  GFP_KERNEL);
 	if (!skb) {
-		pr_err("fail to allocate measurement result\n");
+		wl_err("fail to allocate measurement result\n");
 		rc = -ENOMEM;
 		goto out;
 	}
@@ -388,7 +388,7 @@ out:
 	if (skb)
 		kfree_skb(skb);
 	if (rc)
-		pr_err("send peer result failed, err %d\n", rc);
+		wl_err("send peer result failed, err %d\n", rc);
 }
 
 static void rtt_send_peer_res(struct sprd_priv *priv)
@@ -416,7 +416,7 @@ rtt_cfg80211_start_session(struct sprd_priv *priv,
 
 	mutex_lock(&priv->ftm.lock);
 	if (priv->ftm.session_started) {
-		pr_err("%s: FTM session already running\n", __func__);
+		wl_err("%s: FTM session already running\n", __func__);
 		ret = -EALREADY;
 		goto out;
 	}
@@ -468,7 +468,7 @@ rtt_cfg80211_start_session(struct sprd_priv *priv,
 					  request->peers[i].mac_addr,
 					  request->peers[i].freq);
 		if (!channel) {
-			pr_err("%s: can't find FTM target at index %d\n",
+			wl_err("%s: can't find FTM target at index %d\n",
 			       __func__, i);
 			ret = -EINVAL;
 			goto out_cmd;
@@ -539,11 +539,11 @@ static void rtt_session_ended(struct sprd_priv *priv, u32 status)
 	mutex_lock(&priv->ftm.lock);
 
 	if (!priv->ftm.session_started) {
-		pr_err("%s: FTM session not started, ignoring\n", __func__);
+		wl_err("%s: FTM session not started, ignoring\n", __func__);
 		return;
 	}
 
-	pr_info("%s: finishing FTM session\n", __func__);
+	wl_info("%s: finishing FTM session\n", __func__);
 
 	/* send left-over results if any */
 	rtt_send_peer_res(priv);
@@ -562,7 +562,7 @@ static void rtt_session_ended(struct sprd_priv *priv, u32 status)
 			      SPRD_ATTR_RTT_SESSION_COOKIE,
 			      priv->ftm.session_cookie, 0) ||
 	    nla_put_u32(skb, SPRD_ATTR_LOC_SESSION_STATUS, status)) {
-		pr_err("%s: failed to fill session done event\n", __func__);
+		wl_err("%s: failed to fill session done event\n", __func__);
 		goto out;
 	}
 	cfg80211_vendor_event(skb, GFP_KERNEL);
@@ -582,13 +582,13 @@ static void rtt_event_per_dest_res(struct sprd_priv *priv,
 	mutex_lock(&priv->ftm.lock);
 
 	if (!priv->ftm.session_started || !priv->ftm.ftm_res) {
-		pr_err("%s: Session not running, ignoring res event\n",
+		wl_err("%s: Session not running, ignoring res event\n",
 		       __func__);
 		goto out;
 	}
 	if (priv->ftm.has_ftm_res &&
 	    !ether_addr_equal(res->dst_mac, priv->ftm.ftm_res->mac_addr)) {
-		pr_err("%s: previous peer not properly terminated\n", __func__);
+		wl_err("%s: previous peer not properly terminated\n", __func__);
 		rtt_send_peer_res(priv);
 	}
 
@@ -612,7 +612,7 @@ static void rtt_event_per_dest_res(struct sprd_priv *priv,
 		    SPRD_ATTR_RTT_PEER_RES_STATUS_INVALID;
 		break;
 	default:
-		pr_err("%s: unexpected status %d\n", __func__, res->status);
+		wl_err("%s: unexpected status %d\n", __func__, res->status);
 		priv->ftm.ftm_res->status =
 		    SPRD_ATTR_RTT_PEER_RES_STATUS_INVALID;
 		break;
@@ -621,7 +621,7 @@ static void rtt_event_per_dest_res(struct sprd_priv *priv,
 	for (i = 0; i < n_meas; i++) {
 		index = priv->ftm.ftm_res->n_meas;
 		if (index >= priv->ftm.max_ftm_meas) {
-			pr_info("%s: Too many measurements\n", __func__);
+			wl_info("%s: Too many measurements\n", __func__);
 			break;
 		}
 		memcpy(&tmp, res->responder_ftm_res[i].t1,
@@ -660,17 +660,17 @@ static void rtt_event_end(struct sprd_priv *priv)
 					    SPRD_RTT_EVENT_COMPLETE_INDEX,
 					    GFP_KERNEL);
 	if (!reply) {
-		pr_err("%s, %d\n", __func__, __LINE__);
+		wl_err("%s, %d\n", __func__, __LINE__);
 		return;
 	}
 
 	for (i = 0; i < priv->rtt_results.peer_num; i++) {
-		pr_err("%s, %d\n", __func__, i);
+		wl_err("%s, %d\n", __func__, i);
 		nl_res =
 		    nla_nest_start(reply,
 				   SPRD_RTT_ATTRIBUTE_RESULTS_PER_TARGET);
 		if (!nl_res) {
-			pr_err("%s, %d\n", __func__, __LINE__);
+			wl_err("%s, %d\n", __func__, __LINE__);
 			goto out;
 		}
 		if (nla_put(reply, SPRD_RTT_ATTRIBUTE_RESULT_MAC, 6,
@@ -680,7 +680,7 @@ static void rtt_event_end(struct sprd_priv *priv)
 				nla_put(reply, SPRD_RTT_ATTRIBUTE_RESULT,
 					2 * sizeof(struct rtt_wifi_hal_result),
 					priv->rtt_results.peer_rtt_result[i])) {
-			pr_info("%s, %d\n", __func__, __LINE__);
+			wl_info("%s, %d\n", __func__, __LINE__);
 			goto out;
 		}
 
@@ -689,7 +689,7 @@ static void rtt_event_end(struct sprd_priv *priv)
 	nla_put_u32(reply, SPRD_RTT_ATTRIBUTE_RESULTS_COMPLETE, 1);
 	cfg80211_vendor_event(reply, GFP_KERNEL);
 	reply = NULL;
-	pr_info("report rtt result\n");
+	wl_info("report rtt result\n");
 	priv->ftm.session_started = 0;
 
 	priv->rtt_results.peer_num = 0;

@@ -100,7 +100,7 @@ static int rx_wapi_data_process(struct sprd_vif *vif,
 		return -ENOMEM;
 	skb_reserve(skb, NET_IP_ALIGN);
 	if (len <= 24) {
-		pr_err("%s data len is invalid\n", __func__);
+		wl_err("%s data len is invalid\n", __func__);
 		return -EINVAL;
 	}
 
@@ -155,7 +155,7 @@ static void sc2332_tx_qos_flush(struct sprd_qos_t *qos)
 				break;
 			}
 		}
-		pr_info("%s(%d) %d/%d.\n", __func__, icnt, qos->num[icnt], qos->txnum);
+		wl_info("%s(%d) %d/%d.\n", __func__, icnt, qos->num[icnt], qos->txnum);
 	}
 }
 
@@ -319,7 +319,7 @@ unsigned short sc2332_rx_data_process(struct sprd_priv *priv,
 	data_type = SPRD_GET_DATA_TYPE(hdr->info1);
 	if (mode == SPRD_MODE_NONE || mode > SPRD_MODE_MAX ||
 	    data_type > SPRD_DATA_TYPE_MAX) {
-		pr_err("%s [mode %d]RX err[type %d]\n", __func__, mode,
+		wl_err("%s [mode %d]RX err[type %d]\n", __func__, mode,
 		       data_type);
 		return 0;
 	}
@@ -329,18 +329,18 @@ unsigned short sc2332_rx_data_process(struct sprd_priv *priv,
 	plen = SPRD_GET_LE16(hdr->plen);
 	if (plen > msg_len ||
 	    plen < (sizeof(*hdr) + (hdr->info1 & SPRD_DATA_OFFSET_MASK))) {
-		pr_err("%s plen is invalid!\n", __func__);
+		wl_err("%s plen is invalid!\n", __func__);
 		return plen;
 	}
 
 	if (!priv) {
-		pr_err("%s sdio->priv not init.\n", __func__);
+		wl_err("%s sdio->priv not init.\n", __func__);
 		return plen;
 	}
 
 	vif = sprd_mode_to_vif(priv, mode);
 	if (!vif) {
-		pr_err("%s cant't get vif %d\n", __func__, mode);
+		wl_err("%s cant't get vif %d\n", __func__, mode);
 		return plen;
 	}
 
@@ -356,7 +356,7 @@ unsigned short sc2332_rx_data_process(struct sprd_priv *priv,
 		rx_route_data_process(vif, data, len);
 		break;
 	case SPRD_DATA_TYPE_WAPI:
-		pr_debug("%s SPRD_DATA_TYPE_WAPI\n", __func__);
+		wl_all("%s SPRD_DATA_TYPE_WAPI\n", __func__);
 		rx_wapi_data_process(vif, data, len);
 		break;
 	default:
@@ -385,7 +385,7 @@ int sc2332_send_data(struct sprd_vif *vif, struct sprd_msg *msg,
 		}
 		type = SPRD_DATA_TYPE_WAPI;
 		flag = false;
-		pr_debug("%s TX data : SPRD_DATA_TYPE_WAPI\n", __func__);
+		wl_all("%s TX data : SPRD_DATA_TYPE_WAPI\n", __func__);
 	}
 
 	buf = skb->data;
@@ -411,7 +411,7 @@ int sc2332_send_data(struct sprd_vif *vif, struct sprd_msg *msg,
 
 	ret = sprd_chip_tx(&vif->priv->chip, msg);
 	if (ret)
-		pr_err("%s TX data Err: %d\n", __func__, ret);
+		wl_err("%s TX data Err: %d\n", __func__, ret);
 
 	return ret;
 }

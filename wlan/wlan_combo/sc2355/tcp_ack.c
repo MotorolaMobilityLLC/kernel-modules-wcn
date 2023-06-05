@@ -34,7 +34,7 @@ static void tcp_ack_timeout(struct timer_list *t)
 		ack_info->in_send_msg = msg;
 		write_sequnlock_bh(&ack_info->seqlock);
 		if (sprd_chip_tx(&ack_m->priv->chip, msg))
-			pr_err("%s TX data error\n", __func__);
+			wl_err("%s TX data error\n", __func__);
 		return;
 	}
 	write_sequnlock_bh(&ack_info->seqlock);
@@ -295,7 +295,7 @@ static int tcp_ack_handle(struct sprd_msg *new_msg,
 			ack_info->in_send_msg = NULL;
 			ack_info->drop_cnt = atomic_read(&ack_m->max_drop_cnt);
 		} else {
-			pr_err("%s before abnormal ack: %d, %d\n",
+			wl_err("%s before abnormal ack: %d, %d\n",
 			       __func__, ack->seq, ack_msg->seq);
 			drop_msg = new_msg;
 			ret = 1;
@@ -332,7 +332,7 @@ static int tcp_ack_handle(struct sprd_msg *new_msg,
 					  (jiffies + msecs_to_jiffies(5)));
 		}
 	} else {
-		pr_err("%s before ack: %d, %d\n",
+		wl_err("%s before ack: %d, %d\n",
 		       __func__, ack->seq, ack_msg->seq);
 		drop_msg = new_msg;
 		ret = 1;

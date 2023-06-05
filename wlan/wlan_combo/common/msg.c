@@ -33,7 +33,7 @@ int sprd_init_msg(int num, struct sprd_msg_list *list)
 			INIT_LIST_HEAD(&msg->list);
 			list_add_tail(&msg->list, &list->freelist);
 		} else {
-			pr_err("%s failed to alloc msg!\n", __func__);
+			wl_err("%s failed to alloc msg!\n", __func__);
 			goto err_alloc_buf;
 		}
 	}
@@ -61,7 +61,7 @@ void sprd_deinit_msg(struct sprd_msg_list *list)
 
 	atomic_add(SPRD_MSG_EXIT_VAL, &list->ref);
 	if (atomic_read(&list->ref) > SPRD_MSG_EXIT_VAL)
-		pr_err("%s ref not ok! wait for pop!\n", __func__);
+		wl_err("%s ref not ok! wait for pop!\n", __func__);
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
 	ktime_get_real_ts64(&txmsgftime1);
@@ -85,7 +85,7 @@ void sprd_deinit_msg(struct sprd_msg_list *list)
 	}
 #endif
 
-	pr_info("%s list->ref ok!\n", __func__);
+	wl_info("%s list->ref ok!\n", __func__);
 
 	if (!list_empty(&list->busylist))
 		WARN_ON(1);
@@ -103,7 +103,7 @@ struct sprd_msg *sprd_alloc_msg(struct sprd_msg_list *list)
 	unsigned long flags = 0;
 
 	if (atomic_inc_return(&list->ref) >= SPRD_MSG_EXIT_VAL) {
-		pr_err("alloc msg failed ref > SPRD_MSG_EXIT_VAL\n");
+		wl_err("alloc msg failed ref > SPRD_MSG_EXIT_VAL\n");
 		atomic_dec(&list->ref);
 		return NULL;
 	}
@@ -112,7 +112,7 @@ struct sprd_msg *sprd_alloc_msg(struct sprd_msg_list *list)
 		msg = list_first_entry(&list->freelist, struct sprd_msg, list);
 		if (!msg) {
 			spin_unlock_irqrestore(&list->freelock, flags);
-			pr_err("look out alloc msg failed msg = NULL\n");
+			wl_err("look out alloc msg failed msg = NULL\n");
 			atomic_dec(&list->ref);
 			return NULL;
 		}

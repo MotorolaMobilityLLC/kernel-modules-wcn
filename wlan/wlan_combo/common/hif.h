@@ -296,7 +296,7 @@ static inline int sprd_hif_power_on(struct sprd_hif *hif)
 
 	/* need reset hif->exit flag, if wcn reset happened */
 	if (unlikely(hif->exit) || unlikely(hif->cp_asserted)) {
-		pr_info("assert happended! need reset paras!\n");
+		wl_info("assert happended! need reset paras!\n");
 		if (hif->ops->reset)
 			hif->ops->reset(hif);
 	}
@@ -322,7 +322,7 @@ static inline void sprd_hif_power_off(struct sprd_hif *hif)
 	sprd_hif_post_deinit(hif);
 
 	if (stop_marlin(MARLIN_WIFI))
-		pr_err("stop_marlin failed!!\n");
+		wl_err("stop_marlin failed!!\n");
 }
 
 static inline int sprd_hif_init(struct sprd_hif *hif)

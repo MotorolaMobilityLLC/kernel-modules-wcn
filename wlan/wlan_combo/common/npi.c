@@ -33,7 +33,7 @@ static int npi_pre_doit(const struct genl_ops *ops,
 	int ifindex = 0;
 
 	if (!info) {
-		pr_err("%s NULL info!\n", __func__);
+		wl_err("%s NULL info!\n", __func__);
 		return -EINVAL;
 	}
 
@@ -42,7 +42,7 @@ static int npi_pre_doit(const struct genl_ops *ops,
 		ndev = dev_get_by_index(genl_info_net(info), ifindex);
 
 		if (!(ndev && (ndev->flags & IFF_UP))) {
-			pr_err("%s NPI: net device is not ready yet\n", __func__);
+			wl_err("%s NPI: net device is not ready yet\n", __func__);
 			return -EFAULT;
 		}
 
@@ -51,7 +51,7 @@ static int npi_pre_doit(const struct genl_ops *ops,
 		info->user_ptr[0] = ndev;
 		info->user_ptr[1] = priv;
 	} else {
-		pr_err("nl80211_pre_doit: Not have attr_ifindex\n");
+		wl_err("nl80211_pre_doit: Not have attr_ifindex\n");
 		return -EFAULT;
 	}
 	return 0;
@@ -82,14 +82,14 @@ static int npi_nl_handler(struct sk_buff *skb_2, struct genl_info *info)
 	vif = netdev_priv(ndev);
 	priv = info->user_ptr[1];
 	if (!info->attrs[SPRD_NL_ATTR_AP2CP]) {
-		pr_err("%s: invalid content\n", __func__);
+		wl_err("%s: invalid content\n", __func__);
 		return -EPERM;
 	}
 
 	s_buf = nla_data(info->attrs[SPRD_NL_ATTR_AP2CP]);
 	s_len = nla_len(info->attrs[SPRD_NL_ATTR_AP2CP]);
 	if (s_len < sizeof(struct sprd_npi_cmd_hdr)) {
-		pr_err("%s: invalid hdr\n", __func__);
+		wl_err("%s: invalid hdr\n", __func__);
 		return -EPERM;
 	}
 
@@ -99,7 +99,7 @@ static int npi_nl_handler(struct sk_buff *skb_2, struct genl_info *info)
 
 	snprintf(dbgstr, sizeof(dbgstr), "[iwnpi][SEND][%d]:", s_len);
 	hdr = (struct sprd_npi_cmd_hdr *)s_buf;
-	pr_info("%s type is %d, subtype %d\n", dbgstr, hdr->type, hdr->subtype);
+	wl_info("%s type is %d, subtype %d\n", dbgstr, hdr->type, hdr->subtype);
 
 	if (hdr->subtype == SPRD_NPI_CMD_SET_COUNTRY) {
 		char *country;
@@ -107,7 +107,7 @@ static int npi_nl_handler(struct sk_buff *skb_2, struct genl_info *info)
 		if (s_len < (sizeof(struct sprd_npi_cmd_hdr) + 2 * sizeof(char)))
 			goto out;
 		country = s_buf + sizeof(struct sprd_npi_cmd_hdr);
-		pr_info("%s show country code : %c%c\n", __func__, country[0], country[1]);
+		wl_info("%s show country code : %c%c\n", __func__, country[0], country[1]);
 
 		ret = regulatory_hint(priv->wiphy, country);
 		hdr->len = sizeof(int);
@@ -122,7 +122,7 @@ static int npi_nl_handler(struct sk_buff *skb_2, struct genl_info *info)
 		strcat(r_buf, vendor);
 		strcat(r_buf, id_name);
 		r_len = strlen(r_buf);
-		pr_info("%s show chip name: %s\n", __func__, r_buf);
+		wl_info("%s show chip name: %s\n", __func__, r_buf);
 	} else if (hdr->subtype == SPRD_NPI_CMD_SET_RANDOM_MAC) {
 		char *rand_mac;
 
@@ -130,7 +130,7 @@ static int npi_nl_handler(struct sk_buff *skb_2, struct genl_info *info)
 			goto out;
 		rand_mac = s_buf + sizeof(struct sprd_npi_cmd_hdr);
 		priv->rand_mac_flag = *((unsigned int *)rand_mac);
-		pr_info("%s NPI random mac flag %d\n", __func__, priv->rand_mac_flag);
+		wl_info("%s NPI random mac flag %d\n", __func__, priv->rand_mac_flag);
 
 		hdr->len = sizeof(int);
 		hdr->type = SPRD_CP2HT_REPLY;
@@ -164,7 +164,7 @@ static int npi_nl_handler(struct sk_buff *skb_2, struct genl_info *info)
 			else if (cca_param[1] == SPRD_NPI_CE_DISABLE)
 				adap_info.special_data_flag = SPRD_NPI_DATA_SPECIAL;
 
-			pr_info("%s wifi_adaptive_flag: 0x%x, special_data_flag: %d\n",
+			wl_info("%s wifi_adaptive_flag: 0x%x, special_data_flag: %d\n",
 				__func__, adap_info.wifi_adaptive_flag,
 				adap_info.special_data_flag);
 			spin_unlock_bh(&adap_info.adap_lock);
@@ -180,7 +180,7 @@ static int npi_nl_handler(struct sk_buff *skb_2, struct genl_info *info)
 				sprd_npi_send_recv(priv, vif, s_buf, s_len, r_buf, &r_len);
 				snprintf(dbgstr, sizeof(dbgstr), "[iwnpi][RECV][%d]:", r_len);
 				hdr = (struct sprd_npi_cmd_hdr *)r_buf;
-				pr_info("%s type is %d, subtype %d\n", dbgstr, hdr->type,
+				wl_info("%s type is %d, subtype %d\n", dbgstr, hdr->type,
 					hdr->subtype);
 			} else {
 				/* reply npi status, avoid err */
@@ -194,7 +194,7 @@ static int npi_nl_handler(struct sk_buff *skb_2, struct genl_info *info)
 			sprd_npi_send_recv(priv, vif, s_buf, s_len, r_buf, &r_len);
 			snprintf(dbgstr, sizeof(dbgstr), "[iwnpi][RECV][%d]:", r_len);
 			hdr = (struct sprd_npi_cmd_hdr *)r_buf;
-			pr_info("%s type is %d, subtype %d\n", dbgstr, hdr->type,
+			wl_info("%s type is %d, subtype %d\n", dbgstr, hdr->type,
 				hdr->subtype);
 		}
 	} else {
@@ -202,7 +202,7 @@ static int npi_nl_handler(struct sk_buff *skb_2, struct genl_info *info)
 
 		snprintf(dbgstr, sizeof(dbgstr), "[iwnpi][RECV][%d]:", r_len);
 		hdr = (struct sprd_npi_cmd_hdr *)r_buf;
-		pr_info("%s type is %d, subtype %d\n", dbgstr, hdr->type,
+		wl_info("%s type is %d, subtype %d\n", dbgstr, hdr->type,
 		       hdr->subtype);
 	}
 
@@ -231,7 +231,7 @@ static int npi_nl_get_info_handler(struct sk_buff *skb_2,
 		ret = npi_nl_send_generic(info, SPRD_NL_ATTR_CP2AP,
 				      SPRD_NL_CMD_GET_INFO, r_len, r_buf);
 	} else {
-		pr_err("%s NULL vif!\n", __func__);
+		wl_err("%s NULL vif!\n", __func__);
 		ret = -1;
 	}
 	return ret;
@@ -303,7 +303,7 @@ void sprd_init_npi(void)
 	int ret = genl_register_family(&sprd_nl_genl_family);
 
 	if (ret)
-		pr_err("genl_register_family error: %d\n", ret);
+		wl_err("genl_register_family error: %d\n", ret);
 }
 
 void sprd_deinit_npi(void)
@@ -311,7 +311,7 @@ void sprd_deinit_npi(void)
 	int ret = genl_unregister_family(&sprd_nl_genl_family);
 
 	if (ret)
-		pr_err("genl_unregister_family error:%d\n", ret);
+		wl_err("genl_unregister_family error:%d\n", ret);
 }
 
 static void sprd_npi_set_cca_param(struct sprd_priv *priv, struct sprd_vif *vif)
@@ -345,7 +345,7 @@ static void sprd_npi_set_cca_param(struct sprd_priv *priv, struct sprd_vif *vif)
 			adap_info.special_data_flag = SPRD_NPI_NORMAL_ALL;
 		}
 	}
-	pr_info("%s wifi_adaptive_flag: 0x%x, special_data_flag: %d\n",
+	wl_info("%s wifi_adaptive_flag: 0x%x, special_data_flag: %d\n",
 		__func__, adap_info.wifi_adaptive_flag,
 		adap_info.special_data_flag);
 	spin_unlock_bh(&adap_info.adap_lock);
@@ -361,11 +361,11 @@ static void sprd_npi_set_cca_param(struct sprd_priv *priv, struct sprd_vif *vif)
 		*p = tmp_flag & BIT(0);
 
 		snprintf(dbgstr, sizeof(dbgstr), "[iwnpi][SEND][%d]:", s_len);
-		pr_info("%s type is %d, subtype %d\n", dbgstr, hdr->type, hdr->subtype);
+		wl_info("%s type is %d, subtype %d\n", dbgstr, hdr->type, hdr->subtype);
 		sprd_npi_send_recv(priv, vif, s_buf, s_len, r_buf, &r_len);
 		snprintf(dbgstr, sizeof(dbgstr), "[iwnpi][RECV][%d]:", r_len);
 		hdr = (struct sprd_npi_cmd_hdr *)r_buf;
-		pr_info("%s type is %d, subtype %d\n", dbgstr, hdr->type, hdr->subtype);
+		wl_info("%s type is %d, subtype %d\n", dbgstr, hdr->type, hdr->subtype);
 	}
 
 	kfree(r_buf);
@@ -379,7 +379,7 @@ void sprd_evt_adaptive(struct sprd_vif *vif)
 
 	misc_work = sprd_alloc_work(0);
 	if (!misc_work) {
-		pr_err("%s out of memory\n", __func__);
+		wl_err("%s out of memory\n", __func__);
 		return;
 	}
 

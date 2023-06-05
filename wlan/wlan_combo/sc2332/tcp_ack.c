@@ -29,7 +29,7 @@ static void tcp_ack_timeout(struct timer_list *t_list)
 		ack_info->drop_cnt = 0;
 		spin_unlock_bh(&ack_info->lock);
 		if (sprd_chip_tx(&ack_manage.priv->chip, msg))
-			pr_err("%s TX data error\n", __func__);
+			wl_err("%s TX data error\n", __func__);
 		return;
 	}
 	spin_unlock_bh(&ack_info->lock);
@@ -360,7 +360,7 @@ void sc2332_tcp_ack_deinit(struct sprd_priv *priv)
 	timeout = jiffies + msecs_to_jiffies(1000);
 	while (atomic_read(&ack_m->ref) > SPRD_TCP_ACK_EXIT_VAL) {
 		if (time_after(jiffies, timeout)) {
-			pr_err("%s cmd lock timeout!\n", __func__);
+			wl_err("%s cmd lock timeout!\n", __func__);
 			WARN_ON(1);
 		}
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))

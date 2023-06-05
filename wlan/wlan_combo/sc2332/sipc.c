@@ -71,26 +71,26 @@ static int sc2332_reset(struct sprd_hif *hif)
 	struct sprd_vif *vif, *tmp;
 
 	if (!hif) {
-		pr_err("%s can not get hif!\n", __func__);
+		wl_err("%s can not get hif!\n", __func__);
 		return -1;
 	}
 
 	priv = hif->priv;
 	if (!priv) {
-		pr_err("%s can not get priv!\n", __func__);
+		wl_err("%s can not get priv!\n", __func__);
 		return -1;
 	}
 
 	/* need reset hif->exit flag, if wcn reset happened */
 	if (unlikely(hif->exit)) {
 		hif->exit = 0;
-		pr_info("%s reset hif->exit flag:%d!\n", __func__, hif->exit);
+		wl_info("%s reset hif->exit flag:%d!\n", __func__, hif->exit);
 	}
 
 	/* need reset hif->cp_assert flag */
 	if (unlikely(hif->cp_asserted)) {
 		hif->cp_asserted = 0;
-		pr_info("%s reset hif->cp_asserted flag:%d!\n", __func__,
+		wl_info("%s reset hif->cp_asserted flag:%d!\n", __func__,
 			hif->cp_asserted);
 	}
 
@@ -103,8 +103,8 @@ static int sc2332_reset(struct sprd_hif *hif)
 			if (vif->sm_state == SPRD_DISCONNECTING ||
 			    vif->sm_state == SPRD_CONNECTING ||
 			    vif->sm_state == SPRD_CONNECTED) {
-				pr_info("%s check connection state for sta or p2p gc\n", __func__);
-				pr_info("vif->mode : %d, vif->sm_state : %d\n",
+				wl_info("%s check connection state for sta or p2p gc\n", __func__);
+				wl_info("vif->mode : %d, vif->sm_state : %d\n",
 					vif->mode, vif->sm_state);
 				cfg80211_disconnected(vif->ndev, 0, NULL, 0,
 						      false, GFP_KERNEL);
@@ -113,13 +113,13 @@ static int sc2332_reset(struct sprd_hif *hif)
 		}
 
 		if (vif->mode == SPRD_MODE_AP) {
-			pr_info("softap mode, reset iftype to station, before reset:%d\n",
+			wl_info("softap mode, reset iftype to station, before reset:%d\n",
 				vif->wdev.iftype);
 			vif->wdev.iftype = NL80211_IFTYPE_STATION;
-			pr_info("after reset iftype:%d\n", vif->wdev.iftype);
+			wl_info("after reset iftype:%d\n", vif->wdev.iftype);
 		}
 		if (vif->mode != SPRD_MODE_NONE) {
-			pr_info("need reset mode to none: %d\n", vif->mode);
+			wl_info("need reset mode to none: %d\n", vif->mode);
 			vif->state &= ~VIF_STATE_OPEN;
 			vif->mode = SPRD_MODE_NONE;
 		}
@@ -142,7 +142,7 @@ static int sc2332_reset(struct sprd_hif *hif)
 	}
 
 	/* flush cmd and data buffer */
-	pr_info("%s flust all tx list\n", __func__);
+	wl_info("%s flust all tx list\n", __func__);
 	sc2332_flush_all_txlist(hif);
 
 	return 0;
@@ -155,28 +155,28 @@ int sc2332_reset_self(struct sprd_priv *priv)
 	struct sprd_hif *hif;
 
 	if (!priv) {
-		pr_err("%s can not get priv!\n", __func__);
+		wl_err("%s can not get priv!\n", __func__);
 		return -EINVAL;
 	}
 	hif = (struct sprd_hif *)(&priv->hif);
 	if (!hif) {
-		pr_err("%s can not get intf!\n", __func__);
+		wl_err("%s can not get intf!\n", __func__);
 		return -EINVAL;
 	}
 
 	hif->drv_resetting = 1;
-	pr_info("enter %s\n", __func__);
+	wl_info("enter %s\n", __func__);
 
 	list_for_each_entry_safe(vif, tmp, &priv->vif_list, vif_node) {
-		pr_info("%s handle vif : name %s, mode %d, sm_state %d\n", __func__,
+		wl_info("%s handle vif : name %s, mode %d, sm_state %d\n", __func__,
 			vif->name, vif->mode, vif->sm_state);
 		if (vif->mode == SPRD_MODE_STATION ||
 		    vif->mode == SPRD_MODE_P2P_CLIENT) {
 			if (vif->sm_state == SPRD_DISCONNECTING ||
 			    vif->sm_state == SPRD_CONNECTING ||
 			    vif->sm_state == SPRD_CONNECTED) {
-				pr_info("%s check connection state for sta or p2p gc\n", __func__);
-				pr_info("vif->mode : %d, vif->sm_state : %d\n",
+				wl_info("%s check connection state for sta or p2p gc\n", __func__);
+				wl_info("vif->mode : %d, vif->sm_state : %d\n",
 					vif->mode, vif->sm_state);
 				cfg80211_disconnected(vif->ndev, 0, NULL, 0,
 					false, GFP_KERNEL);
@@ -188,20 +188,20 @@ int sc2332_reset_self(struct sprd_priv *priv)
 			rtnl_lock();
 			dev_close(vif->ndev);
 			rtnl_unlock();
-			pr_info("%s dev_close %s!\n", __func__, vif->name);
+			wl_info("%s dev_close %s!\n", __func__, vif->name);
 		}
 
 		if (vif->mode == SPRD_MODE_AP) {
-			pr_info("softap mode, reset iftype to station, before reset:%d\n",
+			wl_info("softap mode, reset iftype to station, before reset:%d\n",
 				vif->wdev.iftype);
 			//vif->wdev.iftype = NL80211_IFTYPE_STATION;
-			pr_info("after reset iftype:%d\n", vif->wdev.iftype);
+			wl_info("after reset iftype:%d\n", vif->wdev.iftype);
 			hif->drv_resetting = 0;
 			return 0;
 		}
 
 		if (vif->mode != SPRD_MODE_NONE) {
-			pr_debug("need reset mode to none: %d\n", vif->mode);
+			wl_all("need reset mode to none: %d\n", vif->mode);
 			vif->state &= ~VIF_STATE_OPEN;
 			vif->mode = SPRD_MODE_NONE;
 		}
@@ -216,18 +216,18 @@ int sc2332_reset_self(struct sprd_priv *priv)
 		memset(vif->key, 0, sizeof(vif->key));
 	}
 
-	pr_info("%s flust all tx list\n", __func__);
+	wl_info("%s flust all tx list\n", __func__);
 	sc2332_flush_all_txlist(hif);
 
 	/* reset exit and cp_asserted flag */
 	if (unlikely(hif->exit)) {
 		hif->exit = 0;
-		pr_info("%s reset hif->exit flag:%d!\n", __func__, hif->exit);
+		wl_info("%s reset hif->exit flag:%d!\n", __func__, hif->exit);
 	}
 
 	if (unlikely(hif->cp_asserted)) {
 		hif->cp_asserted = 0;
-		pr_info("%s reset hif->cp_asserted flag:%d!\n", __func__,
+		wl_info("%s reset hif->cp_asserted flag:%d!\n", __func__,
 			hif->cp_asserted);
 	}
 
@@ -238,13 +238,13 @@ int sc2332_reset_self(struct sprd_priv *priv)
 			rtnl_lock();
 			dev_open(vif->ndev, NULL);
 			rtnl_unlock();
-			pr_info("%s open netdevice %s!\n", __func__, vif->name);
+			wl_info("%s open netdevice %s!\n", __func__, vif->name);
 		} else {
 			if (!sprd_iface_set_power(hif, true))
 				sprd_init_fw(vif);
 		}
 	}
-	pr_info("exit %s\n", __func__);
+	wl_info("exit %s\n", __func__);
 	hif->drv_resetting = 0;
 
 	return 0;
@@ -265,13 +265,13 @@ static int sipc_msg_send(void *xmit_data, u16 xmit_len, int channel)
 	/* Get a free sblock. */
 	ret = sblock_get(WLAN_CP_ID, channel, &blk, 0);
 	if (ret) {
-		pr_err("%s Failed to get free sblock(%d)!\n",
+		wl_err("%s Failed to get free sblock(%d)!\n",
 		       sipc_channel_tostr(channel), ret);
 		return -ENOMEM;
 	}
 
 	if (blk.length < xmit_len) {
-		pr_err("%s The size of sblock is so tiny!\n",
+		wl_err("%s The size of sblock is so tiny!\n",
 		       sipc_channel_tostr(channel));
 		sblock_put(WLAN_CP_ID, channel, &blk);
 		WARN_ON(1);
@@ -294,7 +294,7 @@ static int sipc_msg_send(void *xmit_data, u16 xmit_len, int channel)
 	/* ret = sblock_send_prepare(WLAN_CP_ID, channel, &blk); */
 	ret = sblock_send(WLAN_CP_ID, channel, &blk);
 	if (ret) {
-		pr_err("%s err:%d\n", sipc_channel_tostr(channel), ret);
+		wl_err("%s err:%d\n", sipc_channel_tostr(channel), ret);
 		sblock_put(WLAN_CP_ID, channel, &blk);
 	}
 
@@ -586,7 +586,7 @@ static void sipc_msg_receive(int channel)
 		sipc_rx_handle((u8 *)blk.addr + SPRD_SIPC_HEAD_RESERV, length);
 		ret = sblock_release(WLAN_CP_ID, channel, &blk);
 		if (ret)
-			pr_err("release sblock[%d] err:%d\n", channel, ret);
+			wl_err("release sblock[%d] err:%d\n", channel, ret);
 	}
 }
 
@@ -602,7 +602,7 @@ static void sipc_data0_handler(int event, void *data)
 	case SBLOCK_NOTIFY_STATUS:
 		break;
 	default:
-		pr_err("Invalid data0 sblock notify:%d\n", event);
+		wl_err("Invalid data0 sblock notify:%d\n", event);
 		break;
 	}
 }
@@ -617,7 +617,7 @@ static void sipc_data1_handler(int event, void *data)
 	case SBLOCK_NOTIFY_STATUS:
 		break;
 	default:
-		pr_err("Invalid data1 sblock notify:%d\n", event);
+		wl_err("Invalid data1 sblock notify:%d\n", event);
 		break;
 	}
 }
@@ -633,7 +633,7 @@ static void sipc_event_handler(int event, void *data)
 	case SBLOCK_NOTIFY_STATUS:
 		break;
 	default:
-		pr_err("Invalid event sblock notify:%d\n", event);
+		wl_err("Invalid event sblock notify:%d\n", event);
 		break;
 	}
 }
@@ -654,7 +654,7 @@ static void sipc_clean_sblock(void)
 		}
 	} while (!ret);
 	if (block_num)
-		pr_err("release event rubbish num:%d\n", block_num);
+		wl_err("release event rubbish num:%d\n", block_num);
 
 	block_num = 0;
 	do {
@@ -665,7 +665,7 @@ static void sipc_clean_sblock(void)
 		}
 	} while (!ret);
 	if (block_num)
-		pr_err("release data0 rubbish num:%d\n", block_num);
+		wl_err("release data0 rubbish num:%d\n", block_num);
 
 	block_num = 0;
 	do {
@@ -676,7 +676,7 @@ static void sipc_clean_sblock(void)
 		}
 	} while (!ret);
 	if (block_num)
-		pr_err("release data1 rubbish num:%d\n", block_num);
+		wl_err("release data1 rubbish num:%d\n", block_num);
 }
 
 static int sipc_sblock_init(struct sprd_hif *hif)
@@ -706,7 +706,7 @@ static int sipc_sblock_init(struct sprd_hif *hif)
 		}
 	}
 	if (i != 3) {
-		pr_err("cp sblock not ready (%d %d)!\n", i, ret);
+		wl_err("cp sblock not ready (%d %d)!\n", i, ret);
 		return ret;
 	}
 	sipc_clean_sblock();
@@ -714,7 +714,7 @@ static int sipc_sblock_init(struct sprd_hif *hif)
 	ret = sblock_register_notifier(WLAN_CP_ID, SPRD_SBLOCK_CMD_EVENT,
 				       sipc_event_handler, hif->priv);
 	if (ret) {
-		pr_err("Failed to regitster event sblock notifier (%d)!\n",
+		wl_err("Failed to regitster event sblock notifier (%d)!\n",
 		       ret);
 		return ret;
 	}
@@ -722,7 +722,7 @@ static int sipc_sblock_init(struct sprd_hif *hif)
 	ret = sblock_register_notifier(WLAN_CP_ID, SPRD_SBLOCK_DATA0,
 				       sipc_data0_handler, hif->priv);
 	if (ret) {
-		pr_err("Failed to regitster data0 sblock notifier(%d)!\n",
+		wl_err("Failed to regitster data0 sblock notifier(%d)!\n",
 		       ret);
 		goto err_data0;
 	}
@@ -730,7 +730,7 @@ static int sipc_sblock_init(struct sprd_hif *hif)
 	ret = sblock_register_notifier(WLAN_CP_ID, SPRD_SBLOCK_DATA1,
 				       sipc_data1_handler, hif->priv);
 	if (ret) {
-		pr_err("Failed to regitster data1 sblock notifier(%d)!\n",
+		wl_err("Failed to regitster data1 sblock notifier(%d)!\n",
 		       ret);
 		goto err_data1;
 	}
@@ -874,7 +874,7 @@ void sipc_deinit(struct sprd_hif *hif)
 	sprd_deinit_msg(&hif->tx_list1);
 	sprd_deinit_msg(&hif->tx_list2);
 
-	pr_info("%s\t"
+	wl_info("%s\t"
 		"net: stop %u, start %u\t"
 		"drop cnt: cmd %u, sta %u, p2p %u\t",
 		__func__,
@@ -885,9 +885,9 @@ void sipc_deinit(struct sprd_hif *hif)
 int sc2332_tx_special_data(struct sk_buff *skb, struct net_device *ndev)
 {
 	if (skb->protocol == cpu_to_be16(ETH_P_PAE))
-		pr_info("TX special data: 802.1x\n");
+		wl_info("TX special data: 802.1x\n");
 	else if (skb->protocol == cpu_to_be16(WAPI_TYPE))
-		pr_info("TX special data: WAPI\n");
+		wl_info("TX special data: WAPI\n");
 	sprd_filter_data_debug(skb, ndev, "TX");
 	return 1;
 }

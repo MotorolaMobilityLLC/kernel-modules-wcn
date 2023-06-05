@@ -257,7 +257,7 @@ static int cmdevt_lock_cmd(struct sprd_cmd *cmd)
 #endif
 	if (atomic_inc_return(&cmd->refcnt) >= SPRD_CMD_EXIT_VAL) {
 		atomic_dec(&cmd->refcnt);
-		pr_err("%s failed\n", __func__);
+		wl_err("%s failed\n", __func__);
 		return -1;
 	}
 	mutex_lock(&cmd->cmd_lock);
@@ -265,7 +265,7 @@ static int cmdevt_lock_cmd(struct sprd_cmd *cmd)
 	hif = sc2332_get_hif();
 	if (hif->cp_asserted == 1) {
 		mutex_unlock(&cmd->cmd_lock);
-		pr_err("%s failed, cp_asserted unlock cmd_lock\n", __func__);
+		wl_err("%s failed, cp_asserted unlock cmd_lock\n", __func__);
 		return -1;
 	}
 #endif
@@ -304,7 +304,7 @@ static int cmdevt_send_cmd(struct sprd_priv *priv, struct sprd_msg *msg)
 
 	ret = sprd_chip_tx(&priv->chip, msg);
 	if (ret) {
-		pr_err("%s TX cmd Err: %d\n", __func__, ret);
+		wl_err("%s TX cmd Err: %d\n", __func__, ret);
 		/* now cmd msg dropped */
 		if (msg->skb) {
 			dev_kfree_skb(msg->skb);
@@ -345,7 +345,7 @@ struct sprd_msg *sc2332_get_cmdbuf(struct sprd_priv *priv, struct sprd_vif *vif,
 	u8 mode = SPRD_MODE_NONE;
 
 	if (!sprd_hif_is_on(&priv->hif)) {
-		pr_err("%s Drop command %s in case of power off\n",
+		wl_err("%s Drop command %s in case of power off\n",
 		       __func__, cmdevt_cmd2str(cmd_id));
 
 		return NULL;
@@ -357,7 +357,7 @@ struct sprd_msg *sc2332_get_cmdbuf(struct sprd_priv *priv, struct sprd_vif *vif,
 	if (priv->hif.drv_resetting == 1 &&
 	   !(cmd_id == CMD_GET_INFO ||
 	    cmd_id == CMD_OPEN)) {
-		pr_err("%s:wifi resetting, cannot send [%s]",
+		wl_err("%s:wifi resetting, cannot send [%s]",
 			__func__, cmdevt_cmd2str(cmd_id));
 		return NULL;
 	}
@@ -379,7 +379,7 @@ struct sprd_msg *sc2332_get_cmdbuf(struct sprd_priv *priv, struct sprd_vif *vif,
 		sprd_fill_msg(msg, msg->skb, msg->skb->data, plen);
 		msg->data = hdr + 1;
 	} else {
-		pr_err("%s failed to allocate skb\n", __func__);
+		wl_err("%s failed to allocate skb\n", __func__);
 		sprd_chip_free_msg(&priv->chip, msg);
 		return NULL;
 	}
@@ -404,7 +404,7 @@ int sc2332_send_cmd_recv_rsp(struct sprd_priv *priv, struct sprd_msg *msg,
 
 	hif = &priv->hif;
 	if (hif->cp_asserted == 1) {
-		pr_info("%s CP2 assert\n", __func__);
+		wl_info("%s CP2 assert\n", __func__);
 		sprd_chip_free_msg(&priv->chip, msg);
 		if (msg->skb) {
 			dev_kfree_skb(msg->skb);
@@ -431,7 +431,7 @@ int sc2332_send_cmd_recv_rsp(struct sprd_priv *priv, struct sprd_msg *msg,
 
 	if (atomic_read(&priv->hif.block_cmd_after_close) == 1) {
 		if (cmd_id != CMD_CLOSE) {
-			pr_info("%s need block cmd after close : %s\n",
+			wl_info("%s need block cmd after close : %s\n",
 				__func__, cmdevt_cmd2str(cmd_id));
 			sprd_chip_free_msg(&priv->chip, msg);
 			cmdevt_unlock_cmd(cmd);
@@ -441,7 +441,7 @@ int sc2332_send_cmd_recv_rsp(struct sprd_priv *priv, struct sprd_msg *msg,
 
 	if (atomic_read(&priv->hif.change_iface_block_cmd) == 1) {
 		if (cmd_id != CMD_CLOSE && cmd_id != CMD_OPEN) {
-			pr_info("%s need block cmd while change iface : %s\n",
+			wl_info("%s need block cmd while change iface : %s\n",
 				__func__, cmdevt_cmd2str(cmd_id));
 			sprd_chip_free_msg(&priv->chip, msg);
 			cmdevt_unlock_cmd(cmd);
@@ -799,7 +799,7 @@ void sc2332_cmd_deinit(struct sprd_cmd *cmd)
 	timeout = jiffies + msecs_to_jiffies(1000);
 	while (atomic_read(&cmd->refcnt) > SPRD_CMD_EXIT_VAL) {
 		if (time_after(jiffies, timeout)) {
-			pr_err("%s cmd lock timeout\n", __func__);
+			wl_err("%s cmd lock timeout\n", __func__);
 			break;
 		}
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
@@ -881,7 +881,7 @@ int sc2332_open_fw(struct sprd_priv *priv, struct sprd_vif *vif, u8 *mac_addr)
 
 	if (vif->mode == SPRD_MODE_STATION) {
 		p->reserved = wfa_cap;
-		pr_info("%s wfa_cap = %d\n", __func__, wfa_cap);
+		wl_info("%s wfa_cap = %d\n", __func__, wfa_cap);
 	} else {
 		p->reserved = 0;
 	}
@@ -924,7 +924,7 @@ int sc2332_power_save(struct sprd_priv *priv, struct sprd_vif *vif,
 	p = (struct cmd_power_save *)msg->data;
 	p->sub_type = sub_type;
 	p->value = status;
-	pr_info("CMD_POWER_SAVE subtype is [%s]\n",
+	wl_info("CMD_POWER_SAVE subtype is [%s]\n",
 			ps_subtype2str(p->sub_type));
 	return send_cmd_recv_rsp(priv, msg, NULL, NULL);
 }
@@ -944,7 +944,7 @@ int sc2332_set_sar(struct sprd_priv *priv, struct sprd_vif *vif,
 	p->sub_type = sub_type;
 	p->value = value;
 	p->mode = SPRD_SET_SAR_ALL_MODE;
-	pr_info("CMD_POWER_SAVE subtype is SPRD_SET_SAR\n");
+	wl_info("CMD_POWER_SAVE subtype is SPRD_SET_SAR\n");
 	return send_cmd_recv_rsp(priv, msg, NULL, NULL);
 }
 
@@ -964,7 +964,7 @@ int sc2332_set_power_backoff(struct sprd_priv *priv, struct sprd_vif *vif,
 	p->value = value;
 	p->mode = mode;
 	p->channel = channel;
-	pr_info("CMD_POWER_SAVE subtype is SPRD_SET_POWER_BACKOFF, "
+	wl_info("CMD_POWER_SAVE subtype is SPRD_SET_POWER_BACKOFF, "
 		"sub_type:%d, value:%d, mode:%d, channel:%d\n",
 		sub_type, value, mode, channel);
 	return send_cmd_recv_rsp(priv, msg, NULL, NULL);
@@ -1058,7 +1058,7 @@ static int cmdevt_set_ie(struct sprd_priv *priv, struct sprd_vif *vif, u8 type,
 	size_t datalen = sizeof(*p) + len;
 
 	if (datalen > 0xFFFF) {
-		pr_err("%s err datalen %zu.\n", __func__, datalen);
+		wl_err("%s err datalen %zu.\n", __func__, datalen);
 		return -EINVAL;
 	}
 
@@ -1381,7 +1381,7 @@ int sc2332_tx_mgmt(struct sprd_priv *priv, struct sprd_vif *vif, u8 channel,
 	size_t datalen = sizeof(*p) + len;
 
 	if (datalen > 0xFFFF) {
-		pr_err("%s err datalen %zu.\n", __func__, datalen);
+		wl_err("%s err datalen %zu.\n", __func__, datalen);
 		return -EINVAL;
 	}
 
@@ -1734,7 +1734,7 @@ int sc2332_xmit_data2cmd(struct sk_buff *skb, struct net_device *ndev)
 	    sizeof(struct llc_hdr) - sizeof(struct ethhdr);
 
 	if (!ndev || !ndev->ieee80211_ptr) {
-		pr_err("%s can not get channel\n", __func__);
+		wl_err("%s can not get channel\n", __func__);
 		return -EINVAL;
 	}
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
@@ -2266,7 +2266,7 @@ void sc2332_report_frame_evt(struct sprd_vif *vif, u8 *data, u16 len, bool flag)
 		buf = frame->data;
 
 		if (len < sizeof(*frame)) {
-			pr_err("%s frame data len is invalid!\n", __func__);
+			wl_err("%s frame data len is invalid!\n", __func__);
 			return;
 		}
 		len = len - sizeof(*frame);
@@ -2275,12 +2275,12 @@ void sc2332_report_frame_evt(struct sprd_vif *vif, u8 *data, u16 len, bool flag)
 	type = frame->type;
 	buf_len = SPRD_GET_LE16(frame->len);
 	if (len < buf_len) {
-		pr_err("%s frame buf_len is invalid!\n", __func__);
+		wl_err("%s frame buf_len is invalid!\n", __func__);
 		return;
 	}
 
 	if (atomic_read(&vif->priv->monitor_mode)) {
-		pr_info("%s: enter rx monitor process\n", __func__);
+		wl_info("%s: enter rx monitor process\n", __func__);
 		sprd_rx_monitor_process(vif, buf, buf_len);
 		return;
 	}
@@ -2328,12 +2328,12 @@ unsigned short sc2332_rx_evt_process(struct sprd_priv *priv, u8 *msg,
 
 	plen = SPRD_GET_LE16(hdr->plen);
 	if (plen > msg_len) {
-		pr_err("%s event msg len is invalid!\n", __func__);
+		wl_err("%s event msg len is invalid!\n", __func__);
 		return plen;
 	}
 
 	if (!priv) {
-		pr_err("%s priv is NULL [%u]mode %d recv[%s]len: %d\n",
+		wl_err("%s priv is NULL [%u]mode %d recv[%s]len: %d\n",
 		       __func__, le32_to_cpu(hdr->mstime), mode,
 		       cmdevt_evt2str(hdr->cmd_id), hdr->plen);
 		return plen;
@@ -2343,7 +2343,7 @@ unsigned short sc2332_rx_evt_process(struct sprd_priv *priv, u8 *msg,
 		   le32_to_cpu(hdr->mstime), mode, cmdevt_evt2str(hdr->cmd_id), plen);
 
 	if (plen < sizeof(struct sprd_cmd_hdr)) {
-		pr_err("%s plen is invalid!\n", __func__);
+		wl_err("%s plen is invalid!\n", __func__);
 		return plen;
 	}
 
@@ -2444,7 +2444,7 @@ unsigned short sc2332_rx_rsp_process(struct sprd_priv *priv, u8 *msg,
 	struct sprd_cmd_hdr *hdr;
 
 	if (unlikely(!cmd->init_ok)) {
-		pr_info("%s cmd coming too early, drop it\n", __func__);
+		wl_info("%s cmd coming too early, drop it\n", __func__);
 		return 0;
 	}
 
@@ -2452,7 +2452,7 @@ unsigned short sc2332_rx_rsp_process(struct sprd_priv *priv, u8 *msg,
 	mode = hdr->common.mode;
 	plen = SPRD_GET_LE16(hdr->plen);
 	if (plen > msg_len) {
-		pr_err("%s rsp msg_len is invalid!\n", __func__);
+		wl_err("%s rsp msg_len is invalid!\n", __func__);
 		return plen;
 	}
 
@@ -2462,7 +2462,7 @@ unsigned short sc2332_rx_rsp_process(struct sprd_priv *priv, u8 *msg,
 #endif
 	/* 2048 use mac */
 	if (mode > SPRD_MODE_MAX || hdr->cmd_id > CMD_MAX || plen > 2048) {
-		pr_err("%s wrong CMD_RSP: %d\n", __func__, (int)hdr->cmd_id);
+		wl_err("%s wrong CMD_RSP: %d\n", __func__, (int)hdr->cmd_id);
 		return 0;
 	}
 	if (atomic_inc_return(&cmd->refcnt) >= SPRD_CMD_EXIT_VAL) {
@@ -2482,11 +2482,11 @@ unsigned short sc2332_rx_rsp_process(struct sprd_priv *priv, u8 *msg,
 		wiphy_info(priv->wiphy, "mode %d recv rsp[%s]\n",
 			   (int)mode, cmdevt_cmd2str(hdr->cmd_id));
 		if (unlikely(hdr->status != 0)) {
-			pr_err("%s mode %d recv rsp[%s] status[%s]\n",
+			wl_err("%s mode %d recv rsp[%s] status[%s]\n",
 			       __func__, (int)mode, cmdevt_cmd2str(hdr->cmd_id),
 			       cmdevt_err2str(hdr->status));
 			if (cmd->cmd_id == CMD_TX_MGMT) {
-				pr_err("tx mgmt status : %d\n", hdr->status);
+				wl_err("tx mgmt status : %d\n", hdr->status);
 				priv->tx_mgmt_status = hdr->status;
 			}
 		}
@@ -2494,7 +2494,7 @@ unsigned short sc2332_rx_rsp_process(struct sprd_priv *priv, u8 *msg,
 		complete(&cmd->completed);
 	} else {
 		kfree(data);
-		pr_err
+		wl_err
 		    ("%s mode %d recv mismatched rsp[%s] status[%s] mstime:[%u %u]\n",
 		     __func__, (int)mode, cmdevt_cmd2str(hdr->cmd_id),
 		     cmdevt_err2str(hdr->status), SPRD_GET_LE32(hdr->mstime),

@@ -261,7 +261,7 @@ static int hw_param_nvm_set_cmd(struct nvm_name_table *ptable,
 		j++;
 	}
 
-	wl_debug("[g_table]%s, offset:%u, num:%u value:%s",
+	wl_all("[g_table]%s, offset:%u, num:%u value:%s",
 		 ptable->itm, ptable->mem_offset, cmd->num, val_str);
 
 	for (i = 0; i < cmd->num; i++) {
@@ -326,9 +326,9 @@ static void hw_param_nvm_get_cmd_par(char *str, struct nvm_cali_cmd *cmd)
 					p += strlen(p);
 				}
 
-				/* pr_err("kstrtol %s: error\n", tmp); */
+				/* wl_err("kstrtol %s: error\n", tmp); */
 				if (cmd->num >= m_cmd_num) {
-					pr_err("cmd_num(%d) exceed max_num(%d)", cmd->num + 1, m_cmd_num);
+					wl_err("cmd_num(%d) exceed max_num(%d)", cmd->num + 1, m_cmd_num);
 					return;
 				}
 				cmd->par[cmd->num] = val & 0xFFFFFFFF;
@@ -341,13 +341,13 @@ static void hw_param_nvm_get_cmd_par(char *str, struct nvm_cali_cmd *cmd)
 			continue;
 		if (ctype == 4) {
 			if (p != sec_name)
-				wl_debug("[%s %d: %s]", cmd->itm, cmd->par[0], sec_name);
+				wl_all("[%s %d: %s]", cmd->itm, cmd->par[0], sec_name);
 
 			return;
 		}
 	}
 	tmp[j - 1] = '\0';
-	pr_err("too long str : %s..., max strlen is %d\n", tmp, sizeof(tmp) - 1);
+	wl_err("too long str : %s..., max strlen is %d\n", tmp, sizeof(tmp) - 1);
 }
 
 static struct nvm_name_table *hw_param_nvm_cf_table_match(struct nvm_cali_cmd *cmd)
@@ -396,7 +396,7 @@ static int hw_param_nvm_buf_operate(char *pbuf, int file_len, void *p_data)
 					if (strcmp(ptable->itm, "value") == 0) {
 						spin_lock_bh(&adap_info.adap_lock);
 						adap_info.special_data_flag = cmd->par[4];
-						wl_debug("%s special_data_flag: %d\n",
+						wl_all("%s special_data_flag: %d\n",
 							 __func__, adap_info.special_data_flag);
 						spin_unlock_bh(&adap_info.adap_lock);
 					}
@@ -418,27 +418,27 @@ static int hw_param_nvm_parse(struct sprd_priv *priv, const char *path, void *p_
 	char *buffer = NULL;
 	int ret = 0, i;
 
-	pr_info("%s enter\n", __func__);
+	wl_info("%s enter\n", __func__);
 	ret = request_firmware(&fw, path, wiphy_dev(priv->wiphy));
 	if (ret) {
-		pr_err("first open file %s error\n", path);
+		wl_err("first open file %s error\n", path);
 		/*failed to read ini file, try again*/
 		for (i = 0; i < 5; i++) {
 			msleep(50);
 			ret = request_firmware(&fw, path, wiphy_dev(priv->wiphy));
 			if (ret)
-				pr_err("failed to open file %s for the %d time!\n", path, i);
+				wl_err("failed to open file %s for the %d time!\n", path, i);
 			else
 				break;
 		}
 		if (ret) {
-			pr_err("open file %s error\n", path);
+			wl_err("open file %s error\n", path);
 			return -1;
 		}
 	}
 
 	if (!fw || !fw->data || fw->size <= 0) {
-		pr_err("%s invalid firmware file\n", __func__);
+		wl_err("%s invalid firmware file\n", __func__);
 		release_firmware(fw);
 		return -EINVAL;
 	}
@@ -446,7 +446,7 @@ static int hw_param_nvm_parse(struct sprd_priv *priv, const char *path, void *p_
 	buffer_len = fw->size;
 	buffer = vmalloc(fw->size);
 	if (!buffer) {
-		pr_err("%s no memory\n", __func__);
+		wl_err("%s no memory\n", __func__);
 		release_firmware(fw);
 		return -ENOMEM;
 	}
@@ -465,15 +465,15 @@ static int hw_param_nvm_parse(struct sprd_priv *priv, const char *path, void *p_
 int sc2355_get_nvm_table(struct sprd_priv *priv, struct wifi_conf_t *p)
 {
 	if (wcn_get_chip_type() == WCN_CHIP_ID_INVALID) {
-		pr_err("%s, marlin chip ID is invalid\n", __func__);
+		wl_err("%s, marlin chip ID is invalid\n", __func__);
 		return -1;
 	} else if (wcn_get_chip_type() == WCN_CHIP_ID_AA) {
-		pr_info("%s, chip id of marlin3 lite is %d, open %s\n",
+		wl_info("%s, chip id of marlin3 lite is %d, open %s\n",
 			__func__, wcn_get_chip_type(),
 			SYSTEM_WIFI_AA_CONFIG_FILE);
 		return hw_param_nvm_parse(priv, SYSTEM_WIFI_AA_CONFIG_FILE, (void *)p);
 	}
-	pr_info("%s, chip id of marlin3 lite is %d, open %s\n",
+	wl_info("%s, chip id of marlin3 lite is %d, open %s\n",
 		__func__, wcn_get_chip_type(), SYSTEM_WIFI_CONFIG_FILE);
 	return hw_param_nvm_parse(priv, SYSTEM_WIFI_CONFIG_FILE, (void *)p);
 }

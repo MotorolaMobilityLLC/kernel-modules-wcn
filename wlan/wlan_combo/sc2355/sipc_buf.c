@@ -52,13 +52,13 @@ int sipc_buf_mm_init(int num, struct sipc_buf_mm *buf_mm)
 	for (i = 0; i < num; i++) {
 		node = kzalloc(sizeof(*node), GFP_KERNEL);
 		if (!node) {
-			pr_err("%s: alloc rx node failed.\n", __func__);
+			wl_err("%s: alloc rx node failed.\n", __func__);
 			goto err_alloc;
 		}
 
 		/*must not out of virt_end*/
 		if (ptr > buf_mm->virt_end) {
-			pr_err("%s out of memory, alloc buf node num %d!\n",
+			wl_err("%s out of memory, alloc buf node num %d!\n",
 				__func__, num);
 			list->maxnum = num;
 			kfree(node);
@@ -77,7 +77,7 @@ int sipc_buf_mm_init(int num, struct sipc_buf_mm *buf_mm)
 		ptr += buf_mm->len;
 	}
 
-	pr_err("%s: init mem ptr %p, phy %llx.",
+	wl_err("%s: init mem ptr %p, phy %llx.",
 			__func__, ptr, virt_to_phys(ptr));
 	return 0;
 
@@ -102,7 +102,7 @@ void sipc_buf_mm_deinit(struct sprd_msg_list *list)
 	memset(&txmsgftime2, 0, sizeof(struct timespec64));
 	atomic_add(SPRDWL_NODE_EXIT_VAL, &list->ref);
 	if (atomic_read(&list->ref) > SPRDWL_NODE_EXIT_VAL)
-		pr_err("%s ref not ok! wait for pop!\n", __func__);
+		wl_err("%s ref not ok! wait for pop!\n", __func__);
 
 	ktime_get_real_ts64(&txmsgftime1);
 	while (atomic_read(&list->ref) > SPRDWL_NODE_EXIT_VAL) {
@@ -119,7 +119,7 @@ void sipc_buf_mm_deinit(struct sprd_msg_list *list)
         memset(&txmsgftime2, 0, sizeof(struct timespec));
         atomic_add(SPRDWL_NODE_EXIT_VAL, &list->ref);
         if (atomic_read(&list->ref) > SPRDWL_NODE_EXIT_VAL)
-                pr_err("%s ref not ok! wait for pop!\n", __func__);
+                wl_err("%s ref not ok! wait for pop!\n", __func__);
 
         getnstimeofday(&txmsgftime1);
         while (atomic_read(&list->ref) > SPRDWL_NODE_EXIT_VAL) {
@@ -130,7 +130,7 @@ void sipc_buf_mm_deinit(struct sprd_msg_list *list)
                 usleep_range(2000, 2500);
         }
 #endif
-	pr_info("%s list->ref ok!\n", __func__);
+	wl_info("%s list->ref ok!\n", __func__);
 
 	list_for_each_entry_safe(node, pos, &list->busylist, list) {
 		list_del(&node->list);
@@ -208,7 +208,7 @@ void sipc_free_tx_buf(struct sprd_hif *hif,
 	struct sipc_buf_mm *tx_buf = hif->sipc_mm->tx_buf;
 
 	if (tx_buf == NULL) {
-		pr_err("%s:Tx_buf is not init.\n", __func__);
+		wl_err("%s:Tx_buf is not init.\n", __func__);
 		return;
 	}
 
@@ -276,7 +276,7 @@ void *sipc_pkt_txrx_mm(phys_addr_t start, size_t size)
 
 	pages = kmalloc_array(page_count, sizeof(struct page *), GFP_KERNEL);
 	if (!pages) {
-		pr_err("%s kmalloc_array erroy\n", "sprd-wlan");
+		wl_err("%s kmalloc_array erroy\n", "sprd-wlan");
 		return NULL;
 	}
 
@@ -303,13 +303,13 @@ sipc_pkt_mem_map(struct platform_device *pdev,
 
 	np = of_find_node_by_path("/sprd-wlan");
 	if (!np) {
-		pr_err("No %s specified\n", "sprd-wlan");
+		wl_err("No %s specified\n", "sprd-wlan");
 		return -1;
 	}
 
 	ret = of_address_to_resource(np, 0, &res);
 	if (ret) {
-		pr_err("No memory address assigned to the region\n");
+		wl_err("No memory address assigned to the region\n");
 		return ret;
 	}
 
@@ -321,11 +321,11 @@ sipc_pkt_mem_map(struct platform_device *pdev,
 	smem->page_count = smem->phy_base - offset_in_page(smem->phy_base);
 	smem->virt_base = sipc_pkt_txrx_mm(smem->phy_base, smem->size);
 	if (unlikely(smem->virt_base == NULL)) {
-		pr_err("Failed mapping mem\n");
+		wl_err("Failed mapping mem\n");
 		return -ENOMEM;
 	}
 
-	pr_info("Allocated reserved memory, vaddr: 0x%llx, paddr: 0x%llx\n",
+	wl_info("Allocated reserved memory, vaddr: 0x%llx, paddr: 0x%llx\n",
 			(u64)smem->virt_base, smem->phy_base);
 
 	return ret;
@@ -337,7 +337,7 @@ static int sipc_init_tx_mm(struct sipc_txrx_mm *txrx_buf)
 
 	 txrx_buf->tx_buf =  kzalloc(sizeof(struct sipc_buf_mm), GFP_KERNEL);
 	if (!txrx_buf->tx_buf) {
-		pr_err("%s: alloc tx buf fail", __func__);
+		wl_err("%s: alloc tx buf fail", __func__);
 		return -1;
 	}
 
@@ -351,7 +351,7 @@ static int sipc_init_tx_mm(struct sipc_txrx_mm *txrx_buf)
 	tx_buf->virt_end = (char *)tx_buf->virt_start + SPRDWL_SIPC_MEM_RX_OFFSET;
 
 	if (sipc_buf_mm_init(tx_buf->buf_count, tx_buf)) {
-		pr_err("%s: sprdwl_buf_mm_init fail", __func__);
+		wl_err("%s: sprdwl_buf_mm_init fail", __func__);
 		goto err_mm_init;
 	}
 
@@ -369,7 +369,7 @@ static int sipc_init_rx_mm(struct sipc_txrx_mm *txrx_buf)
 
 	txrx_buf->rx_buf =  kzalloc(sizeof(struct sipc_buf_mm), GFP_KERNEL);
 	if (!txrx_buf->rx_buf) {
-		pr_err("%s: alloc rxbuf fail", __func__);
+		wl_err("%s: alloc rxbuf fail", __func__);
 		return -1;
 	}
 
@@ -385,11 +385,11 @@ static int sipc_init_rx_mm(struct sipc_txrx_mm *txrx_buf)
 	rx_buf->offset = (unsigned long)txrx_buf->smem.virt_base - txrx_buf->smem.phy_base;
 
 	if (sipc_buf_mm_init(rx_buf->buf_count, rx_buf)) {
-		pr_err("%s: sprdwl_buf_mm_init fail", __func__);
+		wl_err("%s: sprdwl_buf_mm_init fail", __func__);
 		goto err_mm_init;
 	}
 
-	pr_err("%s: alloc rxbuf len %d", __func__, rx_buf->len);
+	wl_err("%s: alloc rxbuf len %d", __func__, rx_buf->len);
 	return 0;
 
 err_mm_init:
@@ -405,30 +405,30 @@ int sipc_txrx_buf_init(struct platform_device *pdev, struct sprd_hif *hif)
 
 	hif->sipc_mm = kzalloc(sizeof(struct sipc_txrx_mm), GFP_KERNEL);
 	if (!hif->sipc_mm) {
-		pr_err("%s: alloc sprdwl_txrx_mm fail", __func__);
+		wl_err("%s: alloc sprdwl_txrx_mm fail", __func__);
 		return -1;
 	}
 
 	txrx_mm = hif->sipc_mm;
 	ret = sipc_pkt_mem_map(pdev, &txrx_mm->smem);
 	if (ret) {
-		pr_err("%s:pkt mem map fail", __func__);
+		wl_err("%s:pkt mem map fail", __func__);
 		return ret;
 	}
 
 	ret = sipc_init_tx_mm(txrx_mm);
 	if (ret) {
-		pr_err("%s: init_tx_mm fail", __func__);
+		wl_err("%s: init_tx_mm fail", __func__);
 		goto err_memunmap;
 	}
-	pr_err("%s: init_tx_mm success", __func__);
+	wl_err("%s: init_tx_mm success", __func__);
 
 	ret = sipc_init_rx_mm(txrx_mm);
 	if (ret) {
-		pr_err("%s: init_rx_mm fail", __func__);
+		wl_err("%s: init_rx_mm fail", __func__);
 		goto err_init_rx;
 	}
-	pr_err("%s: init_rx_mm success", __func__);
+	wl_err("%s: init_rx_mm success", __func__);
 
 	return 0;
 
@@ -461,7 +461,7 @@ void sipc_mm_rx_buf_flush(struct sprd_hif *hif)
 	unsigned long flags = 0;
 
 	if (!buf_mm) {
-		pr_err("%s:get rx mm buffer failed.\n", __func__);
+		wl_err("%s:get rx mm buffer failed.\n", __func__);
 		return;
 	}
 
@@ -557,7 +557,7 @@ struct sipc_buf_node *sipc_rx_alloc_node_buf(struct sprd_hif *hif)
 	struct sipc_buf_mm *rx_buf = hif->sipc_mm->rx_buf;
 
 	if (!rx_buf) {
-		pr_err("%s:rx buf is NULL.\n", __func__);
+		wl_err("%s:rx buf is NULL.\n", __func__);
 		return NULL;
 	}
 
@@ -578,7 +578,7 @@ void *sipc_fill_mbuf(void *data, unsigned int len)
 	void *buf = NULL;
 	buf = kmalloc(len, GFP_KERNEL);
 	if (buf == NULL) {
-		pr_err("%s:buf is NULL.\n", __func__);
+		wl_err("%s:buf is NULL.\n", __func__);
 		return NULL;
 	}
 

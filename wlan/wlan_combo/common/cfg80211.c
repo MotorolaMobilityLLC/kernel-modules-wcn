@@ -112,7 +112,7 @@ out:
 	if (idx < PRINT_BUF_LEN)
 		p[idx] = '\0';
 
-	pr_debug("%s %pM %pM\n", p, &buf[4], &buf[10]);
+	wl_all("%s %pM %pM\n", p, &buf[4], &buf[10]);
 }
 EXPORT_SYMBOL(sprd_dump_frame_prot_info);
 
@@ -133,7 +133,7 @@ static void cfg80211_do_work(struct work_struct *work)
 		sprd_work = list_first_entry(&priv->work_list,
 					     struct sprd_work, list);
 		if (!sprd_work) {
-			pr_err("%s get sprd work error!\n", __func__);
+			wl_err("%s get sprd work error!\n", __func__);
 			spin_unlock_bh(&priv->work_lock);
 			return;
 		}
@@ -141,7 +141,7 @@ static void cfg80211_do_work(struct work_struct *work)
 		spin_unlock_bh(&priv->work_lock);
 
 		vif = sprd_work->vif;
-		pr_debug("process delayed work: %d\n", sprd_work->id);
+		wl_all("process delayed work: %d\n", sprd_work->id);
 
 		switch (sprd_work->id) {
 		case SPRD_WORK_REG_MGMT:
@@ -190,7 +190,7 @@ static int cfg80211_init_work(struct sprd_priv *priv)
 						     WQ_CPU_INTENSIVE |
 						     WQ_MEM_RECLAIM);
 	if (!priv->common_workq) {
-		pr_err("%s sprd_work create failed\n", __func__);
+		wl_err("%s sprd_work create failed\n", __func__);
 		return -ENOMEM;
 	}
 	return 0;
@@ -221,7 +221,7 @@ static void cfg80211_do_reset_work(struct work_struct *work)
 
 	ret = cfg80211_host_reset_self(priv);
 	if (!ret)
-		pr_err("%s host reset self success!\n", __func__);
+		wl_err("%s host reset self success!\n", __func__);
 }
 
 static int cfg80211_init_reset_work(struct sprd_priv *priv)
@@ -233,7 +233,7 @@ static int cfg80211_init_reset_work(struct sprd_priv *priv)
 						     WQ_CPU_INTENSIVE |
 						     WQ_MEM_RECLAIM);
 	if (!priv->reset_workq) {
-		pr_err("%s sprd_reset_work create failed\n", __func__);
+		wl_err("%s sprd_reset_work create failed\n", __func__);
 		return -ENOMEM;
 	}
 	return 0;
@@ -364,7 +364,7 @@ int sprd_cfg80211_del_iface(struct wiphy *wiphy, struct wireless_dev *wdev)
 	struct sprd_hif *hif = NULL;
 
 	if (!priv) {
-		pr_err("can not get priv!\n");
+		wl_err("can not get priv!\n");
 		return -ENODEV;
 	}
 	hif = &priv->hif;
@@ -374,7 +374,7 @@ int sprd_cfg80211_del_iface(struct wiphy *wiphy, struct wireless_dev *wdev)
 		return 0;
 	}
 	if (sprd_chip_is_exit(&priv->chip) || hif->cp_asserted)
-		pr_info("del interface while assert\n");
+		wl_info("del interface while assert\n");
 
 	spin_lock_bh(&priv->list_lock);
 	list_for_each_entry_safe(vif, tmp_vif, &priv->vif_list, vif_node) {
@@ -1472,7 +1472,7 @@ int sprd_init_fw(struct sprd_vif *vif)
 		if (!ret) {
 			sprd_pamwifi_enable(vif);
 		} else if(ret != PAMWIFI_DISABLED) {
-			pr_err("softap open fail, because pamwifi init fail\n");
+			wl_err("softap open fail, because pamwifi init fail\n");
 			return ret;
 		}
 	}
@@ -1614,7 +1614,7 @@ struct sprd_priv *sprd_core_create(struct sprd_chip_ops *chip_ops)
 
 	wiphy = wiphy_new(&sprd_cfg80211_ops, sizeof(*priv));
 	if (!wiphy) {
-		pr_err("failed to allocate wiphy!\n");
+		wl_err("failed to allocate wiphy!\n");
 		return NULL;
 	}
 	priv = wiphy_priv(wiphy);

@@ -46,7 +46,7 @@ inline static void sc2355_hex_dump(unsigned char *name,
                 return;
 
         sprintf(buf, "sc2355 wlan %s hex dump(len = %d)", name, len);
-        pr_info("%s\n", buf);
+        wl_info("%s\n", buf);
 
         if (len > 1024)
                 len = 1024;
@@ -54,7 +54,7 @@ inline static void sc2355_hex_dump(unsigned char *name,
         for (i = 0; i < len; i++) {
                 ret = sprintf((buf + p), "%02x ", *(data + i));
                 if (i != 0 && ((i + 1) % 16 == 0)) {
-                        pr_info("%s\n", buf);
+                        wl_info("%s\n", buf);
                         p = 0;
                         memset(buf, 0x00, SDIO_HEX_DUMP_BUF_SIZE);
                 } else {
@@ -62,7 +62,7 @@ inline static void sc2355_hex_dump(unsigned char *name,
                 }
         }
         if (p != 0)
-                pr_info("%s\n", buf);
+                wl_info("%s\n", buf);
 }
 
 unsigned short sc2355_get_data_csum(void *entry, void *data);

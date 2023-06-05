@@ -328,12 +328,12 @@ static int vendor_compose_radio_st(struct sk_buff *reply,
 		chan_info = nla_nest_start(reply, 0);
 
 		if (!chan_list) {
-			pr_err("%s %d\n", __func__, __LINE__);
+			wl_err("%s %d\n", __func__, __LINE__);
 			goto out_put_fail;
 		}
 
 		if (!chan_info) {
-			pr_err("%s %d\n", __func__, __LINE__);
+			wl_err("%s %d\n", __func__, __LINE__);
 			goto out_put_fail;
 		}
 
@@ -1084,7 +1084,7 @@ static int vendor_clr_llstat_handler(struct wiphy *wiphy,
 	return ret;
 out_put_fail:
 	kfree_skb(reply);
-	pr_err("%s out put fail\n", __func__);
+	wl_err("%s out put fail\n", __func__);
 	return -EMSGSIZE;
 }
 
@@ -1157,7 +1157,7 @@ out:
 out_put_fail:
 	kfree_skb(reply);
 	kfree(rbuf);
-	pr_err("%s out put fail\n", __func__);
+	wl_err("%s out put fail\n", __func__);
 	return -EMSGSIZE;
 }
 
@@ -1242,7 +1242,7 @@ out:
 out_put_fail:
 	kfree_skb(reply);
 	kfree(rbuf);
-	pr_err("%s out put fail\n", __func__);
+	wl_err("%s out put fail\n", __func__);
 	return -EMSGSIZE;
 }
 
@@ -1459,7 +1459,7 @@ static int vendor_get_cached_gscan_results(struct wiphy *wiphy,
 
 out_put_fail:
 	kfree_skb(reply);
-	pr_err("%s out put fail\n", __func__);
+	wl_err("%s out put fail\n", __func__);
 	return -EMSGSIZE;
 }
 
@@ -2254,7 +2254,7 @@ static int vendor_apf_req_send_recv(struct sprd_vif *vif,
 	u16 apf_subcmd, cmd_len, rsp_len;
 
 	if (!priv->apf_state->apf_cmd_id) {
-		pr_err("%s cmd_id err.\n", __func__);
+		wl_err("%s cmd_id err.\n", __func__);
 		return -EINVAL;
 	}
 
@@ -2286,7 +2286,7 @@ static int vendor_apf_req_send_recv(struct sprd_vif *vif,
 
 	ret = send_cmd_recv_rsp(priv, msg, (u8 *)apf_rsp, &rsp_len);
 	if (ret != 0) {
-		pr_err("%s ret %d.\n", __func__, ret);
+		wl_err("%s ret %d.\n", __func__, ret);
 	}
 
 	*r_len = rsp_len;
@@ -2312,19 +2312,19 @@ static int vendor_get_bus_max_size(struct wiphy *wiphy,
 
 	skb = cfg80211_vendor_cmd_alloc_reply_skb(wiphy, NLMSG_HDRLEN + rsp_len);
 	if (!skb) {
-		pr_err("%s skb alloc failed.\n", __func__);
+		wl_err("%s skb alloc failed.\n", __func__);
 		return -ENOMEM;
 	}
 
 	if (nla_put_u32(skb, VENDOR_ATTR_DRV_INFO_BUS_SIZE, 1024)) {
-		pr_err("%s put fail\n", __func__);
+		wl_err("%s put fail\n", __func__);
 		ret = -EINVAL;
 		goto exit;
 	}
 
 	ret = cfg80211_vendor_cmd_reply(skb);
 	if (ret) {
-		pr_err("%s failed %d reply skb!\n", __func__, ret);
+		wl_err("%s failed %d reply skb!\n", __func__, ret);
 	}
 	return ret;
 

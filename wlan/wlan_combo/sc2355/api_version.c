@@ -457,7 +457,7 @@ void sc2355_api_version_fill_fw(struct sprd_priv *priv,
 		p = &api_array[count];
 		p->fw_version = fw_api->api_map[count];
 		if (p->fw_version != p->drv_version) {
-			wl_debug("API version not match!! CMD ID:%d,drv:%d,fw:%d\n",
+			wl_all("API version not match!! CMD ID:%d,drv:%d,fw:%d\n",
 			         count, p->drv_version, p->fw_version);
 		}
 	}
@@ -489,12 +489,12 @@ int sc2355_api_version_available_check(struct sprd_priv *priv,
 			return 0;
 		}
 
-		pr_err("CMD ID:%d,drv ver:%d, fw ver:%d,compat:%d\n",
+		wl_err("CMD ID:%d,drv ver:%d, fw ver:%d,compat:%d\n",
 		       cmd_id, drv_ver, fw_ver, priv->sync_api.compat);
 		return -1;
 	}
 
-	pr_err("CMD ID:%d,drv ver:%d, fw ver:%d drop it!!\n",
+	wl_err("CMD ID:%d,drv ver:%d, fw ver:%d drop it!!\n",
 	       cmd_id, drv_ver, fw_ver);
 	return -1;
 }
@@ -509,12 +509,12 @@ int sc2355_api_version_need_compat_operation(struct sprd_priv *priv, u8 cmd_id)
 	fw_ver = (api + cmd_id)->fw_version;
 
 	if (drv_ver != fw_ver && fw_ver == min(fw_ver, drv_ver)) {
-		pr_info("drv ver:%d higher than fw ver:%d, need compat operation!!\n",
+		wl_info("drv ver:%d higher than fw ver:%d, need compat operation!!\n",
 			drv_ver, fw_ver);
 		return fw_ver;
 	} else {
 		if (drv_ver != fw_ver)
-			pr_info("drv ver:%d, fw_ver:%d\n no need compat!!",
+			wl_info("drv ver:%d, fw_ver:%d\n no need compat!!",
 				drv_ver, fw_ver);
 		return 0;
 	}

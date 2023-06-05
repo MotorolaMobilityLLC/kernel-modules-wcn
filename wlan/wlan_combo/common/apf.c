@@ -55,14 +55,14 @@ int validate_apf_program_attr(const struct nlattr *attr,
 	struct apf_program_state *apf_st = &g_apf_prog;
 
 	if (!attr || !is_apf_valid(&apf_st->apf_cap)) {
-		pr_err("%s error", __func__);
+		wl_err("%s error", __func__);
 		ret = -ENOTSUPP;
 		goto validate_fail;
 	}
 
 	len = nla_len(attr);
 	if (len > apf_st->apf_cap.max_capa_apf_prog_len) {
-		pr_err("%s %d prog %d error", __func__, nla_type(attr), len);
+		wl_err("%s %d prog %d error", __func__, nla_type(attr), len);
 		ret = -EINVAL;
 		goto validate_fail;
 	}
@@ -116,7 +116,7 @@ static int apf_subcmd_rsp(struct sprd_vif *vif, struct apf_request *apf_req,
 		return -ENOMEM;
 	}
 
-	pr_info("%s cmd%u rsp_hal_len%d.\n", __func__,
+	wl_info("%s cmd%u rsp_hal_len%d.\n", __func__,
 		apf_req->apf_hdr.apf_subcmd, rsp_hal_len);
 	if (apf_req->apf_hdr.apf_subcmd == WLAN_READ_PACKET_FILTER) {
 		if (nla_put_u32(skb, VENDOR_ATTR_PACKET_FILTER_SUB_CMD,
@@ -131,7 +131,7 @@ static int apf_subcmd_rsp(struct sprd_vif *vif, struct apf_request *apf_req,
 		if (nla_put_u32(skb, VENDOR_ATTR_PACKET_FILTER_VERSION, apf_version) ||
 			nla_put_u32(skb, VENDOR_ATTR_PACKET_FILTER_SIZE,
 				apf_max_capa_prog_len)) {
-			pr_err("%s put fail\n", __func__);
+			wl_err("%s put fail\n", __func__);
 			ret = -EINVAL;
 			goto exit;
 		}
@@ -156,17 +156,17 @@ static int apf_check_cp2_rsp(struct apf_program_state *apf_st,
 	int ret = 0;
 
 	if (apf_rsp->apf_hdr.apf_subcmd != apf_subcmd) {
-		pr_err("%s subcmd %u err %u.\n", __func__, apf_rsp->apf_hdr.apf_subcmd,
+		wl_err("%s subcmd %u err %u.\n", __func__, apf_rsp->apf_hdr.apf_subcmd,
 			apf_subcmd);
 		ret = -EINVAL;
 		goto exit;
 	} else {
-		pr_info("%s %s(%u) ret %u.\n", __func__, apf_cmd2str(apf_subcmd),
+		wl_info("%s %s(%u) ret %u.\n", __func__, apf_cmd2str(apf_subcmd),
 			apf_subcmd, apf_rsp->cmd_ret_value);
 		if (apf_subcmd == WLAN_GET_PACKET_FILTER) {
 			apf_cap = (struct apf_capa *)apf_rsp->rsp_data;
 			if (!is_apf_valid(apf_cap)) {
-				pr_err("%s apf_cap %u %u error.\n", __func__,
+				wl_err("%s apf_cap %u %u error.\n", __func__,
 				       apf_cap->apf_version, apf_cap->max_capa_apf_prog_len);
 				ret = -ENOTSUPP;
 				goto exit;
@@ -178,7 +178,7 @@ static int apf_check_cp2_rsp(struct apf_program_state *apf_st,
 			u32 rsp_prog_data_len =
 			    apf_rsp->apf_hdr.length - sizeof(apf_rsp->cmd_ret_value);
 			if (rsp_prog_data_len != apf_req->apf_offset_slice_size) {
-				pr_info("%s expect %u but %u.\n", __func__,
+				wl_info("%s expect %u but %u.\n", __func__,
 					apf_req->apf_offset_slice_size, rsp_prog_data_len);
 			}
 		}
@@ -225,19 +225,19 @@ static int apf_subcmd_send_recv(struct sprd_vif *vif, struct apf_request *apf_re
 			ret = apf_st->apf_req_send_rcv(vif, apf_req, src_slice_prog,
 						       apf_rsp, &rsp_len);
 			if (ret) {
-				pr_err("%s apf_req_send_rcv ret %d.\n", __func__, ret);
+				wl_err("%s apf_req_send_rcv ret %d.\n", __func__, ret);
 				goto exit;
 			}
 		}
 	}
-	pr_debug("%s-%s %s(%u)-%u-%u-%u-%u-(%u-%u).\n", __func__, current->comm,
+	wl_all("%s-%s %s(%u)-%u-%u-%u-%u-(%u-%u).\n", __func__, current->comm,
 		apf_cmd2str(apf_req->apf_hdr.apf_subcmd), apf_req->apf_hdr.apf_subcmd,
 		apf_req->apf_currt_offset, apf_req->apf_offset_slice_size,
 		apf_req->apf_trans_size, apf_req->apf_prog_len,
 		apf_req->apf_hdr.length + sizeof(struct apf_cmd_header), expect_rsp_len);
 
 	if (rsp_len != expect_rsp_len) {
-		pr_err("%s rsp_len %u err %u.\n", __func__, rsp_len, expect_rsp_len);
+		wl_err("%s rsp_len %u err %u.\n", __func__, rsp_len, expect_rsp_len);
 		ret = -EINVAL;
 		goto exit;
 	} else {
@@ -252,7 +252,7 @@ static int apf_set_request_params(struct apf_program_state *apf_st,
 			struct nlattr **tb, struct apf_request *apf_req)
 {
 	if (apf_req->apf_hdr.apf_subcmd != WLAN_SET_PACKET_FILTER) {
-		pr_err("%s cmd %u err.\n", __func__, apf_req->apf_hdr.apf_subcmd);
+		wl_err("%s cmd %u err.\n", __func__, apf_req->apf_hdr.apf_subcmd);
 		return -EINVAL;
 	}
 
@@ -260,11 +260,11 @@ static int apf_set_request_params(struct apf_program_state *apf_st,
 		nla_len(tb[VENDOR_ATTR_PACKET_FILTER_ID]) == sizeof(u32)) {
 		u32 apf_id = nla_get_u32(tb[VENDOR_ATTR_PACKET_FILTER_ID]);
 		if (apf_id != PACKET_FILTER_ID) {
-			pr_err("%s apf_id %u err.\n", __func__, apf_id);
+			wl_err("%s apf_id %u err.\n", __func__, apf_id);
 			return -EINVAL;
 		}
 	} else {
-		pr_err("%s get apf_id err.\n", __func__);
+		wl_err("%s get apf_id err.\n", __func__);
 		return -EINVAL;
 	}
 
@@ -272,13 +272,13 @@ static int apf_set_request_params(struct apf_program_state *apf_st,
 		nla_len(tb[VENDOR_ATTR_PACKET_FILTER_SIZE]) == sizeof(u32)) {
 		apf_req->apf_prog_len = nla_get_u32(tb[VENDOR_ATTR_PACKET_FILTER_SIZE]);
 		if (apf_req->apf_prog_len > apf_st->apf_cap.max_capa_apf_prog_len) {
-			pr_err("%s prog_len %u err %u.\n", __func__, apf_req->apf_prog_len,
+			wl_err("%s prog_len %u err %u.\n", __func__, apf_req->apf_prog_len,
 				apf_st->apf_cap.max_capa_apf_prog_len);
 			return -EINVAL;
 		}
 		apf_req->apf_trans_size = apf_req->apf_prog_len;
 	} else {
-		pr_err("%s get prog_len err.\n", __func__);
+		wl_err("%s get prog_len err.\n", __func__);
 		return -EINVAL;
 	}
 
@@ -287,12 +287,12 @@ static int apf_set_request_params(struct apf_program_state *apf_st,
 		apf_req->apf_currt_offset =
 			nla_get_u32(tb[VENDOR_ATTR_PACKET_FILTER_CURRENT_OFFSET]);
 		if (apf_req->apf_currt_offset > apf_req->apf_prog_len) {
-			pr_err("%s overrid %u err %u.\n", __func__, apf_req->apf_currt_offset,
+			wl_err("%s overrid %u err %u.\n", __func__, apf_req->apf_currt_offset,
 				apf_req->apf_prog_len);
 			return -EINVAL;
 		}
 	} else {
-		pr_err("%s get apf_currt_offset err.\n", __func__);
+		wl_err("%s get apf_currt_offset err.\n", __func__);
 		return -EINVAL;
 	}
 
@@ -302,7 +302,7 @@ static int apf_set_request_params(struct apf_program_state *apf_st,
 			nla_len(tb[VENDOR_ATTR_PACKET_FILTER_PROGRAM]);
 		if (apf_req->apf_currt_offset + apf_req->apf_offset_slice_size >
 			apf_req->apf_prog_len) {
-			pr_err("%s overrid %u %u err %u.\n", __func__, apf_req->apf_currt_offset,
+			wl_err("%s overrid %u %u err %u.\n", __func__, apf_req->apf_currt_offset,
 				apf_req->apf_offset_slice_size, apf_req->apf_prog_len);
 			return -EINVAL;
 		}
@@ -322,7 +322,7 @@ static int apf_set_request_params(struct apf_program_state *apf_st,
 		mutex_unlock(&apf_st->apf_lock);
 #endif
 	} else {
-		pr_err("%s get apf_program err.\n", __func__);
+		wl_err("%s get apf_program err.\n", __func__);
 		return -EINVAL;
 	}
 
@@ -333,7 +333,7 @@ static int apf_write_request_params(struct apf_program_state *apf_st,
 			struct nlattr **tb, struct apf_request *apf_req)
 {
 	if (apf_req->apf_hdr.apf_subcmd != WLAN_WRITE_PACKET_FILTER) {
-		pr_err("%s cmd %u err.\n", __func__, apf_req->apf_hdr.apf_subcmd);
+		wl_err("%s cmd %u err.\n", __func__, apf_req->apf_hdr.apf_subcmd);
 		return -EINVAL;
 	}
 
@@ -341,11 +341,11 @@ static int apf_write_request_params(struct apf_program_state *apf_st,
 		nla_len(tb[VENDOR_ATTR_PACKET_FILTER_ID]) == sizeof(u32)) {
 		u32 apf_id = nla_get_u32(tb[VENDOR_ATTR_PACKET_FILTER_ID]);
 		if (apf_id != PACKET_FILTER_ID) {
-			pr_err("%s apf_id %u err.\n", __func__, apf_id);
+			wl_err("%s apf_id %u err.\n", __func__, apf_id);
 			return -EINVAL;
 		}
 	} else {
-		pr_err("%s get apf_id err.\n", __func__);
+		wl_err("%s get apf_id err.\n", __func__);
 		return -EINVAL;
 	}
 
@@ -354,12 +354,12 @@ static int apf_write_request_params(struct apf_program_state *apf_st,
 		apf_req->apf_prog_len =
 		    nla_get_u32(tb[VENDOR_ATTR_PACKET_FILTER_PROG_LENGTH]);
 		if (apf_req->apf_prog_len > apf_st->apf_cap.max_capa_apf_prog_len) {
-			pr_err("%s prog_len %u err %u.\n", __func__, apf_req->apf_prog_len,
+			wl_err("%s prog_len %u err %u.\n", __func__, apf_req->apf_prog_len,
 				apf_st->apf_cap.max_capa_apf_prog_len);
 			return -EINVAL;
 		}
 	} else {
-		pr_err("%s get apf_program_len err.\n", __func__);
+		wl_err("%s get apf_program_len err.\n", __func__);
 		return -EINVAL;
 	}
 
@@ -367,12 +367,12 @@ static int apf_write_request_params(struct apf_program_state *apf_st,
 		nla_len(tb[VENDOR_ATTR_PACKET_FILTER_SIZE]) == sizeof(u32)) {
 		apf_req->apf_trans_size = nla_get_u32(tb[VENDOR_ATTR_PACKET_FILTER_SIZE]);
 		if (apf_req->apf_trans_size > apf_req->apf_prog_len) {
-			pr_err("%s tran_size %u err %u.\n", __func__, apf_req->apf_prog_len,
+			wl_err("%s tran_size %u err %u.\n", __func__, apf_req->apf_prog_len,
 				apf_req->apf_trans_size);
 			return -EINVAL;
 		}
 	} else {
-		pr_err("%s get apf_size err.\n", __func__);
+		wl_err("%s get apf_size err.\n", __func__);
 		return -EINVAL;
 	}
 
@@ -381,12 +381,12 @@ static int apf_write_request_params(struct apf_program_state *apf_st,
 		apf_req->apf_currt_offset =
 			nla_get_u32(tb[VENDOR_ATTR_PACKET_FILTER_CURRENT_OFFSET]);
 		if (apf_req->apf_currt_offset > apf_req->apf_prog_len) {
-			pr_err("%s cur_offset %u err %u.\n", __func__,
+			wl_err("%s cur_offset %u err %u.\n", __func__,
 			       apf_req->apf_currt_offset, apf_req->apf_prog_len);
 			return -EINVAL;
 		}
 	} else {
-		pr_err("%s get apf_currt_offset err.\n", __func__);
+		wl_err("%s get apf_currt_offset err.\n", __func__);
 		return -EINVAL;
 	}
 
@@ -398,7 +398,7 @@ static int apf_write_request_params(struct apf_program_state *apf_st,
 		if (apf_req->apf_offset_slice_size > apf_req->apf_trans_size ||
 			apf_req->apf_currt_offset + apf_req->apf_offset_slice_size >
 			apf_req->apf_prog_len) {
-			pr_err("%s overrid %u %u err %u %u.\n", __func__,
+			wl_err("%s overrid %u %u err %u %u.\n", __func__,
 			       apf_req->apf_prog_len, apf_req->apf_trans_size,
 			       apf_req->apf_currt_offset, apf_req->apf_offset_slice_size);
 			return -EINVAL;
@@ -416,7 +416,7 @@ static int apf_write_request_params(struct apf_program_state *apf_st,
 		mutex_unlock(&apf_st->apf_lock);
 #endif
 	} else {
-		pr_err("%s get apf_program err.\n", __func__);
+		wl_err("%s get apf_program err.\n", __func__);
 		return -EINVAL;
 	}
 
@@ -427,7 +427,7 @@ static int apf_read_request_params(struct apf_program_state *apf_st,
 			struct nlattr **tb, struct apf_request *apf_req)
 {
 	if (apf_req->apf_hdr.apf_subcmd != WLAN_READ_PACKET_FILTER) {
-		pr_err("%s cmd %u err.\n", __func__, apf_req->apf_hdr.apf_subcmd);
+		wl_err("%s cmd %u err.\n", __func__, apf_req->apf_hdr.apf_subcmd);
 		return -EINVAL;
 	}
 
@@ -436,12 +436,12 @@ static int apf_read_request_params(struct apf_program_state *apf_st,
 		apf_req->apf_currt_offset =
 		    nla_get_u32(tb[VENDOR_ATTR_PACKET_FILTER_CURRENT_OFFSET]);
 		if (apf_req->apf_currt_offset > apf_st->apf_cap.max_capa_apf_prog_len) {
-			pr_err("%s overrid %u err %u.\n", __func__, apf_req->apf_currt_offset,
+			wl_err("%s overrid %u err %u.\n", __func__, apf_req->apf_currt_offset,
 				apf_st->apf_cap.max_capa_apf_prog_len);
 			return -EINVAL;
 		}
 	} else {
-		pr_err("%s get apf_currt_offset err.\n", __func__);
+		wl_err("%s get apf_currt_offset err.\n", __func__);
 		return -EINVAL;
 	}
 
@@ -451,13 +451,13 @@ static int apf_read_request_params(struct apf_program_state *apf_st,
 		    nla_get_u32(tb[VENDOR_ATTR_PACKET_FILTER_SIZE]);
 		if (apf_req->apf_currt_offset + apf_req->apf_offset_slice_size >
 			apf_st->apf_cap.max_capa_apf_prog_len) {
-			pr_err("%s overrid %u %u err %u.\n", __func__,
+			wl_err("%s overrid %u %u err %u.\n", __func__,
 			       apf_req->apf_currt_offset, apf_req->apf_offset_slice_size,
 			       apf_st->apf_cap.max_capa_apf_prog_len);
 			return -EINVAL;
 		}
 	} else {
-		pr_err("%s get apf_size err.\n", __func__);
+		wl_err("%s get apf_size err.\n", __func__);
 		return -EINVAL;
 	}
 
@@ -472,7 +472,7 @@ static int get_apf_request(struct sprd_vif *vif, struct nlattr **tb,
 	u16 rsp_len = 0;
 
 	if (!vif || !vif->priv || !vif->priv->apf_state || !tb || !apf_req) {
-		pr_err("%s(%d).\n", __func__, __LINE__);
+		wl_err("%s(%d).\n", __func__, __LINE__);
 		return -EINVAL;
 	}
 	apf_st = vif->priv->apf_state;
@@ -483,11 +483,11 @@ static int get_apf_request(struct sprd_vif *vif, struct nlattr **tb,
 		    nla_get_u32(tb[VENDOR_ATTR_PACKET_FILTER_SUB_CMD]);
 		if (!apf_req->apf_hdr.apf_subcmd ||
 			apf_req->apf_hdr.apf_subcmd > WLAN_DISABLE_PACKET_FILTER) {
-			pr_err("%s subcmd %u err.\n", __func__, apf_req->apf_hdr.apf_subcmd);
+			wl_err("%s subcmd %u err.\n", __func__, apf_req->apf_hdr.apf_subcmd);
 			return -EINVAL;
 		}
 	} else {
-		pr_err("%s get subcmd err.\n", __func__);
+		wl_err("%s get subcmd err.\n", __func__);
 		return -EINVAL;
 	}
 
@@ -505,7 +505,7 @@ static int get_apf_request(struct sprd_vif *vif, struct nlattr **tb,
 		rsp_len = sizeof(struct apf_response) + sizeof(struct apf_capa);
 		break;
 	case WLAN_WRITE_PACKET_FILTER:
-		pr_err("%s apf_write no used in HAL, so just return.\n", __func__);
+		wl_err("%s apf_write no used in HAL, so just return.\n", __func__);
 		return -EINVAL;
 
 		if (apf_write_request_params(apf_st, tb, apf_req)) {
@@ -553,21 +553,21 @@ int vendor_apf_packet_filter(struct wiphy *wiphy,
 	u16 expect_rsp_len;
 
 	if (!apf_st) {
-		pr_err("%s(%d) apf_st.\n", __func__, __LINE__);
+		wl_err("%s(%d) apf_st.\n", __func__, __LINE__);
 		return -EOPNOTSUPP;
 	}
 
 	if (nla_parse(tb, VENDOR_ATTR_PACKET_FILTER_MAX, data, len, NULL, NULL)) {
-		pr_err("%s parse error.\n", __func__);
+		wl_err("%s parse error.\n", __func__);
 		return -EINVAL;
 	}
 
 	if (get_apf_request(vif, tb, &apf_req, &expect_rsp_len)) {
-		pr_err("%s param error.\n", __func__);
+		wl_err("%s param error.\n", __func__);
 		return -EINVAL;
 	}
 
-	pr_info("%s-%s %s(%u)-%u-%u-%u-%u-(%u-%u).\n", __func__, current->comm,
+	wl_info("%s-%s %s(%u)-%u-%u-%u-%u-(%u-%u).\n", __func__, current->comm,
 		apf_cmd2str(apf_req.apf_hdr.apf_subcmd), apf_req.apf_hdr.apf_subcmd,
 		apf_req.apf_currt_offset, apf_req.apf_offset_slice_size,
 		apf_req.apf_trans_size, apf_req.apf_prog_len,
@@ -597,7 +597,7 @@ int vendor_apf_packet_filter(struct wiphy *wiphy,
 	apf_rsp->apf_hdr.length = expect_rsp_len - sizeof(struct apf_cmd_header);
 	ret = apf_subcmd_send_recv(vif, &apf_req, slice_prog_data, apf_rsp);
 	if (ret) {
-		pr_err("%s apf_send err %d.\n", __func__, ret);
+		wl_err("%s apf_send err %d.\n", __func__, ret);
 		kfree(apf_rsp);
 		return ret;
 	}
@@ -613,7 +613,7 @@ int vendor_apf_packet_filter(struct wiphy *wiphy,
 apf_rsp_lable:
 	ret = apf_subcmd_rsp(vif, &apf_req, apf_rsp);
 	if (ret) {
-		pr_err("%s apf_rsp err %d.\n", __func__, ret);
+		wl_err("%s apf_rsp err %d.\n", __func__, ret);
 	}
 exit:
 	if (apf_rsp) {
@@ -632,7 +632,7 @@ int apf_force_disable(struct sprd_vif *vif, bool force_disable)
 	int ret;
 
 	if (!vif || !vif->priv || !vif->priv->apf_state) {
-		pr_err("%s error params", __func__);
+		wl_err("%s error params", __func__);
 		return -EINVAL;
 	}
 
@@ -640,7 +640,7 @@ int apf_force_disable(struct sprd_vif *vif, bool force_disable)
 	if (!is_apf_valid(&apf_st->apf_cap) ||
 		(vif->mode != SPRD_MODE_STATION &&
 		vif->mode != SPRD_MODE_STATION_SECOND)) {
-		pr_err("%s mode %u cmd %u error %u-%u", __func__, vif->mode,
+		wl_err("%s mode %u cmd %u error %u-%u", __func__, vif->mode,
 			apf_req.apf_hdr.apf_subcmd, apf_st->apf_cap.apf_version,
 			apf_st->apf_cap.max_capa_apf_prog_len);
 		return -ENOTSUPP;
@@ -653,7 +653,7 @@ int apf_force_disable(struct sprd_vif *vif, bool force_disable)
 	apf_rsp.apf_hdr.length = expect_rsp_len - sizeof(struct apf_cmd_header);
 	ret = apf_subcmd_send_recv(vif, &apf_req, NULL, &apf_rsp);
 	if (ret) {
-		pr_err("%s apf_send err %d.\n", __func__, ret);
+		wl_err("%s apf_send err %d.\n", __func__, ret);
 	}
 
 	return ret;
@@ -668,7 +668,7 @@ int apf_force_disable_status(struct sprd_vif *vif, u8 *disable_status)
 	int ret;
 
 	if (!vif || !vif->priv || !vif->priv->apf_state) {
-		pr_err("%s error params", __func__);
+		wl_err("%s error params", __func__);
 		return -EINVAL;
 	}
 
@@ -676,7 +676,7 @@ int apf_force_disable_status(struct sprd_vif *vif, u8 *disable_status)
 	if (!is_apf_valid(&apf_st->apf_cap) ||
 		(vif->mode != SPRD_MODE_STATION &&
 		vif->mode != SPRD_MODE_STATION_SECOND)) {
-		pr_err("%s mode %u cmd %u error %u-%u", __func__, vif->mode,
+		wl_err("%s mode %u cmd %u error %u-%u", __func__, vif->mode,
 			apf_req.apf_hdr.apf_subcmd, apf_st->apf_cap.apf_version,
 			apf_st->apf_cap.max_capa_apf_prog_len);
 		return -ENOTSUPP;
@@ -693,7 +693,7 @@ int apf_force_disable_status(struct sprd_vif *vif, u8 *disable_status)
 	apf_rsp->apf_hdr.length = expect_rsp_len - sizeof(struct apf_cmd_header);
 	ret = apf_subcmd_send_recv(vif, &apf_req, NULL, apf_rsp);
 	if (ret) {
-		pr_err("%s apf_send err %d.\n", __func__, ret);
+		wl_err("%s apf_send err %d.\n", __func__, ret);
 	} else {
 		*disable_status = *apf_rsp->rsp_data;
 	}
@@ -707,7 +707,7 @@ int apf_init(struct sprd_priv *priv)
 	if (!priv->apf_state) {
 		priv->apf_state = &g_apf_prog;
 		mutex_init(&priv->apf_state->apf_lock);
-		pr_info("%s.\n", __func__);
+		wl_info("%s.\n", __func__);
 
 		#if 0
 		priv->apf_state->apf_cap.apf_version = APF_VERSION_4;
@@ -723,7 +723,7 @@ int apf_init(struct sprd_priv *priv)
 int apf_deinit(struct sprd_priv *priv)
 {
 	if (priv->apf_state) {
-		pr_info("%s.\n", __func__);
+		wl_info("%s.\n", __func__);
 		mutex_lock(&priv->apf_state->apf_lock);
 		if (priv->apf_state->apf_program) {
 			kfree(priv->apf_state->apf_program);

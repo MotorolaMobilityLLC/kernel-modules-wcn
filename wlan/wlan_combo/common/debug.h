@@ -27,7 +27,10 @@ enum {
 	L_WARN,			/*LEVEL_WARNING */
 	L_INFO,			/*LEVEL_INFO */
 	L_DBG,			/*LEVEL_DEBUG */
+	L_ALL,			/*LEVEL_ALL */
 };
+/* loglevel during driver probe/remove */
+#define INIT_DBG_LEVEL	L_INFO
 
 enum debug_ts_index {
 	RX_SDIO_PORT,
@@ -120,12 +123,6 @@ static inline char *cnt_index2str(u8 index)
 
 extern int sprd_dbg_level;
 
-#define wl_debug(fmt, args...) \
-	do { \
-		if (sprd_dbg_level >= L_DBG) \
-			pr_info(fmt, ##args); \
-	} while (0)
-
 #define wl_err(fmt, args...) \
 	do { \
 		if (sprd_dbg_level >= L_ERR) \
@@ -135,12 +132,24 @@ extern int sprd_dbg_level;
 #define wl_warn(fmt, args...) \
 	do { \
 		if (sprd_dbg_level >= L_WARN) \
-			pr_err(fmt, ##args); \
+			pr_warn(fmt, ##args); \
 	} while (0)
 
 #define wl_info(fmt, args...) \
 	do { \
 		if (sprd_dbg_level >= L_INFO) \
+			pr_info(fmt, ##args); \
+	} while (0)
+
+#define wl_debug(fmt, args...) \
+	do { \
+		if (sprd_dbg_level >= L_DBG) \
+			pr_info(fmt, ##args); \
+	} while (0)
+
+#define wl_all(fmt, args...) \
+	do { \
+		if (sprd_dbg_level >= L_ALL) \
 			pr_info(fmt, ##args); \
 	} while (0)
 
@@ -153,8 +162,6 @@ int get_wmmac_ratio(void);
 int is_tcp_ack_enabled(void);
 void adjust_tcp_ack(char *buf, unsigned char offset);
 void adjust_max_fw_tx_dscr(char *buf, unsigned char offset);
-
-#ifdef CONFIG_SPRD_WLAN_DEBUG
 
 #define MAX_RECORD_NUM 20
 #define SPRD_SDIO_DEBUG_BUFLEN 128
@@ -173,18 +180,4 @@ void sprd_debug_record_add(enum debug_record_index index, int record);
 
 void sprd_debug_init(struct sprd_debug *dbg);
 void sprd_debug_deinit(struct sprd_debug *dbg);
-#else
-#define sprd_debug_ts_enter(index)		do {} while (0)
-#define sprd_debug_ts_leave(index)		do {} while (0)
-#define sprd_debug_cnt_inc(index)		do {} while (0)
-#define sprd_debug_cnt_dec(index)		do {} while (0)
-#define sprd_debug_record_add(index, num)	do {} while (0)
-#define sprd_debug_init(dbg)			do {} while (0)
-#define sprd_debug_deinit(dbg)			do {} while (0)
-static inline int sprd_get_debug_level(void)
-{
-	return sprd_dbg_level;
-}
-#endif /* CONFIG_SPRD_WLAN_DEBUG */
-
 #endif

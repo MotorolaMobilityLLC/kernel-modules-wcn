@@ -104,17 +104,17 @@ static int sprd_wlan_probe(struct platform_device *pdev)
 		of_match_node(wlan_global_match_table, np);
 
 	if (!of_id) {
-		pr_info("%s not find matched id!", __func__);
+		wl_info("%s not find matched id!", __func__);
 		return -EINVAL;
 	}
 
 	p_match_data = (struct wlan_match_data *)of_id->data;
 	if (!p_match_data) {
-		pr_info("%s not find matched data!", __func__);
+		wl_info("%s not find matched data!", __func__);
 		return -EINVAL;
 	}
 
-	pr_info("%s %s %d.\n", __func__, of_id->compatible, p_match_data->hw_type);
+	wl_info("%s %s %d.\n", __func__, of_id->compatible, p_match_data->hw_type);
 
 	if (p_match_data->hw_type == SPRD_HW_SC2332_SIPC) {
 		return sc2332_sipc_probe(pdev);
@@ -126,7 +126,7 @@ static int sprd_wlan_probe(struct platform_device *pdev)
 		return pcie_probe(pdev);
 	} else {
 
-		pr_err("%s error hw_type %d.\n", __func__, p_match_data->hw_type);
+		wl_err("%s error hw_type %d.\n", __func__, p_match_data->hw_type);
 		dump_stack();
 		return -EINVAL;
 	}
@@ -140,17 +140,17 @@ static int sprd_wlan_remove(struct platform_device *pdev)
 		of_match_node(wlan_global_match_table, np);
 
 	if (!of_id) {
-		pr_info("%s not find matched id!", __func__);
+		wl_info("%s not find matched id!", __func__);
 		return -EINVAL;
 	}
 
 	p_match_data = (struct wlan_match_data *)of_id->data;
 	if (!p_match_data) {
-		pr_info("%s not find matched data!", __func__);
+		wl_info("%s not find matched data!", __func__);
 		return -EINVAL;
 	}
 
-	pr_info("%s %s %d.\n", __func__, of_id->compatible, p_match_data->hw_type);
+	wl_info("%s %s %d.\n", __func__, of_id->compatible, p_match_data->hw_type);
 
 	return sprd_iface_remove(pdev);
 }

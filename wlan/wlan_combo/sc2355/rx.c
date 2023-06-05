@@ -31,7 +31,7 @@ static int rx_ipv6_csum(void *data, __wsum csum)
 	unsigned short dataoff = ETH_HLEN;
 	unsigned short nexthdr = 0;
 
-	pr_debug("%s: eth_type: 0x%x\n", __func__, eth->h_proto);
+	wl_all("%s: eth_type: 0x%x\n", __func__, eth->h_proto);
 
 	if (eth->h_proto == cpu_to_be16(ETH_P_IPV6)) {
 		data += msdu_desc->msdu_offset;
@@ -40,13 +40,13 @@ static int rx_ipv6_csum(void *data, __wsum csum)
 		dataoff += sizeof(*ip6h);
 
 		while (rx_mh_ipv6_ext_hdr(nexthdr)) {
-			pr_debug("%s: nexthdr: %d\n", __func__, nexthdr);
+			wl_all("%s: nexthdr: %d\n", __func__, nexthdr);
 			hp = (struct ipv6_opt_hdr *)(data + dataoff);
 			dataoff += ipv6_optlen(hp);
 			nexthdr = hp->nexthdr;
 		}
 
-		pr_debug("%s: nexthdr: %d, dataoff: %d, len: %d\n",
+		wl_all("%s: nexthdr: %d, dataoff: %d, len: %d\n",
 			 __func__, nexthdr, dataoff,
 			 (msdu_desc->msdu_len - dataoff));
 
@@ -58,7 +58,7 @@ static int rx_ipv6_csum(void *data, __wsum csum)
 			ret = -1;
 		}
 
-		pr_debug("%s: ret: %d\n", __func__, ret);
+		wl_all("%s: ret: %d\n", __func__, ret);
 	}
 
 	return ret;
@@ -71,18 +71,18 @@ static void rx_send_cmd_process(struct sprd_priv *priv, void *data, int len,
 	struct sprd_work *misc_work = NULL;
 
 	if (unlikely(!priv)) {
-		pr_err("%s priv not init.\n", __func__);
+		wl_err("%s priv not init.\n", __func__);
 	} else if (ctx_id > STAP_MODE_P2P_DEVICE) {
-		pr_err("%s [ctx_id %d]RX err\n", __func__, ctx_id);
+		wl_err("%s [ctx_id %d]RX err\n", __func__, ctx_id);
 	} else {
 		vif = sc2355_ctxid_to_vif(priv, ctx_id);
 		if (!vif) {
-			pr_err("%s cant't get vif from ctx_id%d\n",
+			wl_err("%s cant't get vif from ctx_id%d\n",
 			       __func__, ctx_id);
 		} else {
 			misc_work = sprd_alloc_work(len);
 			if (!misc_work) {
-				pr_err("%s out of memory", __func__);
+				wl_err("%s out of memory", __func__);
 			} else {
 				misc_work->vif = vif;
 				misc_work->id = id;
@@ -101,7 +101,7 @@ int sprd_rx_defragment_attack_check(struct sprd_priv *priv, struct sk_buff *skb)
 	struct rx_msdu_desc *msdu_desc = (struct rx_msdu_desc *)skb->data;
 
 	if (msdu_desc->ctx_id >= SPRD_MAC_INDEX_MAX) {
-		pr_err("%s [ctx_id %d]RX err\n", __func__, msdu_desc->ctx_id);
+		wl_err("%s [ctx_id %d]RX err\n", __func__, msdu_desc->ctx_id);
 		return -1;
 	}
 
@@ -111,12 +111,12 @@ int sprd_rx_defragment_attack_check(struct sprd_priv *priv, struct sk_buff *skb)
 		rx_mgmt->rx_snaphdr_seqnum = msdu_desc->seq_num;
 		rx_mgmt->rx_snaphdr_lut = msdu_desc->sta_lut_index;
 		rx_mgmt->rx_snaphdr_tid = msdu_desc->tid;
-		pr_err("%s snaphdr attect flag %d %d %d\n", __func__,
+		wl_err("%s snaphdr attect flag %d %d %d\n", __func__,
 			msdu_desc->seq_num,
 			msdu_desc->sta_lut_index, msdu_desc->tid);
 		if (msdu_desc->last_buff_of_mpdu == 1) {
 			rx_mgmt->rx_snaphdr_flag = 0;
-			pr_err("%s snaphdr attect over %d last %d %d %d\n", __func__,
+			wl_err("%s snaphdr attect over %d last %d %d %d\n", __func__,
 				msdu_desc->snap_hdr_present,
 				msdu_desc->last_msdu_of_mpdu,
 				msdu_desc->last_buff_of_mpdu,
@@ -129,12 +129,12 @@ int sprd_rx_defragment_attack_check(struct sprd_priv *priv, struct sk_buff *skb)
 		if ((rx_mgmt->rx_snaphdr_seqnum == msdu_desc->seq_num) &&
 		    (rx_mgmt->rx_snaphdr_lut == msdu_desc->sta_lut_index) &&
 		    (rx_mgmt->rx_snaphdr_tid == msdu_desc->tid)) {
-			pr_err("%s snaphdr attect %d %d %d\n", __func__,
+			wl_err("%s snaphdr attect %d %d %d\n", __func__,
 			       msdu_desc->seq_num,
 			       msdu_desc->sta_lut_index, msdu_desc->tid);
 			if (msdu_desc->last_buff_of_mpdu == 1) {
 				rx_mgmt->rx_snaphdr_flag = 0;
-				pr_err("%s snaphdr attect over %d %d %d %d last %d %d %d\n",
+				wl_err("%s snaphdr attect over %d %d %d %d last %d %d %d\n",
 				       __func__, msdu_desc->snap_hdr_present,
 					msdu_desc->seq_num,
 					msdu_desc->sta_lut_index, msdu_desc->tid,
@@ -170,7 +170,7 @@ static void rx_skb_process(struct sprd_priv *priv, struct sk_buff *skb)
 	msdu_desc = (struct rx_msdu_desc *)skb->data;
 
 	if (unlikely(!priv)) {
-		pr_err("%s priv not init.\n", __func__);
+		wl_err("%s priv not init.\n", __func__);
 		goto err;
 	}
 
@@ -180,13 +180,13 @@ static void rx_skb_process(struct sprd_priv *priv, struct sk_buff *skb)
 
 	vif = sc2355_ctxid_to_vif(priv, msdu_desc->ctx_id);
 	if (!vif) {
-		pr_err("%s cannot get vif, ctx_id: %d\n",
+		wl_err("%s cannot get vif, ctx_id: %d\n",
 		       __func__, msdu_desc->ctx_id);
 		goto err;
 	}
 
 	if (!vif->ndev) {
-		pr_err("%s ndev is NULL, ctx_id = %d\n",
+		wl_err("%s ndev is NULL, ctx_id = %d\n",
 		       __func__, msdu_desc->ctx_id);
 		BUG_ON(1);
 	}
@@ -198,7 +198,7 @@ static void rx_skb_process(struct sprd_priv *priv, struct sk_buff *skb)
 	eth = (struct ethhdr *)skb->data;
 	if (eth->h_proto == htons(ETH_P_IPV6))
 		if (ether_addr_equal(skb->data, skb->data + ETH_ALEN)) {
-			pr_err
+			wl_err
 			    ("%s, drop loopback pkt, macaddr:%02x:%02x:%02x:%02x:%02x:%02x\n",
 			     __func__, skb->data[0], skb->data[1], skb->data[2],
 			     skb->data[3], skb->data[4], skb->data[5]);
@@ -334,19 +334,19 @@ sc2355_rx_mh_addr_process(struct rx_mgmt *rx_mgmt, void *data,
 	struct sprd_work *misc_work = NULL;
 	static unsigned long time;
 
-	pr_debug("%s: rx_data_addr=0x%lx\n", __func__, (unsigned long)data);
+	wl_all("%s: rx_data_addr=0x%lx\n", __func__, (unsigned long)data);
 
 	if (hdr->reserv) {
-		pr_debug("%s: Add RX code here\n", __func__);
+		wl_all("%s: Add RX code here\n", __func__);
 		sc2355_mm_mh_data_event_process(&rx_mgmt->mm_entry, data,
 						len, buffer_type);
 		sc2355_free_data(data, buffer_type);
 
 	} else {
-		pr_debug("%s: Add TX complete code here\n", __func__);
+		wl_all("%s: Add TX complete code here\n", __func__);
 
 		if (time != 0 && ((jiffies - time) >= msecs_to_jiffies(1000))) {
-			pr_err("%s: out of time %d\n",
+			wl_err("%s: out of time %d\n",
 			       __func__, jiffies_to_msecs(jiffies - time));
 		}
 
@@ -363,7 +363,7 @@ sc2355_rx_mh_addr_process(struct rx_mgmt *rx_mgmt, void *data,
 
 			sprd_queue_work(hif->priv, misc_work);
 		} else {
-			pr_err("%s fail\n", __func__);
+			wl_err("%s fail\n", __func__);
 		}
 	}
 }
@@ -422,7 +422,7 @@ void sc2355_queue_rx_buff_work(struct sprd_priv *priv, unsigned char id)
 
 	misc_work = sprd_alloc_work(0);
 	if (!misc_work) {
-		pr_err("%s out of memory\n", __func__);
+		wl_err("%s out of memory\n", __func__);
 		return;
 	}
 
@@ -441,7 +441,7 @@ void sc2355_queue_rx_buff_work(struct sprd_priv *priv, unsigned char id)
 		sprd_queue_work(priv, misc_work);
 		break;
 	default:
-		pr_err("%s: err id: %d\n", __func__, id);
+		wl_err("%s: err id: %d\n", __func__, id);
 		kfree(misc_work);
 		break;
 	}
@@ -546,7 +546,7 @@ int sc2355_rx_init(struct sprd_hif *hif)
 	/* init rx_list */
 	ret = sprd_init_msg(SPRD_RX_MSG_NUM, &rx_mgmt->rx_list);
 	if (ret) {
-		pr_err("%s tx_buf create failed: %d\n", __func__, ret);
+		wl_err("%s tx_buf create failed: %d\n", __func__, ret);
 		goto err_rx_list;
 	}
 
@@ -555,7 +555,7 @@ int sc2355_rx_init(struct sprd_hif *hif)
 	    alloc_ordered_workqueue("SPRD_RX_QUEUE", WQ_MEM_RECLAIM |
 				    WQ_HIGHPRI | WQ_CPU_INTENSIVE);
 	if (!rx_mgmt->rx_queue) {
-		pr_err("%s SPRD_RX_QUEUE create failed\n", __func__);
+		wl_err("%s SPRD_RX_QUEUE create failed\n", __func__);
 		ret = -ENOMEM;
 		goto err_rx_work;
 	}
@@ -574,7 +574,7 @@ int sc2355_rx_init(struct sprd_hif *hif)
 							WQ_CPU_INTENSIVE |
 							WQ_MEM_RECLAIM);
 	if (!rx_mgmt->rx_net_workq) {
-		pr_err("%s SPRD_RX_NET_QUEUE create failed\n", __func__);
+		wl_err("%s SPRD_RX_NET_QUEUE create failed\n", __func__);
 		ret = -ENOMEM;
 		goto err_rx_net_work;
 	}
@@ -584,13 +584,13 @@ int sc2355_rx_init(struct sprd_hif *hif)
 
 	ret = sc2355_defrag_init(&rx_mgmt->defrag_entry);
 	if (ret) {
-		pr_err("%s init defrag fail: %d\n", __func__, ret);
+		wl_err("%s init defrag fail: %d\n", __func__, ret);
 		goto err_rx_defrag;
 	}
 
 	ret = sc2355_mm_init(&rx_mgmt->mm_entry, (void *)hif);
 	if (ret) {
-		pr_err("%s init mm fail: %d\n", __func__, ret);
+		wl_err("%s init mm fail: %d\n", __func__, ret);
 		goto err_rx_mm;
 	}
 

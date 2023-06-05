@@ -297,7 +297,7 @@ static int wifi_nvm_set_cmd(struct merl_nvm_name_table *pTable,
 
 	p = (unsigned char *)(p_data) + pTable->mem_offset;
 
-	pr_info("[g_table]%s, offset:%u, num:%u, value:\
+	wl_info("[g_table]%s, offset:%u, num:%u, value:\
 			%d %d %d %d %d %d %d %d %d %d \n",
 			pTable->itm, pTable->mem_offset, cmd->num,
 			cmd->par[0], cmd->par[1], cmd->par[2],
@@ -316,7 +316,7 @@ static int wifi_nvm_set_cmd(struct merl_nvm_name_table *pTable,
 			*((unsigned int *)p + i)
 			= (unsigned int)(cmd->par[i]);
 		else
-			pr_info("%s, type err\n", __func__);
+			wl_info("%s, type err\n", __func__);
 	}
 	return 0;
 }
@@ -360,8 +360,8 @@ static void get_cmd_par(char *str, struct merl_nvm_cali_cmd *cmd)
 				flag = 1;
 			} else {
 				if (kstrtol(tmp, 0, &val))
-					pr_info(" %s ", tmp);
-			/* pr_err("kstrtol %s: error\n", tmp); */
+					wl_info(" %s ", tmp);
+			/* wl_err("kstrtol %s: error\n", tmp); */
 				cmd->par[cmd->num] = val & 0xFFFFFFFF;
 				cmd->num++;
 			}
@@ -437,15 +437,15 @@ static int wifi_nvm_parse(struct sprd_priv *priv, const char *path, void *p_data
 	char *buffer = NULL;
 	int ret = 0;
 
-	pr_info("%s...\n", __func__);
+	wl_info("%s...\n", __func__);
 	ret = request_firmware(&fw, path, wiphy_dev(priv->wiphy));
 	if (ret) {
-		pr_err("%s, open file %s error\n", __func__, path);
+		wl_err("%s, open file %s error\n", __func__, path);
 		return -1;
 	}
 
 	if (!fw || !fw->data || fw->size <= 0) {
-		pr_err("%s invalid firmware file\n", __func__);
+		wl_err("%s invalid firmware file\n", __func__);
 		release_firmware(fw);
 		return -EINVAL;
 	}
@@ -453,7 +453,7 @@ static int wifi_nvm_parse(struct sprd_priv *priv, const char *path, void *p_data
 	buffer_len = fw->size;
 	buffer = vmalloc(fw->size);
 	if (!buffer) {
-		pr_err("%s no memory\n", __func__);
+		wl_err("%s no memory\n", __func__);
 		release_firmware(fw);
 		return -1;
 	}
@@ -462,10 +462,10 @@ static int wifi_nvm_parse(struct sprd_priv *priv, const char *path, void *p_data
 	release_firmware(fw);
 	p_buf = buffer;
 
-	pr_info("%s read %s data_len:0x%x\n", __func__, path, buffer_len);
+	wl_info("%s read %s data_len:0x%x\n", __func__, path, buffer_len);
 	ret = wifi_nvm_buf_operate(buffer, buffer_len, p_data);
 	vfree(buffer);
-	pr_info("%s(), parsing ini data result=%d\n", __func__, ret);
+	wl_info("%s(), parsing ini data result=%d\n", __func__, ret);
 	return ret;
 }
 

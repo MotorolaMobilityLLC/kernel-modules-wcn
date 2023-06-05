@@ -40,7 +40,7 @@ int sc2355_nan_vendor_cmds(struct wiphy *wiphy, struct wireless_dev *wdev,
 	if (!ret && rsp_len)
 		sc2355_nan_event(vif, rsp, rsp_len);
 	else
-		pr_err("%s: ret=%d, rsp_len=%d\n", __func__, ret, rsp_len);
+		wl_err("%s: ret=%d, rsp_len=%d\n", __func__, ret, rsp_len);
 
 	return ret;
 }

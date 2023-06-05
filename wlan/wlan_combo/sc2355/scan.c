@@ -21,7 +21,7 @@ static void scan_clean_list(struct sprd_vif *vif)
 		kfree(node);
 		count++;
 	}
-	pr_err("delete scan node num:%d\n", count);
+	wl_err("delete scan node num:%d\n", count);
 }
 
 void sc2355_clean_scan(struct sprd_vif *vif)
@@ -191,7 +191,7 @@ static void sc2355_cancel_scan(struct sprd_vif *vif)
 	struct sprd_api_version_t *api = (&priv->sync_api)->api_array;
 	u8 fw_ver = 0;
 
-	pr_info("%s enter==\n", __func__);
+	wl_info("%s enter==\n", __func__);
 
 	if (priv->scan_vif && priv->scan_vif == vif) {
 		if (timer_pending(&priv->scan_timer))
@@ -248,7 +248,7 @@ void sc2355_scan_timeout(struct timer_list *t)
 	struct sprd_api_version_t *api = (&priv->sync_api)->api_array;
 	u8 fw_ver = 0;
 
-	pr_info("%s\n", __func__);
+	wl_info("%s\n", __func__);
 
 	spin_lock_bh(&priv->scan_lock);
 	if (priv->scan_request) {
@@ -432,18 +432,18 @@ void sc2355_abort_scan(struct wiphy *wiphy, struct wireless_dev *wdev)
 	fw_ver = min(fw_ver, drv_ver);
 
 	if (!priv) {
-		pr_err("can not get priv!\n");
+		wl_err("can not get priv!\n");
 		return;
 	}
 
 	hif = &priv->hif;
 
 	if (sprd_chip_is_exit(&priv->chip) || hif->cp_asserted) {
-		pr_info("%s Assert happened!\n", __func__);
+		wl_info("%s Assert happened!\n", __func__);
 		if (vif->mode == SPRD_MODE_P2P_DEVICE) {
-			pr_info("p2p device need cancel scan\n");
+			wl_info("p2p device need cancel scan\n");
 			sprd_report_scan_done(vif, true);
-			pr_info("%s p2p device cancel scan finished!\n",
+			wl_info("%s p2p device cancel scan finished!\n",
 				__func__);
 		}
 	}

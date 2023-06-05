@@ -82,7 +82,7 @@ static void iface_str2mac(const char *mac_addr, u8 *mac)
 
 	if (sscanf(mac_addr, "%02x:%02x:%02x:%02x:%02x:%02x",
 		   &m[0], &m[1], &m[2], &m[3], &m[4], &m[5]) != ETH_ALEN) {
-		pr_err("failed to parse mac address '%s'", mac_addr);
+		wl_err("failed to parse mac address '%s'", mac_addr);
 		memset(m, 0, sizeof(unsigned int) * ETH_ALEN);
 	}
 	mac[0] = m[0];
@@ -136,7 +136,7 @@ static int iface_host_reset(struct notifier_block *nb,
 	};
 
 	if (!priv) {
-		pr_err("%s sprd_prv is NULL\n", __func__);
+		wl_err("%s sprd_prv is NULL\n", __func__);
 		return NOTIFY_OK;
 	}
 
@@ -145,11 +145,11 @@ static int iface_host_reset(struct notifier_block *nb,
 
 	if (hif->hw_type == SPRD_HW_SC2355_SIPC) {
 		kobject_uevent_env(&hif->pdev->dev.kobj, KOBJ_CHANGE, envp);
-		pr_err("%s() dev_path: %s\n", __func__,
+		wl_err("%s() dev_path: %s\n", __func__,
 			kobject_get_path(&hif->pdev->dev.kobj, GFP_KERNEL));
 	} else {
 		kobject_uevent_env(&wlan_misc_device.this_device->kobj, KOBJ_CHANGE, envp);
-		pr_err("%s() dev_path: %s\n", __func__,
+		wl_err("%s() dev_path: %s\n", __func__,
 			kobject_get_path(&wlan_misc_device.this_device->kobj, GFP_KERNEL));
 	}
 	sprd_chip_force_exit((void *)&priv->chip);
@@ -165,7 +165,7 @@ static int iface_host_reset(struct notifier_block *nb,
 	struct sprd_cmd *cmd = &priv->cmd;
 
 	if (!priv) {
-		pr_err("%s sprd_prv is NULL\n", __func__);
+		wl_err("%s sprd_prv is NULL\n", __func__);
 		return NOTIFY_OK;
 	}
 
@@ -174,7 +174,7 @@ static int iface_host_reset(struct notifier_block *nb,
 	complete(&cmd->completed);
 	sprd_chip_force_exit((void *)&priv->chip);
 
-	pr_info("%s process wifi driver self reset work\n", __func__);
+	wl_info("%s process wifi driver self reset work\n", __func__);
 	if (!work_pending(&priv->reset_work))
 		queue_work(priv->reset_workq, &priv->reset_work);
 
@@ -257,9 +257,9 @@ int sprd_iface_set_power(struct sprd_hif *hif, int val)
 		if (ret) {
 			sprd_wlan_power_status_sync(1, 0);
 			if (ret == -ENODEV)
-				pr_err("failed to power on WCN!\n");
+				wl_err("failed to power on WCN!\n");
 			else if (ret == -EIO)
-				pr_err("SYNC cmd error!\n");
+				wl_err("SYNC cmd error!\n");
 #ifdef ENABLE_CHR
 			CHR_OPENERR_FLAGSET(&hif->chr->open_err_flag, OPEN_ERR_POWER_ON);
 #endif
@@ -433,11 +433,11 @@ void sprd_filter_ip_pkt_debug(struct sk_buff *skb,
 	if (IPV4_DHCP(ethhdr, udphdr)) {
 		dhcpdata = skb->data + ETHER_HDR_LEN + iphdrlen + 250;
 		if (*dhcpdata < ARRAY_SIZE(dhcp_str_info))
-			pr_info("[%s] [%s]\n", direct, dhcp_str_info[*dhcpdata]);
+			wl_info("[%s] [%s]\n", direct, dhcp_str_info[*dhcpdata]);
 	} else if (IPV6_DHCP(ethhdr, udphdr)) {
-		pr_info("[%s] special data: DHCP\n", direct);
+		wl_info("[%s] special data: DHCP\n", direct);
 	} else if (IP_DNS(ethhdr, udphdr)) {
-		pr_info("[%s] special data: DNS\n", direct);
+		wl_info("[%s] special data: DNS\n", direct);
 	}
 }
 
@@ -446,11 +446,11 @@ void sprd_filter_data_debug(struct sk_buff *skb, struct net_device *ndev, const 
 {
 	struct ethhdr *ethhdr = (struct ethhdr *)skb->data;
 	if (ethhdr->h_proto == htons(ETH_P_ARP))
-		pr_info("[%s] special data: ARP\n", direct);
+		wl_info("[%s] special data: ARP\n", direct);
 	else if (ethhdr->h_proto == htons(ETH_P_TDLS))
-		pr_info("[%s] special data: TDLS\n", direct);
+		wl_info("[%s] special data: TDLS\n", direct);
 	else if (ethhdr->h_proto == htons(ETH_P_PREAUTH))
-		pr_info("[%s] special data: PREAUTH\n", direct);
+		wl_info("[%s] special data: PREAUTH\n", direct);
 	else if (ethhdr->h_proto == htons(ETH_P_IP) ||
 			 ethhdr->h_proto == htons(ETH_P_IPV6))
 		sprd_filter_ip_pkt_debug(skb, ndev, direct);
@@ -475,7 +475,7 @@ void sprd_netif_rx(struct net_device *ndev, struct sk_buff *skb)
 			print_hex_dump(KERN_WARNING, "RX sniffer data packet: ", DUMP_PREFIX_OFFSET,
 				       16, 1, skb->data, skb->len, 0);
 
-		pr_info("sniffer data cnt: %d\n", vif->priv->monitor_data_cnt++);
+		wl_info("sniffer data cnt: %d\n", vif->priv->monitor_data_cnt++);
 
 		skb->dev = ndev;
 		/* report data for sniffer mode */
@@ -503,9 +503,9 @@ void sprd_netif_rx(struct net_device *ndev, struct sk_buff *skb)
 	/* skb->ip_summed = CHECKSUM_UNNECESSARY; */
 
 	if (skb->protocol == cpu_to_be16(ETH_P_PAE))
-		pr_info("RX special data: 802.1x\n");
+		wl_info("RX special data: 802.1x\n");
 	else if (skb->protocol == cpu_to_be16(WAPI_TYPE))
-		pr_info("RX special data: WAPI\n");
+		wl_info("RX special data: WAPI\n");
 
 	ndev->stats.rx_packets++;
 	ndev->stats.rx_bytes += skb->len;
@@ -541,7 +541,7 @@ void sprd_rx_monitor_process(struct sprd_vif *vif,
 		print_hex_dump(KERN_WARNING, "RX sniffer frame: ", DUMP_PREFIX_OFFSET,
 			       16, 1, data, len, 0);
 
-	pr_info("sniffer mgmt frame cnt: %d\n", vif->priv->monitor_mgmt_cnt++);
+	wl_info("sniffer mgmt frame cnt: %d\n", vif->priv->monitor_mgmt_cnt++);
 
 	ndev = vif->ndev;
 	skb_reserve(skb, NET_IP_ALIGN);
@@ -571,7 +571,7 @@ static int iface_prepare_xmit(struct sprd_vif *vif, struct net_device *ndev,
 
 	/* drop nonlinearize skb */
 	if (skb_linearize(skb)) {
-		pr_err("nonlinearize skb\n");
+		wl_err("nonlinearize skb\n");
 		dev_kfree_skb(skb);
 		ndev->stats.tx_dropped++;
 		return -1;
@@ -585,7 +585,7 @@ static int iface_prepare_xmit(struct sprd_vif *vif, struct net_device *ndev,
 
 	if (hif->hw_type == SPRD_HW_SC2355_PCIE &&
 		hif->suspend_mode != SPRD_PS_RESUMED) {
-		pr_err("not resumed, drop skb\n");
+		wl_err("not resumed, drop skb\n");
 		dev_kfree_skb(skb);
 		return -1;
 	}
@@ -1556,20 +1556,20 @@ static int iface_notify_init(struct sprd_priv *priv)
 
 	ret = misc_register(&wlan_misc_device);
 	if (ret)
-		pr_err("wlan misc dev register fail\n");
+		wl_err("wlan misc dev register fail\n");
 
 	ret = register_inetaddr_notifier(&iface_inetaddr_cb);
 	if (ret) {
-		pr_err("%s failed to register inetaddr notifier(%d)!\n",
+		wl_err("%s failed to register inetaddr notifier(%d)!\n",
 		       __func__, ret);
 		return ret;
 	}
 
 	if (priv->fw_capa & SPRD_CAPA_NS_OFFLOAD) {
-		pr_info("\tIPV6 NS Offload supported\n");
+		wl_info("\tIPV6 NS Offload supported\n");
 		ret = register_inet6addr_notifier(&iface_inet6addr_cb);
 		if (ret) {
-			pr_err
+			wl_err
 			    ("%s failed to register inet6addr notifier(%d)!\n",
 			     __func__, ret);
 			return ret;
@@ -1651,14 +1651,14 @@ static struct sprd_vif *iface_register_wdev(struct sprd_priv *priv,
 	wdev->iftype = type;
 
 	iface_set_mac_addr(vif, addr, wdev->address);
-	pr_info("iface '%s'(%pM) type %d added\n", name, wdev->address, type);
+	wl_info("iface '%s'(%pM) type %d added\n", name, wdev->address, type);
 
 	return vif;
 }
 
 static void iface_unregister_wdev(struct sprd_vif *vif)
 {
-	pr_info("iface '%s' deleted\n", vif->name);
+	wl_info("iface '%s' deleted\n", vif->name);
 
 	cfg80211_unregister_wdev(&vif->wdev);
 	/* cfg80211_unregister_wdev use list_del_rcu to delete wdev,
@@ -1682,7 +1682,7 @@ static struct sprd_vif *iface_register_netdev(struct sprd_priv *priv,
 
 	ndev = alloc_netdev(sizeof(*vif), name, NET_NAME_UNKNOWN, ether_setup);
 	if (!ndev) {
-		pr_err("%s failed to alloc net_device!\n", __func__);
+		wl_err("%s failed to alloc net_device!\n", __func__);
 		return ERR_PTR(-ENOMEM);
 	}
 
@@ -1700,7 +1700,7 @@ static struct sprd_vif *iface_register_netdev(struct sprd_priv *priv,
 	/* initialize ndev stuff */
 	ndev->ieee80211_ptr = wdev;
 	if (priv->fw_capa & SPRD_CAPA_MC_FILTER) {
-		pr_info("\tMulticast Filter supported\n");
+		wl_info("\tMulticast Filter supported\n");
 		vif->mc_filter =
 		    kzalloc(sizeof(struct sprd_mc_filter) +
 			    priv->max_mc_mac_addrs * ETH_ALEN, GFP_KERNEL);
@@ -1733,7 +1733,7 @@ static struct sprd_vif *iface_register_netdev(struct sprd_priv *priv,
 		goto err;
 	}
 
-	pr_info("iface '%s'(%pM) type %d added\n",
+	wl_info("iface '%s'(%pM) type %d added\n",
 		ndev->name, ndev->dev_addr, type);
 	return vif;
 err:
@@ -1744,7 +1744,7 @@ err:
 
 static void iface_unregister_netdev(struct sprd_vif *vif)
 {
-	pr_info("iface '%s' deleted\n", vif->ndev->name);
+	wl_info("iface '%s' deleted\n", vif->ndev->name);
 
 	iface_deinit_vif(vif);
 
@@ -1769,7 +1769,7 @@ struct wireless_dev *sprd_add_iface(struct sprd_priv *priv, const char *name,
 		vif = iface_register_netdev(priv, name, type, addr);
 
 	if (IS_ERR(vif)) {
-		pr_err("failed to add iface '%s'\n", name);
+		wl_err("failed to add iface '%s'\n", name);
 		return (void *)vif;
 	}
 
@@ -1871,12 +1871,12 @@ int sprd_iface_probe(struct platform_device *pdev,
 #endif
 	int ret;
 
-	pr_info("Spreadtrum WLAN Driver (Ver. %s, %s)\n",
+	wl_info("Spreadtrum WLAN Driver (Ver. %s, %s)\n",
 		SPRD_DRIVER_VERSION, utsname()->release);
 
 	priv = sprd_core_create(chip_ops);
 	if (!priv) {
-		pr_err("%s core create fail\n", __func__);
+		wl_err("%s core create fail\n", __func__);
 		return -ENXIO;
 	}
 
@@ -1890,7 +1890,7 @@ int sprd_iface_probe(struct platform_device *pdev,
 
 	ret = sprd_hif_init(hif);
 	if (ret) {
-		pr_err("%s hif init failed: %d\n", __func__, ret);
+		wl_err("%s hif init failed: %d\n", __func__, ret);
 		sprd_core_free(priv);
 		return ret;
 	}
@@ -1898,13 +1898,13 @@ int sprd_iface_probe(struct platform_device *pdev,
 #ifdef ENABLE_CHR
 	chr = sprd_chr_handle_probe(hif);
 	if (!chr) {
-		pr_err("%s, CHR: chr struct malloc failed", __func__);
+		wl_err("%s, CHR: chr struct malloc failed", __func__);
 		sprd_hif_deinit(hif);
 		sprd_core_free(priv);
 		return -ENOMEM;
 	}
 #endif
-	pr_info("%s Power on WCN (%d time)\n", __func__, atomic_read(&hif->power_cnt));
+	wl_info("%s Power on WCN (%d time)\n", __func__, atomic_read(&hif->power_cnt));
 
 	ret = sprd_iface_set_power(hif, true);
 	if (ret) {
@@ -1918,7 +1918,7 @@ int sprd_iface_probe(struct platform_device *pdev,
 
 	ret = iface_core_init(&pdev->dev, priv);
 	if (ret) {
-		pr_err("%s core init failed: %d\n", __func__, ret);
+		wl_err("%s core init failed: %d\n", __func__, ret);
 #ifdef ENABLE_CHR
 		sprd_chr_deinit(chr, PROBE_DEINIT);
 #endif
@@ -1930,7 +1930,7 @@ int sprd_iface_probe(struct platform_device *pdev,
 
 	ret = iface_notify_init(priv);
 	if (ret) {
-		pr_err("%s notify init failed: %d\n", __func__, ret);
+		wl_err("%s notify init failed: %d\n", __func__, ret);
 #ifdef ENABLE_CHR
 		sprd_chr_deinit(chr, PROBE_DEINIT);
 #endif
@@ -1942,7 +1942,7 @@ int sprd_iface_probe(struct platform_device *pdev,
 	}
 
 	/* Power off chipset in order to save power */
-	pr_info("%s Power off WCN (%d time)\n", __func__, atomic_read(&hif->power_cnt));
+	wl_info("%s Power off WCN (%d time)\n", __func__, atomic_read(&hif->power_cnt));
 	sprd_iface_set_power(hif, false);
 	priv->probe_done = true;
 
@@ -1957,7 +1957,7 @@ int sprd_iface_remove(struct platform_device *pdev)
 
 	int ret;
 
-	pr_info("%s Power on WCN (%d time)\n", __func__, atomic_read(&hif->power_cnt));
+	wl_info("%s Power on WCN (%d time)\n", __func__, atomic_read(&hif->power_cnt));
 	ret = sprd_iface_set_power(hif, true);
 	if (ret)
 		return ret;
@@ -1970,7 +1970,7 @@ int sprd_iface_remove(struct platform_device *pdev)
 	sprd_hif_deinit(hif);
 	sprd_core_free(priv);
 	iface_set_priv(NULL);
-	pr_info("%s Power off WCN (%d time)\n", __func__, atomic_read(&hif->power_cnt));
+	wl_info("%s Power off WCN (%d time)\n", __func__, atomic_read(&hif->power_cnt));
 	sprd_iface_set_power(hif, false);
 
 	return 0;

@@ -40,22 +40,22 @@ static struct sc2355_hif sc2355_hif;
 #if defined(MORE_DEBUG)
 static void sdio_dump_stats(struct sprd_hif *hif)
 {
-	pr_err("++print txrx statistics++\n");
-	pr_err("tx packets: %lu, tx bytes: %lu\n", hif->stats.tx_packets,
+	wl_err("++print txrx statistics++\n");
+	wl_err("tx packets: %lu, tx bytes: %lu\n", hif->stats.tx_packets,
 	       hif->stats.tx_bytes);
-	pr_err("tx filter num: %lu\n", hif->stats.tx_filter_num);
-	pr_err("tx errors: %lu, tx dropped: %lu\n", hif->stats.tx_errors,
+	wl_err("tx filter num: %lu\n", hif->stats.tx_filter_num);
+	wl_err("tx errors: %lu, tx dropped: %lu\n", hif->stats.tx_errors,
 	       hif->stats.tx_dropped);
-	pr_err("tx avg time: %lu\n", hif->stats.tx_avg_time);
-	pr_err("tx realloc: %lu\n", hif->stats.tx_realloc);
-	pr_err("tx arp num: %lu\n", hif->stats.tx_arp_num);
-	pr_err("rx packets: %lu, rx bytes: %lu\n", hif->stats.rx_packets,
+	wl_err("tx avg time: %lu\n", hif->stats.tx_avg_time);
+	wl_err("tx realloc: %lu\n", hif->stats.tx_realloc);
+	wl_err("tx arp num: %lu\n", hif->stats.tx_arp_num);
+	wl_err("rx packets: %lu, rx bytes: %lu\n", hif->stats.rx_packets,
 	       hif->stats.rx_bytes);
-	pr_err("rx errors: %lu, rx dropped: %lu\n", hif->stats.rx_errors,
+	wl_err("rx errors: %lu, rx dropped: %lu\n", hif->stats.rx_errors,
 	       hif->stats.rx_dropped);
-	pr_err("rx multicast: %lu, tx multicast: %lu\n",
+	wl_err("rx multicast: %lu, tx multicast: %lu\n",
 	       hif->stats.rx_multicast, hif->stats.tx_multicast);
-	pr_err("--print txrx statistics--\n");
+	wl_err("--print txrx statistics--\n");
 }
 
 /*calculate packets  average sent time from received
@@ -81,7 +81,7 @@ static void sdio_get_tx_avg_time(struct sprd_hif *hif,
 		sdio_dump_stats(hif);
 		hif->stats.gap_num = 0;
 		hif->stats.tx_cost_time = 0;
-		pr_info("%s:%d packets avg cost time: %lu\n",
+		wl_info("%s:%d packets avg cost time: %lu\n",
 			__func__, __LINE__, hif->stats.tx_avg_time);
 	}
 }
@@ -101,7 +101,7 @@ static int sdio_tx_one(struct sprd_hif *hif, unsigned char *data,
 	ret = sprdwcn_bus_list_alloc(chn, &head, &tail, &num);
 	if (ret || !head || !tail) {
 		kfree(data);
-		pr_err("%s:%d sprdwcn_bus_list_alloc fail\n",
+		wl_err("%s:%d sprdwcn_bus_list_alloc fail\n",
 		       __func__, __LINE__);
 		return -1;
 	}
@@ -110,7 +110,7 @@ static int sdio_tx_one(struct sprd_hif *hif, unsigned char *data,
 	mbuf->buf = data;
 	mbuf->len = len;
 	mbuf->next = NULL;
-	if (sprd_get_debug_level() >= L_DBG)
+	if (sprd_get_debug_level() >= L_ALL)
 		sc2355_hex_dump("tx to cp2 cmd data dump", data + 4, len);
 
 	/* ret: (<0) indicate send failed, but 0 indicate success or (wcn_bus_ops==NULL) */
@@ -198,7 +198,7 @@ static int sdio_rx_handle(int chn, struct mbuf_t *head,
 	struct rx_mgmt *rx_mgmt = (struct rx_mgmt *)hif->rx_mgmt;
 	struct sprd_msg *msg = NULL;
 
-	pr_debug("%s: channel:%d head:%p tail:%p num:%d\n",
+	wl_all("%s: channel:%d head:%p tail:%p num:%d\n",
 		 __func__, chn, head, tail, num);
 
 	/*To process credit earlier*/
@@ -216,7 +216,7 @@ static int sdio_rx_handle(int chn, struct mbuf_t *head,
 
 		msg = sprd_alloc_msg(&rx_mgmt->rx_list);
 		if (!msg) {
-			pr_err("%s: no more msg\n", __func__);
+			wl_err("%s: no more msg\n", __func__);
 			sprdwcn_bus_push_list(chn, head, tail, num);
 			return 0;
 		}
@@ -268,7 +268,7 @@ static int sdio_suspend_resume_handle(int chn, int mode)
 		return 0;
 
 	if (hif->cp_asserted) {
-		pr_err("%s, %d, error! cp2 has asserted!\n", __func__,
+		wl_err("%s, %d, error! cp2 has asserted!\n", __func__,
 		       __LINE__);
 		return 0;
 	}
@@ -296,7 +296,7 @@ static int sdio_suspend_resume_handle(int chn, int mode)
 		    atomic_read(&tx_mgmt->tx_list_cmd.ref) > 0 ||
 		    !list_empty(&tx_mgmt->xmit_msg_list.to_send_list) ||
 		    !list_empty(&tx_mgmt->xmit_msg_list.to_free_list)) {
-			pr_info("%s, %d,Q not empty suspend not allowed\n",
+			wl_info("%s, %d,Q not empty suspend not allowed\n",
 				__func__, __LINE__);
 			return -EBUSY;
 		}
@@ -325,7 +325,7 @@ static int sdio_suspend_resume_handle(int chn, int mode)
 		hif->sleep_time = timespec_to_ns(&time) - hif->sleep_time;
 #endif
 		ret = sprd_power_save(priv, vif, SPRD_SUSPEND_RESUME, 1);
-		pr_info("%s, %d,resume ret=%d, resume after %lu ms\n",
+		wl_info("%s, %d,resume ret=%d, resume after %lu ms\n",
 			__func__, __LINE__, ret, hif->sleep_time / 1000000);
 		return ret;
 	}
@@ -379,7 +379,7 @@ static int fc_find_color_per_mode(struct tx_mgmt *tx_mgmt,
 	for (i = 0; i < MAX_COLOR_BIT; i++) {
 		if (tx_mgmt->flow_ctrl[i].mode == mode) {
 			found = 1;
-			pr_debug("%s, %d, mode:%d found, index:%d\n",
+			wl_all("%s, %d, mode:%d found, index:%d\n",
 				 __func__, __LINE__, mode, i);
 			break;
 		}
@@ -397,7 +397,7 @@ static int fc_find_color_per_mode(struct tx_mgmt *tx_mgmt,
 				found = 1;
 				tx_mgmt->flow_ctrl[i].mode = mode;
 				tx_mgmt->flow_ctrl[i].color_bit = i;
-				pr_info
+				wl_info
 				    ("%s, %d, new mode:%d, assign color:%d\n",
 				     __func__, __LINE__, mode, i);
 				break;
@@ -510,10 +510,10 @@ int sc2355_hif_tx_list(struct sprd_hif *hif,
 	int tx_count_saved = tx_count;
 	int list_num;
 
-	pr_debug("%s:%d tx_count is %d\n", __func__, __LINE__, tx_count);
+	wl_all("%s:%d tx_count is %d\n", __func__, __LINE__, tx_count);
 	list_num = sc2355_qos_get_list_num(tx_list);
 	if (list_num < tx_count) {
-		pr_err("%s, %d, error!, tx_count:%d, list_num:%d\n",
+		wl_err("%s, %d, error!, tx_count:%d, list_num:%d\n",
 		       __func__, __LINE__, tx_count, list_num);
 		WARN_ON(1);
 	}
@@ -524,7 +524,7 @@ int sc2355_hif_tx_list(struct sprd_hif *hif,
 		return -ENOMEM;
 
 	if (tx_count_saved != tx_count) {
-		pr_err("%s, %d error!mbuf not enough%d\n",
+		wl_err("%s, %d error!mbuf not enough%d\n",
 		       __func__, __LINE__, (tx_count_saved - tx_count));
 		tx_mgmt->mbuf_short += (tx_count_saved - tx_count);
 		sprdwcn_bus_list_free(hif->tx_data_port, head, tail, tx_count);
@@ -544,7 +544,7 @@ int sc2355_hif_tx_list(struct sprd_hif *hif,
 		tx_mgmt->seq_num++;
 		dscr->seq_num = tx_mgmt->seq_num;
 
-		if (sprd_get_debug_level() >= L_DBG) {
+		if (sprd_get_debug_level() >= L_ALL) {
 			int print_len = msg_pos->len;
 
 			if (print_len > SPRD_MAX_PRINT_LEN)
@@ -563,7 +563,7 @@ int sc2355_hif_tx_list(struct sprd_hif *hif,
 		*msg_ptr = (unsigned long)msg_pos;
 
 		if (!mbuf_pos) {
-			pr_err("%s:%d mbuf addr is NULL!\n", __func__,
+			wl_err("%s:%d mbuf addr is NULL!\n", __func__,
 			       __LINE__);
 			sprdwcn_bus_list_free(hif->tx_data_port, head, tail, i);
 			return -1;
@@ -585,7 +585,7 @@ int sc2355_hif_tx_list(struct sprd_hif *hif,
 		sprdwcn_bus_list_free(hif->tx_data_port, head, tail, tx_count);
 		sdio_add_tx_list_head(tx_list_head, tx_list,
 				      ac_index, tx_count);
-		pr_err("%s:%d err Tx data fail\n", __func__, __LINE__);
+		wl_err("%s:%d err Tx data fail\n", __func__, __LINE__);
 		mbufalloc -= tx_count;
 		tx_mgmt->seq_num -= tx_count;
 	} else {
@@ -671,7 +671,7 @@ int sc2355_add_topop_list(int chn, struct mbuf_t *head,
 
 	misc_work = sprd_alloc_work(sizeof(struct pop_work));
 	if (!misc_work) {
-		pr_err("%s out of memory\n", __func__);
+		wl_err("%s out of memory\n", __func__);
 		return -1;
 	}
 	misc_work->vif = NULL;
@@ -690,7 +690,7 @@ int sc2355_tx_data_pop_list(int channel, struct mbuf_t *head,
 	struct sprd_msg *msg_head;
 #endif
 
-	pr_info("%s channel: %d, head: %p, tail: %p num: %d\n",
+	wl_info("%s channel: %d, head: %p, tail: %p num: %d\n",
 		__func__, channel, head, tail, num);
 
 #if defined(MORE_DEBUG)
@@ -702,7 +702,7 @@ int sc2355_tx_data_pop_list(int channel, struct mbuf_t *head,
 #endif
 
 	sc2355_add_topop_list(channel, head, tail, num);
-	pr_info("%s:%d free : %d msg buf\n", __func__, __LINE__, num);
+	wl_info("%s:%d free : %d msg buf\n", __func__, __LINE__, num);
 
 	return 0;
 }
@@ -716,19 +716,19 @@ int sc2355_tx_cmd_pop_list(int channel, struct mbuf_t *head,
 	struct tx_mgmt *tx_mgmt;
 	struct sprd_msg *pos_buf, *temp_buf;
 
-	pr_debug("%s channel: %d, head: %p, tail: %p num: %d\n",
+	wl_all("%s channel: %d, head: %p, tail: %p num: %d\n",
 		 __func__, channel, head, tail, num);
 
 	tx_mgmt = (struct tx_mgmt *)hif->tx_mgmt;
 
-	pr_debug("%s len: %d buf: %s\n", __func__, head->len, head->buf + 4);
+	wl_all("%s len: %d buf: %s\n", __func__, head->len, head->buf + 4);
 
 	pos = head;
 
 	list_for_each_entry_safe(pos_buf, temp_buf,
 				 &tx_mgmt->tx_list_cmd.cmd_to_free, list) {
 		if (pos_buf->tran_data == pos->buf) {
-			pr_debug("move CMD node from to_free to free list\n");
+			wl_all("move CMD node from to_free to free list\n");
 			/*list msg from to_free list  to free list*/
 			sc2355_free_cmd_buf(pos_buf, &tx_mgmt->tx_list_cmd);
 
@@ -743,7 +743,7 @@ int sc2355_tx_cmd_pop_list(int channel, struct mbuf_t *head,
 	}
 
 	tx_mgmt->cmd_poped += num;
-	pr_info("tx_cmd_pop num: %d,poped=%d, send=%d\n",
+	wl_info("tx_cmd_pop num: %d,poped=%d, send=%d\n",
 		num, tx_mgmt->cmd_poped, tx_mgmt->cmd_send);
 	sprdwcn_bus_list_free(channel, head, tail, num);
 
@@ -764,13 +764,13 @@ int sc2355_push_link(struct sprd_hif *hif, int chn,
 	for (i = 0; i < num; i++) {
 		if ((memcmp(&pos->phy, &low, 4) == 0) ||
 		    (memcmp(&pos->phy, &low1, 4) == 0)) {
-			pr_err
+			wl_err
 			    ("err phy address: %lx\n, err virt address: %p\n, err port: %d\n",
 			     pos->phy, pos->buf, chn);
 			return -ENOMEM;
 		}
 		if (i == num && pos != tail)
-			pr_info("num of head to tail is not match\n");
+			wl_info("num of head to tail is not match\n");
 
 		pos = pos->next;
 	}
@@ -779,7 +779,7 @@ int sc2355_push_link(struct sprd_hif *hif, int chn,
 	time = jiffies - time;
 
 	if (ret) {
-		pr_err("%s: push link fail: %d, chn: %d!\n", __func__, ret,
+		wl_err("%s: push link fail: %d, chn: %d!\n", __func__, ret,
 		       chn);
 	}
 	return ret;
@@ -797,27 +797,27 @@ void sc2355_event_sta_lut(struct sprd_vif *vif, u8 *data, u16 len)
 	u8 i;
 
 	if (len < sizeof(*sta_lut)) {
-		pr_err("%s, len:%d too short!\n", __func__, len);
+		wl_err("%s, len:%d too short!\n", __func__, len);
 		return;
 	}
 	hif = &vif->priv->hif;
 	sta_lut = (struct evt_sta_lut_ind *)data;
 	if (hif != sc2355_get_hif()) {
-		pr_err("%s, wrong hif!\n", __func__);
+		wl_err("%s, wrong hif!\n", __func__);
 		return;
 	}
 	if (!sta_lut) {
-		pr_err("%s, NULL input data!\n", __func__);
+		wl_err("%s, NULL input data!\n", __func__);
 		return;
 	}
 
 	i = sta_lut->sta_lut_index;
 	if (i >= MAX_LUT_NUM) {
-		pr_err("%s, error sta_lut_index %d!\n", __func__, i);
+		wl_err("%s, error sta_lut_index %d!\n", __func__, i);
 		return;
 	}
 
-	pr_info("ctx_id:%d,action:%d,lut:%d\n", sta_lut->ctx_id,
+	wl_info("ctx_id:%d,action:%d,lut:%d\n", sta_lut->ctx_id,
 		sta_lut->action, sta_lut->sta_lut_index);
 	switch (sta_lut->action) {
 	case DEL_LUT_INDEX:
@@ -846,7 +846,7 @@ void sc2355_event_sta_lut(struct sprd_vif *vif, u8 *data, u16 len)
 		hif->peer_entry[i].ba_tx_done_map = 0;
 		hif->tx_num[i] = 0;
 
-		pr_info("ctx_id%d,action%d,lut%d,%x:%x:%x:%x:%x:%x\n",
+		wl_info("ctx_id%d,action%d,lut%d,%x:%x:%x:%x:%x:%x\n",
 			sta_lut->ctx_id, sta_lut->action,
 			sta_lut->sta_lut_index,
 			sta_lut->ra[0], sta_lut->ra[1], sta_lut->ra[2],
@@ -867,10 +867,10 @@ unsigned short sc2355_get_data_csum(void *entry, void *data)
 	unsigned int csum_offset = msdu_total_len(msdu_desc) + sizeof(*puh);
 	struct sprd_hif *hif = (struct sprd_hif *)entry;
 
-	pr_debug("%s: check_sum: %d\n", __func__, puh->check_sum);
+	wl_all("%s: check_sum: %d\n", __func__, puh->check_sum);
 	if (hif->hw_type == SPRD_HW_SC2355_SDIO && puh->check_sum) {
 		memcpy(&csum, (void *)(data + csum_offset), sizeof(csum));
-		pr_debug("%s: csum: 0x%x\n", __func__, csum);
+		wl_all("%s: csum: 0x%x\n", __func__, csum);
 	}
 
 	return csum;
@@ -905,7 +905,7 @@ void sc2355_handle_tx_return(struct sprd_hif *hif,
 		if (tx_mgmt->color_num[i] == 0)
 			continue;
 		atomic_sub(tx_mgmt->color_num[i], &tx_mgmt->flow_ctrl[i].flow);
-		pr_debug("%s, _fc_, color bit:%d, flow num-%d=%d, seq_num=%d\n",
+		wl_all("%s, _fc_, color bit:%d, flow num-%d=%d, seq_num=%d\n",
 			 __func__, i, tx_mgmt->color_num[i],
 			 atomic_read(&tx_mgmt->flow_ctrl[i].flow),
 			 tx_mgmt->seq_num);
@@ -941,13 +941,13 @@ void sc2355_rx_work_queue(struct work_struct *work)
 			pos = sc2355_get_rx_data(hif, pos, &data, &tran_data,
 						 &len, hif->hif_offset);
 
-			pr_debug("%s: rx type:%d, num = %d\n",
+			wl_all("%s: rx type:%d, num = %d\n",
 				 __func__, SPRD_HEAD_GET_TYPE(data), num);
 
 			/* len in mbuf_t just means buffer len in ADMA,
 			 * so need to get data len in sc2355_sdiohal_puh
 			 */
-			if (sprd_get_debug_level() >= L_DBG) {
+			if (sprd_get_debug_level() >= L_ALL) {
 				int print_len = 100;
 
 				sc2355_hex_dump("rx data 100B",
@@ -965,7 +965,7 @@ void sc2355_rx_work_queue(struct work_struct *work)
 			if ((SPRD_HEAD_GET_TYPE(data) == SPRD_TYPE_CMD ||
 			     SPRD_HEAD_GET_TYPE(data) == SPRD_TYPE_EVENT)) {
 				if (rx_mgmt->rsp_event_cnt != hdr->rsp_cnt) {
-					pr_info
+					wl_info
 					    ("%s, %d, rsp_event_cnt=%d, hdr->cnt=%d\n",
 					     __func__, __LINE__,
 					     rx_mgmt->rsp_event_cnt,
@@ -973,7 +973,7 @@ void sc2355_rx_work_queue(struct work_struct *work)
 
 					if (hdr->rsp_cnt == 0) {
 						rx_mgmt->rsp_event_cnt = 0;
-						pr_info
+						wl_info
 						    ("%s reset rsp_event_cnt",
 						     __func__);
 					}
@@ -996,20 +996,20 @@ void sc2355_rx_work_queue(struct work_struct *work)
 			switch (SPRD_HEAD_GET_TYPE(data)) {
 			case SPRD_TYPE_DATA:
 				if (msg->len > SPRD_MAX_DATA_RXLEN)
-					pr_err("err rx data too long:%d > %d\n",
+					wl_err("err rx data too long:%d > %d\n",
 					       len, SPRD_MAX_DATA_RXLEN);
 				rx_data_process(priv, data);
 				break;
 			case SPRD_TYPE_CMD:
 				if (msg->len > SPRD_MAX_CMD_RXLEN)
-					pr_err("err rx cmd too long:%d > %d\n",
+					wl_err("err rx cmd too long:%d > %d\n",
 					       len, SPRD_MAX_CMD_RXLEN);
 				sc2355_rx_rsp_process(priv, data);
 				break;
 
 			case SPRD_TYPE_EVENT:
 				if (msg->len > SPRD_MAX_CMD_RXLEN)
-					pr_err
+					wl_err
 					    ("err rx event too long:%d > %d\n",
 					     len, SPRD_MAX_CMD_RXLEN);
 				sc2355_rx_evt_process(priv, data);
@@ -1019,7 +1019,7 @@ void sc2355_rx_work_queue(struct work_struct *work)
 				sprd_debug_ts_enter(RX_SDIO_PORT);
 
 				if (msg->len > SPRD_MAX_DATA_RXLEN)
-					pr_err
+					wl_err
 					    ("err data trans too long:%d > %d\n",
 					     len, SPRD_MAX_CMD_RXLEN);
 				sc2355_mm_mh_data_process(&rx_mgmt->mm_entry, tran_data, len,
@@ -1029,7 +1029,7 @@ void sc2355_rx_work_queue(struct work_struct *work)
 				break;
 			case SPRD_TYPE_DATA_PCIE_ADDR:
 				if (msg->len > SPRD_MAX_CMD_RXLEN)
-					pr_err
+					wl_err
 					    ("err rx mh data too long:%d > %d\n",
 					     len, SPRD_MAX_DATA_RXLEN);
 				sc2355_rx_mh_addr_process(rx_mgmt, tran_data, len,
@@ -1038,7 +1038,7 @@ void sc2355_rx_work_queue(struct work_struct *work)
 				data = NULL;
 				break;
 			default:
-				pr_err("rx unknown type:%d\n",
+				wl_err("rx unknown type:%d\n",
 				       SPRD_HEAD_GET_TYPE(data));
 				break;
 			}
@@ -1048,7 +1048,7 @@ void sc2355_rx_work_queue(struct work_struct *work)
 				sc2355_free_data(tran_data, msg->buffer_type);
 
 			if (!pos) {
-				pr_debug("%s no mbuf\n", __func__);
+				wl_all("%s no mbuf\n", __func__);
 				break;
 			}
 		}
@@ -1096,22 +1096,22 @@ int sc2355_fc_get_send_num(struct sprd_hif *hif,
 		}
 
 		if (send_num <= 0) {
-			pr_err
+			wl_err
 			    ("%s, %d, mode:%d, e_num:%d, s_num:%d, d_num:%d\n",
 			     __func__, __LINE__, (u8)mode, excusive_flow_num,
 			     shared_flow_num, data_num);
 			return -ENOMEM;
 		}
-		pr_debug("%s,mode:%d,e_n:%d,s_n:%d,d_n:%d,{%d,%d,%d,%d}\n",
+		wl_all("%s,mode:%d,e_n:%d,s_n:%d,d_n:%d,{%d,%d,%d,%d}\n",
 			__func__, mode, excusive_flow_num,
 			shared_flow_num, data_num,
 			tx_mgmt->color_num[0], tx_mgmt->color_num[1],
 			tx_mgmt->color_num[2], tx_mgmt->color_num[3]);
 	} else {
-		pr_err("%s, %d, wrong mode:%d?\n",
+		wl_err("%s, %d, wrong mode:%d?\n",
 		       __func__, __LINE__, (u8)mode);
 		for (i = 0; i < MAX_COLOR_BIT; i++)
-			pr_err("color[%d] assigned mode%d\n",
+			wl_err("color[%d] assigned mode%d\n",
 			       i, (u8)tx_mgmt->flow_ctrl[i].mode);
 		return -ENOMEM;
 	}
@@ -1142,17 +1142,17 @@ int sc2355_fc_test_send_num(struct sprd_hif *hif,
 		send_num = excusive_flow_num + shared_flow_num;
 
 		if (send_num <= 0) {
-			pr_debug
+			wl_all
 			    ("%s, %d, err, mode:%d, e_num:%d, s_num:%d, d_num=%d\n",
 			     __func__, __LINE__, (u8)mode, excusive_flow_num,
 			     shared_flow_num, data_num);
 			return -ENOMEM;
 		}
-		pr_debug("%s, %d, e_num=%d, s_num=%d, d_num=%d\n",
+		wl_all("%s, %d, e_num=%d, s_num=%d, d_num=%d\n",
 			 __func__, __LINE__, excusive_flow_num,
 			 shared_flow_num, data_num);
 	} else {
-		pr_err("%s, %d, wrong mode:%d?\n",
+		wl_err("%s, %d, wrong mode:%d?\n",
 		       __func__, __LINE__, (u8)mode);
 		for (i = 0; i < MAX_COLOR_BIT; i++)
 			printk_ratelimited("color[%d] assigned mode%d\n",
@@ -1258,13 +1258,13 @@ int sc2355_sdio_init(struct sprd_hif *hif)
 
 	ret = sc2355_rx_init(hif);
 	if (ret) {
-		pr_err("%s rx init failed: %d\n", __func__, ret);
+		wl_err("%s rx init failed: %d\n", __func__, ret);
 		return ret;
 	}
 
 	ret = sc2355_tx_init(hif);
 	if (ret) {
-		pr_err("%s tx_list init failed\n", __func__);
+		wl_err("%s tx_list init failed\n", __func__);
 		goto err_tx_init;
 	}
 
@@ -1282,7 +1282,7 @@ int sc2355_sdio_init(struct sprd_hif *hif)
 	hif->feature = NETIF_F_CSUM_MASK | NETIF_F_SG;
 
 	if (sc2355_hif.max_num < MAX_CHN_NUM) {
-		pr_info("%s: register %d ops\n", __func__, sc2355_hif.max_num);
+		wl_info("%s: register %d ops\n", __func__, sc2355_hif.max_num);
 
 		for (chn = 0; chn < sc2355_hif.max_num; chn++) {
 			ret = sprdwcn_bus_chn_init(&sc2355_hif.mchn_ops[chn]);
@@ -1298,7 +1298,7 @@ int sc2355_sdio_init(struct sprd_hif *hif)
 	return 0;
 
 err:
-	pr_err("%s: unregister %d ops\n", __func__, sc2355_hif.max_num);
+	wl_err("%s: unregister %d ops\n", __func__, sc2355_hif.max_num);
 
 	for (; chn > 0; chn--)
 		sprdwcn_bus_chn_deinit(&sc2355_hif.mchn_ops[chn]);

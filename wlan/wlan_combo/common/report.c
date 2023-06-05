@@ -271,7 +271,7 @@ done:
 	}
 
 	if (!(sprd_chip_sync_wmm_param(vif->priv, conn_info)))
-		pr_err("%s: failed to synchronize wmm parameter", __func__);
+		wl_err("%s: failed to synchronize wmm parameter", __func__);
 
 	if (!netif_carrier_ok(vif->ndev)) {
 		netif_carrier_on(vif->ndev);

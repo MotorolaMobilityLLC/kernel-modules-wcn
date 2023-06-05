@@ -25,7 +25,7 @@ void pcie_buf_mm_dump(void)
 	if (g_tx_buf) {
 		for (i = 0; i < g_tx_buf->max_num; i++)
 			if (g_tx_buf->type == PCIE_BUF_SINGLE_TYPE)
-				pr_err("%s:addr [%d]%p\n",
+				wl_err("%s:addr [%d]%p\n",
 					__func__, i, g_tx_buf->addr[i]);
 	}
 }
@@ -62,7 +62,7 @@ sprd_buf_mm_single_alloc(struct sprd_buf_mm *mm)
 	node = kmalloc(mm->len+sizeof(struct sprd_buf_node),
 						GFP_DMA|GFP_KERNEL);
 	if (node == NULL) {
-		pr_warn("%s: alloc buf_node failed.\n", __func__);
+		wl_warn("%s: alloc buf_node failed.\n", __func__);
 		return NULL;
 	}
 
@@ -80,7 +80,7 @@ int pcie_buf_mm_free(struct sprd_buf_mm *mm,
 					struct sprd_buf_node *node)
 {
 	if (node->flag != SPRD_MEMORY_ALLOC) {
-		pr_err("%s:The buf[%p] is refree or bad.\n",
+		wl_err("%s:The buf[%p] is refree or bad.\n",
 			__func__, node);
 		pcie_buf_mm_dump();
 		return -1;
@@ -103,7 +103,7 @@ struct sprd_buf_node *pcie_alloc_tx_buf(void)
 	struct sprd_buf_node *node;
 
 	if (g_tx_buf == NULL) {
-		pr_err("%s:Tx_buf is not init.\n", __func__);
+		wl_err("%s:Tx_buf is not init.\n", __func__);
 		return NULL;
 	}
 	node = pcie_buf_mm_alloc(g_tx_buf);
@@ -118,7 +118,7 @@ struct sprd_buf_node *pcie_alloc_tx_buf(void)
 void pcie_free_tx_buf(struct sprd_buf_node *node)
 {
 	if (g_tx_buf == NULL) {
-		pr_err("%s:Tx_buf is not init.\n", __func__);
+		wl_err("%s:Tx_buf is not init.\n", __func__);
 		return;
 	}
 	pcie_buf_mm_free(g_tx_buf, node);
@@ -153,7 +153,7 @@ static inline int sprdwl_txrx_buf_single_init(void)
 	int i;
 
 	if (g_tx_buf) {
-		pr_err("%s: txrx buf had been inited.\n", __func__);
+		wl_err("%s: txrx buf had been inited.\n", __func__);
 		return -1;
 	}
 
@@ -161,7 +161,7 @@ static inline int sprdwl_txrx_buf_single_init(void)
 			    sizeof(unsigned long)*PCIE_TX_BUF_MAX_NUM),
 			   GFP_KERNEL);
 	if (!g_tx_buf) {
-		pr_err("%s: alloc sprd_buf_mm fail", __func__);
+		wl_err("%s: alloc sprd_buf_mm fail", __func__);
 		return -1;
 	}
 	spin_lock_init(&g_tx_buf->freelock);
@@ -215,7 +215,7 @@ int pcie_skb_to_tx_buf(struct sprd_hif *dev,
 
 	node = pcie_alloc_tx_buf();
 	if (unlikely(node == NULL) || unlikely(node->buf == NULL)) {
-		pr_debug("%s: alloc tx buf fail.\n", __func__);
+		wl_all("%s: alloc tx buf fail.\n", __func__);
 		return -1;
 	}
 
@@ -223,7 +223,7 @@ int pcie_skb_to_tx_buf(struct sprd_hif *dev,
 	/*NOTE : next memcpy do save  SAVE_ADDR(node->buf, msg_pos, sizeof(msg_pos)) */
 	memcpy(&node->addr, &msg_pos, sizeof(msg_pos));
 	if (skb->len > pcie_get_tx_buf_len()) {
-		pr_err("%s: skb->len(%d) > tx buf len(%d).\n",
+		wl_err("%s: skb->len(%d) > tx buf len(%d).\n",
 			__func__, skb->len, pcie_get_tx_buf_len());
 		pcie_free_tx_buf(node);
 		return -1;

@@ -465,7 +465,7 @@ static int vendor_flush_epno_list(struct sprd_vif *vif)
 				  (void *)&flush_data,
 				  SPRD_GSCAN_SUBCMD_SET_EPNO_FLUSH,
 				  sizeof(flush_data), (u8 *)(&rsp), &rlen);
-	pr_debug("flush epno list, ret = %d\n", ret);
+	wl_all("flush epno list, ret = %d\n", ret);
 	return ret;
 }
 
@@ -484,7 +484,7 @@ static int vendor_start_offload_packet(struct sprd_priv *priv,
 	    !tb[ATTR_OFFLOADED_PACKETS_DST_MAC_ADDR] ||
 	    !tb[ATTR_OFFLOADED_PACKETS_PERIOD] ||
 	    !tb[ATTR_OFFLOADED_PACKETS_ETHER_PROTO_TYPE]) {
-		pr_err("check start offload para failed\n");
+		wl_err("check start offload para failed\n");
 		return -EINVAL;
 	}
 
@@ -539,10 +539,10 @@ static int vendor_parse_sae_entry(struct sae_entry *entry,
 #else
 				nla_strlcpy(entry->password, pos, data_len + 1);
 #endif
-				pr_info("entry->passwd: %s, entry->len:%d\n",
+				wl_info("entry->passwd: %s, entry->len:%d\n",
 					entry->password, entry->passwd_len);
 			} else {
-				pr_err("entry->passwd_len(%d) is more than expected\n", data_len);
+				wl_err("entry->passwd_len(%d) is more than expected\n", data_len);
 				return -ENOEXEC;
 			}
 			break;
@@ -550,7 +550,7 @@ static int vendor_parse_sae_entry(struct sae_entry *entry,
 			data_len = nla_len(pos);
 			entry->id_len = data_len;
 			if (entry->id_len > sizeof(entry->identifier)) {
-				pr_err("invalid id_len %d\n", entry->id_len);
+				wl_err("invalid id_len %d\n", entry->id_len);
 				return -EINVAL;
 			}
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
@@ -562,7 +562,7 @@ static int vendor_parse_sae_entry(struct sae_entry *entry,
 		case VENDOR_SAE_PEER_ADDR:
 			data_len = nla_len(pos);
 			if (data_len != ETH_ALEN) {
-				pr_err("invalid peer_addr len %d\n", data_len);
+				wl_err("invalid peer_addr len %d\n", data_len);
 				return -EINVAL;
 			}
 			nla_memcpy(entry->peer_addr, pos, ETH_ALEN);
@@ -609,7 +609,7 @@ static int vendor_softap_convert_para(struct sprd_vif *vif,
 			tlv->len = tmp->passwd_len;
 
 			memcpy(tlv->data, tmp->password, tmp->passwd_len);
-			pr_info("%s password: %s, len:%d\n", __func__,
+			wl_info("%s password: %s, len:%d\n", __func__,
 				tmp->password, tmp->passwd_len);
 			pos += (header_len + tmp->passwd_len);
 			data_len += (header_len + tmp->passwd_len);
@@ -622,7 +622,7 @@ static int vendor_softap_convert_para(struct sprd_vif *vif,
 			tlv->type = VENDOR_SAE_IDENTIFIER - 1;
 			tlv->len = tmp->id_len;
 			memcpy(tlv->data, tmp->identifier, tmp->id_len);
-			pr_info("%s id: %s, len:%d\n", __func__,
+			wl_info("%s id: %s, len:%d\n", __func__,
 				tmp->identifier, tmp->id_len);
 			pos += (header_len + tmp->id_len);
 			data_len += (header_len + tmp->id_len);
@@ -662,7 +662,7 @@ static int vendor_softap_convert_para(struct sprd_vif *vif,
 		tlv->type = VENDOR_SAE_PWD - 1;
 		tlv->len = setting->passphrase_len;
 		memcpy(tlv->data, setting->passphrase, setting->passphrase_len);
-		pr_info("%s passphrase: %s, len: %d\n", __func__,
+		wl_info("%s passphrase: %s, len: %d\n", __func__,
 			setting->passphrase, setting->passphrase_len);
 		pos += (header_len + setting->passphrase_len);
 		data_len += (header_len + setting->passphrase_len);
@@ -714,13 +714,13 @@ static int vendor_roaming_enable(struct wiphy *wiphy,
 
 	if (nla_parse(tb, ATTR_ROAMING_POLICY,
 		      data, len, NULL, NULL)) {
-		pr_err("Invalid ATTR\n");
+		wl_err("Invalid ATTR\n");
 		return -EINVAL;
 	}
 
 	if (tb[ATTR_ROAMING_POLICY]) {
 		roam_state = (u8)nla_get_u32(tb[ATTR_ROAMING_POLICY]);
-		pr_info("roaming offload state:%d\n", roam_state);
+		wl_info("roaming offload state:%d\n", roam_state);
 		/* send roam state with roam params by roaming CMD */
 		ret = sc2355_set_roam_offload(priv, vif,
 					      SPRD_ROAM_OFFLOAD_SET_FLAG,
@@ -753,7 +753,7 @@ static int vendor_set_llstat_handler(struct wiphy *wiphy,
 	if (!(priv->fw_capa & SPRD_CAPA_LL_STATS))
 		return -ENOTSUPP;
 	if (!data) {
-		pr_err("%s llstat param check filed\n", __func__);
+		wl_err("%s llstat param check filed\n", __func__);
 		return -EINVAL;
 	}
 	err = nla_parse(tb, ATTR_LL_STATS_SET_MAX, data,
@@ -847,11 +847,11 @@ static int vendor_get_llstat_handler(struct wiphy *wiphy,
 	radio_st->tx_time = (u32)llst->radio_tx_time;
 	radio_st->rx_time = (u32)llst->radio_rx_time;
 	radio_st->on_time_scan = llst->on_time_scan;
-	pr_info("beacon_rx=%d, rssi_mgmt=%d\n",
+	wl_info("beacon_rx=%d, rssi_mgmt=%d\n",
 		iface_st->beacon_rx, iface_st->rssi_mgmt);
-	pr_info("on_time=%d, tx_time=%d\n",
+	wl_info("on_time=%d, tx_time=%d\n",
 		radio_st->on_time, radio_st->tx_time);
-	pr_info("rx_time=%d, on_time_scan=%d,\n",
+	wl_info("rx_time=%d, on_time_scan=%d,\n",
 		radio_st->rx_time, radio_st->on_time_scan);
 	radio_st->num_tx_levels = 1;
 	radio_st->tx_time_per_levels = (u32 *)&llst->radio_tx_time;
@@ -862,7 +862,7 @@ static int vendor_get_llstat_handler(struct wiphy *wiphy,
 					    SPRD_SUBTYPE_CHANNEL_INFO, NULL,
 					    0, recv_buf, &recv_len);
 		if (ret) {
-			pr_err("set externed llstate failed\n");
+			wl_err("set externed llstate failed\n");
 			goto clean;
 		}
 
@@ -874,9 +874,9 @@ static int vendor_get_llstat_handler(struct wiphy *wiphy,
 
 		if (channel_num) {
 			info = (struct llstat_channel_info *)(pos);
-			pr_info("cca busy time : %d, on time : %d\n",
+			wl_info("cca busy time : %d, on time : %d\n",
 				info->cca_busy_time, info->on_time);
-			pr_info
+			wl_info
 			    ("center width : %d, center_freq : %d, center_freq0 : %d, center_freq1  :%d\n",
 			     info->channel_width, info->center_freq,
 			     info->center_freq0, info->center_freq1);
@@ -898,7 +898,7 @@ static int vendor_get_llstat_handler(struct wiphy *wiphy,
 	reply_radio_length = sizeof(struct wifi_radio_stat) + 1000;
 	reply_iface_length = sizeof(struct wifi_iface_stat) + 1000;
 
-	pr_info("start to put radio data\n");
+	wl_info("start to put radio data\n");
 	reply_radio = cfg80211_vendor_cmd_alloc_reply_skb(wiphy,
 							  reply_radio_length);
 	if (!reply_radio)
@@ -917,7 +917,7 @@ static int vendor_get_llstat_handler(struct wiphy *wiphy,
 
 	ret = cfg80211_vendor_cmd_reply(reply_radio);
 
-	pr_info("start to put iface data\n");
+	wl_info("start to put iface data\n");
 	/* alloc iface reply buffer */
 	reply_iface = cfg80211_vendor_cmd_alloc_reply_skb(wiphy,
 							  reply_iface_length);
@@ -977,7 +977,7 @@ static int vendor_clr_llstat_handler(struct wiphy *wiphy,
 		return -ENOTSUPP;
 	memset(r_buf, 0, r_len);
 	if (!data) {
-		pr_err("%s wrong llstat clear req mask\n", __func__);
+		wl_err("%s wrong llstat clear req mask\n", __func__);
 		return -EINVAL;
 	}
 	err = nla_parse(tb, ATTR_LL_STATS_CLR_MAX, data, len, NULL, NULL);
@@ -1035,7 +1035,7 @@ static int vendor_gscan_start(struct wiphy *wiphy,
 	struct sprd_vif *vif = netdev_priv(wdev->netdev);
 	u16 rlen = sizeof(struct cmd_gscan_rsp_header);
 
-	pr_info("%s enter\n", __func__);
+	wl_info("%s enter\n", __func__);
 	params = kmalloc(sizeof(*params), GFP_KERNEL);
 	if (!params)
 		return -ENOMEM;
@@ -1199,7 +1199,7 @@ static int vendor_gscan_start(struct wiphy *wiphy,
 
 	for (i = 0; i < params->num_buckets; i++) {
 		if (params->buckets[i].num_channels == 0) {
-			pr_err("%s, %d, gscan channel not set\n", __func__,
+			wl_err("%s, %d, gscan channel not set\n", __func__,
 			       __LINE__);
 			params->buckets[i].num_channels = 11;
 			for (j = 0; j < 11; j++)
@@ -1348,7 +1348,7 @@ static int vendor_get_gscan_capabilities(struct wiphy *wiphy,
 	struct gscan_capa *p = NULL;
 	void *rbuf;
 
-	pr_info("%s enter\n", __func__);
+	wl_info("%s enter\n", __func__);
 
 	rlen = sizeof(struct gscan_capa) +
 	    sizeof(struct cmd_gscan_rsp_header);
@@ -1368,11 +1368,11 @@ static int vendor_get_gscan_capabilities(struct wiphy *wiphy,
 	hdr = (struct cmd_gscan_rsp_header *)rbuf;
 	p = (struct gscan_capa *)
 	    (rbuf + sizeof(struct cmd_gscan_rsp_header));
-	pr_info("cache_size: %d scan_bucket:%d\n",
+	wl_info("cache_size: %d scan_bucket:%d\n",
 		p->max_scan_cache_size, p->max_scan_buckets);
-	pr_info("max AP per scan:%d,max_rssi_sample_size:%d\n",
+	wl_info("max AP per scan:%d,max_rssi_sample_size:%d\n",
 		p->max_ap_cache_per_scan, p->max_rssi_sample_size);
-	pr_info("max_white_list:%d,max_black_list:%d\n",
+	wl_info("max_white_list:%d,max_black_list:%d\n",
 		p->max_whitelist_ssid, p->max_blacklist_size);
 	payload = rlen + 0x100;
 	reply = cfg80211_vendor_cmd_alloc_reply_skb(wiphy, payload);
@@ -1407,7 +1407,7 @@ static int vendor_get_gscan_capabilities(struct wiphy *wiphy,
 			p->max_whitelist_ssid) ||
 	    nla_put_u32(reply, ATTR_GSCAN_MAX_NUM_BLACKLISTED_BSSID,
 			p->max_blacklist_size)) {
-		pr_err("failed to put Gscan capabilies\n");
+		wl_err("failed to put Gscan capabilies\n");
 		goto out_put_fail;
 	}
 	vif->priv->roam_capa.max_blacklist_size = p->max_blacklist_size;
@@ -1552,7 +1552,7 @@ static int vendor_get_cached_gscan_results(struct wiphy *wiphy,
 			for (j = 0;
 			     j < (vif->priv->gscan_res + i)->num_results; j++) {
 				p = vif->priv->gscan_res + i;
-				pr_info("[index=%d] Timestamp(%lu) Ssid (%s) Bssid: %pM Channel (%d) Rssi (%d) RTT (%u) RTT_SD (%u)\n",
+				wl_info("[index=%d] Timestamp(%lu) Ssid (%s) Bssid: %pM Channel (%d) Rssi (%d) RTT (%u) RTT_SD (%u)\n",
 					j,
 					p->results[j].ts,
 					p->results[j].ssid,
@@ -1956,141 +1956,141 @@ static int vendor_get_support_feature(struct wiphy *wiphy,
 		return -ENOMEM;
 	/* bit 1:Basic infrastructure mode */
 	if (wiphy->interface_modes & BIT(NL80211_IFTYPE_STATION)) {
-		pr_info("STA mode is supported\n");
+		wl_info("STA mode is supported\n");
 		feature |= WIFI_FEATURE_INFRA;
 	}
 	/* bit 2:Support for 5 GHz Band */
 	if (priv->fw_capa & SPRD_CAPA_5G) {
-		pr_info("INFRA 5G is supported\n");
+		wl_info("INFRA 5G is supported\n");
 		feature |= WIFI_FEATURE_INFRA_5G;
 	}
 	/* bit3:HOTSPOT is a supplicant feature, enable it by default */
-	pr_info("HotSpot feature is supported\n");
+	wl_info("HotSpot feature is supported\n");
 	feature |= WIFI_FEATURE_HOTSPOT;
 	/* bit 4:P2P */
 	if ((wiphy->interface_modes & BIT(NL80211_IFTYPE_P2P_CLIENT)) &&
 	    (wiphy->interface_modes & BIT(NL80211_IFTYPE_P2P_GO))) {
-		pr_info("P2P is supported\n");
+		wl_info("P2P is supported\n");
 		feature |= WIFI_FEATURE_P2P;
 	}
 	/* bit 5:soft AP feature supported */
 	if (wiphy->interface_modes & BIT(NL80211_IFTYPE_AP)) {
-		pr_info("Soft AP is supported\n");
+		wl_info("Soft AP is supported\n");
 		feature |= WIFI_FEATURE_SOFT_AP;
 	}
 	/* bit 6:GSCAN feature supported */
 	if (priv->fw_capa & SPRD_CAPA_GSCAN) {
-		pr_info("GSCAN feature supported\n");
+		wl_info("GSCAN feature supported\n");
 		feature |= WIFI_FEATURE_GSCAN;
 	}
 	/* bit 7:NAN feature supported */
 	if (priv->fw_capa & SPRD_CAPA_NAN) {
-		pr_info("NAN is supported\n");
+		wl_info("NAN is supported\n");
 		feature |= WIFI_FEATURE_NAN;
 	}
 	/* bit 8: Device-to-device RTT */
 	if (priv->fw_capa & SPRD_CAPA_D2D_RTT) {
-		pr_info("D2D RTT supported\n");
+		wl_info("D2D RTT supported\n");
 		feature |= WIFI_FEATURE_D2D_RTT;
 	}
 	/* bit 9: Device-to-AP RTT */
 	if (priv->fw_capa & SPRD_CAPA_D2AP_RTT) {
-		pr_info("Device-to-AP RTT supported\n");
+		wl_info("Device-to-AP RTT supported\n");
 		feature |= WIFI_FEATURE_D2AP_RTT;
 	}
 	/* bit 10: Batched Scan (legacy) */
 	if (priv->fw_capa & SPRD_CAPA_BATCH_SCAN) {
-		pr_info("Batched Scan supported\n");
+		wl_info("Batched Scan supported\n");
 		feature |= WIFI_FEATURE_BATCH_SCAN;
 	}
 	/* bit 11: PNO feature supported */
 	if (priv->fw_capa & SPRD_CAPA_PNO) {
-		pr_info("PNO feature supported\n");
+		wl_info("PNO feature supported\n");
 		feature |= WIFI_FEATURE_PNO;
 	}
 	/* bit 12:Support for two STAs */
 	if (priv->fw_capa & SPRD_CAPA_ADDITIONAL_STA) {
-		pr_info("Two sta feature supported\n");
+		wl_info("Two sta feature supported\n");
 		feature |= WIFI_FEATURE_ADDITIONAL_STA;
 	}
 	/* bit 13:Tunnel directed link setup */
 	if (priv->fw_capa & SPRD_CAPA_TDLS) {
-		pr_info("TDLS feature supported\n");
+		wl_info("TDLS feature supported\n");
 		feature |= WIFI_FEATURE_TDLS;
 	}
 	/* bit 14:Support for TDLS off channel */
 	if (priv->fw_capa & SPRD_CAPA_TDLS_OFFCHANNEL) {
-		pr_info("TDLS off channel supported\n");
+		wl_info("TDLS off channel supported\n");
 		feature |= WIFI_FEATURE_TDLS_OFFCHANNEL;
 	}
 	/* bit 15:Enhanced power reporting */
 	if (priv->fw_capa & SPRD_CAPA_EPR) {
-		pr_info("Enhanced power report supported\n");
+		wl_info("Enhanced power report supported\n");
 		feature |= WIFI_FEATURE_EPR;
 	}
 	/* bit 16:Support for AP STA Concurrency */
 	if (priv->fw_capa & SPRD_CAPA_AP_STA) {
-		pr_info("AP STA Concurrency supported\n");
+		wl_info("AP STA Concurrency supported\n");
 		feature |= WIFI_FEATURE_AP_STA;
 	}
 	/* bit 17:Link layer stats collection */
 	if (priv->fw_capa & SPRD_CAPA_LL_STATS) {
-		pr_info("LinkLayer status supported\n");
+		wl_info("LinkLayer status supported\n");
 		feature |= WIFI_FEATURE_LINK_LAYER_STATS;
 	}
 	/* bit 18:WiFi Logger */
 	if (priv->fw_capa & SPRD_CAPA_WIFI_LOGGER) {
-		pr_info("WiFi Logger supported\n");
+		wl_info("WiFi Logger supported\n");
 		feature |= WIFI_FEATURE_LOGGER;
 	}
 	/* bit 19:WiFi PNO enhanced */
 	if (priv->fw_capa & SPRD_CAPA_EPNO) {
-		pr_info("WIFI ENPO supported\n");
+		wl_info("WIFI ENPO supported\n");
 		feature |= WIFI_FEATURE_HAL_EPNO;
 	}
 	/* bit 20:RSSI monitor supported */
 	if (priv->fw_capa & SPRD_CAPA_RSSI_MONITOR) {
-		pr_info("RSSI Monitor supported\n");
+		wl_info("RSSI Monitor supported\n");
 		feature |= WIFI_FEATURE_RSSI_MONITOR;
 	}
 	/* bit 21:WiFi mkeep_alive */
 	if (priv->fw_capa & SPRD_CAPA_MKEEP_ALIVE) {
-		pr_info("WiFi mkeep alive supported\n");
+		wl_info("WiFi mkeep alive supported\n");
 		feature |= WIFI_FEATURE_MKEEP_ALIVE;
 	}
 	/* bit 22:ND offload configure */
 	if (priv->fw_capa & SPRD_CAPA_CONFIG_NDO) {
-		pr_info("ND offload supported\n");
+		wl_info("ND offload supported\n");
 		feature |= WIFI_FEATURE_CONFIG_NDO;
 	}
 	/* bit 23:Capture Tx transmit power levels */
 	if (priv->fw_capa & SPRD_CAPA_TX_POWER) {
-		pr_info("Tx power supported\n");
+		wl_info("Tx power supported\n");
 		feature |= WIFI_FEATURE_TX_TRANSMIT_POWER;
 	}
 	/* bit 24:Enable/Disable firmware roaming */
 	if ((priv->fw_capa & SPRD_CAPA_11R_ROAM_OFFLOAD) &&
 	    (priv->fw_capa & SPRD_CAPA_GSCAN)) {
-		pr_info("ROAMING offload supported\n");
+		wl_info("ROAMING offload supported\n");
 		feature |= WIFI_FEATURE_CONTROL_ROAMING;
 	}
 	/* bit 25:Support Probe IE white listing */
 	if (priv->fw_capa & SPRD_CAPA_IE_WHITELIST) {
-		pr_info("Probe IE white listing supported\n");
+		wl_info("Probe IE white listing supported\n");
 		feature |= WIFI_FEATURE_IE_WHITELIST;
 	}
 	/* bit 26: Support MAC & Probe Sequence Number randomization */
 	if (priv->fw_capa & SPRD_CAPA_SCAN_RAND) {
-		pr_info("RAND MAC SCAN supported\n");
+		wl_info("RAND MAC SCAN supported\n");
 		feature |= WIFI_FEATURE_SCAN_RAND;
 	}
 	/* bit 27: Support SET sar limit function */
 	if (priv->extend_feature & SPRD_CAPA_TX_POWER) {
-		pr_info("Set sar limit function supported\n");
+		wl_info("Set sar limit function supported\n");
 		feature |= WIFI_FEATURE_SET_SAR_LIMIT;
 	}
 
-	pr_info("Supported Feature:0x%x\n", feature);
+	wl_info("Supported Feature:0x%x\n", feature);
 
 	if (nla_put_u32(reply, ATTR_FEATURE_SET, feature)) {
 		wiphy_err(wiphy, "%s put u32 error\n", __func__);
@@ -2179,19 +2179,19 @@ static int vendor_get_concurrency_matrix(struct wiphy *wiphy,
 	struct sk_buff *reply_skb;
 
 	if (nla_parse(tb, ATTR_CO_MATRIX_MAX, data, len, NULL, NULL)) {
-		pr_err("Invalid ATTR\n");
+		wl_err("Invalid ATTR\n");
 		return -EINVAL;
 	}
 
 	/* Parse and fetch max feature set */
 	if (!tb[ATTR_CO_MATRIX_CONFIG_PARAM_SET_SIZE_MAX]) {
-		pr_err("Attr max feature set size failed\n");
+		wl_err("Attr max feature set size failed\n");
 		return -EINVAL;
 	}
 	max_feature_sets =
 	    nla_get_u32(tb[ATTR_CO_MATRIX_CONFIG_PARAM_SET_SIZE_MAX]);
 
-	pr_info("Max feature set size (%d)", max_feature_sets);
+	wl_info("Max feature set size (%d)", max_feature_sets);
 
 	/* Fill feature combination matrix */
 	feature_sets = 0;
@@ -2205,11 +2205,11 @@ static int vendor_get_concurrency_matrix(struct wiphy *wiphy,
 	    WIFI_FEATURE_INFRA_5G | WIFI_FEATURE_GSCAN;
 
 	feature_sets = min(feature_sets, max_feature_sets);
-	pr_info("Number of feature sets (%d)\n", feature_sets);
+	wl_info("Number of feature sets (%d)\n", feature_sets);
 
-	pr_info("Feature set matrix:");
+	wl_info("Feature set matrix:");
 	for (i = 0; i < feature_sets; i++)
-		pr_info("[%d] 0x%02X", i, feature_set_matrix[i]);
+		wl_info("[%d] 0x%02X", i, feature_set_matrix[i]);
 
 	reply_skb = cfg80211_vendor_cmd_alloc_reply_skb(wiphy, sizeof(u32) +
 							sizeof(u32) *
@@ -2222,13 +2222,13 @@ static int vendor_get_concurrency_matrix(struct wiphy *wiphy,
 		    nla_put(reply_skb,
 			    ATTR_CO_MATRIX_RESULTS_SET,
 			    sizeof(u32) * feature_sets, feature_set_matrix)) {
-			pr_err("nla put failure\n");
+			wl_err("nla put failure\n");
 			kfree_skb(reply_skb);
 			return -EINVAL;
 		}
 		return cfg80211_vendor_cmd_reply(reply_skb);
 	}
-	pr_err("set matrix: buffer alloc failure\n");
+	wl_err("set matrix: buffer alloc failure\n");
 	return -ENOMEM;
 }
 
@@ -2254,7 +2254,7 @@ static int vendor_get_wake_state(struct wiphy *wiphy,
 	skb = cfg80211_vendor_cmd_alloc_reply_skb(wiphy, buf_len);
 
 	if (!skb) {
-		pr_err("cfg80211_vendor_cmd_alloc_reply_skb failed\n");
+		wl_err("cfg80211_vendor_cmd_alloc_reply_skb failed\n");
 		return -ENOMEM;
 	}
 
@@ -2262,11 +2262,11 @@ static int vendor_get_wake_state(struct wiphy *wiphy,
 	    nla_put_u32(skb, ATTR_WAKE_CMD_EVT_WAKE_CNT_SZ, 0) ||
 	    nla_put_u32(skb, ATTR_WAKE_DRV_FW_LOCAL_WAKE_CNT_PTR, 0) ||
 	    nla_put_u32(skb, ATTR_WAKE_DRV_FW_LOCAL_WAKE_CNT_SZ, 0)) {
-		pr_err("nla put failure\n");
+		wl_err("nla put failure\n");
 		goto nla_put_failure;
 	}
 	if (cfg80211_vendor_cmd_reply(skb))
-		pr_err("cfg80211_vendor_cmd_reply failed\n");
+		wl_err("cfg80211_vendor_cmd_reply failed\n");
 
 	return VENDOR_WIFI_SUCCESS;
 
@@ -2323,22 +2323,22 @@ static int vendor_get_driver_info(struct wiphy *wiphy,
 	struct nlattr *tb_vendor[ATTR_WIFI_INFO_GET_MAX + 1];
 	char version[89];
 
-	pr_info("%s enter\n", __func__);
+	wl_info("%s enter\n", __func__);
 	if (nla_parse(tb_vendor, ATTR_WIFI_INFO_GET_MAX, data,
 		      len, get_wifi_info_policy, NULL)) {
-		pr_err("WIFI_INFO_GET CMD parsing failed\n");
+		wl_err("WIFI_INFO_GET CMD parsing failed\n");
 		return -EINVAL;
 	}
 
 	if (tb_vendor[ATTR_WIFI_INFO_DRIVER_VERSION]) {
-		pr_info("Recived req for Drv version\n");
+		wl_info("Recived req for Drv version\n");
 		memcpy(version, &priv->wl_ver, sizeof(version));
 		attr = ATTR_WIFI_INFO_DRIVER_VERSION;
 		payload = sizeof(priv->wl_ver);
 	} else if (tb_vendor[ATTR_WIFI_INFO_FIRMWARE_VERSION]) {
-		pr_info("Recived req for FW version\n");
+		wl_info("Recived req for FW version\n");
 		snprintf(version, sizeof(version), "%d", priv->fw_ver);
-		pr_info("fw version:%s\n", version);
+		wl_info("fw version:%s\n", version);
 		attr = ATTR_WIFI_INFO_FIRMWARE_VERSION;
 		payload = strlen(version);
 	}
@@ -2386,22 +2386,22 @@ static int vendor_set_roam_params(struct wiphy *wiphy,
 	memset(&white_params, 0, sizeof(white_params));
 	memset(&black_params, 0, sizeof(black_params));
 	if (nla_parse(tb, ATTR_ROAM_MAX, data, len, NULL, NULL)) {
-		pr_err("Invalid ATTR\n");
+		wl_err("Invalid ATTR\n");
 		return -EINVAL;
 	}
 	/* Parse and fetch Command Type */
 	if (!tb[ATTR_ROAM_SUBCMD]) {
-		pr_err("roam cmd type failed\n");
+		wl_err("roam cmd type failed\n");
 		goto fail;
 	}
 
 	cmd_type = nla_get_u32(tb[ATTR_ROAM_SUBCMD]);
 	if (!tb[ATTR_ROAM_REQ_ID]) {
-		pr_err("%s:attr request id failed\n", __func__);
+		wl_err("%s:attr request id failed\n", __func__);
 		goto fail;
 	}
 	req_id = nla_get_u32(tb[ATTR_ROAM_REQ_ID]);
-	pr_info("Req ID:%d, Cmd Type:%d", req_id, cmd_type);
+	wl_info("Req ID:%d, Cmd Type:%d", req_id, cmd_type);
 	switch (cmd_type) {
 	case ATTR_ROAM_SUBCMD_SSID_WHITE_LIST:
 		if (!tb[ATTR_ROAM_WHITE_LIST_SSID_LIST])
@@ -2412,12 +2412,12 @@ static int vendor_set_roam_params(struct wiphy *wiphy,
 			if (nla_parse(tb2, ATTR_ROAM_SUBCMD_MAX,
 				      nla_data(curr_attr),
 				      nla_len(curr_attr), NULL, NULL)) {
-				pr_err("nla parse failed\n");
+				wl_err("nla parse failed\n");
 				goto fail;
 			}
 			/* Parse and Fetch allowed SSID list */
 			if (!tb2[ATTR_ROAM_WHITE_LIST_SSID]) {
-				pr_err("attr allowed ssid failed\n");
+				wl_err("attr allowed ssid failed\n");
 				goto fail;
 			}
 			buf_len = nla_len(tb2[ATTR_ROAM_WHITE_LIST_SSID]);
@@ -2435,17 +2435,17 @@ static int vendor_set_roam_params(struct wiphy *wiphy,
 					   tb2[ATTR_ROAM_WHITE_LIST_SSID],
 					   buf_len - 1);
 				white_params.white_list[i].length = buf_len - 1;
-				pr_info("SSID[%d]:%.*s, length=%d\n", i,
+				wl_info("SSID[%d]:%.*s, length=%d\n", i,
 					white_params.white_list[i].length,
 					white_params.white_list[i].ssid_str,
 					white_params.white_list[i].length);
 				i++;
 			} else {
-				pr_err("Invalid buffer length\n");
+				wl_err("Invalid buffer length\n");
 			}
 		}
 		white_params.num_white_ssid = i;
-		pr_info("Num of white list:%d", i);
+		wl_info("Num of white list:%d", i);
 		/* send white list with roam params by roaming CMD */
 		ret = sc2355_set_roam_offload(priv, vif,
 					      SPRD_ROAM_SET_WHITE_LIST,
@@ -2455,12 +2455,12 @@ static int vendor_set_roam_params(struct wiphy *wiphy,
 	case ATTR_ROAM_SUBCMD_SET_BLACKLIST_BSSID:
 		/* Parse and fetch number of blacklist BSSID */
 		if (!tb[ATTR_ROAM_SET_BSSID_PARAMS_NUM_BSSID]) {
-			pr_err("attr num of blacklist bssid failed\n");
+			wl_err("attr num of blacklist bssid failed\n");
 			goto fail;
 		}
 		black_params.num_black_bssid =
 		    nla_get_u32(tb[ATTR_ROAM_SET_BSSID_PARAMS_NUM_BSSID]);
-		pr_info("Num of black BSSID:%d\n",
+		wl_info("Num of black BSSID:%d\n",
 			black_params.num_black_bssid);
 
 		if (!tb[ATTR_ROAM_SET_BSSID_PARAMS])
@@ -2470,7 +2470,7 @@ static int vendor_set_roam_params(struct wiphy *wiphy,
 		black_limit = min(fw_max_blacklist, MAX_BLACK_BSSID);
 
 		if (black_params.num_black_bssid > black_limit) {
-			pr_err("black size exceed the limit:%d\n", black_limit);
+			wl_err("black size exceed the limit:%d\n", black_limit);
 			break;
 		}
 		i = 0;
@@ -2479,18 +2479,18 @@ static int vendor_set_roam_params(struct wiphy *wiphy,
 			if (nla_parse(tb2, ATTR_ROAM_MAX,
 				      nla_data(curr_attr), nla_len(curr_attr),
 				      NULL, NULL)) {
-				pr_err("nla parse failed\n");
+				wl_err("nla parse failed\n");
 				goto fail;
 			}
 			/* Parse and fetch MAC address */
 			if (!tb2[ATTR_ROAM_SET_BSSID_PARAMS_BSSID]) {
-				pr_err("attr blacklist addr failed\n");
+				wl_err("attr blacklist addr failed\n");
 				goto fail;
 			}
 			nla_memcpy(black_params.black_list[i].MAC_addr,
 				   tb2[ATTR_ROAM_SET_BSSID_PARAMS_BSSID],
 				   sizeof(struct bssid_t));
-			pr_info("black list mac addr:%pM\n",
+			wl_info("black list mac addr:%pM\n",
 				black_params.black_list[i].MAC_addr);
 			i++;
 			if (i >= MAX_BLACK_BSSID)
@@ -2795,22 +2795,22 @@ static int vendor_monitor_rssi(struct wiphy *wiphy,
 
 	/* if wifi not connected,return */
 	if (vif->sm_state != SPRD_CONNECTED) {
-		pr_err("Wifi not connected!\n");
+		wl_err("Wifi not connected!\n");
 		return -ENOTSUPP;
 	}
 	if (nla_parse(tb, ATTR_RSSI_MONITOR_MAX, data, len,
 		      rssi_monitor_policy, NULL)) {
-		pr_err("Invalid ATTR\n");
+		wl_err("Invalid ATTR\n");
 		return -EINVAL;
 	}
 
 	if (!tb[ATTR_RSSI_MONITOR_REQUEST_ID]) {
-		pr_err("attr request id failed\n");
+		wl_err("attr request id failed\n");
 		return -EINVAL;
 	}
 
 	if (!tb[ATTR_RSSI_MONITOR_CONTROL]) {
-		pr_err("attr control failed\n");
+		wl_err("attr control failed\n");
 		return -EINVAL;
 	}
 
@@ -2820,12 +2820,12 @@ static int vendor_monitor_rssi(struct wiphy *wiphy,
 	if (control == VENDOR_RSSI_MONITOR_START) {
 		req.control = true;
 		if (!tb[ATTR_RSSI_MONITOR_MIN_RSSI]) {
-			pr_err("get min rssi fail\n");
+			wl_err("get min rssi fail\n");
 			return -EINVAL;
 		}
 
 		if (!tb[ATTR_RSSI_MONITOR_MAX_RSSI]) {
-			pr_err("get max rssi fail\n");
+			wl_err("get max rssi fail\n");
 			return -EINVAL;
 		}
 
@@ -2833,20 +2833,20 @@ static int vendor_monitor_rssi(struct wiphy *wiphy,
 		req.max_rssi = nla_get_s8(tb[ATTR_RSSI_MONITOR_MAX_RSSI]);
 
 		if (!(req.min_rssi < req.max_rssi)) {
-			pr_err("min rssi %d must be less than max_rssi:%d\n",
+			wl_err("min rssi %d must be less than max_rssi:%d\n",
 			       req.min_rssi, req.max_rssi);
 			return -EINVAL;
 		}
-		pr_info("min_rssi:%d max_rssi:%d\n",
+		wl_info("min_rssi:%d max_rssi:%d\n",
 			req.min_rssi, req.max_rssi);
 	} else if (control == VENDOR_RSSI_MONITOR_STOP) {
 		req.control = false;
-		pr_info("stop rssi monitor!\n");
+		wl_info("stop rssi monitor!\n");
 	} else {
-		pr_err("Invalid control cmd:%d\n", control);
+		wl_err("Invalid control cmd:%d\n", control);
 		return -EINVAL;
 	}
-	pr_info("Request id:%u,control:%d", req.request_id, req.control);
+	wl_info("Request id:%u,control:%d", req.request_id, req.control);
 
 	/* send rssi monitor cmd */
 	vendor_send_rssi_cmd(priv, vif, &req, sizeof(req));
@@ -3054,22 +3054,22 @@ static int vendor_set_sar_limits(struct wiphy *wiphy,
 	u32 sar_scence = 0;
 
 	if (!(priv->extend_feature & SPRD_CAPA_TX_POWER)) {
-		pr_info("%s, fw don't support 'Set sar limit function", __func__);
+		wl_info("%s, fw don't support 'Set sar limit function", __func__);
 		return -EOPNOTSUPP;
 	}
 
-	pr_info("%s enter:\n", __func__);
+	wl_info("%s enter:\n", __func__);
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0)
 	if (nla_parse(tb, ATTR_SAR_LIMITS_MAX, data, len, NULL, NULL)) {
 #else
 	if (nla_parse(tb, ATTR_SAR_LIMITS_MAX, data, len, NULL)) {
 #endif
-		pr_err("Invalid ATTR\n");
+		wl_err("Invalid ATTR\n");
 		return -EINVAL;
 	}
 
 	if (!tb[ATTR_SAR_LIMITS_SAR_ENABLE]) {
-		pr_err("attr sar enable failed\n");
+		wl_err("attr sar enable failed\n");
 		return -EINVAL;
 	}
 
@@ -3083,9 +3083,9 @@ static int vendor_set_sar_limits(struct wiphy *wiphy,
 						psar_param->sar_type,
 						psar_param->power_value);
 		if (ret)
-			pr_err("set sar value failed, result: %d", ret);
+			wl_err("set sar value failed, result: %d", ret);
 	} else {
-		pr_err("invalid sar scence: %d\n", sar_scence);
+		wl_err("invalid sar scence: %d\n", sar_scence);
 	}
 
 	/* To pass vts test */
@@ -3112,7 +3112,7 @@ static int vendor_get_akm_suite(struct wiphy *wiphy,
 		akm[index++] = WLAN_CIPHER_SUITE_BIP_GMAC_256;
 
 	akm_len = index * sizeof(akm[0]);
-	pr_debug("akm suites count = %d\n", index);
+	wl_all("akm suites count = %d\n", index);
 	reply = cfg80211_vendor_cmd_alloc_reply_skb(wiphy, len);
 	if (!reply)
 		return -ENOMEM;
@@ -3179,7 +3179,7 @@ static int vendor_softap_set_sae_para(struct sprd_priv *priv,
 	int len;
 
 	len = sizeof(*param) + data_len;
-	pr_info("total len: %d, data len: %d\n", len, data_len);
+	wl_info("total len: %d, data len: %d\n", len, data_len);
 
 	msg = get_cmdbuf(priv, vif, len, CMD_SET_SAE_PARAM);
 	if (!msg)
@@ -3205,7 +3205,7 @@ static int vendor_set_sae_password(struct wiphy *wiphy,
 	int para_len, ret;
 
 	if (!(priv->extend_feature & SPRD_EXTEND_SOATAP_WPA3)) {
-		pr_err("firmware not support softap wpa3!\n");
+		wl_err("firmware not support softap wpa3!\n");
 		return -ENOTSUPP;
 	}
 
@@ -3213,7 +3213,7 @@ static int vendor_set_sae_password(struct wiphy *wiphy,
 
 	nla_for_each_attr(pos, (void *)data, len, rem_len) {
 		type = nla_type(pos);
-		pr_info("%s type : %d\n", __func__, type);
+		wl_info("%s type : %d\n", __func__, type);
 
 		switch (type) {
 		case VENDOR_SAE_ENTRY:
@@ -3224,7 +3224,7 @@ static int vendor_set_sae_password(struct wiphy *wiphy,
 			sae_para.entry[sae_entry_index].used = 1;
 			if (vendor_parse_sae_entry(&sae_para.entry[sae_entry_index],
 					       nla_data(pos), nla_len(pos)) != 0) {
-				pr_err("%s %d error.\n", __func__, __LINE__);
+				wl_err("%s %d error.\n", __func__, __LINE__);
 				return -EINVAL;
 			}
 			sae_entry_index++;
@@ -3251,10 +3251,10 @@ static int vendor_set_sae_password(struct wiphy *wiphy,
 				nla_strlcpy(sae_para.passphrase, pos,
 					    sae_para.passphrase_len + 1);
 #endif
-				pr_info("pwd is :%s, len :%d\n", sae_para.passphrase,
+				wl_info("pwd is :%s, len :%d\n", sae_para.passphrase,
 					sae_para.passphrase_len);
 			} else {
-				pr_err("%s %d error.\n", __func__, __LINE__);
+				wl_err("%s %d error.\n", __func__, __LINE__);
 				return -EINVAL;
 			}
 			break;
@@ -3285,7 +3285,7 @@ static int vendor_apf_req_send_recv(struct sprd_vif *vif,
 	u16 apf_subcmd, cmd_len, rsp_len;
 
 	if (!priv->apf_state->apf_cmd_id) {
-		pr_err("%s cmd_id err.\n", __func__);
+		wl_err("%s cmd_id err.\n", __func__);
 		return -EINVAL;
 	}
 
@@ -3317,7 +3317,7 @@ static int vendor_apf_req_send_recv(struct sprd_vif *vif,
 
 	ret = send_cmd_recv_rsp(priv, msg, (u8 *)apf_rsp, &rsp_len);
 	if (ret != 0) {
-		pr_err("%s ret %d.\n", __func__, ret);
+		wl_err("%s ret %d.\n", __func__, ret);
 	}
 
 	*r_len = rsp_len;
@@ -3342,19 +3342,19 @@ static int vendor_get_bus_max_size(struct wiphy *wiphy,
 
 	skb = cfg80211_vendor_cmd_alloc_reply_skb(wiphy, NLMSG_HDRLEN + rsp_len);
 	if (!skb) {
-		pr_err("%s skb alloc failed.\n", __func__);
+		wl_err("%s skb alloc failed.\n", __func__);
 		return -ENOMEM;
 	}
 
 	if (nla_put_u32(skb, VENDOR_ATTR_DRV_INFO_BUS_SIZE, 1024)) {
-		pr_err("%s put fail\n", __func__);
+		wl_err("%s put fail\n", __func__);
 		ret = -EINVAL;
 		goto exit;
 	}
 
 	ret = cfg80211_vendor_cmd_reply(skb);
 	if (ret) {
-		pr_err("%s failed %d reply skb!\n", __func__, ret);
+		wl_err("%s failed %d reply skb!\n", __func__, ret);
 	}
 	return ret;
 
@@ -4128,7 +4128,7 @@ static void vendor_report_epno_results(struct sprd_vif *vif, u8 *data,
 
 	epno_results = (struct epno_results *)data;
 	if (epno_results->nr_scan_results <= 0) {
-		pr_err("%s invalid data\n", __func__);
+		wl_err("%s invalid data\n", __func__);
 		return;
 	}
 
@@ -4187,13 +4187,13 @@ static void vendor_report_epno_results(struct sprd_vif *vif, u8 *data,
 	nla_nest_end(skb, attr);
 
 	cfg80211_vendor_event(skb, GFP_KERNEL);
-	pr_debug("report epno event success, count = %d\n",
+	wl_all("report epno event success, count = %d\n",
 	       epno_results->nr_scan_results);
 	return;
 
 failed:
 	kfree_skb(skb);
-	pr_err("%s report epno event failed\n", __func__);
+	wl_err("%s report epno event failed\n", __func__);
 }
 
 /* report full scan result to upper layer, it will only report one AP
@@ -4354,7 +4354,7 @@ static int vendor_hotlist_change_event(struct sprd_vif *vif,
 		goto out_put_fail;
 
 	for (j = 0; j < priv->hotlist_res->num_results; j++) {
-		pr_info("[index=%d] Timestamp(%lu) Ssid (%s) Bssid: %pM Channel (%d) Rssi (%d) RTT (%u) RTT_SD (%u)\n",
+		wl_info("[index=%d] Timestamp(%lu) Ssid (%s) Bssid: %pM Channel (%d) Rssi (%d) RTT (%u) RTT_SD (%u)\n",
 			j, p->results[j].ts, p->results[j].ssid,
 			p->results[j].bssid, p->results[j].channel,
 			p->results[j].rssi, p->results[j].rtt,
@@ -4631,10 +4631,10 @@ void sc2355_evt_rssi_monitor(struct sprd_vif *vif, u8 *data, u16 len)
 				VENDOR_EVENT_NAN_MONITOR_RSSI,
 				GFP_KERNEL);
 	if (!skb) {
-		pr_err("%s vendor alloc event failed\n", __func__);
+		wl_err("%s vendor alloc event failed\n", __func__);
 		return;
 	}
-	pr_info("Req Id:%u,current RSSI:%d, Current BSSID:%pM\n",
+	wl_info("Req Id:%u,current RSSI:%d, Current BSSID:%pM\n",
 		mon->request_id, mon->curr_rssi, mon->curr_bssid);
 	if (nla_put_u32(skb, ATTR_RSSI_MONITOR_REQUEST_ID,
 			mon->request_id) ||
@@ -4642,7 +4642,7 @@ void sc2355_evt_rssi_monitor(struct sprd_vif *vif, u8 *data, u16 len)
 		    sizeof(mon->curr_bssid), mon->curr_bssid) ||
 	    nla_put_s8(skb, ATTR_RSSI_MONITOR_CUR_RSSI,
 		       mon->curr_rssi)) {
-		pr_err("nla data put fail\n");
+		wl_err("nla data put fail\n");
 		goto fail;
 	}
 
