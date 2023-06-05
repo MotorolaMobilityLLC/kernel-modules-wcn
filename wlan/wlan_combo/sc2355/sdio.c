@@ -391,6 +391,7 @@ static int fc_find_color_per_mode(struct tx_mgmt *tx_mgmt,
 			vif = sprd_mode_to_vif(priv, tmp_mode);
 			if (vif && !(vif->state & VIF_STATE_OPEN))
 				tx_mgmt->flow_ctrl[i].mode = SPRD_MODE_NONE;
+			sprd_put_vif(vif);
 		}
 		for (i = 0; i < MAX_COLOR_BIT; i++) {
 			if (tx_mgmt->flow_ctrl[i].mode == SPRD_MODE_NONE) {
@@ -920,7 +921,6 @@ void sc2355_rx_work_queue(struct work_struct *work)
 	struct sprd_hif *hif;
 	void *pos = NULL, *data = NULL, *tran_data = NULL;
 	int len = 0, num = 0;
-	struct sprd_vif *vif;
 	struct sprd_cmd_hdr *hdr;
 
 	rx_mgmt = container_of(work, struct rx_mgmt, rx_work);
@@ -961,7 +961,6 @@ void sc2355_rx_work_queue(struct work_struct *work)
 			 * assert to warn CP2
 			 */
 			hdr = (struct sprd_cmd_hdr *)data;
-			vif = sc2355_ctxid_to_vif(priv, hdr->common.mode);
 			if ((SPRD_HEAD_GET_TYPE(data) == SPRD_TYPE_CMD ||
 			     SPRD_HEAD_GET_TYPE(data) == SPRD_TYPE_EVENT)) {
 				if (rx_mgmt->rsp_event_cnt != hdr->rsp_cnt) {
@@ -983,15 +982,12 @@ void sc2355_rx_work_queue(struct work_struct *work)
 					 * vif=NULL means driver not init ok,
 					 * send cmd may cause crash
 					 */
-					if (vif && hdr->rsp_cnt != 0)
-						sc2355_assert_cmd(priv, vif,
-								    hdr->cmd_id,
-								 RSP_CNT_ERROR);
+					if (hdr->rsp_cnt != 0)
+						sc2355_assert_cmd(priv, hdr->cmd_id, RSP_CNT_ERROR);
 				}
 
 				rx_mgmt->rsp_event_cnt++;
 			}
-			sprd_put_vif(vif);
 
 			switch (SPRD_HEAD_GET_TYPE(data)) {
 			case SPRD_TYPE_DATA:
@@ -1273,11 +1269,9 @@ int sc2355_sdio_init(struct sprd_hif *hif)
 	//reset thread uclamp param
 	sc2355_set_thread_uclamp(tx_mgmt->tx_thread, 0);
 
-	if (hif->hw_type == SPRD_HW_SC2355_SDIO) {
-		sc2355_hif.mchn_ops = sdio_hif_ops;
-		sc2355_hif.max_num =
+	sc2355_hif.mchn_ops = sdio_hif_ops;
+	sc2355_hif.max_num =
 		    sizeof(sdio_hif_ops) / sizeof(struct mchn_ops_t);
-	}
 
 	hif->feature = NETIF_F_CSUM_MASK | NETIF_F_SG;
 

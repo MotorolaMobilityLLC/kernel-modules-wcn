@@ -581,15 +581,20 @@ void sprd_pamwifi_update_router_table(struct sprd_priv *priv,
 		return;
 	}
 	vif = sprd_mode_to_vif(priv, vif_mode);
-
+	if (!vif) {
+		pw_err("%s cant't get vif", __func__);
+		return;
+	}
 
 	/*check ctx_id*/
 	sta_lut = (struct evt_sta_lut_ind *)data;
 	if (vif->ctx_id != sta_lut->ctx_id) {
 		pw_err("ctx_id do not match!\n");
 		mutex_unlock(&pamwifi_mutex);
+		sprd_put_vif(vif);
 		return;
 	}
+	sprd_put_vif(vif);
 	if(sta_lut->sta_lut_index <6){
 		mutex_unlock(&pamwifi_mutex);
 		return;
@@ -1141,8 +1146,13 @@ int sprd_pamwifi_send_ul_res_cmd(struct sprd_priv *priv, u8 vif_ctx_id,
 		return PAMWIFI_DISABLED;
 	}
 	vif = sc2355_ctxid_to_vif(priv, vif_ctx_id);
+	if (!vif) {
+		pw_err("%s, can't get vif\n", __func__);
+		return -EIO;
+	}
 
-	msg = sc2355_get_cmdbuf(priv, vif,len, CMD_UL_RES_STS, SPRD_HEAD_RSP,GFP_KERNEL);
+	msg = sc2355_get_cmdbuf(priv, vif, len, CMD_UL_RES_STS, SPRD_HEAD_RSP, GFP_KERNEL);
+	sprd_put_vif(vif);
 	if (!msg)
 		return -ENOMEM;
 	memcpy(msg->data, data, len);

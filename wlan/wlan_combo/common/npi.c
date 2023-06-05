@@ -226,7 +226,6 @@ static int npi_nl_get_info_handler(struct sk_buff *skb_2,
 
 	if (vif) {
 		ether_addr_copy(r_buf, vif->ndev->dev_addr);
-		sprd_put_vif(vif);
 		r_len = ETH_ALEN;
 		ret = npi_nl_send_generic(info, SPRD_NL_ATTR_CP2AP,
 				      SPRD_NL_CMD_GET_INFO, r_len, r_buf);

@@ -1919,25 +1919,25 @@ int sprd_iface_probe(struct platform_device *pdev,
 	ret = iface_core_init(&pdev->dev, priv);
 	if (ret) {
 		wl_err("%s core init failed: %d\n", __func__, ret);
+		sprd_iface_set_power(hif, false);
 #ifdef ENABLE_CHR
 		sprd_chr_deinit(chr, PROBE_DEINIT);
 #endif
 		sprd_hif_deinit(hif);
 		sprd_core_free(priv);
-		sprd_iface_set_power(hif, false);
 		return ret;
 	}
 
 	ret = iface_notify_init(priv);
 	if (ret) {
 		wl_err("%s notify init failed: %d\n", __func__, ret);
+		iface_core_deinit(priv);
+		sprd_iface_set_power(hif, false);
 #ifdef ENABLE_CHR
 		sprd_chr_deinit(chr, PROBE_DEINIT);
 #endif
-		iface_core_deinit(priv);
 		sprd_hif_deinit(hif);
 		sprd_core_free(priv);
-		sprd_iface_set_power(hif, false);
 		return ret;
 	}
 

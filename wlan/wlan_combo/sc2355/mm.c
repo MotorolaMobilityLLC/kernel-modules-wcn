@@ -159,7 +159,6 @@ static inline int mm_do_addr_buf(struct mem_mgmt *mm_entry)
 
 		if (!vif)
 			return -EIO;
-		sprd_put_vif(vif);
 		if (!sc2355_cmd_host_wakeup_fw(vif->priv, vif)) {
 			hif->fw_power_down = 0;
 		} else {

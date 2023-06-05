@@ -473,7 +473,6 @@ static int sipc_suspend_resume_handle(int chn, int mode)
 	if (!vif || hif->cp_asserted) {
 		wl_err("%s, %d, error! NULL vif or assert\n", __func__,
 		       __LINE__);
-		sprd_put_vif(vif);
 		return -EBUSY;
 	}
 
@@ -484,7 +483,6 @@ static int sipc_suspend_resume_handle(int chn, int mode)
 		    !list_empty(&tx_mgmt->xmit_msg_list.to_free_list)) {
 			wl_info("%s, %d,Q not empty suspend not allowed\n",
 				__func__, __LINE__);
-			sprd_put_vif(vif);
 			return -EBUSY;
 		}
 		hif->suspend_mode = SPRD_PS_SUSPENDING;
@@ -501,7 +499,6 @@ static int sipc_suspend_resume_handle(int chn, int mode)
 			hif->suspend_mode = SPRD_PS_SUSPENDED;
 		else
 			hif->suspend_mode = SPRD_PS_RESUMED;
-		sprd_put_vif(vif);
 		return ret;
 	} else if (mode == 1) {
 		hif->suspend_mode = SPRD_PS_RESUMING;
@@ -515,10 +512,8 @@ static int sipc_suspend_resume_handle(int chn, int mode)
 		ret = sprd_power_save(priv, vif, SPRD_SUSPEND_RESUME, 1);
 		wl_info("%s, %d,resume ret=%d, resume after %lu ms\n",
 			__func__, __LINE__, ret, hif->sleep_time / 1000000);
-		sprd_put_vif(vif);
 		return ret;
 	}
-	sprd_put_vif(vif);
 	return -EBUSY;
 }
 

@@ -593,7 +593,7 @@ struct sprd_vif *sc2355_ctxid_to_vif(struct sprd_priv *priv, u8 vif_ctx_id)
 	return found;
 }
 
-int sc2355_assert_cmd(struct sprd_priv *priv, struct sprd_vif *vif, u8 cmd_id,
+int sc2355_assert_cmd(struct sprd_priv *priv, u8 cmd_id,
 		      u8 reason)
 {
 	struct sprd_hif *hif = &priv->hif;
@@ -671,7 +671,6 @@ struct sprd_msg *sc2355_get_cmdbuf(struct sprd_priv *priv, struct sprd_vif *vif,
 		ctx_id = vif->mode;
 
 	if (cmd_id >= CMD_OPEN) {
-		sprd_put_vif(vif);
 
 		if (cmd_id == CMD_POWER_SAVE &&
 		    (!atomic_read(&priv->power_back_off)) &&
@@ -739,7 +738,6 @@ int sc2355_send_cmd_recv_rsp(struct sprd_priv *priv, struct sprd_msg *msg, u8 *r
 	int ret = 0;
 	struct sprd_cmd_hdr *hdr;
 	u8 ctx_id;
-	struct sprd_vif *vif;
 	struct sprd_hif *hif;
 	struct tx_mgmt *tx_mgmt;
 	struct sprd_cmd *cmd = &priv->cmd;
@@ -823,21 +821,16 @@ int sc2355_send_cmd_recv_rsp(struct sprd_priv *priv, struct sprd_msg *msg, u8 *r
 	} else {
 		wl_err("cid %d [%s]rsp timeout, printk=%d\n",
 		       ctx_id, cmdevt_cmd2str(cmd_id), console_loglevel);
-		vif = sc2355_ctxid_to_vif(priv, ctx_id);
 		if (cmd_id == CMD_CLOSE) {
-			sc2355_assert_cmd(priv, vif, cmd_id, CMD_RSP_TIMEOUT_ERROR);
+			sc2355_assert_cmd(priv, cmd_id, CMD_RSP_TIMEOUT_ERROR);
 			cmdevt_unlock_cmd(cmd, hif);
 			return ret;
 		}
-		if (vif) {
-			tx_mgmt = (struct tx_mgmt *)hif->tx_mgmt;
-			if (!hif->cp_asserted &&
-			    tx_mgmt->hang_recovery_status == HANG_RECOVERY_END &&
-			    !hif->exit)
-				sc2355_assert_cmd(priv, vif, cmd_id,
-						  CMD_RSP_TIMEOUT_ERROR);
-			sprd_put_vif(vif);
-		}
+		tx_mgmt = (struct tx_mgmt *)hif->tx_mgmt;
+		if (!hif->cp_asserted &&
+		    tx_mgmt->hang_recovery_status == HANG_RECOVERY_END &&
+		    !hif->exit)
+			sc2355_assert_cmd(priv, cmd_id, CMD_RSP_TIMEOUT_ERROR);
 	}
 	cmdevt_unlock_cmd(cmd, hif);
 out:
@@ -1410,7 +1403,7 @@ void sc2355_download_hw_param(struct sprd_priv *priv)
 		wl_err("load ini data failed, return\n");
 		kfree(wifi_data);
 		wifi_data = NULL;
-		sc2355_assert_cmd(priv, NULL, CMD_DOWNLOAD_INI, LOAD_INI_DATA_FAILED);
+		sc2355_assert_cmd(priv, CMD_DOWNLOAD_INI, LOAD_INI_DATA_FAILED);
 		return;
 	}
 
@@ -1433,7 +1426,7 @@ void sc2355_download_hw_param(struct sprd_priv *priv)
 #ifdef ENABLE_CHR
 		CHR_OPENERR_FLAGSET(&hif->chr->open_err_flag, OPEN_ERR_DOWNLOAD_INI);
 #endif
-		sc2355_assert_cmd(priv, NULL, CMD_DOWNLOAD_INI,
+		sc2355_assert_cmd(priv, CMD_DOWNLOAD_INI,
 				  DOWNLOAD_INI_DATA_FAILED);
 		return;
 	}
@@ -1447,7 +1440,7 @@ void sc2355_download_hw_param(struct sprd_priv *priv)
 #ifdef ENABLE_CHR
 		CHR_OPENERR_FLAGSET(&hif->chr->open_err_flag, OPEN_ERR_DOWNLOAD_INI);
 #endif
-		sc2355_assert_cmd(priv, NULL, CMD_DOWNLOAD_INI,
+		sc2355_assert_cmd(priv, CMD_DOWNLOAD_INI,
 				  DOWNLOAD_INI_DATA_FAILED);
 		return;
 	}
@@ -1465,7 +1458,7 @@ void sc2355_download_hw_param(struct sprd_priv *priv)
 #ifdef ENABLE_CHR
 			CHR_OPENERR_FLAGSET(&hif->chr->open_err_flag, OPEN_ERR_DOWNLOAD_INI);
 #endif
-			sc2355_assert_cmd(priv, NULL, CMD_DOWNLOAD_INI,
+			sc2355_assert_cmd(priv, CMD_DOWNLOAD_INI,
 					  DOWNLOAD_INI_DATA_FAILED);
 			return;
 		}
@@ -1484,7 +1477,7 @@ void sc2355_download_hw_param(struct sprd_priv *priv)
 #ifdef ENABLE_CHR
 		CHR_OPENERR_FLAGSET(&hif->chr->open_err_flag, OPEN_ERR_DOWNLOAD_INI);
 #endif
-		sc2355_assert_cmd(priv, NULL, CMD_DOWNLOAD_INI,
+		sc2355_assert_cmd(priv, CMD_DOWNLOAD_INI,
 				  DOWNLOAD_INI_DATA_FAILED);
 		return;
 	}
@@ -1515,7 +1508,7 @@ void sc2355_sipc_download_hw_param(struct sprd_priv *priv)
 		wl_err("load ini data failed, return\n");
 		kfree(wifi_data);
 		wifi_data = NULL;
-		sc2355_assert_cmd(priv, NULL, CMD_DOWNLOAD_INI, LOAD_INI_DATA_FAILED);
+		sc2355_assert_cmd(priv, CMD_DOWNLOAD_INI, LOAD_INI_DATA_FAILED);
 		return;
 	}
 
@@ -1535,7 +1528,7 @@ void sc2355_sipc_download_hw_param(struct sprd_priv *priv)
 		wl_err("download the first section of ini fail,return\n");
 		kfree(wifi_data);
 		wifi_data = NULL;
-		sc2355_assert_cmd(priv, NULL, CMD_DOWNLOAD_INI, LOAD_INI_DATA_FAILED);
+		sc2355_assert_cmd(priv, CMD_DOWNLOAD_INI, LOAD_INI_DATA_FAILED);
 		return;
 	}
 
@@ -1545,7 +1538,7 @@ void sc2355_sipc_download_hw_param(struct sprd_priv *priv)
 		wl_err("download the second section of ini fail,return\n");
 		kfree(wifi_data);
 		wifi_data = NULL;
-		sc2355_assert_cmd(priv, NULL, CMD_DOWNLOAD_INI, LOAD_INI_DATA_FAILED);
+		sc2355_assert_cmd(priv, CMD_DOWNLOAD_INI, LOAD_INI_DATA_FAILED);
 		return;
 	}
 
@@ -1558,7 +1551,7 @@ void sc2355_sipc_download_hw_param(struct sprd_priv *priv)
 			wl_err("download the third section of ini fail,return\n");
 			kfree(wifi_data);
 			wifi_data = NULL;
-			sc2355_assert_cmd(priv, NULL, CMD_DOWNLOAD_INI, LOAD_INI_DATA_FAILED);
+			sc2355_assert_cmd(priv, CMD_DOWNLOAD_INI, LOAD_INI_DATA_FAILED);
 			return;
 		}
 	}
@@ -1570,7 +1563,7 @@ void sc2355_sipc_download_hw_param(struct sprd_priv *priv)
 		wl_err("download the 4th section of ini fail,return\n");
 		kfree(wifi_data);
 		wifi_data = NULL;
-		sc2355_assert_cmd(priv, NULL, CMD_DOWNLOAD_INI, LOAD_INI_DATA_FAILED);
+		sc2355_assert_cmd(priv, CMD_DOWNLOAD_INI, LOAD_INI_DATA_FAILED);
 		return;
 	}
 	kfree(wifi_data);
@@ -1600,6 +1593,11 @@ int sc2355_get_fw_info(struct sprd_priv *priv)
 	unsigned int len_count = 0;
 	bool b_tlv_data_chk = true;
 	u16 tlv_len = sizeof(struct ap_version_tlv_elmt);
+	/*
+	 * marlin3lite sdio userdebug throughtput lower than user;
+	 * user version:cp has 124 buf for tx;
+	 * userdebug version: cp has 85 buf for tx.
+	 */
 #ifdef CONFIG_SPRD_WLAN_DEBUG
 	u8 ap_version = NOTIFY_AP_VERSION_USER_DEBUG;
 #else
@@ -4606,7 +4604,7 @@ unsigned short sc2355_rx_rsp_process(struct sprd_priv *priv, u8 *msg)
 	wl_all("cmd->refcnt=%x\n", atomic_read(&cmd->refcnt));
 
 	if (handle_flag)
-		sc2355_assert_cmd(priv, NULL, hdr->cmd_id, HANDLE_FLAG_ERROR);
+		sc2355_assert_cmd(priv, hdr->cmd_id, HANDLE_FLAG_ERROR);
 
 	return plen;
 }

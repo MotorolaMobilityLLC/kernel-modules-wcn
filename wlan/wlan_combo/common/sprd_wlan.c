@@ -48,6 +48,7 @@
 #include "report.h"
 #include "tcp_ack.h"
 
+/* value can be passed to wfa_cap via "insmod sprd_wlan_combo.ko wfa_cap=1" */
 unsigned int wfa_cap;
 module_param(wfa_cap, uint, 0644);
 MODULE_PARM_DESC(wfa_cap, "set capability for WFA test");
@@ -93,7 +94,7 @@ MODULE_DEVICE_TABLE(of, wlan_global_match_table);
 
 extern int sc2332_sipc_probe(struct platform_device *pdev);
 extern int sc2355_sdio_probe(struct platform_device *pdev);
-extern int pcie_probe(struct platform_device *pdev);
+extern int sc2355_pcie_probe(struct platform_device *pdev);
 extern int sc2355_sipc_probe(struct platform_device *pdev);
 
 static int sprd_wlan_probe(struct platform_device *pdev)
@@ -123,7 +124,7 @@ static int sprd_wlan_probe(struct platform_device *pdev)
 	} else if (p_match_data->hw_type == SPRD_HW_SC2355_SIPC) {
 		return sc2355_sipc_probe(pdev);
 	} else if (p_match_data->hw_type == SPRD_HW_SC2355_PCIE) {
-		return pcie_probe(pdev);
+		return sc2355_pcie_probe(pdev);
 	} else {
 
 		wl_err("%s error hw_type %d.\n", __func__, p_match_data->hw_type);

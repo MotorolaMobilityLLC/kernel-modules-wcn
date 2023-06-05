@@ -1985,9 +1985,6 @@ int sc2355_tx_init(struct sprd_hif *hif)
 
 	tx_mgmt->cmd_timeout = msecs_to_jiffies(SPRD_TX_CMD_TIMEOUT);
 	tx_mgmt->data_timeout = msecs_to_jiffies(SPRD_TX_DATA_TIMEOUT);
-	atomic_set(&tx_mgmt->flow0, 0);
-	atomic_set(&tx_mgmt->flow1, 0);
-	atomic_set(&tx_mgmt->flow2, 0);
 
 	ret = sprd_init_msg(SPRD_TX_MSG_CMD_NUM, &tx_mgmt->tx_list_cmd);
 	if (ret) {

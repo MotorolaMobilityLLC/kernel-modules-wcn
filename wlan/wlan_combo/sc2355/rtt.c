@@ -653,12 +653,17 @@ static void rtt_event_end(struct sprd_priv *priv)
 	int i;
 	struct nlattr *nl_res;
 
+	if (!vif) {
+		wl_err("%s, can't get vif\n", __func__);
+		return;
+	}
 	reply = cfg80211_vendor_event_alloc(wiphy, &vif->wdev,
 					    priv->rtt_results.peer_num *
 					    sizeof(struct rtt_wifi_hal_result) +
 					    NLMSG_HDRLEN,
 					    SPRD_RTT_EVENT_COMPLETE_INDEX,
 					    GFP_KERNEL);
+	sprd_put_vif(vif);
 	if (!reply) {
 		wl_err("%s, %d\n", __func__, __LINE__);
 		return;

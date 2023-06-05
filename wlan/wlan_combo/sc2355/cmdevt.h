@@ -983,8 +983,7 @@ void sc2355_report_gscan_frame_evt(struct sprd_vif *vif, u8 *data, u16 len);
 int sc2355_gscan_done(struct sprd_vif *vif, u8 bucket_id);
 void sc2355_evt_rssi_monitor(struct sprd_vif *vif, u8 *data, u16 len);
 int sc2355_report_acs_lte_event(struct sprd_vif *vif);
-int sc2355_assert_cmd(struct sprd_priv *priv, struct sprd_vif *vif, u8 cmd_id,
-		      u8 reason);
+int sc2355_assert_cmd(struct sprd_priv *priv, u8 cmd_id, u8 reason);
 
 struct sprd_msg *sc2355_get_cmdbuf(struct sprd_priv *priv, struct sprd_vif *vif,
 				   u16 len, u8 cmd_id, enum sprd_head_rsp rsp,

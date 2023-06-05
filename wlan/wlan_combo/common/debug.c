@@ -555,6 +555,7 @@ static int sprd_force_apf_disable_set(void *data, u64 val)
 		force_apf_disable = false;
 	else {
 		wl_info("apf val = %llx.\n", val);
+		sprd_put_vif(vif);
 		return -EINVAL;
 	}
 
@@ -562,7 +563,7 @@ static int sprd_force_apf_disable_set(void *data, u64 val)
 	if (ret) {
 		wl_err("%s apf_send err %d.\n", __func__, ret);
 	}
-
+	sprd_put_vif(vif);
 	return ret;
 }
 
@@ -585,7 +586,7 @@ static int sprd_force_apf_disable_get(void *data, u64 *val)
 	} else {
 		*val = (u64) force_dis_apf_status;
 	}
-
+	sprd_put_vif(vif);
 	return ret;
 }
 

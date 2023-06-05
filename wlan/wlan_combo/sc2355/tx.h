@@ -91,9 +91,6 @@ struct tx_mgmt {
 	unsigned long drop_data2_cnt;
 	unsigned long ring_cp;
 	unsigned long ring_ap;
-	atomic_t flow0;
-	atomic_t flow1;
-	atomic_t flow2;
 	unsigned long tx_num;
 	unsigned long txc_num;
 
