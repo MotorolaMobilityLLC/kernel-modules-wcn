@@ -98,7 +98,7 @@ static int isQogirl6(void)
 static void pmic_sc27xx_tsen_enable(struct regmap *regmap,
 					unsigned int base, int type)
 {
-	unsigned int value, temp;
+	unsigned int value = 0, temp = 0;
 	struct device *dev = gnss_common_ctl_dev.dev;
 
 	dev_err(dev, "%s sc27xx-syscon base 0x%x\n", __func__, base);
@@ -633,7 +633,7 @@ static ssize_t gnss_regr_show(struct device *dev, struct device_attribute *attr,
 			      char *buf)
 {
 	unsigned int op_reg = gnss_op_reg;
-	unsigned int buffer;
+	unsigned int buffer = 0;
 	int ret = 0;
 
 	dev_info(dev, "%s, register is 0x%x\n", __func__, gnss_op_reg);
