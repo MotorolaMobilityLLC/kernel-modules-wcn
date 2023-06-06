@@ -259,51 +259,50 @@ static int sprd_chr_client_thread(void *params)
 	struct msghdr recv_msg = {0};
 	struct kvec recv_vec = {0};
 	struct chr_cmd command = {0};
+	struct socket *sock = NULL;
 	struct sprd_chr *chr;
 	struct sprd_priv *priv;
 
 	chr = (struct sprd_chr *)params;
 	priv = chr->priv;
-
-	chr->chr_sock = kzalloc(sizeof(struct socket), GFP_KERNEL);
-	if (!chr->chr_sock) {
-		wl_err("%s, CHR: alloc chr_sock failed!", __func__);
-		return -ENOMEM;
-	}
-
 /*
  * After receiving disable_chr each time,it's necessary
  * to establish a new connection with the upper.
  */
 retry:
 
-	ret = sock_create_kern(&init_net, AF_INET, SOCK_STREAM, 0, &chr->chr_sock);
+	ret = sock_create_kern(&init_net, AF_INET, SOCK_STREAM, 0, &sock);
 	if (ret < 0) {
 		wl_err("CHR: sock_client create failed %d\n", ret);
-		sock_release(chr->chr_sock);
-		kfree(chr->chr_sock);
-		chr->chr_sock = NULL;
+		chr->chr_client_thread = NULL;
 		return -EINVAL;
 	}
 
+	chr->chr_sock = sock;
 	s_addr.sin_family = AF_INET;
 	s_addr.sin_port = htons(4758);
 	s_addr.sin_addr.s_addr = in_aton("127.0.0.1");
 
+	wl_info("%s, CHR: wait the server starting", __func__);
 	/* Optimize:block here while server not ready */
-	while (chr->chr_sock->ops->connect(chr->chr_sock,
-	       (struct sockaddr *)&s_addr, sizeof(s_addr), 0)) {
+	while (1) {
+		if (chr->thread_exit) {
+			wl_info("%s, CHR: stop wait connect, go exit!", __func__);
+			goto exit;
+		}
+		complete(&chr->socket_completed);
 		msleep(1000);
 
-		if (chr->thread_exit)
-			goto exit;
-	}
+		ret = sock->ops->connect(sock, (struct sockaddr *)&s_addr,
+				     sizeof(s_addr), 0);
 
+		if (!ret)
+			break;
+	}
 	wl_info("CHR: wifi_client connected\n");
 
 	recv_vec.iov_base = recv_buf;
 	recv_vec.iov_len = CHR_BUF_SIZE;
-
 /*
  * sock_flag = 2 means have recevied disable_chr,
  * it will break out here to establish
@@ -314,10 +313,19 @@ retry:
 		memset(recv_buf, 0, sizeof(recv_buf));
 		memset(&recv_msg, 0, sizeof(recv_msg));
 		wl_info("CHR: wait for recv_msg");
-		ret = kernel_recvmsg(chr->chr_sock, &recv_msg, &recv_vec, 1, CHR_BUF_SIZE, 0);
+		ret = kernel_recvmsg(sock, &recv_msg, &recv_vec, 1, CHR_BUF_SIZE, 0);
 
 		if (unlikely(chr->thread_exit))
 			goto exit;
+		/* when an unknown err occurs in kernel_recvmsg,
+		* a large amount of information will be printfed
+		* cyclically, affecting the use of "kernel.log".
+		* So go to "retry" to re-connect with server.
+		*/
+		if (unlikely(ret <= 0)) {
+			wl_err("%s, CHR: kernel_recvmsg faild, go to exit", __func__);
+			goto exit;
+		}
 
 		wl_info("%s, CHR: recvmsg: %s", __func__, recv_buf);
 		wl_info("CHR: msg_len is %d", (int)strlen(recv_buf));
@@ -348,16 +356,20 @@ retry:
 		}
 	}
 
-	if (chr->chr_sock)
-		sock_release(chr->chr_sock);
+	if (sock)
+		sock_release(sock);
 	chr->sock_flag = 0;
 	wl_info("%s, CHR: init socket, try to connect server\n", __func__);
 
 	goto retry;
 
 exit:
+
 	chr->thread_exit = 0;
-	usleep_range(50, 100);
+	chr->chr_sock = NULL;
+	sock_release(sock);
+	sock = NULL;
+	complete(&chr->thread_completed);
 	wl_info("%s, CHR: exit client_thread\n", __func__);
 
 	return 0;
@@ -386,7 +398,7 @@ void sprd_chr_handle_open(struct sprd_chr *chr)
 	int ret;
 	/*
 	 * Every time Wi-Fi is turned off,
-	 * CP2 will clen up the global valrables
+	 * CP2 will clean up the global valrables
 	 * that record the chr_evt to be monitored
 	 */
 	if (chr->fw_len) {
@@ -458,6 +470,8 @@ int sprd_chr_init(struct sprd_chr *chr)
 		wl_err("CHR: client thread create failed\n");
 		return -1;
 	}
+	init_completion(&chr->socket_completed);
+	init_completion(&chr->thread_completed);
 	wake_up_process(chr->chr_client_thread);
 
 	return 0;
@@ -465,34 +479,48 @@ int sprd_chr_init(struct sprd_chr *chr)
 
 void sprd_chr_deinit(struct sprd_chr *chr, int exit_type)
 {
+	int ret;
+
 	if (!chr) {
 		wl_err("%s, CHR: struct chr has been free!", __func__);
 		return;
 	}
 
-	if (chr->chr_client_thread) {
-		chr->thread_exit = 1;
+	/* wait the sprd_chr_client_thread entering the connect blocking status */
+	ret = wait_for_completion_timeout(&chr->socket_completed, CHR_WAIT_TIMEOUT);
 
-		if (chr->chr_sock) {
-			/*
-			 * sprd_chr_thread may have just received the msg from upper and
-			 * is processing it at this time, and it needs to wait for its processing
-			 * to complete before re-entering blocking.The max long time is 20ms;
-			 */
-			msleep(100);
-
-			if (chr->chr_sock->ops && exit_type == REMOVE_DEINIT)
-				chr->chr_sock->ops->shutdown(chr->chr_sock, SHUT_RDWR);
-			/* wait the sprd_chr_client_thread exit */
-			while (chr->thread_exit)
-				msleep(100);
-
-			chr->chr_client_thread = NULL;
-			sock_release(chr->chr_sock);
-			chr->chr_sock = NULL;
-		}
+	if (!ret) {
+		wl_err("%s, CHR: don't wait for the chr-thread to"
+			"enter the connect blocking state", __func__);
+		goto exit;
 	}
 
+	if (chr->chr_client_thread && chr->chr_sock) {
+		reinit_completion(&chr->thread_completed);
+		chr->thread_exit = 1;
+		/*
+		 * when sprd_iface_remove is running, sprd_chr_thread may have just
+		 * received the msg from upper and is processing it at this time,
+		 * and it needs to wait for its processing to complete before
+		 * re-entering blocking.Only REMOVE_DEINIT need to be do this.
+		 * The max long time is 20ms;
+		 */
+		if (exit_type == REMOVE_DEINIT) {
+			msleep(100);
+			kernel_sock_shutdown(chr->chr_sock, SHUT_RDWR);
+		}
+		/* wait the sprd_chr_client_thread exit */
+		ret = wait_for_completion_timeout(&chr->thread_completed, CHR_WAIT_TIMEOUT);
+
+		if (!ret) {
+			wl_err("%s, CHR: don't wait for the chr-thread to"
+				"enter the recvmsg blocking state", __func__);
+			return;
+		}
+	}
+	chr->chr_client_thread = NULL;
+
+exit:
 	if (chr->chr_refcnt) {
 		kfree(chr->chr_refcnt);
 		chr->chr_refcnt = NULL;
@@ -502,3 +530,4 @@ void sprd_chr_deinit(struct sprd_chr *chr, int exit_type)
 	wl_info("%s, CHR: stop chr_client_thread!\n", __func__);
 	return;
 }
+
