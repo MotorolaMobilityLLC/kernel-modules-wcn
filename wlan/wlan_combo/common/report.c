@@ -37,7 +37,6 @@ void sprd_report_scan_done(struct sprd_vif *vif, bool abort)
 		spin_unlock_bh(&priv->scan_lock);
 	}
 }
-EXPORT_SYMBOL(sprd_report_scan_done);
 
 void sprd_report_sched_scan_done(struct sprd_vif *vif, bool abort)
 {
@@ -56,7 +55,6 @@ void sprd_report_sched_scan_done(struct sprd_vif *vif, bool abort)
 		spin_unlock_bh(&priv->sched_scan_lock);
 	}
 }
-EXPORT_SYMBOL(sprd_report_sched_scan_done);
 
 void sprd_report_softap(struct sprd_vif *vif, u8 is_connect, u8 *addr,
 			u8 *req_ie, u16 req_ie_len)
@@ -88,7 +86,6 @@ void sprd_report_softap(struct sprd_vif *vif, u8 is_connect, u8 *addr,
 			    addr);
 	}
 }
-EXPORT_SYMBOL(sprd_report_softap);
 
 void sprd_report_connection(struct sprd_vif *vif,
 			    struct sprd_connect_info *conn_info, u8 status_code)
@@ -303,7 +300,6 @@ err:
 	if (bss)
 		cfg80211_put_bss(wiphy, bss);
 }
-EXPORT_SYMBOL(sprd_report_connection);
 
 void sprd_report_disconnection(struct sprd_vif *vif, u16 reason_code)
 {
@@ -362,7 +358,6 @@ void sprd_report_disconnection(struct sprd_vif *vif, u16 reason_code)
 	/* clear link layer status data */
 	memset(&vif->priv->pre_radio, 0, sizeof(vif->priv->pre_radio));
 }
-EXPORT_SYMBOL(sprd_report_disconnection);
 
 void sprd_report_mic_failure(struct sprd_vif *vif, u8 is_mcast, u8 key_id)
 {
@@ -375,7 +370,6 @@ void sprd_report_mic_failure(struct sprd_vif *vif, u8 is_mcast, u8 key_id)
 				      NL80211_KEYTYPE_PAIRWISE),
 				     key_id, NULL, GFP_KERNEL);
 }
-EXPORT_SYMBOL(sprd_report_mic_failure);
 
 void sprd_report_remain_on_channel_expired(struct sprd_vif *vif)
 {
@@ -384,7 +378,6 @@ void sprd_report_remain_on_channel_expired(struct sprd_vif *vif)
 	cfg80211_remain_on_channel_expired(&vif->wdev, vif->listen_cookie,
 					   &vif->listen_channel, GFP_KERNEL);
 }
-EXPORT_SYMBOL(sprd_report_remain_on_channel_expired);
 
 void sprd_report_mgmt_tx_status(struct sprd_vif *vif, u64 cookie,
 				const u8 *buf, u32 len, u8 ack)
@@ -393,7 +386,6 @@ void sprd_report_mgmt_tx_status(struct sprd_vif *vif, u64 cookie,
 
 	cfg80211_mgmt_tx_status(&vif->wdev, cookie, buf, len, ack, GFP_KERNEL);
 }
-EXPORT_SYMBOL(sprd_report_mgmt_tx_status);
 
 void sprd_report_mgmt(struct sprd_vif *vif, u8 chan, const u8 *buf, size_t len)
 {
@@ -411,7 +403,6 @@ void sprd_report_mgmt(struct sprd_vif *vif, u8 chan, const u8 *buf, size_t len)
 	if (!ret)
 		netdev_err(vif->ndev, "%s unregistered frame!", __func__);
 }
-EXPORT_SYMBOL(sprd_report_mgmt);
 
 void sprd_report_mgmt_deauth(struct sprd_vif *vif, const u8 *buf, size_t len)
 {
@@ -429,7 +420,6 @@ void sprd_report_mgmt_deauth(struct sprd_vif *vif, const u8 *buf, size_t len)
 
 	sprd_queue_work(vif->priv, misc_work);
 }
-EXPORT_SYMBOL(sprd_report_mgmt_deauth);
 
 void sprd_report_mgmt_disassoc(struct sprd_vif *vif, const u8 *buf, size_t len)
 {
@@ -447,7 +437,6 @@ void sprd_report_mgmt_disassoc(struct sprd_vif *vif, const u8 *buf, size_t len)
 
 	sprd_queue_work(vif->priv, misc_work);
 }
-EXPORT_SYMBOL(sprd_report_mgmt_disassoc);
 
 void sprd_report_cqm(struct sprd_vif *vif, u8 rssi_event)
 {
@@ -455,7 +444,6 @@ void sprd_report_cqm(struct sprd_vif *vif, u8 rssi_event)
 
 	cfg80211_cqm_rssi_notify(vif->ndev, rssi_event, 0, GFP_KERNEL);
 }
-EXPORT_SYMBOL(sprd_report_cqm);
 
 void sprd_report_tdls(struct sprd_vif *vif, const u8 *peer, u8 oper,
 		      u16 reason_code)
@@ -465,4 +453,3 @@ void sprd_report_tdls(struct sprd_vif *vif, const u8 *peer, u8 oper,
 	cfg80211_tdls_oper_request(vif->ndev, peer, (enum nl80211_tdls_operation)oper,
 				   reason_code, GFP_KERNEL);
 }
-EXPORT_SYMBOL(sprd_report_tdls);

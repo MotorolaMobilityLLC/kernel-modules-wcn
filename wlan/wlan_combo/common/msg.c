@@ -47,7 +47,6 @@ err_alloc_buf:
 	}
 	return -ENOMEM;
 }
-EXPORT_SYMBOL(sprd_init_msg);
 
 void sprd_deinit_msg(struct sprd_msg_list *list)
 {
@@ -95,7 +94,6 @@ void sprd_deinit_msg(struct sprd_msg_list *list)
 		kfree(msg);
 	}
 }
-EXPORT_SYMBOL(sprd_deinit_msg);
 
 struct sprd_msg *sprd_alloc_msg(struct sprd_msg_list *list)
 {
@@ -124,7 +122,6 @@ struct sprd_msg *sprd_alloc_msg(struct sprd_msg_list *list)
 		atomic_dec(&list->ref);
 	return msg;
 }
-EXPORT_SYMBOL(sprd_alloc_msg);
 
 void sprd_free_msg(struct sprd_msg *msg, struct sprd_msg_list *list)
 {
@@ -135,7 +132,6 @@ void sprd_free_msg(struct sprd_msg *msg, struct sprd_msg_list *list)
 	atomic_dec(&list->ref);
 	spin_unlock_irqrestore(&list->freelock, flags);
 }
-EXPORT_SYMBOL(sprd_free_msg);
 
 void sprd_queue_msg(struct sprd_msg *msg, struct sprd_msg_list *list)
 {
@@ -145,7 +141,6 @@ void sprd_queue_msg(struct sprd_msg *msg, struct sprd_msg_list *list)
 	list_add_tail(&msg->list, &list->busylist);
 	spin_unlock_irqrestore(&list->busylock, flags);
 }
-EXPORT_SYMBOL(sprd_queue_msg);
 
 struct sprd_msg *sprd_peek_msg(struct sprd_msg_list *list)
 {
@@ -159,7 +154,6 @@ struct sprd_msg *sprd_peek_msg(struct sprd_msg_list *list)
 
 	return msg;
 }
-EXPORT_SYMBOL(sprd_peek_msg);
 
 void sprd_dequeue_msg(struct sprd_msg *msg, struct sprd_msg_list *list)
 {
@@ -170,4 +164,3 @@ void sprd_dequeue_msg(struct sprd_msg *msg, struct sprd_msg_list *list)
 	spin_unlock_irqrestore(&list->busylock, flags);
 	sprd_free_msg(msg, list);
 }
-EXPORT_SYMBOL(sprd_dequeue_msg);

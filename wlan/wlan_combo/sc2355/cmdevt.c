@@ -2828,7 +2828,6 @@ int sprd_send_data2cmd(struct sprd_priv *priv, struct sprd_vif *vif, void *data,
 	return send_cmd_recv_rsp(priv, msg, NULL, NULL);
 }
 
-/* It is tx private function, just use in sc2355_hif_fill_msdu_dscr()  */
 unsigned char sc2355_find_lut_index(struct sprd_hif *hif, struct sprd_vif *vif)
 {
 	unsigned char i;

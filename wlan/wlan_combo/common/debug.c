@@ -25,43 +25,36 @@ int get_max_fw_tx_dscr(void)
 {
 	return max_fw_tx_dscr;
 }
-EXPORT_SYMBOL(get_max_fw_tx_dscr);
 
 int get_tdls_threshold(void)
 {
 	return tdls_threshold;
 }
-EXPORT_SYMBOL(get_tdls_threshold);
 
 int get_vo_ratio(void)
 {
 	return vo_ratio;
 }
-EXPORT_SYMBOL(get_vo_ratio);
 
 int get_vi_ratio(void)
 {
 	return vi_ratio;
 }
-EXPORT_SYMBOL(get_vi_ratio);
 
 int get_be_ratio(void)
 {
 	return be_ratio;
 }
-EXPORT_SYMBOL(get_be_ratio);
 
 int get_wmmac_ratio(void)
 {
 	return wmmac_ratio;
 }
-EXPORT_SYMBOL(get_wmmac_ratio);
 
 int is_tcp_ack_enabled(void)
 {
 	return atomic_read(&tcp_ack_enable);
 }
-EXPORT_SYMBOL(is_tcp_ack_enabled);
 
 void adjust_tcp_ack(char *buf, unsigned char offset)
 {
@@ -72,7 +65,6 @@ void adjust_tcp_ack(char *buf, unsigned char offset)
 	else
 		atomic_set(&tcp_ack_enable, 1);
 }
-EXPORT_SYMBOL(adjust_tcp_ack);
 
 void adjust_max_fw_tx_dscr(char *buf, unsigned char offset)
 {
@@ -91,7 +83,6 @@ void adjust_max_fw_tx_dscr(char *buf, unsigned char offset)
 	max_fw_tx_dscr = value;
 	wl_err("%s, change max_fw_tx_dscr to %d\n", __func__, value);
 }
-EXPORT_SYMBOL(adjust_max_fw_tx_dscr);
 
 static struct sprd_debug *sprd_dbg;
 static struct debug_ctrl dbg_ctrl;
@@ -103,7 +94,6 @@ int sprd_get_debug_level(void)
 {
 	return sprd_dbg_level;
 }
-EXPORT_SYMBOL(sprd_get_debug_level);
 
 static void debug_ctrl_init(void)
 {
@@ -487,7 +477,6 @@ void sprd_debug_ts_enter(enum debug_ts_index index)
 
 	dbg_ts[index].ts_enter = jiffies;
 }
-EXPORT_SYMBOL(sprd_debug_ts_enter);
 
 void sprd_debug_ts_leave(enum debug_ts_index index)
 {
@@ -503,7 +492,6 @@ void sprd_debug_ts_leave(enum debug_ts_index index)
 
 	(ts->pos < (MAX_TS_NUM - 1)) ? ts->pos++ : (ts->pos = 0);
 }
-EXPORT_SYMBOL(sprd_debug_ts_leave);
 
 void sprd_debug_cnt_inc(enum debug_cnt_index index)
 {
@@ -512,7 +500,6 @@ void sprd_debug_cnt_inc(enum debug_cnt_index index)
 
 	dbg_cnt[index].cnt++;
 }
-EXPORT_SYMBOL(sprd_debug_cnt_inc);
 
 void sprd_debug_cnt_dec(enum debug_cnt_index index)
 {
@@ -521,7 +508,6 @@ void sprd_debug_cnt_dec(enum debug_cnt_index index)
 
 	dbg_cnt[index].cnt--;
 }
-EXPORT_SYMBOL(sprd_debug_cnt_dec);
 
 void sprd_debug_record_add(enum debug_record_index index, int num)
 {
@@ -534,7 +520,6 @@ void sprd_debug_record_add(enum debug_record_index index, int num)
 	(record->pos < (MAX_RECORD_NUM - 1)) ?
 	    record->pos++ : (record->pos = 0);
 }
-EXPORT_SYMBOL(sprd_debug_record_add);
 
 static int sprd_force_apf_disable_set(void *data, u64 val)
 {
@@ -627,7 +612,6 @@ void sprd_debug_init(struct sprd_debug *dbg)
 	else
 		debug_ctrl_init();
 }
-EXPORT_SYMBOL(sprd_debug_init);
 
 void sprd_debug_deinit(struct sprd_debug *dbg)
 {
@@ -639,4 +623,3 @@ void sprd_debug_deinit(struct sprd_debug *dbg)
 	debugfs_remove_recursive(dbg->dir);
 #endif
 }
-EXPORT_SYMBOL(sprd_debug_deinit);

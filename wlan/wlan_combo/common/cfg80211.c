@@ -114,7 +114,6 @@ out:
 
 	wl_all("%s %pM %pM\n", p, &buf[4], &buf[10]);
 }
-EXPORT_SYMBOL(sprd_dump_frame_prot_info);
 
 static void cfg80211_do_work(struct work_struct *work)
 {
@@ -446,7 +445,6 @@ int sprd_cfg80211_change_iface(struct wiphy *wiphy, struct net_device *ndev,
 
 	return ret;
 }
-EXPORT_SYMBOL(sprd_cfg80211_change_iface);
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
 int sprd_cfg80211_add_key(struct wiphy *wiphy, struct net_device *ndev,
@@ -1501,9 +1499,6 @@ int sprd_init_fw(struct sprd_vif *vif)
 
 	return 0;
 }
-#ifdef DRV_RESET_SELF
-EXPORT_SYMBOL(sprd_init_fw);
-#endif
 
 extern void sc2355_handle_tx_status_after_close(struct sprd_vif *vif);
 int sprd_uninit_fw(struct sprd_vif *vif)

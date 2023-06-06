@@ -46,7 +46,6 @@ void sprd_put_vif(struct sprd_vif *vif)
 		spin_unlock_bh(&vif->priv->list_lock);
 	}
 }
-EXPORT_SYMBOL(sprd_put_vif);
 
 struct sprd_vif *sprd_mode_to_vif(struct sprd_priv *priv, u8 vif_mode)
 {
@@ -64,7 +63,6 @@ struct sprd_vif *sprd_mode_to_vif(struct sprd_priv *priv, u8 vif_mode)
 
 	return found;
 }
-EXPORT_SYMBOL(sprd_mode_to_vif);
 
 static void iface_set_priv(struct sprd_priv *priv)
 {
@@ -271,9 +269,6 @@ int sprd_iface_set_power(struct sprd_hif *hif, int val)
 		sprd_hif_power_off(hif);
 	return ret;
 }
-#ifdef DRV_RESET_SELF
-EXPORT_SYMBOL(sprd_iface_set_power);
-#endif
 
 static int iface_open(struct net_device *ndev)
 {
@@ -391,7 +386,6 @@ void sprd_net_flowcontrl(struct sprd_priv *priv, enum sprd_mode mode,
 	else
 		iface_netflowcontrl_all(priv, state);
 }
-EXPORT_SYMBOL(sprd_net_flowcontrl);
 
 struct udphdr *sprd_get_udphdr(struct sk_buff *skb, unsigned char *iphdrlen)
 {
@@ -519,7 +513,6 @@ void sprd_netif_rx(struct net_device *ndev, struct sk_buff *skb)
 	netif_receive_skb(skb);
 	local_bh_enable();
 }
-EXPORT_SYMBOL(sprd_netif_rx);
 
 /* report sniffer monitor mgmt frame */
 void sprd_rx_monitor_process(struct sprd_vif *vif,
@@ -558,7 +551,6 @@ void sprd_rx_monitor_process(struct sprd_vif *vif,
 	netif_receive_skb(skb);
 	local_bh_enable();
 }
-EXPORT_SYMBOL(sprd_rx_monitor_process);
 
 static int iface_prepare_xmit(struct sprd_vif *vif, struct net_device *ndev,
 			      struct sk_buff *skb)
@@ -1944,7 +1936,6 @@ int sprd_iface_probe(struct platform_device *pdev,
 
 	return ret;
 }
-EXPORT_SYMBOL(sprd_iface_probe);
 
 int sprd_iface_remove(struct platform_device *pdev)
 {
@@ -1971,7 +1962,6 @@ int sprd_iface_remove(struct platform_device *pdev)
 
 	return 0;
 }
-EXPORT_SYMBOL(sprd_iface_remove);
 
 MODULE_DESCRIPTION("Spreadtrum Wireless LAN Common Code");
 MODULE_AUTHOR("Spreadtrum WCN Division");

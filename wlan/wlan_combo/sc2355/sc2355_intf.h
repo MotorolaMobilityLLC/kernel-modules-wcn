@@ -83,8 +83,6 @@ int sc2355_pcie_add_topop_list(int chn, struct mbuf_t *head,
 			  struct mbuf_t *tail, int num);
 int sc2355_sipc_add_topop_list(int chn, struct mbuf_t *head,
 			  struct mbuf_t *tail, int num);
-int sc2355_tx_data_pop_list(int channel, struct mbuf_t *head,
-			    struct mbuf_t *tail, int num);
 void sc2355_set_coex_bt_on_off(u8 action);
 void sc2355_pcie_set_coex_bt_on_off(u8 action);
 void sc2355_sipc_set_coex_bt_on_off(u8 action);

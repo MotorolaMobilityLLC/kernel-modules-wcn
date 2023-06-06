@@ -19,7 +19,6 @@ struct sprd_work *sprd_alloc_work(int len)
 
 	return sprd_work;
 }
-EXPORT_SYMBOL(sprd_alloc_work);
 
 void sprd_queue_work(struct sprd_priv *priv, struct sprd_work *sprd_work)
 {
@@ -30,7 +29,6 @@ void sprd_queue_work(struct sprd_priv *priv, struct sprd_work *sprd_work)
 	if (!work_pending(&priv->work))
 		queue_work(priv->common_workq, &priv->work);
 }
-EXPORT_SYMBOL(sprd_queue_work);
 
 void sprd_cancel_work(struct sprd_priv *priv, struct sprd_vif *vif)
 {
@@ -47,7 +45,6 @@ void sprd_cancel_work(struct sprd_priv *priv, struct sprd_vif *vif)
 
 	flush_work(&priv->work);
 }
-EXPORT_SYMBOL(sprd_cancel_work);
 
 void sprd_clean_work(struct sprd_priv *priv)
 {
@@ -64,4 +61,3 @@ void sprd_clean_work(struct sprd_priv *priv)
 
 	flush_workqueue(priv->common_workq);
 }
-EXPORT_SYMBOL(sprd_clean_work);
