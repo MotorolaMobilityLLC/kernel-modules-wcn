@@ -35,35 +35,6 @@
 #define RESTORE_ADDR(buf, data, len)	memcpy(&buf, (data - len), len)
 #define CLEAR_ADDR(data, len)		memset((data - len), 0x0, len)
 #define HIGHER_DDR_PRIORITY	0xAA
-#define SDIO_HEX_DUMP_BUF_SIZE 255
-inline static void sc2355_hex_dump(unsigned char *name,
-                     unsigned char *data, unsigned short len)
-{
-        int i, p = 0, ret;
-        unsigned char buf[SDIO_HEX_DUMP_BUF_SIZE] = { 0 };
-
-        if (!data || !len || !name)
-                return;
-
-        sprintf(buf, "sc2355 wlan %s hex dump(len = %d)", name, len);
-        wl_info("%s\n", buf);
-
-        if (len > 1024)
-                len = 1024;
-        memset(buf, 0x00, SDIO_HEX_DUMP_BUF_SIZE);
-        for (i = 0; i < len; i++) {
-                ret = sprintf((buf + p), "%02x ", *(data + i));
-                if (i != 0 && ((i + 1) % 16 == 0)) {
-                        wl_info("%s\n", buf);
-                        p = 0;
-                        memset(buf, 0x00, SDIO_HEX_DUMP_BUF_SIZE);
-                } else {
-                        p = p + ret;
-                }
-        }
-        if (p != 0)
-                wl_info("%s\n", buf);
-}
 
 unsigned short sc2355_get_data_csum(void *entry, void *data);
 unsigned short sc2355_pcie_get_data_csum(void *entry, void *data);

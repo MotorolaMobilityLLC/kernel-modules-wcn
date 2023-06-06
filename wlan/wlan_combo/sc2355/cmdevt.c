@@ -535,9 +535,8 @@ static int cmdevt_send_cmd(struct sprd_priv *priv, struct sprd_msg *msg)
 		le32_to_cpu(hdr->mstime),
 		hdr->common.mode, cmdevt_cmd2str(hdr->cmd_id));
 
-	if (sprd_get_debug_level() >= L_ALL)
-		print_hex_dump_debug("CMD: ", DUMP_PREFIX_OFFSET, 16, 1,
-				     (u8 *)hdr, hdr->plen, 0);
+	print_hex_dump_debug("CMD: ", DUMP_PREFIX_OFFSET, 16, 1,
+			     (u8 *)hdr, hdr->plen, 0);
 
 	ret = sprd_chip_tx(&priv->chip, msg);
 	if (ret)
@@ -870,9 +869,6 @@ int sc2355_cmd_scan(struct sprd_priv *priv, struct sprd_vif *vif, u32 channels,
 	} else {
 		ext_5g->n_5g_chn = 0;
 	}
-
-	print_hex_dump_debug("scan hex:", DUMP_PREFIX_OFFSET,
-			     16, 1, p, data_len, true);
 
 	rlen = sizeof(state);
 
@@ -2472,9 +2468,6 @@ int sc2355_tdls_mgmt(struct sprd_vif *vif, struct sk_buff *skb)
 
 	vif->ndev->stats.tx_bytes += skb->len;
 	vif->ndev->stats.tx_packets++;
-
-	print_hex_dump_debug("TX packet: ", DUMP_PREFIX_OFFSET,
-			     16, 1, skb->data, skb->len, 0);
 out:
 	return ret;
 }
@@ -4288,8 +4281,6 @@ static int cmdevt_report_acs_done_evt(struct sprd_vif *vif, u8 *data, u16 len)
 
 	wl_info("%s, tot len %d, acs len %d", __func__, len,
 		(int)sizeof(struct acs_result));
-
-	sc2355_hex_dump("sc2355_evt_acs_done", data, len);
 
 	acs_res = (struct acs_result *)data;
 

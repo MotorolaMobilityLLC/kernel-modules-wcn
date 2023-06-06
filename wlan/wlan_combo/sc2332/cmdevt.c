@@ -17,10 +17,6 @@
 #include "scan.h"
 #include "txrx.h"
 
-unsigned int dump_data;
-module_param(dump_data, uint, 0644);
-MODULE_PARM_DESC(dump_data, "dump data packet");
-
 static int bss_count;
 
 static const char *cmdevt_cmd2str(u8 cmd)
@@ -297,10 +293,9 @@ static int cmdevt_send_cmd(struct sprd_priv *priv, struct sprd_msg *msg)
 	wiphy_info(priv->wiphy, "[%u]mode %d send[%s]\n",
 		   le32_to_cpu(hdr->mstime), mode, cmdevt_cmd2str(hdr->cmd_id));
 
-	if (dump_data)
-		print_hex_dump_debug("CMD: ", DUMP_PREFIX_OFFSET, 16, 1,
-				     ((u8 *)hdr + sizeof(*hdr)),
-				     hdr->plen - sizeof(*hdr), 0);
+	print_hex_dump_debug("CMD: ", DUMP_PREFIX_OFFSET, 16, 1,
+			     ((u8 *)hdr + sizeof(*hdr)),
+			     hdr->plen - sizeof(*hdr), 0);
 
 	ret = sprd_chip_tx(&priv->chip, msg);
 	if (ret) {
@@ -1469,9 +1464,8 @@ int sc2332_tdls_mgmt(struct sprd_vif *vif, struct sk_buff *skb)
 			  __func__, skb_headroom(skb),
 			  vif->ndev->needed_headroom);
 	len = skb->len;
-	if (dump_data)
-		print_hex_dump_debug("TX packet: ", DUMP_PREFIX_OFFSET,
-				     16, 1, skb->data, len, 0);
+	print_hex_dump_debug("sc2332_tdls_mgmt: ", DUMP_PREFIX_OFFSET,
+			     16, 1, skb->data, len, 0);
 	/* sprd_send_data: offset use 2 for cp bytes align */
 	ret = sprd_send_data(vif->priv, vif, msg, skb, type, SPRD_DATA_OFFSET,
 			     false);
@@ -1786,9 +1780,6 @@ int sc2332_xmit_data2cmd(struct sk_buff *skb, struct net_device *ndev)
 	dev_kfree_skb(skb);
 
 	netdev_info(ndev, "%s send successfully\n", __func__);
-	if (dump_data)
-		print_hex_dump_debug("TX packet: ", DUMP_PREFIX_OFFSET,
-				     16, 1, skb->data, skb->len, 0);
 
 	return NETDEV_TX_OK;
 }
@@ -2347,10 +2338,9 @@ unsigned short sc2332_rx_evt_process(struct sprd_priv *priv, u8 *msg,
 		return plen;
 	}
 
-	if (dump_data)
-		print_hex_dump_debug("EVENT: ", DUMP_PREFIX_OFFSET, 16, 1,
-				     ((u8 *)hdr + sizeof(*hdr)),
-				     hdr->plen - sizeof(*hdr), 0);
+	print_hex_dump_debug("EVENT: ", DUMP_PREFIX_OFFSET, 16, 1,
+			     ((u8 *)hdr + sizeof(*hdr)),
+			     hdr->plen - sizeof(*hdr), 0);
 
 	len = plen - sizeof(*hdr);
 	vif = sprd_mode_to_vif(priv, mode);
@@ -2456,10 +2446,9 @@ unsigned short sc2332_rx_rsp_process(struct sprd_priv *priv, u8 *msg,
 		return plen;
 	}
 
-#ifdef DUMP_COMMAND_RESPONSE
-	print_hex_dump(KERN_DEBUG, "CMD RSP: ", DUMP_PREFIX_OFFSET, 16, 1,
-		       ((u8 *)hdr + sizeof(*hdr)), hdr->plen - sizeof(*hdr), 0);
-#endif
+	print_hex_dump_debug("CMD RSP: ", DUMP_PREFIX_OFFSET, 16, 1,
+			     ((u8 *)hdr + sizeof(*hdr)),
+			     hdr->plen - sizeof(*hdr), 0);
 	/* 2048 use mac */
 	if (mode > SPRD_MODE_MAX || hdr->cmd_id > CMD_MAX || plen > 2048) {
 		wl_err("%s wrong CMD_RSP: %d\n", __func__, (int)hdr->cmd_id);

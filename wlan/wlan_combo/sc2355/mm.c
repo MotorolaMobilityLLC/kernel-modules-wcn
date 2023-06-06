@@ -429,9 +429,8 @@ static int mm_buffer_unlink(struct mem_mgmt *mm_entry,
 			sipc_rx_mm_buf_to_skb(rx_mgmt->hif, skb);
 		}
 		if (likely(skb)) {
-			if (sprd_get_debug_level() >= L_ALL)
-				sc2355_hex_dump("sc2355_rx_mh_desc rx:",
-						skb->data, 500);
+			print_hex_dump_debug("sc2355_rx_mh_desc rx : ", DUMP_PREFIX_OFFSET,
+					     16, 1, skb->data, 500, 0);
 			if (hif->hw_type == SPRD_HW_SC2355_PCIE) {
 				csum = sc2355_pcie_get_data_csum((void *)rx_mgmt->hif,
 								skb->data);

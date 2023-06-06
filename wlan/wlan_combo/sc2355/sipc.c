@@ -119,8 +119,8 @@ static int sipc_tx_one(struct sprd_hif *hif, unsigned char *data,
 	mbuf->buf = data;
 	mbuf->len = len;
 	mbuf->next = NULL;
-	if (sprd_get_debug_level() >= L_ALL)
-		sc2355_hex_dump("tx to cp2 cmd data dump", data + 4, len);
+	print_hex_dump_debug("tx to cp2 cmd data dump: ", DUMP_PREFIX_OFFSET,
+			     16, 1, data + 4, len, 0);
 	ret = sprdwcn_bus_push_list(chn, head, tail, num);
 	if (ret) {
 		mbuf = head;
@@ -167,8 +167,8 @@ static inline struct sipc_addr_buffer
 		return NULL;
 	mbuf->len = ADDR_OFFSET + tx_count * SPRD_PHYS_LEN;
 	mbuf->buf = (unsigned char *)addr_buffer;
-	if (sprd_get_debug_level() >= L_ALL)
-		sc2355_hex_dump("tx buf:", mbuf->buf, mbuf->len);
+	print_hex_dump_debug("tx buf: ", DUMP_PREFIX_OFFSET,
+			     16, 1, mbuf->buf, mbuf->len, 0);
 
 	return addr_buffer;
 }
@@ -725,20 +725,17 @@ int sc2355_sipc_hif_tx_list(struct sprd_hif *hif,
 			print_len = 200;
 		else
 			print_len = msg_pos->len;
-		if (sprd_get_debug_level() >= L_ALL)
-			sc2355_hex_dump("tx to cp2 data",
-					(unsigned char *)(msg_pos->tran_data),
-					print_len);
+		print_hex_dump_debug("tx to cp2 data: ", DUMP_PREFIX_OFFSET,
+				     16, 1, msg_pos->tran_data, print_len, 0);
 #if defined(MORE_DEBUG)
 		tx_bytes += msg_pos->skb->len;
 #endif
 		if (sipc_count > 1 && num > 0 && i >= j) {
 			if (--num == 0) {
 				if (cnt > 0) {
-					if (sprd_get_debug_level() >= L_ALL)
-						sc2355_hex_dump("tx to cp2 data",
-								(unsigned char *)(mbuf_pos->buf),
-								mbuf_pos->len);
+					print_hex_dump_debug("tx to cp2 data: ",
+							DUMP_PREFIX_OFFSET, 16, 1,
+							mbuf_pos->buf, mbuf_pos->len, 0);
 					mbuf_pos = mbuf_pos->next;
 					addr_buffer =
 						sipc_set_addr_to_mbuf(
@@ -751,10 +748,9 @@ int sc2355_sipc_hif_tx_list(struct sprd_hif *hif,
 				*alloc another sipc addr buf
 				*/
 				j += SIPC_TX_NUM;
-				if (sprd_get_debug_level() >= L_ALL)
-					sc2355_hex_dump("tx to addr trans",
-							(unsigned char *)(mbuf_pos->buf),
-							mbuf_pos->len);
+				print_hex_dump_debug("tx to addr trans: ",
+						DUMP_PREFIX_OFFSET, 16, 1,
+						mbuf_pos->buf, mbuf_pos->len, 0);
 				mbuf_pos = mbuf_pos->next;
 				addr_buffer =
 					sipc_set_addr_to_mbuf(
@@ -785,9 +781,8 @@ int sc2355_sipc_hif_tx_list(struct sprd_hif *hif,
 			break;
 	}
 
-	if (sprd_get_debug_level() >= L_ALL)
-		sc2355_hex_dump("tx to addr trans",
-			(unsigned char *)(mbuf_pos->buf), mbuf_pos->len);
+	print_hex_dump_debug("tx to addr trans: ", DUMP_PREFIX_OFFSET,
+			     16, 1, mbuf_pos->buf, mbuf_pos->len, 0);
 
 	tx_list_tail = pos;
 
@@ -1309,8 +1304,8 @@ void sc2355_sipc_rx_work_queue(struct work_struct *work)
 		else
 			print_len = msg->len;
 
-		if (sprd_get_debug_level() >= L_ALL)
-			sc2355_hex_dump("rx data", (unsigned char *)msg->data, print_len);
+		print_hex_dump_debug("rx data: ", DUMP_PREFIX_OFFSET,
+				     16, 1, msg->data, print_len, 0);
 
 		switch (SPRD_HEAD_GET_TYPE(msg->data)) {
 		case SPRD_TYPE_DATA:

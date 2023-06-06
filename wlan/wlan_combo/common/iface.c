@@ -462,18 +462,16 @@ void sprd_netif_rx(struct net_device *ndev, struct sk_buff *skb)
 {
 	struct sprd_vif *vif;
 	struct sprd_hif *hif;
+	int print_len;
 
 	vif = netdev_priv(ndev);
 	hif = &vif->priv->hif;
+	print_len = skb->len > 64 ? 64 : skb->len;
 
 	/* report sniffer monitor data packet */
 	if (atomic_read(&vif->priv->monitor_mode)) {
-		if (skb->len >= 64)
-			print_hex_dump(KERN_WARNING, "RX sniffer data packet: ", DUMP_PREFIX_OFFSET,
-				       16, 1, skb->data, 64, 0);
-		else
-			print_hex_dump(KERN_WARNING, "RX sniffer data packet: ", DUMP_PREFIX_OFFSET,
-				       16, 1, skb->data, skb->len, 0);
+		print_hex_dump_debug("RX sniffer data packet: ", DUMP_PREFIX_OFFSET,
+				     16, 1, skb->data, print_len, 0);
 
 		wl_info("sniffer data cnt: %d\n", vif->priv->monitor_data_cnt++);
 
@@ -496,7 +494,7 @@ void sprd_netif_rx(struct net_device *ndev, struct sk_buff *skb)
 
 	sprd_filter_data_debug(skb, ndev, "RX");
 	print_hex_dump_debug("RX packet: ", DUMP_PREFIX_OFFSET,
-			     16, 1, skb->data, skb->len, 0);
+			     16, 1, skb->data, print_len, 0);
 	skb->dev = ndev;
 	skb->protocol = eth_type_trans(skb, ndev);
 	/* CHECKSUM_UNNECESSARY not supported by our hardware */
@@ -529,17 +527,15 @@ void sprd_rx_monitor_process(struct sprd_vif *vif,
 {
 	struct sk_buff *skb;
 	struct net_device *ndev;
+	int print_len;
 
 	skb = dev_alloc_skb(len + NET_IP_ALIGN);
 	if (!skb)
 		return;
 
-	if (len >= 64)
-		print_hex_dump(KERN_WARNING, "RX sniffer frame: ", DUMP_PREFIX_OFFSET,
-			       16, 1, data, 64, 0);
-	else
-		print_hex_dump(KERN_WARNING, "RX sniffer frame: ", DUMP_PREFIX_OFFSET,
-			       16, 1, data, len, 0);
+	print_len = len > 64 ? 64 : len;
+	print_hex_dump_debug("RX sniffer frame: ", DUMP_PREFIX_OFFSET,
+			     16, 1, data, print_len, 0);
 
 	wl_info("sniffer mgmt frame cnt: %d\n", vif->priv->monitor_mgmt_cnt++);
 
@@ -604,6 +600,7 @@ static netdev_tx_t iface_start_xmit(struct sk_buff *skb, struct net_device *ndev
 	struct sprd_eap_hdr *eap_temp;
 	struct sk_buff *tmp_skb = skb;
 	unsigned int skb_len;
+	int print_len;
 
 	ret = iface_prepare_xmit(vif, ndev, skb);
 	if (-1 == ret)
@@ -672,10 +669,9 @@ static netdev_tx_t iface_start_xmit(struct sk_buff *skb, struct net_device *ndev
 	offset = sprd_send_data_offset(vif->priv);
 	sprd_hif_throughput_ctl_pd(hif, skb->len);
 	skb_len = skb->len;
-#ifdef CONFIG_SPRD_WLAN_DEBUG
+	print_len = skb->len > 64 ? 64 : skb->len;
 	print_hex_dump_debug("TX packet: ", DUMP_PREFIX_OFFSET,
-				 16, 1, skb->data, skb_len, 0);
-#endif
+			     16, 1, skb->data, print_len, 0);
 	ret = sprd_send_data(vif->priv, vif, msg, skb, SPRD_DATA_TYPE_NORMAL,
 			     offset, true);
 	if (ret) {

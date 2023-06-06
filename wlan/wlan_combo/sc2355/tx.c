@@ -2405,9 +2405,6 @@ void sc2355_tx_ba_mgmt(struct sprd_priv *priv, struct sprd_vif *vif,
 	memcpy(msg->data, data, len);
 	data_ptr = (unsigned char *)data;
 
-	if (sprd_get_debug_level() >= L_ALL)
-		sc2355_hex_dump("sc2355_tx_ba_mgmt", data_ptr, len);
-
 	if (send_cmd_recv_rsp(priv, msg, rbuf, &rlen))
 		goto out;
 	/*if tx ba req failed, need to clear txba map*/

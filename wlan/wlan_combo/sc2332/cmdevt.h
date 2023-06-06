@@ -651,8 +651,6 @@ struct vowifi_data {
 	u8 data[0];
 };
 
-extern unsigned int dump_data;
-
 struct sprd_priv;
 
 int sc2332_cmd_scan(struct sprd_priv *priv, struct sprd_vif *vif, u32 channels,

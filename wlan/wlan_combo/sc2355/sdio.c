@@ -110,8 +110,6 @@ static int sdio_tx_one(struct sprd_hif *hif, unsigned char *data,
 	mbuf->buf = data;
 	mbuf->len = len;
 	mbuf->next = NULL;
-	if (sprd_get_debug_level() >= L_ALL)
-		sc2355_hex_dump("tx to cp2 cmd data dump", data + 4, len);
 
 	/* ret: (<0) indicate send failed, but 0 indicate success or (wcn_bus_ops==NULL) */
 	ret = sprdwcn_bus_push_list(chn, head, tail, num);
@@ -545,15 +543,6 @@ int sc2355_hif_tx_list(struct sprd_hif *hif,
 		tx_mgmt->seq_num++;
 		dscr->seq_num = tx_mgmt->seq_num;
 
-		if (sprd_get_debug_level() >= L_ALL) {
-			int print_len = msg_pos->len;
-
-			if (print_len > SPRD_MAX_PRINT_LEN)
-				print_len = SPRD_MAX_PRINT_LEN;
-			sc2355_hex_dump("tx to cp2 data",
-					(unsigned char *)(msg_pos->tran_data),
-					print_len);
-		}
 #if defined(MORE_DEBUG)
 		tx_bytes += msg_pos->skb->len;
 #endif
@@ -943,17 +932,6 @@ void sc2355_rx_work_queue(struct work_struct *work)
 
 			wl_all("%s: rx type:%d, num = %d\n",
 				 __func__, SPRD_HEAD_GET_TYPE(data), num);
-
-			/* len in mbuf_t just means buffer len in ADMA,
-			 * so need to get data len in sc2355_sdiohal_puh
-			 */
-			if (sprd_get_debug_level() >= L_ALL) {
-				int print_len = 100;
-
-				sc2355_hex_dump("rx data 100B",
-						(unsigned char *)data,
-						print_len);
-			}
 
 			/* to check is the rsp_cnt from CP2
 			 * eqaul to rsp_cnt count on driver side.

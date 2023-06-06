@@ -4123,9 +4123,6 @@ static void vendor_report_epno_results(struct sprd_vif *vif, u8 *data,
 	struct sprd_priv *priv = vif->priv;
 	struct wiphy *wiphy = priv->wiphy;
 
-	print_hex_dump_debug("epno result:", DUMP_PREFIX_OFFSET,
-			     16, 1, data, data_len, true);
-
 	epno_results = (struct epno_results *)data;
 	if (epno_results->nr_scan_results <= 0) {
 		wl_err("%s invalid data\n", __func__);
