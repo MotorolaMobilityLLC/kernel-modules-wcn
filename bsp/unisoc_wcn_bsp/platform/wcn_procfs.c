@@ -911,11 +911,11 @@ static ssize_t mdbg_proc_write(struct file *filp,
 		}
 		if (strncmp(mdbg_proc->write_buf, "rebootwcn", 9) == 0 ||
 			strncmp(mdbg_proc->write_buf, "rebootmarlin", 12) == 0) {
-			WCN_INFO("marlin gnss need reset\n");
+			WCN_INFO("wcn_integrated marlin gnss need reset\n");
 			WCN_INFO("fail_count is value %d\n", mdbg_proc->fail_count);
 			mdbg_proc->fail_count = 0;
 			sprdwcn_bus_set_carddump_status(false);
-			wcn_device_poweroff();
+			wcn_reset_cp2();
 			WCN_INFO("marlin gnss  reset finish!\n");
 			return count;
 		}
