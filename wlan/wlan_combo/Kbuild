@@ -28,6 +28,12 @@ ccflags-y += -DENABLE_CHR
 else ifeq ($(BSP_DTBO),ums9620-2h10-overlay)
 CONFIG_SPRD_CHR := y
 ccflags-y += -DENABLE_CHR
+else ifeq ($(BSP_DTBO),ums9230-1h10-overlay)
+CONFIG_SPRD_CHR := y
+ccflags-y += -DENABLE_CHR
+else ifeq ($(BSP_DTBO),ums9620-1h10-overlay)
+CONFIG_SPRD_CHR := y
+ccflags-y += -DENABLE_CHR
 endif
 
 KO_MODULE_NAME := sprd_wlan_combo
