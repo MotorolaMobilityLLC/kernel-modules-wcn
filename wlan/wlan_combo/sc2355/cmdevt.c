@@ -3566,6 +3566,7 @@ bool sc2355_do_delay_work(struct sprd_work *work)
 		break;
 	case SPRD_WORK_DELBA:
 		sc2355_tx_send_delba(vif, work->data, work->len);
+		break;
 	case SPRD_HANG_RECEIVED:
 		cmdevt_send_hang_received_cmd(vif->priv, vif);
 		break;
@@ -3642,6 +3643,7 @@ bool sc2355_do_delay_work(struct sprd_work *work)
 #endif
 	case SPRD_WORK_ADAPTIVE:
 		sprd_wifi_adaptive_work(vif->priv, vif);
+		break;
 	default:
 		return false;
 	}
