@@ -1500,6 +1500,10 @@ int edma_chn_init(int chn, int mode, int inout, int max_trans)
 	WCN_INFO("[+]%s(chn=%d,mode=%d,dir=%d,inout=%d,max_trans=%d)\n",
 		 __func__, chn, mode, dir, inout, max_trans);
 
+	if(edma->dma_chn_reg == NULL) {
+		WCN_ERR("edma_init error,edma->dma_chn_reg is null\n");
+		return -1;
+	}
 	dma_int.reg = edma->dma_chn_reg[chn].dma_int.reg;
 	dma_cfg.reg = edma->dma_chn_reg[chn].dma_cfg.reg;
 	local_DSCR = edma->dma_chn_reg[chn].dma_dscr;
