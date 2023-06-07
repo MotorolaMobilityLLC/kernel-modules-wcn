@@ -1134,8 +1134,12 @@ int mdbg_dump_mem(void)
 
 	btwf_dump_mem(skip_modules);
 
+	/*check the status of gnss*/
+	if (!(marlin_get_power() < 80)) {
+	WCN_INFO("need to dump gnss!\n");
 	/* dump gnss */
 	gnss_dump_mem(0);
+	}
 
 	/* Make sure only string "marlin_memdump_finish" to slog one time */
 	msleep(40);
