@@ -42,7 +42,7 @@ int notify_at_cmd_finish(void *buf, unsigned char len)
 	return 0;
 }
 
-static int wcn_send_atcmd(void *cmd, unsigned char cmd_len,
+static int wcn_send_atcmd(void *cmd, size_t cmd_len,
 			  void *response, size_t *response_len)
 {
 	struct mbuf_t *head = NULL;
@@ -60,9 +60,14 @@ static int wcn_send_atcmd(void *cmd, unsigned char cmd_len,
 	/* common buf for kmalloc */
 	unsigned char *com_buf = NULL;
 
+	if (cmd_len > 128) {
+		WCN_ERR("%s:cmd_len %ld should not be larger than 128\n", __func__, cmd_len);
+		return -1;
+	}
+
 	if (g_match_config && !g_match_config->unisoc_wcn_integrated) {
 		if (flag_download_done != 1) {
-			WCN_WARN(" %s:can not send atcmd before download flag is true\n", __func__);
+			WCN_WARN("%s:can not send atcmd before download flag is true\n", __func__);
 			return -EIO;
 		}
 	}
