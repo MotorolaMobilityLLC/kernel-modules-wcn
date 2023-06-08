@@ -9,26 +9,11 @@
 #
 
 
-ifeq ($(strip $(BSP_BOARD_UNISOC_WCN_SOCKET)),sipc2)
-    TTY_DEVICE := tty-515
-else ifeq ($(strip $(BSP_BOARD_UNISOC_WCN_SOCKET)),sdio)
-    TTY_DEVICE := tty-515
-else ifeq ($(strip $(BSP_BOARD_UNISOC_WCN_SOCKET)),sipc)
-    TTY_DEVICE := tty-515
-else ifeq ($(strip $(BSP_BOARD_UNISOC_WCN_SOCKET)),pcie)
-    TTY_DEVICE := tty-515
-else
-    $(error no BSP_BOARD_UNISOC_WCN_SOCKET, pls fix it !!!)
-endif
-
-
-
-
 #
 # Source List
 #
 KO_MODULE_NAME := sprdbt_tty
-KO_MODULE_PATH := $(src)/$(TTY_DEVICE)
+KO_MODULE_PATH := $(src)/tty-515
 KO_MODULE_SRC  :=
 
 KO_MODULE_SRC += \

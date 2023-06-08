@@ -8,24 +8,11 @@
 #   done is this Kbuild file
 #
 
-ifeq ($(strip $(BSP_BOARD_UNISOC_WCN_SOCKET)),sipc2)
-    FM_DEVICE := fm_515
-else ifeq ($(strip $(BSP_BOARD_UNISOC_WCN_SOCKET)),sdio)
-    FM_DEVICE := fm_515
-else ifeq ($(strip $(BSP_BOARD_UNISOC_WCN_SOCKET)),sipc)
-    FM_DEVICE := fm_515
-else ifeq ($(strip $(BSP_BOARD_UNISOC_WCN_SOCKET)),pcie)
-    FM_DEVICE := fm_515
-else
-    $(error no BSP_BOARD_UNISOC_WCN_SOCKET, pls fix it !!!)
-endif
-
-
 #
 # Source List
 #
 KO_MODULE_NAME := sprd_fm
-KO_MODULE_PATH := $(src)/$(FM_DEVICE)
+KO_MODULE_PATH := $(src)/fm_515
 KO_MODULE_SRC  :=
 
 KO_MODULE_SRC += \

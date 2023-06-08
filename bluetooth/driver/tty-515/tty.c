@@ -400,7 +400,7 @@ static void mtty_pcie_rx_work_queue(struct work_struct *work)
 
         } while (1);
     } else {
-        pr_info("mtty status isn't open, status:%d\n", mtty->state);
+        pr_info("mtty status isn't open, status:%d\n", atomic_read(&mtty->state));
         mutex_unlock(&mtty->stat_mutex);
     }
 }
@@ -521,7 +521,7 @@ static void mtty_handler (int event, void *data)
                     if(retry_count != 10)
                         retry_count = 10;
                 }
-                tty_schedule_flip(mtty->port);
+                tty_flip_buffer_push(mtty->port);
             }
             mutex_unlock(&(mtty->stat_lock));
         } while(cnt == mTTY_MAX_DATA_LEN);
@@ -827,7 +827,7 @@ static int mtty_pcie_tx_cb(int chn, struct mbuf_t *head, struct mbuf_t *tail, in
     BT_VER("%s channel: %d, head: %p, tail: %p num: %d mtty_dev %p pdev %p\n",
              __func__, chn, head, tail, num, mtty_dev, mtty_dev->pdev);
     pos = head;
-    BT_VER("mtty_close mtty_dev->state = %d !\n", mtty_dev->state);
+    BT_VER("mtty_close mtty_dev->state = %d !\n", atomic_read(&mtty_dev->state));
     for (i = 0; i < num; i++, pos = pos->next) {
         struct device *dm = &mtty_dev->pdev->dev;
         if ((atomic_read(&mtty_dev->state) == MTTY_STATE_CLOSE) || (pos == NULL)) {
@@ -1830,7 +1830,7 @@ static int mtty_sipc_bluetooth_reset(struct notifier_block *this, unsigned long 
                 if(retry_count != 10)
                     retry_count = 10;
             }
-            tty_schedule_flip(mtty_dev->port);
+            tty_flip_buffer_push(mtty_dev->port);
         }
         mutex_unlock(&(mtty_dev->stat_lock));
     }

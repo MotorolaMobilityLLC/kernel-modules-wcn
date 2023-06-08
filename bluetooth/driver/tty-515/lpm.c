@@ -94,7 +94,11 @@ static int btwrite_proc_show(struct seq_file *m, void *v)
 
 static int bluesleep_open_proc_btwrite(struct inode *inode, struct file *file)
 {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 17, 15)
+    return single_open(file, btwrite_proc_show, pde_data(inode));
+#else
     return single_open(file, btwrite_proc_show, PDE_DATA(inode));
+#endif
 
 }
 #if(LINUX_VERSION_CODE >= KERNEL_VERSION(5,15,0))

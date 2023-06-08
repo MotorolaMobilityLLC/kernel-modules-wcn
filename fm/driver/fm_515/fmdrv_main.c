@@ -2188,7 +2188,7 @@ int __init init_fm_driver(void) {
     fmdev->headset_state = 1;
     }
 
-    dev_unisoc_fm_err(fm_miscdev,"%s() init_fm_driver finish:%d\n", __func__);
+    dev_unisoc_fm_err(fm_miscdev,"%s() init_fm_driver finish:%d\n", __func__, ret);
     return ret;
 }
 

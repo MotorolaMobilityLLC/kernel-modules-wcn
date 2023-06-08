@@ -23,6 +23,13 @@
 
 #define BYTE_ALIGNMENT 8
 
+ #ifndef fallthrough
+ #define fallthrough    __fallthrough
+ #endif /* fallthrough */
+
+#ifndef __fallthrough
+#define __fallthrough  __attribute__((fallthrough))
+#endif /* __fallthrough */
 
 enum receive_state_t {
 	BRAND_NEW,
