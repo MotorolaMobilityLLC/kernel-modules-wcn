@@ -695,7 +695,7 @@ void sc2332_setup_wiphy(struct wiphy *wiphy, struct sprd_priv *priv);
 void sc2332_cmd_init(struct sprd_cmd *cmd);
 void sc2332_cmd_deinit(struct sprd_cmd *cmd);
 int sc2332_get_fw_info(struct sprd_priv *priv);
-int sc2332_open_fw(struct sprd_priv *priv, struct sprd_vif *vif, u8 *mac_addr);
+int sc2332_open_fw(struct sprd_priv *priv, struct sprd_vif *vif, const u8 *mac_addr);
 int sc2332_close_fw(struct sprd_priv *priv, struct sprd_vif *vif);
 int sc2332_power_save(struct sprd_priv *priv, struct sprd_vif *vif,
 		      u8 sub_type, u8 status);

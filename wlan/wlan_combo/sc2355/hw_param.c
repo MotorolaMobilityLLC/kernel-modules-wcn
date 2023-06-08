@@ -347,7 +347,7 @@ static void hw_param_nvm_get_cmd_par(char *str, struct nvm_cali_cmd *cmd)
 		}
 	}
 	tmp[j - 1] = '\0';
-	wl_err("too long str : %s..., max strlen is %d\n", tmp, sizeof(tmp) - 1);
+	wl_err("too long str : %s..., max strlen is %lu\n", tmp, sizeof(tmp) - 1);
 }
 
 static struct nvm_name_table *hw_param_nvm_cf_table_match(struct nvm_cali_cmd *cmd)

@@ -1792,7 +1792,7 @@ int sc2355_set_regdom(struct sprd_priv *priv, u8 *regdom, u32 len)
 	return send_cmd_recv_rsp(priv, msg, NULL, NULL);
 }
 
-int sc2355_open_fw(struct sprd_priv *priv, struct sprd_vif *vif, u8 *mac_addr)
+int sc2355_open_fw(struct sprd_priv *priv, struct sprd_vif *vif, const u8 *mac_addr)
 {
 	struct sprd_msg *msg;
 	struct cmd_open *p;

@@ -230,7 +230,7 @@ static int apf_subcmd_send_recv(struct sprd_vif *vif, struct apf_request *apf_re
 			}
 		}
 	}
-	wl_all("%s-%s %s(%u)-%u-%u-%u-%u-(%u-%u).\n", __func__, current->comm,
+	wl_all("%s-%s %s(%u)-%u-%u-%u-%u-(%lu-%u).\n", __func__, current->comm,
 		apf_cmd2str(apf_req->apf_hdr.apf_subcmd), apf_req->apf_hdr.apf_subcmd,
 		apf_req->apf_currt_offset, apf_req->apf_offset_slice_size,
 		apf_req->apf_trans_size, apf_req->apf_prog_len,
@@ -567,7 +567,7 @@ int vendor_apf_packet_filter(struct wiphy *wiphy,
 		return -EINVAL;
 	}
 
-	wl_debug("%s-%s %s(%u)-%u-%u-%u-%u-(%u-%u).\n", __func__, current->comm,
+	wl_debug("%s-%s %s(%u)-%u-%u-%u-%u-(%lu-%u).\n", __func__, current->comm,
 		apf_cmd2str(apf_req.apf_hdr.apf_subcmd), apf_req.apf_hdr.apf_subcmd,
 		apf_req.apf_currt_offset, apf_req.apf_offset_slice_size,
 		apf_req.apf_trans_size, apf_req.apf_prog_len,

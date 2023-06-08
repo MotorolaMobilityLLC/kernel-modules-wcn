@@ -1413,7 +1413,7 @@ int sprd_init_fw(struct sprd_vif *vif)
 	struct sprd_priv *priv = vif->priv;
 	enum nl80211_iftype type = vif->wdev.iftype;
 	enum sprd_mode mode;
-	u8 *mac;
+	const u8 *mac;
 	int ret;
 	char country_alpha[3] = "00";
 

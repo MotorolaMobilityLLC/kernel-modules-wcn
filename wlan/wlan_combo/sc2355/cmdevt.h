@@ -1031,7 +1031,7 @@ void sc2355_download_hw_param(struct sprd_priv *priv);
 void sc2355_sipc_download_hw_param(struct sprd_priv *priv);
 
 int sc2355_get_fw_info(struct sprd_priv *priv);
-int sc2355_open_fw(struct sprd_priv *priv, struct sprd_vif *vif, u8 *mac_addr);
+int sc2355_open_fw(struct sprd_priv *priv, struct sprd_vif *vif, const u8 *mac_addr);
 int sc2355_close_fw(struct sprd_priv *priv, struct sprd_vif *vif);
 int sc2355_power_save(struct sprd_priv *priv, struct sprd_vif *vif,
 		      u8 sub_type, u8 status);

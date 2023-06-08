@@ -33,7 +33,7 @@ struct sprd_chip_ops {
 	void (*cmd_deinit)(struct sprd_cmd *cmd);
 	int (*get_fw_info)(struct sprd_priv *priv);
 	int (*open_fw)(struct sprd_priv *priv,
-		       struct sprd_vif *vif, u8 *mac_addr);
+		       struct sprd_vif *vif, const u8 *mac_addr);
 	int (*close_fw)(struct sprd_priv *priv, struct sprd_vif *vif);
 	int (*power_save)(struct sprd_priv *priv, struct sprd_vif *vif,
 			  u8 sub_type, u8 status);
@@ -281,7 +281,7 @@ static inline int sprd_get_fw_info(struct sprd_priv *priv)
 }
 
 static inline int sprd_open_fw(struct sprd_priv *priv,
-			       struct sprd_vif *vif, u8 *mac_addr)
+			       struct sprd_vif *vif, const u8 *mac_addr)
 {
 	if (priv->chip.ops->open_fw)
 		return priv->chip.ops->open_fw(priv, vif, mac_addr);
