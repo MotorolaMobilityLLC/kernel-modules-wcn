@@ -1,0 +1,21 @@
+load("//build/kernel/kleaf:kernel.bzl", "kernel_module")
+load("//kernel6.1:unisoc_bazels/unisoc_constants.bzl", "UNISOC_SOC")
+
+kernel_module(
+    name = "sprd_wlan_combo",
+    srcs =
+        glob([
+        "**/*.c",
+        "**/*.h",
+        "**/Kbuild",
+        "**/Makefile",
+    ]),
+    outs = ["sprd_wlan_combo.ko"],
+
+    kernel_build = "//kernel6.1:{soc}".format(soc=UNISOC_SOC),
+    visibility = ["//visibility:public"],
+
+    deps = [
+        "//unisoc_modules/kernel6.1/wcn/bsp/unisoc_wcn_bsp:unisoc_wcn_bsp",
+    ],
+)
