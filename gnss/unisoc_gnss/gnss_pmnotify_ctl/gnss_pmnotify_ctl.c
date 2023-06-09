@@ -35,7 +35,6 @@
 #include <linux/types.h>
 #include <linux/uaccess.h>
 #include <linux/wait.h>
-#include "../gnss_common_ctl/gnss_common.h"
 
 #define GNSS_DATA_MAX_LEN	16
 
@@ -46,6 +45,8 @@ struct sprd_gnss {
 	char gnss_status[16];
 	wait_queue_head_t gnss_sleep_wait;
 };
+
+extern bool gnss_delay_ctl(void);
 
 static struct sprd_gnss gnss_dev;
 static int gnss_delay_cancel;
