@@ -96,6 +96,7 @@ EXPORT_SYMBOL_GPL(mdbg_device_unlock_notify);
 void wcn_reset_process(void)
 {
 	WCN_INFO("%s reset begin\n", __func__);
+	sprdwcn_bus_set_carddump_status(true);
 	wcn_reset_cp2();
 	mdbg_proc->assert_notify_flag = 0;
 	dump_cnt = 0;
@@ -948,6 +949,7 @@ static ssize_t mdbg_proc_write(struct file *filp,
 			marlin_chip_en(false, true);
 			if (marlin_reset_func != NULL)
 				marlin_reset_func(marlin_callback_para);
+			flag_reset = 0;
 			return count;
 		}
 		if (strncmp(mdbg_proc->write_buf, "rebootwcn", 9) == 0) {
@@ -959,6 +961,7 @@ static ssize_t mdbg_proc_write(struct file *filp,
 			sprdwcn_bus_set_carddump_status(false);
 			marlin_chip_en(false, true);
 			wcn_reset_cp2();
+			flag_reset = 0;
 			return count;
 		}
 		if (strncmp(mdbg_proc->write_buf, "at+getchipversion", 17) == 0) {
