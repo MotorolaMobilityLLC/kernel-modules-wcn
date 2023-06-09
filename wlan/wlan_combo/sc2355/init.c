@@ -312,14 +312,9 @@ void sc2355_setup_wiphy(struct wiphy *wiphy, struct sprd_priv *priv)
 	/* Random MAC addr is enabled by default. And needs to be
 	 * disabled to pass WFA Certification.
 	 */
-	if (priv->hif.hw_type == SPRD_HW_SC2355_PCIE) {
+	if (!(wfa_cap & SPRD_WFA_CAP_NON_RAN_MAC)) {
+		wl_info("\tRandom MAC address scan default supported\n");
 		wiphy->features |= NL80211_FEATURE_SCAN_RANDOM_MAC_ADDR;
-	} else {
-		if (!(wfa_cap & SPRD_WFA_CAP_NON_RAN_MAC)) {
-			wl_info
-			    ("\tRandom MAC address scan default supported\n");
-			wiphy->features |= NL80211_FEATURE_SCAN_RANDOM_MAC_ADDR;
-		}
 	}
 
 	if (priv->fw_std & SPRD_STD_11D) {

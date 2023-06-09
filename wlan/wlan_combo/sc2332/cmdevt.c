@@ -338,10 +338,11 @@ struct sprd_msg *sc2332_get_cmdbuf(struct sprd_priv *priv, struct sprd_vif *vif,
 	struct sprd_cmd_hdr *hdr;
 	u16 plen = sizeof(*hdr) + len;
 	u8 mode = SPRD_MODE_NONE;
+	const char *cmd_str = cmdevt_cmd2str(cmd_id);
 
 	if (!sprd_hif_is_on(&priv->hif)) {
 		wl_err("%s Drop command %s in case of power off\n",
-		       __func__, cmdevt_cmd2str(cmd_id));
+		       __func__, cmd_str);
 
 		return NULL;
 	}
@@ -353,7 +354,7 @@ struct sprd_msg *sc2332_get_cmdbuf(struct sprd_priv *priv, struct sprd_vif *vif,
 	   !(cmd_id == CMD_GET_INFO ||
 	    cmd_id == CMD_OPEN)) {
 		wl_err("%s:wifi resetting, cannot send [%s]",
-			__func__, cmdevt_cmd2str(cmd_id));
+			__func__, cmd_str);
 		return NULL;
 	}
 #endif
@@ -396,6 +397,7 @@ int sc2332_send_cmd_recv_rsp(struct sprd_priv *priv, struct sprd_msg *msg,
 	struct sprd_cmd *cmd = &priv->cmd;
 	struct sprd_cmd_hdr *hdr;
 	struct sprd_hif *hif;
+	const char *cmd_str = NULL;
 
 	hif = &priv->hif;
 	if (hif->cp_asserted == 1) {
@@ -424,10 +426,11 @@ int sc2332_send_cmd_recv_rsp(struct sprd_priv *priv, struct sprd_msg *msg,
 	cmd_id = hdr->cmd_id;
 	mode = hdr->common.mode;
 
+	cmd_str = cmdevt_cmd2str(cmd_id);
 	if (atomic_read(&priv->hif.block_cmd_after_close) == 1) {
 		if (cmd_id != CMD_CLOSE) {
 			wl_info("%s need block cmd after close : %s\n",
-				__func__, cmdevt_cmd2str(cmd_id));
+				__func__, cmd_str);
 			sprd_chip_free_msg(&priv->chip, msg);
 			cmdevt_unlock_cmd(cmd);
 			goto out;
@@ -437,7 +440,7 @@ int sc2332_send_cmd_recv_rsp(struct sprd_priv *priv, struct sprd_msg *msg,
 	if (atomic_read(&priv->hif.change_iface_block_cmd) == 1) {
 		if (cmd_id != CMD_CLOSE && cmd_id != CMD_OPEN) {
 			wl_info("%s need block cmd while change iface : %s\n",
-				__func__, cmdevt_cmd2str(cmd_id));
+				__func__, cmd_str);
 			sprd_chip_free_msg(&priv->chip, msg);
 			cmdevt_unlock_cmd(cmd);
 			goto out;
@@ -465,7 +468,7 @@ int sc2332_send_cmd_recv_rsp(struct sprd_priv *priv, struct sprd_msg *msg,
 		}
 	} else {
 		wiphy_err(priv->wiphy, "mode %d [%s]rsp timeout\n",
-			mode, cmdevt_cmd2str(cmd_id));
+			mode, cmd_str);
 	}
 
 	cmdevt_unlock_cmd(cmd);
@@ -2309,6 +2312,8 @@ unsigned short sc2332_rx_evt_process(struct sprd_priv *priv, u8 *msg,
 	u8 mode;
 	u16 len, plen;
 	u8 *data;
+	u32 mstime  = le32_to_cpu(hdr->mstime);
+	const char *evt_str = cmdevt_evt2str(hdr->cmd_id);
 
 	mode = hdr->common.mode;
 	if (mode > SPRD_MODE_MAX) {
@@ -2325,13 +2330,12 @@ unsigned short sc2332_rx_evt_process(struct sprd_priv *priv, u8 *msg,
 
 	if (!priv) {
 		wl_err("%s priv is NULL [%u]mode %d recv[%s]len: %d\n",
-		       __func__, le32_to_cpu(hdr->mstime), mode,
-		       cmdevt_evt2str(hdr->cmd_id), hdr->plen);
+		       __func__, mstime, mode, evt_str, hdr->plen);
 		return plen;
 	}
 
 	wiphy_info(priv->wiphy, "[%u]mode %d recv[%s]len: %d\n",
-		   le32_to_cpu(hdr->mstime), mode, cmdevt_evt2str(hdr->cmd_id), plen);
+		   mstime, mode, evt_str, plen);
 
 	if (plen < sizeof(struct sprd_cmd_hdr)) {
 		wl_err("%s plen is invalid!\n", __func__);
@@ -2432,6 +2436,8 @@ unsigned short sc2332_rx_rsp_process(struct sprd_priv *priv, u8 *msg,
 	void *data;
 	struct sprd_cmd *cmd = &priv->cmd;
 	struct sprd_cmd_hdr *hdr;
+	const char *cmd_str = NULL, *err_str = NULL;
+	u32 hdr_mstime;
 
 	if (unlikely(!cmd->init_ok)) {
 		wl_info("%s cmd coming too early, drop it\n", __func__);
@@ -2464,16 +2470,18 @@ unsigned short sc2332_rx_rsp_process(struct sprd_priv *priv, u8 *msg,
 		return plen;
 	}
 	memcpy(data, (void *)hdr, plen);
+	cmd_str= cmdevt_cmd2str(hdr->cmd_id);
+	err_str = cmdevt_err2str(hdr->status);
+	hdr_mstime = SPRD_GET_LE32(hdr->mstime);
 
 	spin_lock_bh(&cmd->lock);
-	if (!cmd->data && SPRD_GET_LE32(hdr->mstime) == cmd->mstime &&
+	if (!cmd->data && hdr_mstime == cmd->mstime &&
 	    hdr->cmd_id == cmd->cmd_id) {
 		wiphy_info(priv->wiphy, "mode %d recv rsp[%s]\n",
-			   (int)mode, cmdevt_cmd2str(hdr->cmd_id));
+			   (int)mode, cmd_str);
 		if (unlikely(hdr->status != 0)) {
 			wl_err("%s mode %d recv rsp[%s] status[%s]\n",
-			       __func__, (int)mode, cmdevt_cmd2str(hdr->cmd_id),
-			       cmdevt_err2str(hdr->status));
+			       __func__, (int)mode, cmd_str, err_str);
 			if (cmd->cmd_id == CMD_TX_MGMT) {
 				wl_err("tx mgmt status : %d\n", hdr->status);
 				priv->tx_mgmt_status = hdr->status;
@@ -2485,9 +2493,7 @@ unsigned short sc2332_rx_rsp_process(struct sprd_priv *priv, u8 *msg,
 		kfree(data);
 		wl_err
 		    ("%s mode %d recv mismatched rsp[%s] status[%s] mstime:[%u %u]\n",
-		     __func__, (int)mode, cmdevt_cmd2str(hdr->cmd_id),
-		     cmdevt_err2str(hdr->status), SPRD_GET_LE32(hdr->mstime),
-		     cmd->mstime);
+		     __func__, (int)mode, cmd_str, err_str, hdr_mstime, cmd->mstime);
 	}
 	spin_unlock_bh(&cmd->lock);
 	atomic_dec(&cmd->refcnt);

@@ -599,6 +599,9 @@ int sc2355_assert_cmd(struct sprd_priv *priv, u8 cmd_id,
 	struct rx_mgmt *rx_mgmt = NULL;
 	char buf[ASSERT_INFO_BUF_SIZE] = { 0 };
 	u8 idx = 0;
+	const char *cmd_str =NULL, *reason_str = NULL;
+	cmd_str = cmdevt_cmd2str(cmd_id);
+	reason_str = cmdevt_assert_reason_to_str(reason);
 
 	wl_err("%s cmd_id:%d, reason:%d, cp_asserted:%d\n",
 	       __func__, cmd_id, reason, hif->cp_asserted);
@@ -612,16 +615,12 @@ int sc2355_assert_cmd(struct sprd_priv *priv, u8 cmd_id,
 	if (hif->cp_asserted == 0) {
 		hif->cp_asserted = 1;
 
-		if ((strlen(cmdevt_cmd2str(cmd_id)) +
-		     strlen(cmdevt_assert_reason_to_str(reason)) + strlen("[CMD] ") +
+		if ((strlen(cmd_str) + strlen(reason_str) + strlen("[CMD] ") +
 		     strlen(", [REASON] ")) < ASSERT_INFO_BUF_SIZE)
-			idx +=
-			    sprintf(buf + idx, "[CMD] %s, [REASON] %s",
-				    cmdevt_cmd2str(cmd_id),
-				    cmdevt_assert_reason_to_str(reason));
+			idx += sprintf(buf + idx, "[CMD] %s, [REASON] %s",
+				    cmd_str, reason_str);
 		else
-			idx +=
-			    sprintf(buf + idx, "[CMD ID] %d, [REASON ID] %d",
+			idx += sprintf(buf + idx, "[CMD ID] %d, [REASON ID] %d",
 				    cmd_id, reason);
 
 		buf[idx] = '\0';
@@ -645,12 +644,13 @@ struct sprd_msg *sc2355_get_cmdbuf(struct sprd_priv *priv, struct sprd_vif *vif,
 	u16 plen = sizeof(*hdr) + len;
 	enum sprd_mode mode = SPRD_MODE_NONE;	/*default to open new device*/
 	u8 ctx_id;
-
+	const char *cmd_str = NULL;
 	void *data = NULL;
 
+	cmd_str = cmdevt_cmd2str(cmd_id);
 	if (!sprd_hif_is_on(&priv->hif)) {
 		wl_err("%s Drop command %s in case of power off\n",
-		       __func__, cmdevt_cmd2str(cmd_id));
+		       __func__, cmd_str);
 
 		return NULL;
 	}
@@ -675,14 +675,14 @@ struct sprd_msg *sc2355_get_cmdbuf(struct sprd_priv *priv, struct sprd_vif *vif,
 		    (!atomic_read(&priv->power_back_off)) &&
 		    (!vif || !(vif->state & VIF_STATE_OPEN))) {
 			wl_err("%s:send [%s] fail because mode close",
-			       __func__, cmdevt_cmd2str(cmd_id));
+			       __func__, cmd_str);
 			return NULL;
 		}
 		if (priv->hif.hw_type == SPRD_HW_SC2355_PCIE) {
 			if (cmd_id != CMD_POWER_SAVE &&
 			    sprdwcn_bus_get_status() == WCN_BUS_DOWN) {
 				wl_err("%s:send [%s] fail because bus done",
-				       __func__, cmdevt_cmd2str(cmd_id));
+				       __func__, cmd_str);
 				return NULL;
 			}
 		}
@@ -694,7 +694,7 @@ struct sprd_msg *sc2355_get_cmdbuf(struct sprd_priv *priv, struct sprd_vif *vif,
 	    cmd_id == CMD_GET_INFO ||
 	    cmd_id == CMD_OPEN)) {
 		wl_err("%s:wifi resetting, cannot send [%s]",
-			__func__, cmdevt_cmd2str(cmd_id));
+			__func__, cmd_str);
 		return NULL;
 	}
 #endif
@@ -727,7 +727,7 @@ struct sprd_msg *sc2355_get_cmdbuf(struct sprd_priv *priv, struct sprd_vif *vif,
 /* msg is released in this function or the realy driver
  * rbuf: the msg after sprd_cmd_hdr
  * rlen: input the length of rbuf
- *       output the length of the msg,if *rlen == 0, rbuf get nothing
+ * output the length of the msg,if *rlen == 0, rbuf get nothing
  */
 int sc2355_send_cmd_recv_rsp(struct sprd_priv *priv, struct sprd_msg *msg, u8 *rbuf,
 			     u16 *rlen, unsigned int timeout)
@@ -740,6 +740,7 @@ int sc2355_send_cmd_recv_rsp(struct sprd_priv *priv, struct sprd_msg *msg, u8 *r
 	struct sprd_hif *hif;
 	struct tx_mgmt *tx_mgmt;
 	struct sprd_cmd *cmd = &priv->cmd;
+	const char *cmd_str = NULL;
 
 	hif = &priv->hif;
 	if (hif->cp_asserted == 1) {
@@ -762,11 +763,12 @@ int sc2355_send_cmd_recv_rsp(struct sprd_priv *priv, struct sprd_msg *msg, u8 *r
 	hdr = (struct sprd_cmd_hdr *)(msg->tran_data + priv->hif.hif_offset);
 	cmd_id = hdr->cmd_id;
 	ctx_id = hdr->common.mode;
+	cmd_str = cmdevt_cmd2str(cmd_id);
 
 	if (atomic_read(&priv->hif.block_cmd_after_close) == 1) {
 		if (cmd_id != CMD_CLOSE) {
 			wl_info("%s need block cmd after close : %s\n",
-				__func__, cmdevt_cmd2str(cmd_id));
+				__func__, cmd_str);
 			sprd_chip_free_msg(&priv->chip, msg);
 			kfree(msg->tran_data);
 			cmdevt_unlock_cmd(cmd, hif);
@@ -777,7 +779,7 @@ int sc2355_send_cmd_recv_rsp(struct sprd_priv *priv, struct sprd_msg *msg, u8 *r
 	if (atomic_read(&priv->hif.change_iface_block_cmd) == 1) {
 		if (cmd_id != CMD_CLOSE && cmd_id != CMD_OPEN) {
 			wl_info("%s need block cmd while change iface : %s\n",
-				__func__, cmdevt_cmd2str(cmd_id));
+				__func__, cmd_str);
 			sprd_chip_free_msg(&priv->chip, msg);
 			kfree(msg->tran_data);
 			cmdevt_unlock_cmd(cmd, hif);
@@ -813,13 +815,13 @@ int sc2355_send_cmd_recv_rsp(struct sprd_priv *priv, struct sprd_msg *msg, u8 *r
 			ctx_id = hdr->common.mode;
 			memcpy(rbuf, hdr->paydata, *rlen);
 			wl_all("cid:%d cmd_id:%d [%s]rsp recv\n",
-				ctx_id, cmd_id, cmdevt_cmd2str(cmd_id));
+				ctx_id, cmd_id, cmd_str);
 			if (cmd_id == CMD_OPEN)
 				rbuf[0] = ctx_id;
 		}
 	} else {
 		wl_err("cid %d [%s]rsp timeout, printk=%d\n",
-		       ctx_id, cmdevt_cmd2str(cmd_id), console_loglevel);
+		       ctx_id, cmd_str, console_loglevel);
 		if (cmd_id == CMD_CLOSE) {
 			sc2355_assert_cmd(priv, cmd_id, CMD_RSP_TIMEOUT_ERROR);
 			cmdevt_unlock_cmd(cmd, hif);
@@ -1627,24 +1629,9 @@ int sc2355_get_fw_info(struct sprd_priv *priv)
 
 	compat_ver =
 	    sc2355_api_version_need_compat_operation(priv, CMD_GET_INFO);
-	if (compat_ver) {
-		switch (compat_ver) {
-		case VERSION_1:
-			/*add data struct modification in here!*/
-			priv->sync_api.compat = VERSION_1;
-			break;
-		case VERSION_2:
-			/*add data struct modification in here!*/
-			priv->sync_api.compat = VERSION_2;
-			break;
-		case VERSION_3:
-			/*add data struct modification in here!*/
-			priv->sync_api.compat = VERSION_3;
-			break;
-		default:
-			break;
-		}
-	}
+	if (compat_ver >= VERSION_1 && compat_ver <= VERSION_3)
+		/*add data struct modification in here!*/
+		priv->sync_api.compat = compat_ver;
 
 	cmdevt_set_tlv_elmt((u8 *)msg->data, NOTIFY_AP_VERSION, sizeof(ap_version),
 			    &ap_version);
@@ -4356,6 +4343,7 @@ unsigned short sc2355_rx_evt_process(struct sprd_priv *priv, u8 *msg)
 	u16 len, plen;
 	u8 *data;
 	struct sprd_hif *hif;
+	const char *evt_str = cmdevt_evt2str(hdr->cmd_id);
 
 	ctx_id = hdr->common.mode;
 	/*TODO ctx_id range*/
@@ -4367,14 +4355,13 @@ unsigned short sc2355_rx_evt_process(struct sprd_priv *priv, u8 *msg)
 	plen = SPRD_GET_LE16(hdr->plen);
 	if (!priv) {
 		wl_err("%s priv is NULL [%u]ctx_id %d recv[%s]len: %d\n",
-		       __func__, le32_to_cpu(hdr->mstime), ctx_id,
-		       cmdevt_evt2str(hdr->cmd_id), hdr->plen);
+		       __func__, le32_to_cpu(hdr->mstime), ctx_id, evt_str, hdr->plen);
 		return plen;
 	}
 
 	if (hdr->cmd_id != EVT_SDIO_FLOWCON)
 		wl_info("cid %d rx[%s]len: %d,rsp_n=%d\n", ctx_id,
-			cmdevt_evt2str(hdr->cmd_id), plen, hdr->rsp_cnt);
+			evt_str, plen, hdr->rsp_cnt);
 
 	if (plen < sizeof(struct sprd_cmd_hdr)) {
 		wl_err("%s plen is invalid!\n", __func__);
@@ -4541,6 +4528,8 @@ unsigned short sc2355_rx_rsp_process(struct sprd_priv *priv, u8 *msg)
 	int handle_flag = 0;
 	struct sprd_cmd *cmd = &priv->cmd;
 	struct sprd_cmd_hdr *hdr;
+	const char *cmd_str = NULL, *err_str = NULL;
+	u32 hdr_mstime;
 
 	if (unlikely(!cmd->init_ok)) {
 		wl_info("%s cmd coming too early, drop it\n", __func__);
@@ -4549,6 +4538,9 @@ unsigned short sc2355_rx_rsp_process(struct sprd_priv *priv, u8 *msg)
 
 	hdr = (struct sprd_cmd_hdr *)msg;
 	plen = SPRD_GET_LE16(hdr->plen);
+	cmd_str = cmdevt_cmd2str(hdr->cmd_id);
+	err_str = cmdevt_err2str(hdr->status);
+	hdr_mstime = SPRD_GET_LE32(hdr->mstime);
 
 	print_hex_dump_debug("CMD RSP: ", DUMP_PREFIX_OFFSET, 16, 1,
 			     (u8 *)hdr, hdr->plen, 0);
@@ -4569,7 +4561,7 @@ unsigned short sc2355_rx_rsp_process(struct sprd_priv *priv, u8 *msg)
 
 	if (atomic_read(&cmd->ignore_resp)) {
 		atomic_dec(&cmd->refcnt);
-		wl_warn("ignore %s response\n", cmdevt_cmd2str(hdr->cmd_id));
+		wl_warn("ignore %s response\n", cmd_str);
 		return plen;
 	}
 	data = kmalloc(plen, GFP_KERNEL);
@@ -4581,14 +4573,12 @@ unsigned short sc2355_rx_rsp_process(struct sprd_priv *priv, u8 *msg)
 	memcpy(data, (void *)hdr, plen);
 
 	spin_lock_bh(&cmd->lock);
-	if (!cmd->data && SPRD_GET_LE32(hdr->mstime) == cmd->mstime &&
+	if (!cmd->data && hdr_mstime == cmd->mstime &&
 	    hdr->cmd_id == cmd->cmd_id) {
-		wl_info("mode %d rx rsp[%s]\n",
-			hdr->common.mode, cmdevt_cmd2str(hdr->cmd_id));
+		wl_info("mode %d rx rsp[%s]\n", hdr->common.mode, cmd_str);
 		if (unlikely(hdr->status != 0)) {
 			wl_err("%s cid %d recv rsp[%s] status[%s]\n",
-			       __func__, hdr->common.mode,
-			       cmdevt_cmd2str(hdr->cmd_id), cmdevt_err2str(hdr->status));
+			       __func__, hdr->common.mode, cmd_str, err_str);
 			handle_flag = cmdevt_handle_rsp_status_err(hdr->cmd_id,
 								   hdr->status);
 			if (hdr->cmd_id == CMD_TX_MGMT) {
@@ -4601,10 +4591,8 @@ unsigned short sc2355_rx_rsp_process(struct sprd_priv *priv, u8 *msg)
 	} else {
 		kfree(data);
 		wl_err("%s cid %d recv mismatched rsp[%s] status[%s]\n",
-		       __func__, hdr->common.mode,
-		       cmdevt_cmd2str(hdr->cmd_id), cmdevt_err2str(hdr->status));
-		wl_err("%s mstime:[%u %u]\n", __func__,
-		       SPRD_GET_LE32(hdr->mstime), cmd->mstime);
+		       __func__, hdr->common.mode, cmd_str, err_str);
+		wl_err("%s mstime:[%u %u]\n", __func__, hdr_mstime, cmd->mstime);
 	}
 	spin_unlock_bh(&cmd->lock);
 	atomic_dec(&cmd->refcnt);

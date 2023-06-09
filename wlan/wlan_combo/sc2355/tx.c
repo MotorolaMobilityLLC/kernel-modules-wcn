@@ -170,8 +170,9 @@ static int tx_cmd(struct sprd_hif *hif, struct sprd_msg_list *list)
 	struct sprd_msg *msg;
 	struct tx_mgmt *tx_mgmt;
 	struct sprd_cmd_hdr *hdr;
-	u8 cmd_id, mode, i;
-	__le32 mstime;
+	u8 mode, i;
+	u32 mstime;
+	const char *cmd_str;
 
 	tx_mgmt = (struct tx_mgmt *)hif->tx_mgmt;
 	while ((msg = sprd_peek_msg(list))) {
@@ -181,12 +182,15 @@ static int tx_cmd(struct sprd_hif *hif, struct sprd_msg_list *list)
 			sprd_dequeue_msg(msg, list);
 			continue;
 		}
+
+		hdr = (struct sprd_cmd_hdr *)(msg->tran_data + hif->hif_offset);
+		cmd_str = sc2355_cmdevt_cmd2str(hdr->cmd_id);
+		mstime = le32_to_cpu(hdr->mstime);
+
 		if (time_after(jiffies, msg->timeout)) {
-			hdr = (struct sprd_cmd_hdr *)(msg->tran_data + hif->hif_offset);
 			tx_mgmt->drop_cmd_cnt++;
 			wl_err("tx drop cmd msg,dropcnt:%lu, [%u]ctx_id %d send[%s]\n",
-			       tx_mgmt->drop_cmd_cnt, le32_to_cpu(hdr->mstime),
-			       hdr->common.mode, sc2355_cmdevt_cmd2str(hdr->cmd_id));
+			       tx_mgmt->drop_cmd_cnt, mstime, hdr->common.mode, cmd_str);
 			kfree(msg->tran_data);
 			msg->tran_data = NULL;
 			sprd_dequeue_msg(msg, list);
@@ -194,10 +198,7 @@ static int tx_cmd(struct sprd_hif *hif, struct sprd_msg_list *list)
 		}
 		tx_dequeue_cmd_buf(msg, list);
 		tx_mgmt->cmd_send++;
-		hdr = (struct sprd_cmd_hdr *)(msg->tran_data + hif->hif_offset);
-		cmd_id = hdr->cmd_id;
 		mode = hdr->common.mode;
-		mstime = hdr->mstime;
 
 		if (hif->hw_type == SPRD_HW_SC2355_PCIE)
 			ret = sc2355_pcie_tx_cmd(hif, (unsigned char *)msg->tran_data,
@@ -222,8 +223,7 @@ static int tx_cmd(struct sprd_hif *hif, struct sprd_msg_list *list)
 		}
 		if (ret) {
 			wl_err("%s [%u]ctx_id %d send[%s] err:%d.\n", __func__,
-				le32_to_cpu(mstime), mode,
-				sc2355_cmdevt_cmd2str(cmd_id), ret);
+				mstime, mode, cmd_str, ret);
 			msg->tran_data = NULL;
 			sc2355_free_cmd_buf(msg, list);
 		}
