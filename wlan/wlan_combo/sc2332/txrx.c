@@ -95,14 +95,16 @@ static int rx_wapi_data_process(struct sprd_vif *vif,
 
 	ndev = vif->ndev;
 	addr = (struct ieee80211_hdr_3addr *)pdata;
-	skb = dev_alloc_skb(len + NET_IP_ALIGN);
-	if (!skb)
-		return -ENOMEM;
-	skb_reserve(skb, NET_IP_ALIGN);
+
 	if (len <= 24) {
 		wl_err("%s data len is invalid\n", __func__);
 		return -EINVAL;
 	}
+
+	skb = dev_alloc_skb(len + NET_IP_ALIGN);
+	if (!skb)
+		return -ENOMEM;
+	skb_reserve(skb, NET_IP_ALIGN);
 
 	decryp_data_len = sc2332_wapi_dec(vif, (unsigned char *)addr,
 					  24, (len - 24), (skb->data + 12));
