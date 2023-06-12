@@ -369,11 +369,11 @@ int sprd_cfg80211_del_iface(struct wiphy *wiphy, struct wireless_dev *wdev)
 	hif = &priv->hif;
 
 	if (hif->remove_flag == 1) {
-		wiphy_err(wiphy, "%s driver removing!\n", __func__);
+		wl_err("%s driver removing!\n", __func__);
 		return 0;
 	}
 	if (sprd_chip_is_exit(&priv->chip) || hif->cp_asserted)
-		wl_info("del interface while assert\n");
+		wl_warn("del interface while assert\n");
 
 	spin_lock_bh(&priv->list_lock);
 	list_for_each_entry_safe(vif, tmp_vif, &priv->vif_list, vif_node) {
@@ -834,9 +834,8 @@ int sprd_cfg80211_connect(struct wiphy *wiphy, struct net_device *ndev,
 
 	/* workround for bug 795430 */
 	if (!(vif->state & VIF_STATE_OPEN)) {
-		wiphy_err(wiphy,
-			  "%s, error! mode%d connect after closed not allowed",
-			  __func__, vif->mode);
+		wl_err("%s, error! mode%d connect after closed not allowed",
+		       __func__, vif->mode);
 		ret = -EACCES;
 		goto err;
 	}
@@ -1289,8 +1288,6 @@ int sprd_cfg80211_start_p2p_device(struct wiphy *wiphy,
 	struct sprd_hif *hif = &vif->priv->hif;
 	int ret;
 
-	wiphy_info(wiphy, "%s Power on WCN (%d time)\n", __func__,
-		atomic_read(&hif->power_cnt));
 	ret = sprd_iface_set_power(hif, true);
 	if (ret)
 		return ret;
@@ -1314,8 +1311,6 @@ void sprd_cfg80211_stop_p2p_device(struct wiphy *wiphy,
 	sprd_report_scan_done(vif, true);
 	sprd_uninit_fw(vif);
 
-	wiphy_info(wiphy, "%s Power off WCN (%d time)\n", __func__,
-		atomic_read(&hif->power_cnt));
 	sprd_iface_set_power(hif, false);
 }
 
@@ -1482,8 +1477,8 @@ int sprd_init_fw(struct sprd_vif *vif)
 
 	if (vif->mode == SPRD_MODE_AP || vif->mode == SPRD_MODE_STATION) {
 		ret = regulatory_hint(priv->wiphy, country_alpha);
-		netdev_info(vif->ndev, "%s type %d, mode %d, name %s, regulatory_hint ret = %d.\n",
-			__func__, type, vif->mode, vif->name, ret);
+		netdev_dbg(vif->ndev, "%s type %d, mode %d, name %s, regulatory_hint ret = %d.\n",
+			   __func__, type, vif->mode, vif->name, ret);
 	}
 
 	return 0;

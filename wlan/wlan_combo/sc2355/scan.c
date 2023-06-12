@@ -191,7 +191,7 @@ static void sc2355_cancel_scan(struct sprd_vif *vif)
 	struct sprd_api_version_t *api = (&priv->sync_api)->api_array;
 	u8 fw_ver = 0;
 
-	wl_info("%s enter==\n", __func__);
+	wl_debug("%s enter==\n", __func__);
 
 	if (priv->scan_vif && priv->scan_vif == vif) {
 		if (timer_pending(&priv->scan_timer))
@@ -248,7 +248,7 @@ void sc2355_scan_timeout(struct timer_list *t)
 	struct sprd_api_version_t *api = (&priv->sync_api)->api_array;
 	u8 fw_ver = 0;
 
-	wl_info("%s\n", __func__);
+	wl_debug("%s\n", __func__);
 
 	spin_lock_bh(&priv->scan_lock);
 	if (priv->scan_request) {
@@ -301,13 +301,13 @@ int sc2355_scan(struct wiphy *wiphy, struct cfg80211_scan_request *request)
 		sc2355_random_mac_addr(rand_addr);
 		if ((flags & NL80211_SCAN_FLAG_RANDOM_ADDR) && (priv->rand_mac_flag == 0)) {
 			random_mac_flag = SPRD_ENABLE_SCAN_RANDOM_ADDR;
-			wiphy_err(wiphy, "random mac addr: %pM\n", rand_addr);
+			wl_info("random mac addr: %pM\n", rand_addr);
 		} else {
-			wiphy_err(wiphy, "random mac feature disabled\n");
+			wl_debug("random mac feature disabled\n");
 			random_mac_flag = SPRD_DISABLE_SCAN_RANDOM_ADDR;
 		}
 		if (sprd_set_random_mac(vif->priv, vif, random_mac_flag, rand_addr))
-			wiphy_err(wiphy, "Failed to set random mac to STA!\n");
+			wl_err("Failed to set random mac to STA!\n");
 	}
 
 	/* set WPS ie */
@@ -439,30 +439,29 @@ void sc2355_abort_scan(struct wiphy *wiphy, struct wireless_dev *wdev)
 	hif = &priv->hif;
 
 	if (sprd_chip_is_exit(&priv->chip) || hif->cp_asserted) {
-		wl_info("%s Assert happened!\n", __func__);
+		wl_err("%s Assert happened!\n", __func__);
 		if (vif->mode == SPRD_MODE_P2P_DEVICE) {
-			wl_info("p2p device need cancel scan\n");
+			wl_debug("p2p device need cancel scan\n");
 			sprd_report_scan_done(vif, true);
-			wl_info("%s p2p device cancel scan finished!\n",
+			wl_debug("%s p2p device cancel scan finished!\n",
 				__func__);
 		}
 	}
 
 	if (fw_ver < 3) {
-		wiphy_err(wiphy, "%s Abort scan not support.\n", __func__);
+		wl_err("%s Abort scan not support.\n", __func__);
 		return;
 	}
 
 	if (!priv->scan_request) {
-		wiphy_err(wiphy, "%s Not running scan.\n", __func__);
+		wl_err("%s Not running scan.\n", __func__);
 		return;
 	}
 
 	if (priv->scan_request->wdev != wdev) {
-		wiphy_err(wiphy,
-			  "%s Running scan[%u] isn't equal to abort scan[%u]\n",
-			  __func__, priv->scan_request->wdev->iftype,
-			  wdev->iftype);
+		wl_err("%s Running scan[%u] isn't equal to abort scan[%u]\n",
+		       __func__, priv->scan_request->wdev->iftype,
+		       wdev->iftype);
 		return;
 	}
 	sc2355_cmd_abort_scan(priv, vif);
@@ -487,9 +486,8 @@ int sc2355_sched_scan_start(struct wiphy *wiphy, struct net_device *ndev,
 	vif = netdev_priv(ndev);
 	/*scan not allowed if closed*/
 	if (!(vif->state & VIF_STATE_OPEN)) {
-		wiphy_err(wiphy,
-			  "%s, %d, error!mode%d scan after closed not allowed\n",
-			  __func__, __LINE__, vif->mode);
+		wl_err("%s, %d, error!mode%d scan after closed not allowed\n",
+		       __func__, __LINE__, vif->mode);
 		return -ENOMEM;
 	}
 
@@ -499,18 +497,18 @@ int sc2355_sched_scan_start(struct wiphy *wiphy, struct net_device *ndev,
 	}
 	/*to protect the size of struct sprd_sched_scan*/
 	if (request->n_channels > SPRD_TOTAL_CHAN_NR) {
-		wiphy_err(wiphy, "%s, %d, error! request->n_channels=%d\n",
-			  __func__, __LINE__, request->n_channels);
+		wl_err("%s, %d, error! request->n_channels=%d\n",
+		       __func__, __LINE__, request->n_channels);
 		request->n_channels = SPRD_TOTAL_CHAN_NR;
 	}
 	if (request->n_ssids > SPRD_TOTAL_SSID_NR) {
-		wiphy_err(wiphy, "%s, %d, error! request->n_ssids=%d\n",
-			  __func__, __LINE__, request->n_ssids);
+		wl_err("%s, %d, error! request->n_ssids=%d\n",
+		       __func__, __LINE__, request->n_ssids);
 		request->n_ssids = SPRD_TOTAL_SSID_NR;
 	}
 	if (request->n_match_sets > SPRD_TOTAL_SSID_NR) {
-		wiphy_err(wiphy, "%s, %d, error! request->n_match_sets=%d\n",
-			  __func__, __LINE__, request->n_match_sets);
+		wl_err("%s, %d, error! request->n_match_sets=%d\n",
+		       __func__, __LINE__, request->n_match_sets);
 		request->n_match_sets = SPRD_TOTAL_SSID_NR;
 	}
 	sscan_buf = kzalloc(sizeof(*sscan_buf), GFP_KERNEL);
@@ -674,9 +672,9 @@ void sc2355_report_scan_result(struct sprd_vif *vif, u16 chan, s16 rssi,
 		memcpy(ssid, (ssidie + 2), ssid_len);
 	}
 
-	netdev_info(vif->ndev, " %s, %pM(%s)%u, chn %2u, sig %d, freq %u\n",
-		    ieee80211_is_probe_resp(mgmt->frame_control) ? "proberesp" : "beacon   ",
-		    mgmt->bssid, ssid, ssid_len, chan, signal, freq);
+	wl_info(" %s, %pM(%s)%u, chn %2u, sig %d, freq %u\n",
+		ieee80211_is_probe_resp(mgmt->frame_control) ? "proberesp" : "beacon   ",
+		mgmt->bssid, ssid, ssid_len, chan, signal, freq);
 
 	bss = cfg80211_inform_bss(wiphy, channel, CFG80211_BSS_FTYPE_UNKNOWN,
 				  mgmt->bssid, tsf, capability, beacon_interval,

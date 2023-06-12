@@ -65,7 +65,7 @@ static int sc2355_fcc_fresh_bo(struct sprd_priv *priv, u8 channel, u8 bw, bool f
 	mutex_unlock(&fcc_info.lock);
 
 	if (!current_power_bo) {
-		wl_info("current_power_bo is NULL, reset default!\n");
+		wl_debug("current_power_bo is NULL, reset default!\n");
 		p_backoff = NULL;
 	} else {
 		for (index = 0; index < current_power_bo->num; index++) {
@@ -108,7 +108,7 @@ void sc2355_fcc_match_country(struct sprd_priv *priv, const char *alpha2)
 	for (i = 0; i < MAX_FCC_COUNTRY_NUM; i++) {
 		if (g_fcc_power_table[i].country[0] == alpha2[0] &&
 			g_fcc_power_table[i].country[1] == alpha2[1]) {
-			wl_info("matched fcc country %s!\n", alpha2);
+			wl_debug("matched fcc country %s!\n", alpha2);
 			found_country = true;
 			last_power_bo = fcc_info.cur_power_bo;
 			fcc_info.cur_power_bo = &g_fcc_power_table[i];
@@ -120,14 +120,14 @@ void sc2355_fcc_match_country(struct sprd_priv *priv, const char *alpha2)
 				need_refresh = true;
 				channel = fcc_info.channel;
 				bw = fcc_info.bw;
-				wl_info("evt_fresh_backoff had came, now fresh it!\n");
+				wl_debug("evt_fresh_backoff had came, now fresh it!\n");
 			}
 			break;
 		}
 	}
 
 	if (!found_country) {
-		wl_info("not fcc country, need reset fcc power\n");
+		wl_debug("not fcc country, need reset fcc power\n");
 		fcc_info.cur_power_bo = NULL;
 	}
 	mutex_unlock(&fcc_info.lock);

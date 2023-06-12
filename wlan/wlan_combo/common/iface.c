@@ -143,11 +143,11 @@ static int iface_host_reset(struct notifier_block *nb,
 
 	if (hif->hw_type == SPRD_HW_SC2355_SIPC) {
 		kobject_uevent_env(&hif->pdev->dev.kobj, KOBJ_CHANGE, envp);
-		wl_err("%s() dev_path: %s\n", __func__,
+		wl_info("%s() dev_path: %s\n", __func__,
 			kobject_get_path(&hif->pdev->dev.kobj, GFP_KERNEL));
 	} else {
 		kobject_uevent_env(&wlan_misc_device.this_device->kobj, KOBJ_CHANGE, envp);
-		wl_err("%s() dev_path: %s\n", __func__,
+		wl_info("%s() dev_path: %s\n", __func__,
 			kobject_get_path(&wlan_misc_device.this_device->kobj, GFP_KERNEL));
 	}
 	sprd_chip_force_exit((void *)&priv->chip);
@@ -172,7 +172,7 @@ static int iface_host_reset(struct notifier_block *nb,
 	complete(&cmd->completed);
 	sprd_chip_force_exit((void *)&priv->chip);
 
-	wl_info("%s process wifi driver self reset work\n", __func__);
+	wl_debug("%s process wifi driver self reset work\n", __func__);
 	if (!work_pending(&priv->reset_work))
 		queue_work(priv->reset_workq, &priv->reset_work);
 
@@ -250,6 +250,8 @@ int sprd_iface_set_power(struct sprd_hif *hif, int val)
 	int ret = 0;
 
 	if (val) {
+		wl_info("%s Power on WCN (%d time)\n", __func__,
+			atomic_read(&hif->power_cnt));
 		sprd_wlan_power_status_sync(1, 1);
 		ret = sprd_hif_power_on(hif);
 		if (ret) {
@@ -265,8 +267,11 @@ int sprd_iface_set_power(struct sprd_hif *hif, int val)
 		}
 		if (atomic_read(&hif->power_cnt) == 1)
 			sprd_get_fw_info(hif->priv);
-	} else
+	} else {
+		wl_info("%s Power off WCN (%d time)\n", __func__,
+			atomic_read(&hif->power_cnt));
 		sprd_hif_power_off(hif);
+	}
 	return ret;
 }
 
@@ -297,9 +302,6 @@ static int iface_open(struct net_device *ndev)
 	 */
 	if (atomic_read(&hif->block_cmd_after_close) == 1)
 		atomic_set(&hif->block_cmd_after_close, 0);
-
-	netdev_info(ndev, "Power on WCN (%d time)\n",
-		    atomic_read(&hif->power_cnt));
 
 	ret = sprd_iface_set_power(hif, true);
 #ifdef ENABLE_CHR
@@ -344,8 +346,6 @@ static int iface_close(struct net_device *ndev)
 		atomic_set(&hif->block_cmd_after_close, 1);
 
 	sprd_uninit_fw(vif);
-	netdev_info(ndev, "Power off WCN (%d time)\n",
-		    atomic_read(&hif->power_cnt));
 	sprd_iface_set_power(hif, false);
 
 	return 0;
@@ -471,7 +471,7 @@ void sprd_netif_rx(struct net_device *ndev, struct sk_buff *skb)
 		print_hex_dump_debug("RX sniffer data packet: ", DUMP_PREFIX_OFFSET,
 				     16, 1, skb->data, print_len, 0);
 
-		wl_info("sniffer data cnt: %d\n", vif->priv->monitor_data_cnt++);
+		wl_debug("sniffer data cnt: %d\n", vif->priv->monitor_data_cnt++);
 
 		skb->dev = ndev;
 		/* report data for sniffer mode */
@@ -534,7 +534,7 @@ void sprd_rx_monitor_process(struct sprd_vif *vif,
 	print_hex_dump_debug("RX sniffer frame: ", DUMP_PREFIX_OFFSET,
 			     16, 1, data, print_len, 0);
 
-	wl_info("sniffer mgmt frame cnt: %d\n", vif->priv->monitor_mgmt_cnt++);
+	wl_debug("sniffer mgmt frame cnt: %d\n", vif->priv->monitor_mgmt_cnt++);
 
 	ndev = vif->ndev;
 	skb_reserve(skb, NET_IP_ALIGN);
@@ -1558,7 +1558,7 @@ static int iface_notify_init(struct sprd_priv *priv)
 	}
 
 	if (priv->fw_capa & SPRD_CAPA_NS_OFFLOAD) {
-		wl_info("\tIPV6 NS Offload supported\n");
+		wl_debug("\tIPV6 NS Offload supported\n");
 		ret = register_inet6addr_notifier(&iface_inet6addr_cb);
 		if (ret) {
 			wl_err
@@ -1650,7 +1650,7 @@ static struct sprd_vif *iface_register_wdev(struct sprd_priv *priv,
 
 static void iface_unregister_wdev(struct sprd_vif *vif)
 {
-	wl_info("iface '%s' deleted\n", vif->name);
+	wl_debug("iface '%s' deleted\n", vif->name);
 
 	cfg80211_unregister_wdev(&vif->wdev);
 	/* cfg80211_unregister_wdev use list_del_rcu to delete wdev,
@@ -1692,7 +1692,7 @@ static struct sprd_vif *iface_register_netdev(struct sprd_priv *priv,
 	/* initialize ndev stuff */
 	ndev->ieee80211_ptr = wdev;
 	if (priv->fw_capa & SPRD_CAPA_MC_FILTER) {
-		wl_info("\tMulticast Filter supported\n");
+		wl_debug("\tMulticast Filter supported\n");
 		vif->mc_filter =
 		    kzalloc(sizeof(struct sprd_mc_filter) +
 			    priv->max_mc_mac_addrs * ETH_ALEN, GFP_KERNEL);
@@ -1725,7 +1725,7 @@ static struct sprd_vif *iface_register_netdev(struct sprd_priv *priv,
 		goto err;
 	}
 
-	wl_info("iface '%s'(%pM) type %d added\n",
+	wl_debug("iface '%s'(%pM) type %d added\n",
 		ndev->name, ndev->dev_addr, type);
 	return vif;
 err:
@@ -1736,7 +1736,7 @@ err:
 
 static void iface_unregister_netdev(struct sprd_vif *vif)
 {
-	wl_info("iface '%s' deleted\n", vif->ndev->name);
+	wl_debug("iface '%s' deleted\n", vif->ndev->name);
 
 	iface_deinit_vif(vif);
 
@@ -1896,8 +1896,6 @@ int sprd_iface_probe(struct platform_device *pdev,
 		return -ENOMEM;
 	}
 #endif
-	wl_info("%s Power on WCN (%d time)\n", __func__, atomic_read(&hif->power_cnt));
-
 	ret = sprd_iface_set_power(hif, true);
 	if (ret) {
 #ifdef ENABLE_CHR
@@ -1934,7 +1932,6 @@ int sprd_iface_probe(struct platform_device *pdev,
 	}
 
 	/* Power off chipset in order to save power */
-	wl_info("%s Power off WCN (%d time)\n", __func__, atomic_read(&hif->power_cnt));
 	sprd_iface_set_power(hif, false);
 	priv->probe_done = true;
 
@@ -1948,7 +1945,6 @@ int sprd_iface_remove(struct platform_device *pdev)
 
 	int ret;
 
-	wl_info("%s Power on WCN (%d time)\n", __func__, atomic_read(&hif->power_cnt));
 	ret = sprd_iface_set_power(hif, true);
 	if (ret)
 		return ret;
@@ -1961,7 +1957,6 @@ int sprd_iface_remove(struct platform_device *pdev)
 	sprd_hif_deinit(hif);
 	sprd_core_free(priv);
 	iface_set_priv(NULL);
-	wl_info("%s Power off WCN (%d time)\n", __func__, atomic_read(&hif->power_cnt));
 	sprd_iface_set_power(hif, false);
 
 	return 0;

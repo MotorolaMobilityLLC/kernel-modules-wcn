@@ -247,7 +247,7 @@ static void cmdevt_report_chr_evt(struct sprd_vif *vif, u8 *data, u16 len)
 	left -= sizeof(echr.evt_content_len);
 	echr.evt_content = pos;
 
-	wl_info("%s, CHR: version: %u, evt_id: %#x, evt_id_subtype: %u, evt_content_len: %u\n",
+	wl_debug("%s, CHR: version: %u, evt_id: %#x, evt_id_subtype: %u, evt_content_len: %u\n",
 		__func__, echr.version, echr.evt_id, echr.evt_id_subtype, echr.evt_content_len);
 
 	switch (echr.evt_id) {
@@ -744,7 +744,7 @@ int sc2355_send_cmd_recv_rsp(struct sprd_priv *priv, struct sprd_msg *msg, u8 *r
 
 	hif = &priv->hif;
 	if (hif->cp_asserted == 1) {
-		wl_info("%s CP2 assert\n", __func__);
+		wl_err("%s CP2 assert\n", __func__);
 		sprd_chip_free_msg(&priv->chip, msg);
 		kfree(msg->tran_data);
 		return -EIO;
@@ -767,7 +767,7 @@ int sc2355_send_cmd_recv_rsp(struct sprd_priv *priv, struct sprd_msg *msg, u8 *r
 
 	if (atomic_read(&priv->hif.block_cmd_after_close) == 1) {
 		if (cmd_id != CMD_CLOSE) {
-			wl_info("%s need block cmd after close : %s\n",
+			wl_err("%s need block cmd after close : %s\n",
 				__func__, cmd_str);
 			goto out;
 		}
@@ -775,7 +775,7 @@ int sc2355_send_cmd_recv_rsp(struct sprd_priv *priv, struct sprd_msg *msg, u8 *r
 
 	if (atomic_read(&priv->hif.change_iface_block_cmd) == 1) {
 		if (cmd_id != CMD_CLOSE && cmd_id != CMD_OPEN) {
-			wl_info("%s need block cmd while change iface : %s\n",
+			wl_err("%s need block cmd while change iface : %s\n",
 				__func__, cmd_str);
 			goto out;
 		}
@@ -971,7 +971,7 @@ int sc2355_cmd_sched_scan_start(struct sprd_priv *priv, struct sprd_vif *vif,
 		ie_head->ie_len = buf->ie_len;
 		len += sizeof(*ie_head);
 
-		wl_info("%s: ie len is %zu, ie:%s\n",
+		wl_debug("%s: ie len is %zu, ie:%s\n",
 			__func__, buf->ie_len, buf->ie);
 		memcpy((p + len), buf->ie, buf->ie_len);
 		len += ie_head->ie_len;
@@ -1138,7 +1138,7 @@ void sc2355_vowifi_data_protection(struct sprd_vif *vif)
 {
 	struct sprd_work *misc_work;
 
-	wl_info("enter--at %s\n", __func__);
+	wl_debug("enter--at %s\n", __func__);
 
 	misc_work = sprd_alloc_work(0);
 	if (!misc_work) {
@@ -1193,8 +1193,7 @@ int sc2355_cmd_host_wakeup_fw(struct sprd_priv *priv, struct sprd_vif *vif)
 	p = (struct cmd_power_save *)msg->data;
 	p->sub_type = SPRD_HOST_WAKEUP_FW;
 	p->value = 0;
-	wl_info("CMD_POWER_SAVE subtype is [%s]\n",
-			ps_subtype2str(p->sub_type));
+	wl_info("power_save [%s]\n", ps_subtype2str(p->sub_type));
 
 	ret = send_cmd_recv_rsp(priv, msg, &r_buf, &r_len);
 
@@ -1359,7 +1358,7 @@ static int cmdevt_download_ini(struct sprd_priv *priv, u8 *data, u32 len, u8 sec
 
 	/*calc CRC value*/
 	CRC = cmdevt_crc16(data, len);
-	wl_info("CRC value:%d\n", CRC);
+	wl_debug("CRC value:%d\n", CRC);
 
 	p = msg->data;
 	*p = sec_num;
@@ -1405,7 +1404,7 @@ void sc2355_download_hw_param(struct sprd_priv *priv)
 		return;
 	}
 
-	wl_info("total config len:%ld,sec1 len:%ld, sec2 len:%ld\n",
+	wl_debug("total config len:%ld,sec1 len:%ld, sec2 len:%ld\n",
 		(unsigned long)sizeof(wifi_data),
 		(unsigned long)sizeof(*sec1),
 		(unsigned long)sizeof(*sec2));
@@ -1445,7 +1444,7 @@ void sc2355_download_hw_param(struct sprd_priv *priv)
 
 	if (wifi_data->rf_config.rf_data_len) {
 		wl_info("download the third section of config file\n");
-		wl_info("rf_data_len = %d\n", wifi_data->rf_config.rf_data_len);
+		wl_debug("rf_data_len = %d\n", wifi_data->rf_config.rf_data_len);
 		ret = cmdevt_download_ini(priv, wifi_data->rf_config.rf_data,
 					  wifi_data->rf_config.rf_data_len, SEC3);
 		if (ret) {
@@ -1463,7 +1462,7 @@ void sc2355_download_hw_param(struct sprd_priv *priv)
 	}
 
 	wl_info("download the 4th section of config file\n");
-	wl_info("trigger = %d, delta = %d, prefer = %d\n",
+	wl_debug("trigger = %d, delta = %d, prefer = %d\n",
 		wifi_param->roaming_param.trigger,
 		wifi_param->roaming_param.delta,
 		wifi_param->roaming_param.band_5g_prefer);
@@ -1513,14 +1512,14 @@ void sc2355_sipc_download_hw_param(struct sprd_priv *priv)
 		return;
 	}
 
-	wl_info("total config len:%ld,sec1 len:%ld, sec2 len:%ld\n",
+	wl_debug("total config len:%ld,sec1 len:%ld, sec2 len:%ld\n",
 		(long unsigned int)sizeof(wifi_data), (long unsigned int)sizeof(*sec1),
 		(long unsigned int)sizeof(*sec2));
 	/*devide wifi_conf into sec1 and sec2 since it's too large*/
 	sec1 = (struct merl_wifi_conf_sec1_t *)wifi_data;
 	sec2 = (struct merl_wifi_conf_sec2_t *)(&wifi_data->tx_scale);
 	wifi_param = (struct merl_wifi_config_param_t *)(&wifi_data->wifi_param);
-	wl_info("total config len:%ld,sec1 len:%ld, sec2 len:%ld, sec4 len:%ld\n",
+	wl_debug("total config len:%ld,sec1 len:%ld, sec2 len:%ld, sec4 len:%ld\n",
 		(long unsigned int)sizeof(*wifi_data), (long unsigned int)sizeof(*sec1),
 		(long unsigned int)sizeof(*sec2), (long unsigned int)sizeof(*wifi_param));
 	wl_info("download the first section of config file\n");
@@ -1551,7 +1550,7 @@ void sc2355_sipc_download_hw_param(struct sprd_priv *priv)
 
 	if (wifi_data->rf_config.rf_data_len) {
 		wl_info("download the third section of config file\n");
-		wl_info("rf_data_len = %d\n", wifi_data->rf_config.rf_data_len);
+		wl_debug("rf_data_len = %d\n", wifi_data->rf_config.rf_data_len);
 		ret = cmdevt_download_ini(priv, wifi_data->rf_config.rf_data,
 				wifi_data->rf_config.rf_data_len, SEC3);
 		if (ret) {
@@ -1566,7 +1565,7 @@ void sc2355_sipc_download_hw_param(struct sprd_priv *priv)
 		}
 	}
 	wl_info("download the 4th section of config file\n");
-	wl_info("trigger = %d, delta = %d, prefer = %d\n", wifi_param->roaming_param.trigger,
+	wl_debug("trigger = %d, delta = %d, prefer = %d\n", wifi_param->roaming_param.trigger,
 		wifi_param->roaming_param.delta, wifi_param->roaming_param.band_5g_prefer);
 	ret = cmdevt_download_ini(priv, (uint8_t *)wifi_param, sizeof(*wifi_param), SEC4);
 	if (ret) {
@@ -1659,7 +1658,7 @@ int sc2355_get_fw_info(struct sprd_priv *priv)
 		/*check sec2 data length got from fw*/
 		if ((r_len - len_count) >= sizeof(struct wiphy_sec2_t)) {
 			priv->wiphy_sec2_flag = 1;
-			wl_info("save wiphy section2 info to sprd_priv\n");
+			wl_debug("save wiphy section2 info to sprd_priv\n");
 			memcpy(&priv->wiphy_sec2, &p->wiphy_sec2,
 			       sizeof(struct wiphy_sec2_t));
 			wl_all("%s, %d, priv->wiphy_sec2.ht_cap_info=%x\n",
@@ -1715,7 +1714,7 @@ int sc2355_get_fw_info(struct sprd_priv *priv)
 					break;
 				}
 
-				wl_info
+				wl_debug
 				    ("%s, TLV type=%d, len=%d, data_chk=%d\n",
 				     __func__, tlv->type, tlv->len,
 				     b_tlv_data_chk);
@@ -1864,7 +1863,7 @@ int sc2355_close_fw(struct sprd_priv *priv, struct sprd_vif *vif)
 
 	for (i = 0; i < MAX_COLOR_BIT; i++) {
 		if (tx_mgmt->flow_ctrl[i].mode == vif->mode) {
-			wl_info(" %s, %d, _fc_, clear mode%d because closed\n",
+			wl_debug(" %s, %d, _fc_, clear mode%d because closed\n",
 				__func__, __LINE__, vif->mode);
 			tx_mgmt->flow_ctrl[i].mode = SPRD_MODE_NONE;
 		}
@@ -1886,8 +1885,8 @@ int sc2355_power_save(struct sprd_priv *priv, struct sprd_vif *vif,
 	p = (struct cmd_power_save *)msg->data;
 	p->sub_type = sub_type;
 	p->value = status;
-	wl_info("CMD_POWER_SAVE subtype is [%s]\n",
-			ps_subtype2str(p->sub_type));
+	wl_info("power_save [%s], value = %d\n",
+		ps_subtype2str(p->sub_type), status);
 	return send_cmd_recv_rsp(priv, msg, NULL, NULL);
 }
 
@@ -1906,7 +1905,7 @@ int sc2355_set_sar(struct sprd_priv *priv, struct sprd_vif *vif,
 	p->sub_type = sub_type;
 	p->value = value;
 	p->mode = SPRD_SET_SAR_ALL_MODE;
-	wl_info("CMD_POWER_SAVE subtype is SPRD_SET_SAR\n");
+	wl_info("power_save [SET_SAR]\n");
 	return send_cmd_recv_rsp(priv, msg, NULL, NULL);
 }
 
@@ -1915,7 +1914,6 @@ int sc2355_set_power_backoff(struct sprd_priv *priv, struct sprd_vif *vif,
 {
 	struct sprd_msg *msg;
 	struct cmd_set_power_backoff *p;
-	int i;
 
 	msg = get_cmdbuf(priv, vif, sizeof(*p), CMD_POWER_SAVE);
 	if (!msg)
@@ -1926,9 +1924,7 @@ int sc2355_set_power_backoff(struct sprd_priv *priv, struct sprd_vif *vif,
 	p->power_save_type = SPRD_SET_POWER_BACKOFF;
 	if (data)
 		memcpy(&p->backoff, data, sizeof(*data));
-	for (i = 0; i < sizeof(*p); i++)
-		wl_all("%hhu\t", *((u8 *)p + i));
-	wl_info("CMD_POWER_SAVE subtype is SPRD_SET_POWER_BACKOFF\n");
+	wl_info("power_save [SET_POWER_BACKOFF]\n");
 	return send_cmd_recv_rsp(priv, msg, NULL, NULL);
 }
 
@@ -2522,11 +2518,11 @@ count_it:
 	elapsed_time =
 	    (msec - hif->tdls_flow_count[i].start_mstime) / MSEC_PER_SEC;
 	unit_time = elapsed_time / hif->tdls_flow_count[i].timer;
-	wl_info("%s,%d, tdls_id=%d, len_counted=%d, len=%d, threshold=%dK\n",
+	wl_debug("%s,%d, tdls_id=%d, len_counted=%d, len=%d, threshold=%dK\n",
 		__func__, __LINE__, i,
 		hif->tdls_flow_count[i].data_len_counted, len,
 		hif->tdls_flow_count[i].threshold);
-	wl_info("currenttime=%u, elapsetime=%d, unit_time=%d\n",
+	wl_debug("currenttime=%u, elapsetime=%d, unit_time=%d\n",
 		msec, elapsed_time, unit_time);
 
 	if ((hif->tdls_flow_count[i].data_len_counted == 0 &&
@@ -2591,7 +2587,7 @@ int sc2355_tdls_oper(struct sprd_priv *priv, struct sprd_vif *vif,
 			if ((memcmp(hif->peer_entry[i].tx.da,
 				    peer, ETH_ALEN) == 0) &&
 			    hif->peer_entry[i].ctx_id == vif->ctx_id) {
-				wl_info("%s, %d, lut_index=%d\n",
+				wl_debug("%s, %d, lut_index=%d\n",
 					__func__, __LINE__,
 					hif->peer_entry[i].lut_index);
 				hif->peer_entry[i].ip_acquired = 1;
@@ -2845,20 +2841,20 @@ unsigned char sc2355_find_lut_index(struct sprd_hif *hif, struct sprd_vif *vif)
 		for (i = 0; i < MAX_LUT_NUM; i++) {
 			if ((sc2355_is_group(hif->peer_entry[i].tx.da)) &&
 			    hif->peer_entry[i].ctx_id == vif->ctx_id) {
-				wl_info("%s, %d, group lut_index=%d\n",
+				wl_debug("%s, %d, group lut_index=%d\n",
 					__func__, __LINE__,
 					hif->peer_entry[i].lut_index);
 				return hif->peer_entry[i].lut_index;
 			}
 		}
 		if (vif->mode == SPRD_MODE_AP) {
-			wl_info("%s,AP mode, group bssid,\n"
+			wl_debug("%s,AP mode, group bssid,\n"
 				"lut not found, ctx_id:%d, return lut:4\n",
 				__func__, vif->ctx_id);
 			return 4;
 		}
 		if (vif->mode == SPRD_MODE_P2P_GO) {
-			wl_info("%s,GO mode, group bssid,\n"
+			wl_debug("%s,GO mode, group bssid,\n"
 				"lut not found, ctx_id:%d, return lut:5\n",
 				__func__, vif->ctx_id);
 			return 5;
@@ -3039,7 +3035,7 @@ int sc2355_xmit_data2cmd_wq(struct sk_buff *skb, struct net_device *ndev)
 	if ((vif->mode == SPRD_MODE_AP || vif->mode == SPRD_MODE_P2P_GO) &&
 		dscr->sta_lut_index < 6) {
 		dscr->buffer_info.msdu_tid = prio_1;
-		wl_info("%s, %d, SOFTAP/GO group go as BK\n", __func__,
+		wl_debug("%s, %d, SOFTAP/GO group go as BK\n", __func__,
 			__LINE__);
 	}
 
@@ -3077,13 +3073,13 @@ int sc2355_set_chr(struct sprd_chr *chr)
 	p->on_flag = chr->fw_len == 0 ? 0 : 1;
 	p->version = CHR_VERSION;
 	if (!p->on_flag)
-		wl_info("%s, CHR: inform CP2 to stop monitoring all chr_evt", __func__);
+		wl_debug("%s, CHR: inform CP2 to stop monitoring all chr_evt", __func__);
 
 	while (left < chr->fw_len && p->on_flag) {
 		tcmd = chr->fw_cmd_list[index++];
 		if (tcmd.set) {
 			p->chr_evt_id[left++] = tcmd.evt_id;
-			wl_info("%s, CHR: %s the chr_evt, id:0x%x\n",
+			wl_debug("%s, CHR: %s the chr_evt, id:0x%x\n",
 				__func__, p->on_flag == 0 ? "close" : "open", tcmd.evt_id);
 		}
 	}
@@ -3122,7 +3118,7 @@ static int cmdevt_set_tlv_data(struct sprd_priv *priv, struct sprd_vif *vif,
 
 	memcpy(msg->data, tlv, length);
 
-	wl_info("%s tlv type = %d\n", __func__, tlv->type);
+	wl_debug("%s tlv type = %d\n", __func__, tlv->type);
 
 	return send_cmd_recv_rsp(priv, msg, NULL, NULL);
 }
@@ -3182,7 +3178,7 @@ int sc2355_set_vowifi(struct net_device *ndev, struct ifreq *ifr)
 
 		peer_entry = sc2355_find_peer_entry_using_addr(vif, vif->bssid);
 		if (hif && peer_entry) {
-			wl_info("lut:%d, vowifi_enabled, txba_map:%lu\n",
+			wl_debug("lut:%d, vowifi_enabled, txba_map:%lu\n",
 				peer_entry->lut_index,
 				peer_entry->ba_tx_done_map);
 
@@ -3300,10 +3296,10 @@ int sc2355_set_sniffer(struct net_device *ndev, struct ifreq *ifr)
 				   __func__);
 		/* use scan command to set channel */
 		if (value <= 14) {
-			wl_info("2.4G channel: %d\n", value);
+			wl_debug("2.4G channel: %d\n", value);
 			channel |= (1 << (value - 1));
 		} else {
-			wl_info("set 5G channel\n");
+			wl_debug("set 5G channel\n");
 			chns_5g[0] = value;
 		}
 		ret = sc2355_cmd_scan(vif->priv, vif, channel, 0, NULL, 1, chns_5g);
@@ -3395,7 +3391,7 @@ int sc2355_set_miracast(struct net_device *ndev, struct ifreq *ifr)
 	subtype = *(unsigned short *)command;
 	if (subtype == 5) {
 		value = *((int *)(command + 2 * sizeof(unsigned short)));
-		wl_info("%s: set miracast value : %d", __func__, value);
+		wl_debug("%s: set miracast value : %d", __func__, value);
 		ret = sc2355_enable_miracast(priv, vif, value);
 	}
 out:
@@ -3497,8 +3493,7 @@ static int cmdevt_fw_power_down_ack(struct sprd_priv *priv, struct sprd_vif *vif
 		tx_num,
 		list_empty(&tx_mgmt->xmit_msg_list.to_send_list),
 		list_empty(&tx_mgmt->xmit_msg_list.to_free_list));
-	wl_info("CMD_POWER_SAVE subtype is [%s]\n",
-			ps_subtype2str(p->sub_type));
+	wl_info("power_save [%s]\n", ps_subtype2str(p->sub_type));
 	ret = send_cmd_recv_rsp(priv, msg, NULL, NULL);
 
 	if (ret)
@@ -3516,7 +3511,7 @@ static int cmdevt_send_vowifi_data_prot(struct sprd_priv *priv, struct sprd_vif 
 {
 	struct sprd_msg *msg;
 
-	wl_info("enter--at %s\n", __func__);
+	wl_debug("enter--at %s\n", __func__);
 
 	if (!priv)
 		return -EINVAL;
@@ -3792,7 +3787,7 @@ static void cmdevt_report_frame_evt(struct sprd_vif *vif, u8 *data, u16 len, int
 	buf_len = SPRD_GET_LE16(frame->len);
 
 	if (atomic_read(&vif->priv->monitor_mode)) {
-		wl_info("%s: enter rx monitor process\n", __func__);
+		wl_debug("%s: enter rx monitor process\n", __func__);
 		sprd_rx_monitor_process(vif, buf, buf_len);
 		return;
 	}
@@ -3967,7 +3962,7 @@ static void cmdevt_report_tdls_flow_count(struct sprd_vif *vif, u8 *data, u16 le
 		hif->tdls_flow_count[i].threshold = peer_info->txrx_len;
 		hif->tdls_flow_count[i].data_len_counted = 0;
 
-		wl_info("%s,%d, tdls_id=%d,threshold=%d, timer=%d, da=(%pM)\n",
+		wl_debug("%s,%d, tdls_id=%d,threshold=%d, timer=%d, da=(%pM)\n",
 			__func__, __LINE__, i,
 			hif->tdls_flow_count[i].threshold,
 			peer_info->timer, peer_info->da);
@@ -3976,7 +3971,7 @@ static void cmdevt_report_tdls_flow_count(struct sprd_vif *vif, u8 *data, u16 le
 		hif->tdls_flow_count[i].start_mstime =
 		    (u32)div_u64(kt, NSEC_PER_MSEC);
 		hif->tdls_flow_count[i].timer = peer_info->timer;
-		wl_info("%s,%d, tdls_id=%d,start_time:%u\n",
+		wl_debug("%s,%d, tdls_id=%d,start_time:%u\n",
 			__func__, __LINE__, i,
 			hif->tdls_flow_count[i].start_mstime);
 	}
@@ -4173,7 +4168,7 @@ static void cmdevt_report_wfd_mib_cnt(struct sprd_vif *vif, u8 *data, u16 len)
 	struct evt_wfd_mib_cnt *wfd = (struct evt_wfd_mib_cnt *)data;
 	u32 tx_cnt, busy_cnt, wfd_rate;
 
-	wl_info("%s, %d, frame=%d, clear=%d, mib=%d\n",
+	wl_debug("%s, %d, frame=%d, clear=%d, mib=%d\n",
 		__func__, __LINE__,
 		wfd->tx_frame_cnt, wfd->rx_clear_cnt, wfd->mib_cycle_cnt);
 	if (!wfd->mib_cycle_cnt)
@@ -4189,7 +4184,7 @@ static void cmdevt_report_wfd_mib_cnt(struct sprd_vif *vif, u8 *data, u16 len)
 		    wfd->tx_stats.tx_tp_in_mbps +
 		    wfd->tx_stats.tx_tp_in_mbps * (1 / tx_cnt) *
 		    ((10 - busy_cnt) / 10) / 2;
-	wl_info("%s, %d, wfd_rate=%d\n", __func__, __LINE__, wfd_rate);
+	wl_debug("%s, %d, wfd_rate=%d\n", __func__, __LINE__, wfd_rate);
 	wfd_rate = 2;
 }
 
@@ -4282,7 +4277,7 @@ static int cmdevt_report_acs_done_evt(struct sprd_vif *vif, u8 *data, u16 len)
 	/* save acs result to survey list */
 	res_cnt = len / sizeof(struct acs_result);
 
-	wl_info("%s, tot len %d, acs len %d", __func__, len,
+	wl_debug("%s, tot len %d, acs len %d", __func__, len,
 		(int)sizeof(struct acs_result));
 
 	acs_res = (struct acs_result *)data;
@@ -4348,7 +4343,7 @@ unsigned short sc2355_rx_evt_process(struct sprd_priv *priv, u8 *msg)
 	ctx_id = hdr->common.mode;
 	/*TODO ctx_id range*/
 	if (ctx_id > STAP_MODE_P2P_DEVICE) {
-		wl_info("%s invalid ctx_id: %d\n", __func__, ctx_id);
+		wl_err("%s invalid ctx_id: %d\n", __func__, ctx_id);
 		return 0;
 	}
 
@@ -4374,7 +4369,7 @@ unsigned short sc2355_rx_evt_process(struct sprd_priv *priv, u8 *msg)
 	len = plen - sizeof(*hdr);
 	vif = sc2355_ctxid_to_vif(priv, ctx_id);
 	if (!vif) {
-		wl_info("%s NULL vif for ctx_id: %d, len:%d, id:%d\n",
+		wl_err("%s NULL vif for ctx_id: %d, len:%d, id:%d\n",
 			__func__, ctx_id, plen, hdr->cmd_id);
 		if (hdr->cmd_id != EVT_COEX_BT_ON_OFF)
 			return plen;
@@ -4509,7 +4504,7 @@ unsigned short sc2355_rx_evt_process(struct sprd_priv *priv, u8 *msg)
 		break;
 #endif
 	default:
-		wl_info("unsupported event: %d\n", hdr->cmd_id);
+		wl_err("unsupported event: %d\n", hdr->cmd_id);
 		break;
 	}
 
@@ -4532,7 +4527,7 @@ unsigned short sc2355_rx_rsp_process(struct sprd_priv *priv, u8 *msg)
 	u32 hdr_mstime;
 
 	if (unlikely(!cmd->init_ok)) {
-		wl_info("%s cmd coming too early, drop it\n", __func__);
+		wl_err("%s cmd coming too early, drop it\n", __func__);
 		return 0;
 	}
 
@@ -4575,7 +4570,7 @@ unsigned short sc2355_rx_rsp_process(struct sprd_priv *priv, u8 *msg)
 	spin_lock_bh(&cmd->lock);
 	if (!cmd->data && hdr_mstime == cmd->mstime &&
 	    hdr->cmd_id == cmd->cmd_id) {
-		wl_info("mode %d rx rsp[%s]\n", hdr->common.mode, cmd_str);
+		wl_debug("mode %d rx rsp[%s]\n", hdr->common.mode, cmd_str);
 		if (unlikely(hdr->status != 0)) {
 			wl_err("%s cid %d recv rsp[%s] status[%s]\n",
 			       __func__, hdr->common.mode, cmd_str, err_str);

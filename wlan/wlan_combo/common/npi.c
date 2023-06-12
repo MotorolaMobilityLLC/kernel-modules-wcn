@@ -203,7 +203,7 @@ static int npi_nl_handler(struct sk_buff *skb_2, struct genl_info *info)
 		snprintf(dbgstr, sizeof(dbgstr), "[iwnpi][RECV][%d]:", r_len);
 		hdr = (struct sprd_npi_cmd_hdr *)r_buf;
 		wl_info("%s type is %d, subtype %d\n", dbgstr, hdr->type,
-		       hdr->subtype);
+			hdr->subtype);
 	}
 
 	ret = npi_nl_send_generic(info, SPRD_NL_ATTR_CP2AP,
@@ -344,7 +344,7 @@ static void sprd_npi_set_cca_param(struct sprd_priv *priv, struct sprd_vif *vif)
 			adap_info.special_data_flag = SPRD_NPI_NORMAL_ALL;
 		}
 	}
-	wl_info("%s wifi_adaptive_flag: 0x%x, special_data_flag: %d\n",
+	wl_debug("%s wifi_adaptive_flag: 0x%x, special_data_flag: %d\n",
 		__func__, adap_info.wifi_adaptive_flag,
 		adap_info.special_data_flag);
 	spin_unlock_bh(&adap_info.adap_lock);
@@ -360,11 +360,11 @@ static void sprd_npi_set_cca_param(struct sprd_priv *priv, struct sprd_vif *vif)
 		*p = tmp_flag & BIT(0);
 
 		snprintf(dbgstr, sizeof(dbgstr), "[iwnpi][SEND][%d]:", s_len);
-		wl_info("%s type is %d, subtype %d\n", dbgstr, hdr->type, hdr->subtype);
+		wl_debug("%s type is %d, subtype %d\n", dbgstr, hdr->type, hdr->subtype);
 		sprd_npi_send_recv(priv, vif, s_buf, s_len, r_buf, &r_len);
 		snprintf(dbgstr, sizeof(dbgstr), "[iwnpi][RECV][%d]:", r_len);
 		hdr = (struct sprd_npi_cmd_hdr *)r_buf;
-		wl_info("%s type is %d, subtype %d\n", dbgstr, hdr->type, hdr->subtype);
+		wl_debug("%s type is %d, subtype %d\n", dbgstr, hdr->type, hdr->subtype);
 	}
 
 	kfree(r_buf);

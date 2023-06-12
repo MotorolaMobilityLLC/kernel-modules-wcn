@@ -239,19 +239,19 @@ static inline char *ps_subtype2str(u8 subtype)
 {
 	switch (subtype) {
 	case SPRD_SCREEN_ON_OFF:
-		return "SPRD_SCREEN_ON_OFF";
+		return "SCREEN_ON_OFF";
 	case SPRD_SET_FCC_CHANNEL:
-		return "SPRD_SET_FCC_CHANNEL";
+		return "SET_FCC_CHANNEL";
 	case SPRD_SET_TX_POWER:
-		return "SPRD_SET_TX_POWER";
+		return "SET_TX_POWER";
 	case SPRD_SET_PS_STATE:
-		return "SPRD_SET_PS_STATE";
+		return "SET_PS_STATE";
 	case SPRD_SUSPEND_RESUME:
-		return "SPRD_SUSPEND_RESUME";
+		return "SUSPEND_RESUME";
 	case SPRD_FW_PWR_DOWN_ACK:
-		return "SPRD_FW_PWR_DOWN_ACK";
+		return "FW_PWR_DOWN_ACK";
 	case SPRD_HOST_WAKEUP_FW:
-		return "SPRD_HOST_WAKEUP_FW";
+		return "HOST_WAKEUP_FW";
 	default:
 		return "subtype_unknown";
 	}

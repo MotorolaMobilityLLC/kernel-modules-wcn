@@ -84,7 +84,7 @@ void sprd_deinit_msg(struct sprd_msg_list *list)
 	}
 #endif
 
-	wl_info("%s list->ref ok!\n", __func__);
+	wl_debug("%s list->ref ok!\n", __func__);
 
 	if (!list_empty(&list->busylist))
 		WARN_ON(1);

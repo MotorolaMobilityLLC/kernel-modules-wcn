@@ -27,7 +27,7 @@ int sprd_cfg80211_tdls_mgmt(struct wiphy *wiphy, struct net_device *ndev,
 	ielen = len + sizeof(end);
 	tdls_skb = dev_alloc_skb(datalen + NET_IP_ALIGN);
 	if (!tdls_skb) {
-		wiphy_err(wiphy, "dev_alloc_skb failed\n");
+		wl_err("dev_alloc_skb failed\n");
 		return -ENOMEM;
 	}
 	skb_reserve(tdls_skb, NET_IP_ALIGN);
@@ -95,7 +95,7 @@ int sprd_cfg80211_tdls_mgmt(struct wiphy *wiphy, struct net_device *ndev,
 		memcpy((u8 *)p + 1 + len, &end, sizeof(end));
 		break;
 	default:
-		wiphy_err(wiphy, "invalid action_code %d\n", action_code);
+		wl_err("invalid action_code %d\n", action_code);
 		dev_kfree_skb(tdls_skb);
 		return -EINVAL;
 	}

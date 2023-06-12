@@ -225,7 +225,7 @@ static u8 rtt_get_channel(struct wiphy *wiphy, const u8 *mac_addr, u32 freq)
 		cfg80211_put_bss(wiphy, bss);
 	}
 
-	wl_info("target %pM at channel %d\n", mac_addr, channel);
+	wl_debug("target %pM at channel %d\n", mac_addr, channel);
 	return channel;
 }
 
@@ -353,7 +353,7 @@ static void rtt_send_meas_result(struct sprd_priv *priv,
 	struct nlattr *nl_res;
 	int rc = 0;
 
-	wl_info("sending %d results for peer %pM\n",
+	wl_debug("sending %d results for peer %pM\n",
 		res->n_meas, res->mac_addr);
 
 	skb = cfg80211_vendor_event_alloc(priv->wiphy, NULL,
@@ -543,7 +543,7 @@ static void rtt_session_ended(struct sprd_priv *priv, u32 status)
 		return;
 	}
 
-	wl_info("%s: finishing FTM session\n", __func__);
+	wl_debug("%s: finishing FTM session\n", __func__);
 
 	/* send left-over results if any */
 	rtt_send_peer_res(priv);
@@ -621,7 +621,7 @@ static void rtt_event_per_dest_res(struct sprd_priv *priv,
 	for (i = 0; i < n_meas; i++) {
 		index = priv->ftm.ftm_res->n_meas;
 		if (index >= priv->ftm.max_ftm_meas) {
-			wl_info("%s: Too many measurements\n", __func__);
+			wl_debug("%s: Too many measurements\n", __func__);
 			break;
 		}
 		memcpy(&tmp, res->responder_ftm_res[i].t1,
@@ -685,7 +685,7 @@ static void rtt_event_end(struct sprd_priv *priv)
 				nla_put(reply, SPRD_RTT_ATTRIBUTE_RESULT,
 					2 * sizeof(struct rtt_wifi_hal_result),
 					priv->rtt_results.peer_rtt_result[i])) {
-			wl_info("%s, %d\n", __func__, __LINE__);
+			wl_debug("%s, %d\n", __func__, __LINE__);
 			goto out;
 		}
 
@@ -694,7 +694,7 @@ static void rtt_event_end(struct sprd_priv *priv)
 	nla_put_u32(reply, SPRD_RTT_ATTRIBUTE_RESULTS_COMPLETE, 1);
 	cfg80211_vendor_event(reply, GFP_KERNEL);
 	reply = NULL;
-	wl_info("report rtt result\n");
+	wl_debug("report rtt result\n");
 	priv->ftm.session_started = 0;
 
 	priv->rtt_results.peer_num = 0;

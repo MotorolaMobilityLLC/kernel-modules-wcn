@@ -81,7 +81,7 @@ void adjust_max_fw_tx_dscr(char *buf, unsigned char offset)
 		}
 	}
 	max_fw_tx_dscr = value;
-	wl_err("%s, change max_fw_tx_dscr to %d\n", __func__, value);
+	wl_info("%s, change max_fw_tx_dscr to %d\n", __func__, value);
 }
 
 static struct sprd_debug *sprd_dbg;
@@ -166,7 +166,7 @@ static void debug_adjust_debug_level(char *buf, unsigned char offset)
 		sprd_dbg_level = level;
 	else
 		wl_err("invalid debug_level: %d\n", level);
-	wl_err("set debug_level: %d\n", sprd_dbg_level);
+	wl_info("set debug_level: %d\n", sprd_dbg_level);
 }
 
 static void debug_adjust_qos_ratio(char *buf, unsigned char offset)
@@ -185,8 +185,8 @@ static void debug_adjust_qos_ratio(char *buf, unsigned char offset)
 		wmmac_ratio = qos_ratio;
 	}
 
-	wl_err("vo ratio:%u, vi ratio:%u, be ratio:%u, wmmac_ratio:%u\n",
-	       vo_ratio, vi_ratio, be_ratio, wmmac_ratio);
+	wl_info("vo ratio:%u, vi ratio:%u, be ratio:%u, wmmac_ratio:%u\n",
+		vo_ratio, vi_ratio, be_ratio, wmmac_ratio);
 }
 
 static void debug_adjust_ts_cnt(char *buf, unsigned char offset)
@@ -226,7 +226,7 @@ static void debug_adjust_tcpack_delay(char *buf, unsigned char offset)
 		}
 	}
 
-	wl_err("cnt: %d\n", cnt);
+	wl_debug("cnt: %d\n", cnt);
 
 	if (cnt >= 100)
 		cnt = SPRD_TCP_ACK_DROP_CNT;
@@ -236,7 +236,7 @@ static void debug_adjust_tcpack_delay(char *buf, unsigned char offset)
 		ack_m = &priv->ack_m;
 
 		atomic_set(&ack_m->max_drop_cnt, cnt);
-		wl_err("drop time: %d, atomic drop time: %d\n", cnt,
+		wl_info("drop time: %d, atomic drop time: %d\n", cnt,
 		       atomic_read(&ack_m->max_drop_cnt));
 	}
 #undef MAX_LEN
@@ -262,7 +262,7 @@ static void debug_adjust_tcpack_delay_win(char *buf, unsigned char offset)
 		priv = container_of(sprd_dbg, struct sprd_priv, debug);
 		ack_m = &priv->ack_m;
 		ack_m->ack_winsize = value;
-		wl_err("%s, change tcpack_delay_win to %dKB\n", __func__, value);
+		wl_info("%s, change tcpack_delay_win to %dKB\n", __func__, value);
 	}
 }
 
@@ -281,7 +281,7 @@ static void debug_adjust_tdls_threshold(char *buf, unsigned char offset)
 		}
 	}
 	tdls_threshold = value;
-	wl_err("%s, change tdls_threshold to %d\n", __func__, value);
+	wl_info("%s, change tdls_threshold to %d\n", __func__, value);
 }
 
 static void debug_adjust_tsq_shift(char *buf, unsigned char offset)
@@ -299,7 +299,7 @@ static void debug_adjust_tsq_shift(char *buf, unsigned char offset)
 		}
 	}
 	sprd_dbg->tsq_shift = value;
-	wl_err("%s, change tsq_shift to %d\n", __func__, value);
+	wl_info("%s, change tsq_shift to %d\n", __func__, value);
 }
 
 static void debug_adjust_tcpack_th_in_mb(char *buf, unsigned char offset)
@@ -397,11 +397,11 @@ static ssize_t intf_write(struct file *file, const char __user *__user_buf,
 	if (copy_from_user(buf, __user_buf, count))
 		return -EFAULT;
 	buf[count] = '\0';
-	wl_err("write info:%s\n", buf);
+	wl_debug("write info:%s\n", buf);
 	for (type = 0; type < debug_size; type++)
 		if (!strncmp(dbg_info[type].str, buf,
 			     strlen(dbg_info[type].str))) {
-			wl_err("write info:type %d\n", type);
+			wl_debug("write info:type %d\n", type);
 			dbg_info[type].func(buf, strlen(dbg_info[type].str));
 			break;
 		}
@@ -454,7 +454,7 @@ static ssize_t debug_write_txrx(struct file *file,
 		return -EFAULT;
 
 	buf[count + len] = '\0';
-	wl_err("write info:%s\n", buf);
+	wl_debug("write info:%s\n", buf);
 
 	debug_adjust_ts_cnt(buf, len);
 
@@ -539,7 +539,7 @@ static int sprd_force_apf_disable_set(void *data, u64 val)
 	else if (val == 0xA9FC)
 		force_apf_disable = false;
 	else {
-		wl_info("apf val = %llx.\n", val);
+		wl_err("apf val = %llx.\n", val);
 		sprd_put_vif(vif);
 		return -EINVAL;
 	}

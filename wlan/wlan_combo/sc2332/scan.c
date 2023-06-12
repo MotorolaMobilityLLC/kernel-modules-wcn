@@ -101,9 +101,9 @@ void sc2332_report_scan_result(struct sprd_vif *vif, u16 chan, s16 rssi,
 		memcpy(ssid, (ssidie + 2), ssid_len);
 	}
 
-	netdev_dbg(vif->ndev, "%s, %pM(%s)%u, channel %2u, rssi %d, freq %u\n",
-		   ieee80211_is_probe_resp(mgmt->frame_control) ? "proberesp" : "beacon",
-		   mgmt->bssid, ssid, ssid_len, chan, rssi, freq);
+	wl_debug("%s, %pM(%s)%u, channel %2u, rssi %d, freq %u\n",
+		 ieee80211_is_probe_resp(mgmt->frame_control) ? "proberesp" : "beacon",
+		 mgmt->bssid, ssid, ssid_len, chan, rssi, freq);
 
 	bss = cfg80211_inform_bss(wiphy, channel, CFG80211_BSS_FTYPE_UNKNOWN,
 				  mgmt->bssid, tsf, capability, beacon_interval,

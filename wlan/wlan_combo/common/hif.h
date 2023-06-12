@@ -296,7 +296,7 @@ static inline int sprd_hif_power_on(struct sprd_hif *hif)
 
 	/* need reset hif->exit flag, if wcn reset happened */
 	if (unlikely(hif->exit) || unlikely(hif->cp_asserted)) {
-		wl_info("assert happended! need reset paras!\n");
+		wl_err("assert happended! need reset paras!\n");
 		if (hif->ops->reset)
 			hif->ops->reset(hif);
 	}

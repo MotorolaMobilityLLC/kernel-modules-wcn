@@ -267,7 +267,7 @@ static int tx_handle_timeout(struct tx_mgmt *tx_mgmt,
 		    atomic_read(&p_list->l_num) / 100;
 		if (del_list_num >= atomic_read(&p_list->l_num))
 			del_list_num = atomic_read(&p_list->l_num);
-		wl_info("tx timeout drop num:%d, l_num:%d",
+		wl_err("tx timeout drop num:%d, l_num:%d",
 			del_list_num, atomic_read(&p_list->l_num));
 		list_for_each_entry_safe(pos_buf, temp_buf, tx_list, list) {
 			if (i >= del_list_num)
@@ -835,7 +835,7 @@ static int sc2355_tx_thread(void *data)
 
 exit:
 	tx_mgmt->tx_thread_exit = 0;
-	wl_info("%s exit.\n", __func__);
+	wl_debug("%s exit.\n", __func__);
 	return 0;
 }
 
@@ -970,7 +970,7 @@ static int tx_mc_pkt(struct sk_buff *skb, struct net_device *ndev)
 	}
 
 	if (tx_is_multicast_mac_addr(hif->skb_da) && vif->mode == SPRD_MODE_AP) {
-		wl_info
+		wl_debug
 		    ("%s,AP mode, multicast bssid: %02x:%02x:%02x:%02x:%02x:%02x\n",
 		     __func__, hif->skb_da[0], hif->skb_da[1], hif->skb_da[2],
 		     hif->skb_da[3], hif->skb_da[4], hif->skb_da[5]);
@@ -1063,12 +1063,12 @@ static int tx_filter_ip_pkt(struct sk_buff *skb, struct net_device *ndev)
 							ETHER_HDR_LEN -
 							iphdrlen);
 			udphdr->check = ~checksum;
-			wl_info("csum:%x,check:%x\n", checksum, udphdr->check);
+			wl_debug("csum:%x,check:%x\n", checksum, udphdr->check);
 			skb->ip_summed = CHECKSUM_NONE;
 		}
 
 		spin_lock_bh(&adap_info.adap_lock);
-		wl_info("%s special_data_flag: %d\n",
+		wl_debug("%s special_data_flag: %d\n",
 			__func__, adap_info.special_data_flag);
 		if (is_dns && (adap_info.special_data_flag == SPRD_NPI_NORMAL_ALL ||
 		    (adap_info.special_data_flag == SPRD_NPI_NORMAL_UNENCRYP &&
@@ -1144,7 +1144,7 @@ void sc2355_flush_mode_txlist(struct tx_mgmt *tx_mgmt, enum sprd_mode mode)
 	struct qos_tx_t *tx_list = tx_mgmt->tx_list[mode];
 	struct list_head *data_list;
 
-	wl_info("%s, mode=%d\n", __func__, mode);
+	wl_debug("%s, mode=%d\n", __func__, mode);
 
 	for (i = 0; i < SPRD_AC_MAX; i++) {
 		for (j = 0; j < MAX_LUT_NUM; j++) {
@@ -1254,7 +1254,7 @@ void sc2355_handle_tx_status_after_close(struct sprd_vif *vif)
 		/*all modee closed,
 		 *reset all credit
 		 */
-		wl_info("%s, %d, _fc_, delete flow num after all closed\n",
+		wl_debug("%s, %d, _fc_, delete flow num after all closed\n",
 			__func__, __LINE__);
 		for (i = 0; i < MAX_COLOR_BIT; i++) {
 			tx_mgmt->flow_ctrl[i].mode = SPRD_MODE_NONE;
@@ -1274,7 +1274,7 @@ void sc2355_handle_tx_status_after_close(struct sprd_vif *vif)
 		 */
 		for (i = 0; i < MAX_COLOR_BIT; i++) {
 			if (tx_mgmt->flow_ctrl[i].mode == vif->mode) {
-				wl_info
+				wl_debug
 				    (" %s, %d, _fc_, clear mode%d because closed\n",
 				     __func__, __LINE__, vif->mode);
 				tx_mgmt->flow_ctrl[i].mode = SPRD_MODE_NONE;
@@ -1446,7 +1446,7 @@ out:
 		tx_mgmt->kt = kt;
 	} else {
 		/* (us/c) means time interval between two updates for each credit */
-		wl_info("update_credit, %s, %dadded, %lld us/c\n",
+		wl_debug("update_credit, %s, %dadded, %lld us/c\n",
 			(ret == -1) ? "event" : "data",
 			in_count,
 			div_u64(div_u64(kt - tx_mgmt->kt, NSEC_PER_USEC),
@@ -1464,7 +1464,7 @@ out:
 	}
 	tx_mgmt->kt = ktime_get();
 
-	wl_info("_fc_,R+%d=%d,G+%d=%d,B+%d=%d,W+%d=%d,cp=%lu,ap=%lu\n",
+	wl_debug("_fc_,R+%d=%d,G+%d=%d,B+%d=%d,W+%d=%d,cp=%lu,ap=%lu\n",
 		flow[0], atomic_read(&tx_mgmt->flow_ctrl[0].flow),
 		flow[1], atomic_read(&tx_mgmt->flow_ctrl[1].flow),
 		flow[2], atomic_read(&tx_mgmt->flow_ctrl[2].flow),
@@ -1702,8 +1702,8 @@ int sc2355_reset(struct sprd_hif *hif)
 			if (vif->sm_state == SPRD_DISCONNECTING ||
 			    vif->sm_state == SPRD_CONNECTING ||
 			    vif->sm_state == SPRD_CONNECTED) {
-				wl_info("%s check connection state for sta or p2p gc\n", __func__);
-				wl_info("vif->mode : %d, vif->sm_state : %d\n",
+				wl_debug("%s check connection state for sta or p2p gc\n", __func__);
+				wl_debug("vif->mode : %d, vif->sm_state : %d\n",
 					vif->mode, vif->sm_state);
 				cfg80211_disconnected(vif->ndev, 0, NULL, 0,
 						      false, GFP_KERNEL);
@@ -1712,13 +1712,13 @@ int sc2355_reset(struct sprd_hif *hif)
 		}
 
 		if (vif->mode == SPRD_MODE_AP) {
-			wl_info("softap mode, reset iftype to station, before reset:%d\n",
+			wl_debug("softap mode, reset iftype to station, before reset:%d\n",
 				vif->wdev.iftype);
 			vif->wdev.iftype = NL80211_IFTYPE_STATION;
-			wl_info("after reset iftype:%d\n", vif->wdev.iftype);
+			wl_debug("after reset iftype:%d\n", vif->wdev.iftype);
 		}
 		if (vif->mode != SPRD_MODE_NONE) {
-			wl_info("need reset mode to none: %d\n", vif->mode);
+			wl_debug("need reset mode to none: %d\n", vif->mode);
 			vif->state &= ~VIF_STATE_OPEN;
 			vif->mode = SPRD_MODE_NONE;
 			vif->ctx_id = 0;
@@ -1757,30 +1757,30 @@ int sc2355_reset(struct sprd_hif *hif)
 	}
 
 	/* flush cmd and data buffer */
-	wl_info("%s flust all tx list\n", __func__);
+	wl_debug("%s flust all tx list\n", __func__);
 	tx_flush_all_txlist(tx_mgmt);
 	if (hif->hw_type == SPRD_HW_SC2355_PCIE ||
 		hif->hw_type == SPRD_HW_SC2355_SIPC)
 		sc2355_rx_flush_buffer((void *)hif);
 
 	/* when cp2 hang and reset, clear hang_recovery_status */
-	wl_info("%s set hang recovery status to END, %d\n", __func__, __LINE__);
+	wl_debug("%s set hang recovery status to END, %d\n", __func__, __LINE__);
 	tx_mgmt->hang_recovery_status = HANG_RECOVERY_END;
 
 	/* bug 1985177, initial suspend mode, set to SPRD_PS_RESUMED */
-	wl_info("%s set suspend_mode to RESUMED, %d\n", __func__, __LINE__);
+	wl_debug("%s set suspend_mode to RESUMED, %d\n", __func__, __LINE__);
 	hif->suspend_mode = SPRD_PS_RESUMED;
 
 	/* need reset hif->exit flag, if wcn reset happened */
 	if (unlikely(hif->exit)) {
 		hif->exit = 0;
-		wl_info("%s reset hif->exit flag:%d!\n", __func__, hif->exit);
+		wl_debug("%s reset hif->exit flag:%d!\n", __func__, hif->exit);
 	}
 
 	/* need reset hif->cp_assert flag */
 	if (unlikely(hif->cp_asserted)) {
 		hif->cp_asserted = 0;
-		wl_info("%s reset hif->cp_asserted flag:%d!\n", __func__,
+		wl_debug("%s reset hif->cp_asserted flag:%d!\n", __func__,
 			hif->cp_asserted);
 	}
 
@@ -1814,18 +1814,18 @@ int sc2355_reset_self(struct sprd_priv *priv)
 	}
 
 	hif->drv_resetting = 1;
-	wl_info("enter %s\n", __func__);
+	wl_debug("enter %s\n", __func__);
 
 	list_for_each_entry_safe(vif, tmp, &priv->vif_list, vif_node) {
-		wl_info("%s handle vif : name %s, mode %d, sm_state %d\n", __func__,
+		wl_debug("%s handle vif : name %s, mode %d, sm_state %d\n", __func__,
 			vif->name, vif->mode, vif->sm_state);
 		if (vif->mode == SPRD_MODE_STATION ||
 		    vif->mode == SPRD_MODE_P2P_CLIENT) {
 			if (vif->sm_state == SPRD_DISCONNECTING ||
 			    vif->sm_state == SPRD_CONNECTING ||
 			    vif->sm_state == SPRD_CONNECTED) {
-				wl_info("%s check connection state for sta or p2p gc\n", __func__);
-				wl_info("vif->mode : %d, vif->sm_state : %d\n",
+				wl_debug("%s check connection state for sta or p2p gc\n", __func__);
+				wl_debug("vif->mode : %d, vif->sm_state : %d\n",
 					vif->mode, vif->sm_state);
 				cfg80211_disconnected(vif->ndev, 0, NULL, 0,
 					false, GFP_KERNEL);
@@ -1837,14 +1837,14 @@ int sc2355_reset_self(struct sprd_priv *priv)
 			rtnl_lock();
 			dev_close(vif->ndev);
 			rtnl_unlock();
-			wl_info("%s dev_close %s!\n", __func__, vif->name);
+			wl_debug("%s dev_close %s!\n", __func__, vif->name);
 		}
 
 		if (vif->mode == SPRD_MODE_AP) {
-			wl_info("softap mode, reset iftype to station, before reset:%d\n",
+			wl_debug("softap mode, reset iftype to station, before reset:%d\n",
 				vif->wdev.iftype);
 			//vif->wdev.iftype = NL80211_IFTYPE_STATION;
-			wl_info("after reset iftype:%d\n", vif->wdev.iftype);
+			wl_debug("after reset iftype:%d\n", vif->wdev.iftype);
 			hif->drv_resetting = 0;
 			return 0;
 		}
@@ -1882,10 +1882,10 @@ int sc2355_reset_self(struct sprd_priv *priv)
 		sc2355_dis_flush_txlist(hif, i);
 	}
 
-	wl_info("%s flust all tx list\n", __func__);
+	wl_debug("%s flust all tx list\n", __func__);
 	tx_flush_all_txlist(tx_msg);
 
-	wl_info("%s initial hang status!\n", __func__);
+	wl_debug("%s initial hang status!\n", __func__);
 	tx_msg->hang_recovery_status = HANG_RECOVERY_END;
 	tx_msg->thermal_status = THERMAL_TX_RESUME;
 	hif->suspend_mode = SPRD_PS_RESUMED;
@@ -1893,12 +1893,12 @@ int sc2355_reset_self(struct sprd_priv *priv)
 	/* reset exit and cp_asserted flag */
 	if (unlikely(hif->exit)) {
 		hif->exit = 0;
-		wl_info("%s reset hif->exit flag:%d!\n", __func__, hif->exit);
+		wl_debug("%s reset hif->exit flag:%d!\n", __func__, hif->exit);
 	}
 
 	if (unlikely(hif->cp_asserted)) {
 		hif->cp_asserted = 0;
-		wl_info("%s reset hif->cp_asserted flag:%d!\n", __func__,
+		wl_debug("%s reset hif->cp_asserted flag:%d!\n", __func__,
 			hif->cp_asserted);
 	}
 
@@ -1911,13 +1911,13 @@ int sc2355_reset_self(struct sprd_priv *priv)
 			rtnl_lock();
 			dev_open(vif->ndev, NULL);
 			rtnl_unlock();
-			wl_info("%s open netdevice %s!\n", __func__, vif->name);
+			wl_debug("%s open netdevice %s!\n", __func__, vif->name);
 		} else {
 			if (!sprd_iface_set_power(hif, true))
 				sprd_init_fw(vif);
 		}
 	}
-	wl_info("exit %s\n", __func__);
+	wl_debug("exit %s\n", __func__);
 	hif->drv_resetting = 0;
 
 	return 0;
@@ -2112,7 +2112,7 @@ bool sc2355_is_vowifi_pkt(struct sk_buff *skb, bool *b_cmd_path)
 		return ret;
 
 	default:
-		wl_info("Dual vowifi: unexpect mark bits 0x%x\n", skb->mark);
+		wl_err("Dual vowifi: unexpect mark bits 0x%x\n", skb->mark);
 		break;
 	}
 
@@ -2202,8 +2202,8 @@ int sprd_tx_filter_packet(struct sk_buff *skb, struct net_device *ndev)
 		wl_info("incoming ARP packet\n");
 
 		spin_lock_bh(&adap_info.adap_lock);
-		wl_info("%s special_data_flag: %d\n",
-			__func__, adap_info.special_data_flag);
+		wl_debug("%s special_data_flag: %d\n",
+			 __func__, adap_info.special_data_flag);
 		if ((adap_info.special_data_flag == SPRD_NPI_NORMAL_ALL) ||
 		    ((adap_info.special_data_flag == SPRD_NPI_NORMAL_UNENCRYP) &&
 		    (vif->prwise_crypto == SPRD_CIPHER_NONE))) {
@@ -2227,7 +2227,7 @@ int sprd_tx_filter_packet(struct sk_buff *skb, struct net_device *ndev)
 		lut_index = sc2355_find_lut_index(hif, vif);
 		if ((vif->mode == SPRD_MODE_AP || vif->mode == SPRD_MODE_P2P_GO) &&
 			(lut_index != 4) && hif->peer_entry[lut_index].ip_acquired == 0) {
-			wl_info("ipv6 ethhdr->h_proto=%x\n", ethhdr->h_proto);
+			wl_debug("ipv6 ethhdr->h_proto=%x\n", ethhdr->h_proto);
 			dev_kfree_skb(skb);
 			return 0;
 		}
@@ -2452,7 +2452,7 @@ int sc2355_dis_flush_txlist(struct sprd_hif *hif, u8 lut_index)
 		       lut_index, __func__, __LINE__);
 		return -1;
 	}
-	wl_err("disconnect, flush qoslist, %s, %d\n", __func__, __LINE__);
+	wl_debug("disconnect, flush qoslist, %s, %d\n", __func__, __LINE__);
 	tx_mgmt = (struct tx_mgmt *)hif->tx_mgmt;
 	for (i = 0; i < SPRD_MODE_MAX; i++)
 		for (j = 0; j < SPRD_AC_MAX; j++)

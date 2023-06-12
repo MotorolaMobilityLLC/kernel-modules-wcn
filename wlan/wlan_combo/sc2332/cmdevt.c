@@ -290,8 +290,8 @@ static int cmdevt_send_cmd(struct sprd_priv *priv, struct sprd_msg *msg)
 	if (hdr->common.rsp)
 		cmdevt_set_cmd(&priv->cmd, hdr);
 
-	wiphy_info(priv->wiphy, "[%u]mode %d send[%s]\n",
-		   le32_to_cpu(hdr->mstime), mode, cmdevt_cmd2str(hdr->cmd_id));
+	wl_info("[%u]mode %d send[%s]\n", le32_to_cpu(hdr->mstime),
+		mode, cmdevt_cmd2str(hdr->cmd_id));
 
 	print_hex_dump_debug("CMD: ", DUMP_PREFIX_OFFSET, 16, 1,
 			     ((u8 *)hdr + sizeof(*hdr)),
@@ -318,7 +318,7 @@ static int cmdevt_recv_rsp_timeout(struct sprd_priv *priv, unsigned int timeout)
 	ret = wait_for_completion_timeout(&cmd->completed,
 					  msecs_to_jiffies(timeout));
 	if (!ret) {
-		wiphy_err(priv->wiphy, "[%s]timeout\n", cmdevt_cmd2str(cmd->cmd_id));
+		wl_err("[%s]timeout\n", cmdevt_cmd2str(cmd->cmd_id));
 		return -1;
 	} else if (sprd_chip_is_exit(&priv->chip) ||
 		   atomic_read(&cmd->refcnt) >= SPRD_CMD_EXIT_VAL)
@@ -401,7 +401,7 @@ int sc2332_send_cmd_recv_rsp(struct sprd_priv *priv, struct sprd_msg *msg,
 
 	hif = &priv->hif;
 	if (hif->cp_asserted == 1) {
-		wl_info("%s CP2 assert\n", __func__);
+		wl_err("%s CP2 assert\n", __func__);
 		sprd_chip_free_msg(&priv->chip, msg);
 		if (msg->skb) {
 			dev_kfree_skb(msg->skb);
@@ -429,7 +429,7 @@ int sc2332_send_cmd_recv_rsp(struct sprd_priv *priv, struct sprd_msg *msg,
 	cmd_str = cmdevt_cmd2str(cmd_id);
 	if (atomic_read(&priv->hif.block_cmd_after_close) == 1) {
 		if (cmd_id != CMD_CLOSE) {
-			wl_info("%s need block cmd after close : %s\n",
+			wl_err("%s need block cmd after close : %s\n",
 				__func__, cmd_str);
 			sprd_chip_free_msg(&priv->chip, msg);
 			cmdevt_unlock_cmd(cmd);
@@ -439,7 +439,7 @@ int sc2332_send_cmd_recv_rsp(struct sprd_priv *priv, struct sprd_msg *msg,
 
 	if (atomic_read(&priv->hif.change_iface_block_cmd) == 1) {
 		if (cmd_id != CMD_CLOSE && cmd_id != CMD_OPEN) {
-			wl_info("%s need block cmd while change iface : %s\n",
+			wl_err("%s need block cmd while change iface : %s\n",
 				__func__, cmd_str);
 			sprd_chip_free_msg(&priv->chip, msg);
 			cmdevt_unlock_cmd(cmd);
@@ -467,7 +467,7 @@ int sc2332_send_cmd_recv_rsp(struct sprd_priv *priv, struct sprd_msg *msg,
 			memcpy(rbuf, hdr->paydata, *rlen);
 		}
 	} else {
-		wiphy_err(priv->wiphy, "mode %d [%s]rsp timeout\n",
+		wl_err("mode %d [%s]rsp timeout\n",
 			mode, cmd_str);
 	}
 
@@ -586,9 +586,8 @@ int sc2332_cmd_sched_scan_start(struct sprd_priv *priv, struct sprd_vif *vif,
 		ie_head->ie_len = buf->ie_len;
 		len += sizeof(*ie_head);
 
-		wiphy_info(priv->wiphy, "%s: ie len is %zu\n",
-			   __func__, buf->ie_len);
-		wiphy_info(priv->wiphy, "ie:%s", buf->ie);
+		wl_debug("%s: ie len is %zu\n", __func__, buf->ie_len);
+		wl_debug("ie:%s", buf->ie);
 		memcpy((p + len), buf->ie, buf->ie_len);
 		len += ie_head->ie_len;
 	}
@@ -825,8 +824,6 @@ int sc2332_get_fw_info(struct sprd_priv *priv)
 
 	pcmd = (struct cmd_get_fw_info *)msg->data;
 	pcmd->early_rsp = SPRD_EARLY_RSP9_0;
-	wiphy_info(priv->wiphy, "send CMD_GET_INFO, early_rsp = %d",
-		   SPRD_EARLY_RSP9_0);
 	ret = send_cmd_recv_rsp(priv, msg, r_buf, &r_len);
 	if (!ret && r_len) {
 		p = (struct cmd_fw_info *)r_buf;
@@ -840,11 +837,11 @@ int sc2332_get_fw_info(struct sprd_priv *priv)
 		priv->max_acl_mac_addrs = p->max_acl_mac_addrs;
 		priv->max_mc_mac_addrs = p->max_mc_mac_addrs;
 		priv->wnm_ft_support = p->wnm_ft_support;
-		wiphy_info(priv->wiphy, "chip_model:0x%x, chip_ver:0x%x\n",
-			   priv->chip_model, priv->chip_ver);
-		wiphy_info(priv->wiphy,
-			   "fw_ver:%d, fw_std:0x%x, fw_capa:0x%x\n",
-			   priv->fw_ver, priv->fw_std, priv->fw_capa);
+		wl_info("chip_model:0x%x, chip_ver:0x%x\n",
+			priv->chip_model, priv->chip_ver);
+		wl_info("fw_ver:%d, fw_std:0x%x, fw_capa:0x%x\n",
+			priv->fw_ver, priv->fw_std, priv->fw_capa);
+		wl_info("extend_feature:0x%x\n", p->extend_feature);
 	}
 
 	return ret;
@@ -879,7 +876,7 @@ int sc2332_open_fw(struct sprd_priv *priv, struct sprd_vif *vif, u8 *mac_addr)
 
 	if (vif->mode == SPRD_MODE_STATION) {
 		p->reserved = wfa_cap;
-		wl_info("%s wfa_cap = %d\n", __func__, wfa_cap);
+		wl_debug("%s wfa_cap = %d\n", __func__, wfa_cap);
 	} else {
 		p->reserved = 0;
 	}
@@ -922,8 +919,8 @@ int sc2332_power_save(struct sprd_priv *priv, struct sprd_vif *vif,
 	p = (struct cmd_power_save *)msg->data;
 	p->sub_type = sub_type;
 	p->value = status;
-	wl_info("CMD_POWER_SAVE subtype is [%s]\n",
-			ps_subtype2str(p->sub_type));
+	wl_info("power_save [%s], value = %d\n",
+		ps_subtype2str(p->sub_type), status);
 	return send_cmd_recv_rsp(priv, msg, NULL, NULL);
 }
 
@@ -942,7 +939,7 @@ int sc2332_set_sar(struct sprd_priv *priv, struct sprd_vif *vif,
 	p->sub_type = sub_type;
 	p->value = value;
 	p->mode = SPRD_SET_SAR_ALL_MODE;
-	wl_info("CMD_POWER_SAVE subtype is SPRD_SET_SAR\n");
+	wl_debug("power_save [SET_SAR]\n");
 	return send_cmd_recv_rsp(priv, msg, NULL, NULL);
 }
 
@@ -962,9 +959,7 @@ int sc2332_set_power_backoff(struct sprd_priv *priv, struct sprd_vif *vif,
 	p->value = value;
 	p->mode = mode;
 	p->channel = channel;
-	wl_info("CMD_POWER_SAVE subtype is SPRD_SET_POWER_BACKOFF, "
-		"sub_type:%d, value:%d, mode:%d, channel:%d\n",
-		sub_type, value, mode, channel);
+	wl_debug("power_save [SET_POWER_BACKOFF]\n");
 	return send_cmd_recv_rsp(priv, msg, NULL, NULL);
 }
 
@@ -1463,9 +1458,9 @@ int sc2332_tdls_mgmt(struct sprd_vif *vif, struct sk_buff *skb)
 	type = SPRD_DATA_TYPE_NORMAL;
 	/* temp debug use */
 	if (skb_headroom(skb) < vif->ndev->needed_headroom)
-		wiphy_err(vif->priv->wiphy, "%s skb head len err:%d %d\n",
-			  __func__, skb_headroom(skb),
-			  vif->ndev->needed_headroom);
+		wl_err("%s skb head len err:%d %d\n",
+		       __func__, skb_headroom(skb),
+		       vif->ndev->needed_headroom);
 	len = skb->len;
 	print_hex_dump_debug("sc2332_tdls_mgmt: ", DUMP_PREFIX_OFFSET,
 			     16, 1, skb->data, len, 0);
@@ -1473,8 +1468,7 @@ int sc2332_tdls_mgmt(struct sprd_vif *vif, struct sk_buff *skb)
 	ret = sprd_send_data(vif->priv, vif, msg, skb, type, SPRD_DATA_OFFSET,
 			     false);
 	if (ret) {
-		wiphy_err(vif->priv->wiphy, "%s drop msg due to TX Err\n",
-			  __func__);
+		wl_err("%s drop msg due to TX Err\n", __func__);
 		goto out;
 	}
 
@@ -2274,7 +2268,7 @@ void sc2332_report_frame_evt(struct sprd_vif *vif, u8 *data, u16 len, bool flag)
 	}
 
 	if (atomic_read(&vif->priv->monitor_mode)) {
-		wl_info("%s: enter rx monitor process\n", __func__);
+		wl_debug("%s: enter rx monitor process\n", __func__);
 		sprd_rx_monitor_process(vif, buf, buf_len);
 		return;
 	}
@@ -2317,8 +2311,7 @@ unsigned short sc2332_rx_evt_process(struct sprd_priv *priv, u8 *msg,
 
 	mode = hdr->common.mode;
 	if (mode > SPRD_MODE_MAX) {
-		wiphy_info(priv->wiphy, "%s invalid mode: %d\n", __func__,
-			   mode);
+		wl_err("%s invalid mode: %d\n", __func__, mode);
 		return 0;
 	}
 
@@ -2334,8 +2327,8 @@ unsigned short sc2332_rx_evt_process(struct sprd_priv *priv, u8 *msg,
 		return plen;
 	}
 
-	wiphy_info(priv->wiphy, "[%u]mode %d recv[%s]len: %d\n",
-		   mstime, mode, evt_str, plen);
+	wl_info("[%u]mode %d recv[%s]len: %d\n",
+		mstime, mode, evt_str, plen);
 
 	if (plen < sizeof(struct sprd_cmd_hdr)) {
 		wl_err("%s plen is invalid!\n", __func__);
@@ -2349,8 +2342,8 @@ unsigned short sc2332_rx_evt_process(struct sprd_priv *priv, u8 *msg,
 	len = plen - sizeof(*hdr);
 	vif = sprd_mode_to_vif(priv, mode);
 	if (!vif) {
-		wiphy_info(priv->wiphy, "%s NULL vif for mode: %d, len:%d\n",
-			   __func__, mode, plen);
+		wl_err("%s NULL vif for mode: %d, len:%d\n",
+		       __func__, mode, plen);
 		return plen;
 	}
 
@@ -2416,7 +2409,7 @@ unsigned short sc2332_rx_evt_process(struct sprd_priv *priv, u8 *msg,
 		sc2332_report_acs_lte_event(vif);
 		break;
 	default:
-		wiphy_info(priv->wiphy, "unsupported event: %d\n", hdr->cmd_id);
+		wl_err("unsupported event: %d\n", hdr->cmd_id);
 		break;
 	}
 
@@ -2440,7 +2433,7 @@ unsigned short sc2332_rx_rsp_process(struct sprd_priv *priv, u8 *msg,
 	u32 hdr_mstime;
 
 	if (unlikely(!cmd->init_ok)) {
-		wl_info("%s cmd coming too early, drop it\n", __func__);
+		wl_err("%s cmd coming too early, drop it\n", __func__);
 		return 0;
 	}
 
@@ -2477,8 +2470,8 @@ unsigned short sc2332_rx_rsp_process(struct sprd_priv *priv, u8 *msg,
 	spin_lock_bh(&cmd->lock);
 	if (!cmd->data && hdr_mstime == cmd->mstime &&
 	    hdr->cmd_id == cmd->cmd_id) {
-		wiphy_info(priv->wiphy, "mode %d recv rsp[%s]\n",
-			   (int)mode, cmd_str);
+		wl_debug("mode %d recv rsp[%s]\n",
+			 (int)mode, cmd_str);
 		if (unlikely(hdr->status != 0)) {
 			wl_err("%s mode %d recv rsp[%s] status[%s]\n",
 			       __func__, (int)mode, cmd_str, err_str);

@@ -157,7 +157,7 @@ static void sc2332_tx_qos_flush(struct sprd_qos_t *qos)
 				break;
 			}
 		}
-		wl_info("%s(%d) %d/%d.\n", __func__, icnt, qos->num[icnt], qos->txnum);
+		wl_debug("%s(%d) %d/%d.\n", __func__, icnt, qos->num[icnt], qos->txnum);
 	}
 }
 

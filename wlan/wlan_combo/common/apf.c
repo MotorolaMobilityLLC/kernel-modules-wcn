@@ -116,7 +116,7 @@ static int apf_subcmd_rsp(struct sprd_vif *vif, struct apf_request *apf_req,
 		return -ENOMEM;
 	}
 
-	wl_info("%s cmd%u rsp_hal_len%d.\n", __func__,
+	wl_debug("%s cmd%u rsp_hal_len%d.\n", __func__,
 		apf_req->apf_hdr.apf_subcmd, rsp_hal_len);
 	if (apf_req->apf_hdr.apf_subcmd == WLAN_READ_PACKET_FILTER) {
 		if (nla_put_u32(skb, VENDOR_ATTR_PACKET_FILTER_SUB_CMD,
@@ -161,7 +161,7 @@ static int apf_check_cp2_rsp(struct apf_program_state *apf_st,
 		ret = -EINVAL;
 		goto exit;
 	} else {
-		wl_info("%s %s(%u) ret %u.\n", __func__, apf_cmd2str(apf_subcmd),
+		wl_debug("%s %s(%u) ret %u.\n", __func__, apf_cmd2str(apf_subcmd),
 			apf_subcmd, apf_rsp->cmd_ret_value);
 		if (apf_subcmd == WLAN_GET_PACKET_FILTER) {
 			apf_cap = (struct apf_capa *)apf_rsp->rsp_data;
@@ -178,7 +178,7 @@ static int apf_check_cp2_rsp(struct apf_program_state *apf_st,
 			u32 rsp_prog_data_len =
 			    apf_rsp->apf_hdr.length - sizeof(apf_rsp->cmd_ret_value);
 			if (rsp_prog_data_len != apf_req->apf_offset_slice_size) {
-				wl_info("%s expect %u but %u.\n", __func__,
+				wl_debug("%s expect %u but %u.\n", __func__,
 					apf_req->apf_offset_slice_size, rsp_prog_data_len);
 			}
 		}
@@ -567,7 +567,7 @@ int vendor_apf_packet_filter(struct wiphy *wiphy,
 		return -EINVAL;
 	}
 
-	wl_info("%s-%s %s(%u)-%u-%u-%u-%u-(%u-%u).\n", __func__, current->comm,
+	wl_debug("%s-%s %s(%u)-%u-%u-%u-%u-(%u-%u).\n", __func__, current->comm,
 		apf_cmd2str(apf_req.apf_hdr.apf_subcmd), apf_req.apf_hdr.apf_subcmd,
 		apf_req.apf_currt_offset, apf_req.apf_offset_slice_size,
 		apf_req.apf_trans_size, apf_req.apf_prog_len,
@@ -707,7 +707,7 @@ int apf_init(struct sprd_priv *priv)
 	if (!priv->apf_state) {
 		priv->apf_state = &g_apf_prog;
 		mutex_init(&priv->apf_state->apf_lock);
-		wl_info("%s.\n", __func__);
+		wl_debug("%s.\n", __func__);
 
 		#if 0
 		priv->apf_state->apf_cap.apf_version = APF_VERSION_4;
@@ -723,7 +723,7 @@ int apf_init(struct sprd_priv *priv)
 int apf_deinit(struct sprd_priv *priv)
 {
 	if (priv->apf_state) {
-		wl_info("%s.\n", __func__);
+		wl_debug("%s.\n", __func__);
 		mutex_lock(&priv->apf_state->apf_lock);
 		if (priv->apf_state->apf_program) {
 			kfree(priv->apf_state->apf_program);

@@ -105,13 +105,13 @@ static int sprd_wlan_probe(struct platform_device *pdev)
 		of_match_node(wlan_global_match_table, np);
 
 	if (!of_id) {
-		wl_info("%s not find matched id!", __func__);
+		wl_err("%s not find matched id!", __func__);
 		return -EINVAL;
 	}
 
 	p_match_data = (struct wlan_match_data *)of_id->data;
 	if (!p_match_data) {
-		wl_info("%s not find matched data!", __func__);
+		wl_err("%s not find matched data!", __func__);
 		return -EINVAL;
 	}
 
@@ -126,7 +126,6 @@ static int sprd_wlan_probe(struct platform_device *pdev)
 	} else if (p_match_data->hw_type == SPRD_HW_SC2355_PCIE) {
 		return sc2355_pcie_probe(pdev);
 	} else {
-
 		wl_err("%s error hw_type %d.\n", __func__, p_match_data->hw_type);
 		dump_stack();
 		return -EINVAL;
@@ -141,13 +140,13 @@ static int sprd_wlan_remove(struct platform_device *pdev)
 		of_match_node(wlan_global_match_table, np);
 
 	if (!of_id) {
-		wl_info("%s not find matched id!", __func__);
+		wl_err("%s not find matched id!", __func__);
 		return -EINVAL;
 	}
 
 	p_match_data = (struct wlan_match_data *)of_id->data;
 	if (!p_match_data) {
-		wl_info("%s not find matched data!", __func__);
+		wl_err("%s not find matched data!", __func__);
 		return -EINVAL;
 	}
 

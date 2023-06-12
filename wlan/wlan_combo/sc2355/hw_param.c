@@ -418,7 +418,7 @@ static int hw_param_nvm_parse(struct sprd_priv *priv, const char *path, void *p_
 	char *buffer = NULL;
 	int ret = 0, i;
 
-	wl_info("%s enter\n", __func__);
+	wl_debug("%s enter\n", __func__);
 	ret = request_firmware(&fw, path, wiphy_dev(priv->wiphy));
 	if (ret) {
 		wl_err("first open file %s error\n", path);
@@ -455,10 +455,10 @@ static int hw_param_nvm_parse(struct sprd_priv *priv, const char *path, void *p_
 	release_firmware(fw);
 	p_buf = buffer;
 
-	wl_info("%s read %s data_len:0x%x\n", __func__, path, buffer_len);
+	wl_debug("%s read %s data_len:0x%x\n", __func__, path, buffer_len);
 	ret = hw_param_nvm_buf_operate(buffer, buffer_len, p_data);
 	vfree(buffer);
-	wl_info("%s(), parsing ini data result=%d\n", __func__, ret);
+	wl_debug("%s(), parsing ini data result=%d\n", __func__, ret);
 	return ret;
 }
 

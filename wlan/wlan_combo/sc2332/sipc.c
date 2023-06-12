@@ -84,13 +84,13 @@ static int sc2332_reset(struct sprd_hif *hif)
 	/* need reset hif->exit flag, if wcn reset happened */
 	if (unlikely(hif->exit)) {
 		hif->exit = 0;
-		wl_info("%s reset hif->exit flag:%d!\n", __func__, hif->exit);
+		wl_debug("%s reset hif->exit flag:%d!\n", __func__, hif->exit);
 	}
 
 	/* need reset hif->cp_assert flag */
 	if (unlikely(hif->cp_asserted)) {
 		hif->cp_asserted = 0;
-		wl_info("%s reset hif->cp_asserted flag:%d!\n", __func__,
+		wl_debug("%s reset hif->cp_asserted flag:%d!\n", __func__,
 			hif->cp_asserted);
 	}
 
@@ -103,8 +103,8 @@ static int sc2332_reset(struct sprd_hif *hif)
 			if (vif->sm_state == SPRD_DISCONNECTING ||
 			    vif->sm_state == SPRD_CONNECTING ||
 			    vif->sm_state == SPRD_CONNECTED) {
-				wl_info("%s check connection state for sta or p2p gc\n", __func__);
-				wl_info("vif->mode : %d, vif->sm_state : %d\n",
+				wl_debug("%s check connection state for sta or p2p gc\n", __func__);
+				wl_debug("vif->mode : %d, vif->sm_state : %d\n",
 					vif->mode, vif->sm_state);
 				cfg80211_disconnected(vif->ndev, 0, NULL, 0,
 						      false, GFP_KERNEL);
@@ -113,13 +113,13 @@ static int sc2332_reset(struct sprd_hif *hif)
 		}
 
 		if (vif->mode == SPRD_MODE_AP) {
-			wl_info("softap mode, reset iftype to station, before reset:%d\n",
+			wl_debug("softap mode, reset iftype to station, before reset:%d\n",
 				vif->wdev.iftype);
 			vif->wdev.iftype = NL80211_IFTYPE_STATION;
-			wl_info("after reset iftype:%d\n", vif->wdev.iftype);
+			wl_debug("after reset iftype:%d\n", vif->wdev.iftype);
 		}
 		if (vif->mode != SPRD_MODE_NONE) {
-			wl_info("need reset mode to none: %d\n", vif->mode);
+			wl_debug("need reset mode to none: %d\n", vif->mode);
 			vif->state &= ~VIF_STATE_OPEN;
 			vif->mode = SPRD_MODE_NONE;
 		}
@@ -142,7 +142,7 @@ static int sc2332_reset(struct sprd_hif *hif)
 	}
 
 	/* flush cmd and data buffer */
-	wl_info("%s flust all tx list\n", __func__);
+	wl_debug("%s flust all tx list\n", __func__);
 	sc2332_flush_all_txlist(hif);
 
 	return 0;
@@ -165,18 +165,18 @@ int sc2332_reset_self(struct sprd_priv *priv)
 	}
 
 	hif->drv_resetting = 1;
-	wl_info("enter %s\n", __func__);
+	wl_debug("enter %s\n", __func__);
 
 	list_for_each_entry_safe(vif, tmp, &priv->vif_list, vif_node) {
-		wl_info("%s handle vif : name %s, mode %d, sm_state %d\n", __func__,
+		wl_debug("%s handle vif : name %s, mode %d, sm_state %d\n", __func__,
 			vif->name, vif->mode, vif->sm_state);
 		if (vif->mode == SPRD_MODE_STATION ||
 		    vif->mode == SPRD_MODE_P2P_CLIENT) {
 			if (vif->sm_state == SPRD_DISCONNECTING ||
 			    vif->sm_state == SPRD_CONNECTING ||
 			    vif->sm_state == SPRD_CONNECTED) {
-				wl_info("%s check connection state for sta or p2p gc\n", __func__);
-				wl_info("vif->mode : %d, vif->sm_state : %d\n",
+				wl_debug("%s check connection state for sta or p2p gc\n", __func__);
+				wl_debug("vif->mode : %d, vif->sm_state : %d\n",
 					vif->mode, vif->sm_state);
 				cfg80211_disconnected(vif->ndev, 0, NULL, 0,
 					false, GFP_KERNEL);
@@ -188,14 +188,14 @@ int sc2332_reset_self(struct sprd_priv *priv)
 			rtnl_lock();
 			dev_close(vif->ndev);
 			rtnl_unlock();
-			wl_info("%s dev_close %s!\n", __func__, vif->name);
+			wl_debug("%s dev_close %s!\n", __func__, vif->name);
 		}
 
 		if (vif->mode == SPRD_MODE_AP) {
-			wl_info("softap mode, reset iftype to station, before reset:%d\n",
+			wl_debug("softap mode, reset iftype to station, before reset:%d\n",
 				vif->wdev.iftype);
 			//vif->wdev.iftype = NL80211_IFTYPE_STATION;
-			wl_info("after reset iftype:%d\n", vif->wdev.iftype);
+			wl_debug("after reset iftype:%d\n", vif->wdev.iftype);
 			hif->drv_resetting = 0;
 			return 0;
 		}
@@ -216,18 +216,18 @@ int sc2332_reset_self(struct sprd_priv *priv)
 		memset(vif->key, 0, sizeof(vif->key));
 	}
 
-	wl_info("%s flust all tx list\n", __func__);
+	wl_debug("%s flust all tx list\n", __func__);
 	sc2332_flush_all_txlist(hif);
 
 	/* reset exit and cp_asserted flag */
 	if (unlikely(hif->exit)) {
 		hif->exit = 0;
-		wl_info("%s reset hif->exit flag:%d!\n", __func__, hif->exit);
+		wl_debug("%s reset hif->exit flag:%d!\n", __func__, hif->exit);
 	}
 
 	if (unlikely(hif->cp_asserted)) {
 		hif->cp_asserted = 0;
-		wl_info("%s reset hif->cp_asserted flag:%d!\n", __func__,
+		wl_debug("%s reset hif->cp_asserted flag:%d!\n", __func__,
 			hif->cp_asserted);
 	}
 
@@ -238,13 +238,13 @@ int sc2332_reset_self(struct sprd_priv *priv)
 			rtnl_lock();
 			dev_open(vif->ndev, NULL);
 			rtnl_unlock();
-			wl_info("%s open netdevice %s!\n", __func__, vif->name);
+			wl_debug("%s open netdevice %s!\n", __func__, vif->name);
 		} else {
 			if (!sprd_iface_set_power(hif, true))
 				sprd_init_fw(vif);
 		}
 	}
-	wl_info("exit %s\n", __func__);
+	wl_debug("exit %s\n", __func__);
 	hif->drv_resetting = 0;
 
 	return 0;
@@ -874,7 +874,7 @@ void sipc_deinit(struct sprd_hif *hif)
 	sprd_deinit_msg(&hif->tx_list1);
 	sprd_deinit_msg(&hif->tx_list2);
 
-	wl_info("%s\t"
+	wl_debug("%s\t"
 		"net: stop %u, start %u\t"
 		"drop cnt: cmd %u, sta %u, p2p %u\t",
 		__func__,

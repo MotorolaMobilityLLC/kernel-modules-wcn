@@ -66,7 +66,7 @@ static void sc2355_ht_cap_update(struct ieee80211_sta_ht_cap *ht_info,
 {
 	struct wiphy_sec2_t *sec2 = &priv->wiphy_sec2;
 
-	wl_info("%s enter:\n", __func__);
+	wl_debug("%s enter:\n", __func__);
 	ht_info->ht_supported = true;
 	/* set Max A-MPDU length factor */
 	if (sec2->ampdu_para) {
@@ -92,7 +92,7 @@ static void sc2355_vht_cap_update(struct ieee80211_sta_vht_cap *vht_cap,
 {
 	struct wiphy_sec2_t *sec2 = &priv->wiphy_sec2;
 
-	wl_info("%s enter:\n", __func__);
+	wl_debug("%s enter:\n", __func__);
 	vht_cap->vht_supported = true;
 	if (sec2->vht_cap_info)
 		vht_cap->cap = sec2->vht_cap_info;
@@ -138,9 +138,9 @@ static void sc2355_reg_notify(struct wiphy *wiphy,
 	u32 last_start_freq;
 	u32 n_rules = 0, rd_size;
 
-	wiphy_info(wiphy, "%s %c%c initiator %d hint_type %d\n", __func__,
-		   request->alpha2[0], request->alpha2[1],
-		   request->initiator, request->user_reg_hint_type);
+	wl_info("%s %c%c initiator %d hint_type %d\n", __func__,
+		request->alpha2[0], request->alpha2[1],
+		request->initiator, request->user_reg_hint_type);
 
 	memset(&priv->ch_2g4_info, 0, sizeof(struct sprd_channel_list));
 	memset(&priv->ch_5g_without_dfs_info, 0,
@@ -215,18 +215,17 @@ static void sc2355_reg_notify(struct wiphy *wiphy,
 				    reg_rule->dfs_cac_ms;
 				i++;
 
-				wiphy_info(wiphy,
-					  "   %d KHz - %d KHz @ %d KHz flags %#x\n",
-					  freq_range->start_freq_khz,
-					  freq_range->end_freq_khz,
-					  freq_range->max_bandwidth_khz,
-					  reg_rule->flags);
+				wl_debug("   %d KHz - %d KHz @ %d KHz flags %#x\n",
+					 freq_range->start_freq_khz,
+					 freq_range->end_freq_khz,
+					 freq_range->max_bandwidth_khz,
+					 reg_rule->flags);
 			}
 		}
 	}
 
 	if (sc2355_set_regdom(priv, (u8 *)rd, rd_size))
-		wiphy_err(wiphy, "%s failed to set regdomain!\n", __func__);
+		wl_err("%s failed to set regdomain!\n", __func__);
 
 	sc2355_fcc_match_country(priv, request->alpha2);
 
@@ -264,29 +263,29 @@ void sc2355_setup_wiphy(struct wiphy *wiphy, struct sprd_priv *priv)
 		sec2 = &priv->wiphy_sec2;
 		/* set antenna mask */
 		if (sec2->antenna_tx) {
-			wl_info("tx antenna:%d\n", sec2->antenna_tx);
+			wl_debug("tx antenna:%d\n", sec2->antenna_tx);
 			wiphy->available_antennas_tx = sec2->antenna_tx;
 		}
 		if (sec2->antenna_rx) {
-			wl_info("rx antenna:%d\n", sec2->antenna_rx);
+			wl_debug("rx antenna:%d\n", sec2->antenna_rx);
 			wiphy->available_antennas_rx = sec2->antenna_rx;
 		}
 		/* set retry limit for short or long frame */
 		if (sec2->retry_short) {
-			wl_info("retry short num:%d\n", sec2->retry_short);
+			wl_debug("retry short num:%d\n", sec2->retry_short);
 			wiphy->retry_short = sec2->retry_short;
 		}
 		if (sec2->retry_long) {
-			wl_info("retry long num:%d\n", sec2->retry_long);
+			wl_debug("retry long num:%d\n", sec2->retry_long);
 			wiphy->retry_long = sec2->retry_long;
 		}
 		/* Fragmentation threshold (dot11FragmentationThreshold) */
 		if (sec2->frag_threshold &&
 		    sec2->frag_threshold <= IEEE80211_MAX_FRAG_THRESHOLD) {
-			wl_info("frag threshold:%d\n", sec2->frag_threshold);
+			wl_debug("frag threshold:%d\n", sec2->frag_threshold);
 			wiphy->frag_threshold = sec2->frag_threshold;
 		} else {
-			wl_info("flag threshold invalid:%d,set to default:%d\n",
+			wl_debug("flag threshold invalid:%d,set to default:%d\n",
 				sec2->frag_threshold,
 				IEEE80211_MAX_FRAG_THRESHOLD);
 			sec2->frag_threshold = IEEE80211_MAX_FRAG_THRESHOLD;
@@ -294,10 +293,10 @@ void sc2355_setup_wiphy(struct wiphy *wiphy, struct sprd_priv *priv)
 		/* RTS threshold (dot11RTSThreshold); -1 = RTS/CTS disabled */
 		if (sec2->rts_threshold &&
 		    sec2->rts_threshold <= IEEE80211_MAX_RTS_THRESHOLD) {
-			wl_info("rts threshold:%d\n", sec2->rts_threshold);
+			wl_debug("rts threshold:%d\n", sec2->rts_threshold);
 			wiphy->rts_threshold = sec2->rts_threshold;
 		} else {
-			wl_info("rts threshold invalid:%d,set to default:%d\n",
+			wl_debug("rts threshold invalid:%d,set to default:%d\n",
 				sec2->rts_threshold,
 				IEEE80211_MAX_RTS_THRESHOLD);
 			wiphy->rts_threshold = IEEE80211_MAX_RTS_THRESHOLD;
@@ -313,12 +312,12 @@ void sc2355_setup_wiphy(struct wiphy *wiphy, struct sprd_priv *priv)
 	 * disabled to pass WFA Certification.
 	 */
 	if (!(wfa_cap & SPRD_WFA_CAP_NON_RAN_MAC)) {
-		wl_info("\tRandom MAC address scan default supported\n");
+		wl_debug("\tRandom MAC address scan default supported\n");
 		wiphy->features |= NL80211_FEATURE_SCAN_RANDOM_MAC_ADDR;
 	}
 
 	if (priv->fw_std & SPRD_STD_11D) {
-		wl_info("\tIEEE802.11d supported\n");
+		wl_debug("\tIEEE802.11d supported\n");
 		wiphy->reg_notifier = sc2355_reg_notify;
 		wiphy->regulatory_flags |= REGULATORY_DISABLE_BEACON_HINTS;
 		if (priv->hif.hw_type == SPRD_HW_SC2355_SDIO) {
@@ -328,28 +327,28 @@ void sc2355_setup_wiphy(struct wiphy *wiphy, struct sprd_priv *priv)
 	}
 
 	if (priv->fw_std & SPRD_STD_11E) {
-		wl_info("\tIEEE802.11e supported\n");
+		wl_debug("\tIEEE802.11e supported\n");
 		wiphy->features |= NL80211_FEATURE_SUPPORTS_WMM_ADMISSION;
 		wiphy->flags |= WIPHY_FLAG_AP_UAPSD;
 	}
 
 	if (priv->fw_std & SPRD_STD_11K)
-		wl_info("\tIEEE802.11k supported\n");
+		wl_debug("\tIEEE802.11k supported\n");
 
 	if (priv->fw_std & SPRD_STD_11R)
-		wl_info("\tIEEE802.11r supported\n");
+		wl_debug("\tIEEE802.11r supported\n");
 
 	if (priv->fw_std & SPRD_STD_11U)
-		wl_info("\tIEEE802.11u supported\n");
+		wl_debug("\tIEEE802.11u supported\n");
 
 	if (priv->fw_std & SPRD_STD_11V)
-		wl_info("\tIEEE802.11v supported\n");
+		wl_debug("\tIEEE802.11v supported\n");
 
 	if (priv->fw_std & SPRD_STD_11W)
-		wl_info("\tIEEE802.11w supported\n");
+		wl_debug("\tIEEE802.11w supported\n");
 
 	if (priv->fw_capa & SPRD_CAPA_5G) {
-		wl_info("\tDual band supported\n");
+		wl_debug("\tDual band supported\n");
 		wiphy->bands[NL80211_BAND_5GHZ] = SPRD_BAND_5G;
 		if (priv->wiphy_sec2_flag) {
 			/* update HT capa got from fw */
@@ -362,11 +361,11 @@ void sc2355_setup_wiphy(struct wiphy *wiphy, struct sprd_priv *priv)
 	}
 
 	if (priv->fw_capa & SPRD_CAPA_MCC) {
-		wl_info("\tMCC supported\n");
+		wl_debug("\tMCC supported\n");
 		wiphy->n_iface_combinations = ARRAY_SIZE(sprd_iface_combos);
 		wiphy->iface_combinations = sprd_iface_combos;
 	} else {
-		wl_info("\tSCC supported\n");
+		wl_debug("\tSCC supported\n");
 		wiphy->software_iftypes =
 		    BIT(NL80211_IFTYPE_STATION) | BIT(NL80211_IFTYPE_AP) |
 		    BIT(NL80211_IFTYPE_P2P_CLIENT) |
@@ -374,38 +373,38 @@ void sc2355_setup_wiphy(struct wiphy *wiphy, struct sprd_priv *priv)
 	}
 
 	if (priv->fw_capa & SPRD_CAPA_ACL) {
-		wl_info("\tACL supported (%d)\n", priv->max_acl_mac_addrs);
+		wl_debug("\tACL supported (%d)\n", priv->max_acl_mac_addrs);
 		wiphy->max_acl_mac_addrs = priv->max_acl_mac_addrs;
 	}
 
 	if (priv->fw_capa & SPRD_CAPA_AP_SME) {
-		wl_info("\tAP SME enabled\n");
+		wl_debug("\tAP SME enabled\n");
 		wiphy->flags |= WIPHY_FLAG_HAVE_AP_SME;
 		wiphy->ap_sme_capa = 1;
 	}
 
 	if (priv->fw_capa & SPRD_CAPA_PMK_OKC_OFFLOAD &&
 	    priv->fw_capa & SPRD_CAPA_11R_ROAM_OFFLOAD) {
-		wl_info("\tRoaming offload supported\n");
+		wl_debug("\tRoaming offload supported\n");
 		wiphy->flags |= WIPHY_FLAG_SUPPORTS_FW_ROAM;
 	}
 
 	if (priv->fw_capa & SPRD_CAPA_SCHED_SCAN) {
-		wl_info("\tScheduled scan supported\n");
+		wl_debug("\tScheduled scan supported\n");
 		wiphy->max_sched_scan_ssids = SPRD_MAX_PFN_LIST_COUNT;
 		wiphy->max_match_sets = SPRD_MAX_PFN_LIST_COUNT;
 		wiphy->max_sched_scan_ie_len = SPRD_MAX_SCAN_IE_LEN;
 	}
 
 	if (priv->fw_capa & SPRD_CAPA_TDLS) {
-		wl_info("\tTDLS supported\n");
+		wl_debug("\tTDLS supported\n");
 		wiphy->flags |= WIPHY_FLAG_SUPPORTS_TDLS;
 		wiphy->flags |= WIPHY_FLAG_TDLS_EXTERNAL_SETUP;
 		wiphy->features |= NL80211_FEATURE_TDLS_CHANNEL_SWITCH;
 	}
 
 	if (priv->fw_capa & SPRD_CAPA_LL_STATS)
-		wl_info("\tLink layer stats supported\n");
+		wl_debug("\tLink layer stats supported\n");
 
 	wiphy->max_sched_scan_reqs = 1;
 	wiphy_ext_feature_set(wiphy,
@@ -413,7 +412,7 @@ void sc2355_setup_wiphy(struct wiphy *wiphy, struct sprd_priv *priv)
 	wiphy->features |= NL80211_FEATURE_SAE;
 
 	if (priv->extend_feature & SPRD_EXTEND_FEATURE_OCE) {
-                wl_info("\tOCE supported\n");
+                wl_debug("\tOCE supported\n");
                 wiphy_ext_feature_set(wiphy,
                                       NL80211_EXT_FEATURE_ACCEPT_BCAST_PROBE_RESP);
                 wiphy_ext_feature_set(wiphy,

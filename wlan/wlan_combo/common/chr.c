@@ -22,7 +22,7 @@ static int sprd_chr_sock_sendmsg(struct sprd_chr *chr, u8 *data)
 	send_vec.iov_base = data;
 	send_vec.iov_len = 1024;
 
-	wl_info("CHR: ready to sendmsg: %s\n", data);
+	wl_debug("CHR: ready to sendmsg: %s\n", data);
 	ret = kernel_sendmsg(chr->chr_sock, &send_msg, &send_vec, 1, CHR_BUF_SIZE);
 	if (ret < 0) {
 		wl_err("%s, CHR: sendmsg failed, release socket");
@@ -70,7 +70,7 @@ void sprd_chr_report_disconnect(struct sprd_vif *vif, u8 version,
 	u8 *pos = evt_content;
 
 	if (*pos >= CHR_ARR_SIZE) {
-		wl_info("%s, CHR: the content: %u is invalid, reporting not allowed",
+		wl_err("%s, CHR: the content: %u is invalid, reporting not allowed",
 			__func__, *pos);
 		return;
 	}
@@ -78,13 +78,13 @@ void sprd_chr_report_disconnect(struct sprd_vif *vif, u8 version,
 	if (evt_id == EVT_CHR_DISC_LINK_LOSS) {
 		refcnt = ++chr->chr_refcnt->disc_linkloss_cnt[*pos];
 		memcpy(&link_loss.reason_code, pos, sizeof(link_loss.reason_code));
-		wl_info("%s: CHR: %s, ref_cnt=%u\n", __func__,
+		wl_debug("%s: CHR: %s, ref_cnt=%u\n", __func__,
 			link_loss.reason_code == 1 ? "Power off AP" : "Beacon Loss",
 			refcnt);
 	} else if (evt_id == EVT_CHR_DISC_SYS_ERR) {
 		refcnt = ++chr->chr_refcnt->disc_systerr_cnt[*pos];
 		memcpy(&system_err.reason_code, pos, sizeof(system_err.reason_code));
-		wl_info("%s: CHR: SYSTEM_ERR_DISCONNECT, ref_cnt=%u\n", __func__, refcnt);
+		wl_debug("%s: CHR: SYSTEM_ERR_DISCONNECT, ref_cnt=%u\n", __func__, refcnt);
 	}
 
 	sprd_fill_chr_driver(&chr_driver, refcnt, evt_id, version,
@@ -111,7 +111,7 @@ void sprd_chr_report_open_error(struct sprd_chr *chr, u32 evt_id, u8 err_code)
 	u8 sendbuf[CHR_BUF_SIZE] = {0};
 
 	if (err_code >= CHR_ARR_SIZE) {
-		wl_info("%s, CHR: the err_code: %u is invalid, reporting not allowed",
+		wl_err("%s, CHR: the err_code: %u is invalid, reporting not allowed",
 			__func__, err_code);
 		return;
 	}
@@ -129,7 +129,7 @@ void sprd_chr_report_open_error(struct sprd_chr *chr, u32 evt_id, u8 err_code)
 		wl_err("CHR: connect been closed, can not send msg to server");
 	}
 
-	wl_info("%s: CHR: %s, ref_cnt=%u\n", __func__,
+	wl_debug("%s: CHR: %s, ref_cnt=%u\n", __func__,
 		open_error.reason_code == 0 ? "Power_on Err" : "Download_ini Err",
 		refcnt);
 	return;
@@ -141,7 +141,7 @@ static inline void sprd_chr_get_cmdval(u32 *val, u8 *pos, u8 *key, int octal)
 	u8 *temp = strstr(pos, key);
 
 	if (!temp) {
-		wl_info("%s, CHR: %s failed\n", __func__, key);
+		wl_err("%s, CHR: %s failed\n", __func__, key);
 		return;
 	}
 	temp += strlen(key);
@@ -169,7 +169,7 @@ static int sprd_chr_decode_str(struct chr_cmd *cmd_set, u8 *data)
 	sprd_chr_get_cmdval(&cmd_set->maxcount, pos, "maxcount=", 16);
 	sprd_chr_get_cmdval(&cmd_set->timerlimit, pos, "tlimit=", 16);
 
-	wl_info("CHR: decode_str: %s, %s, %#x, %d, %#x, %#x\n",
+	wl_debug("CHR: decode_str: %s, %s, %#x, %d, %#x, %#x\n",
 		cmd_set->evt_type, cmd_set->module, cmd_set->evt_id,
 		cmd_set->set, cmd_set->maxcount, cmd_set->timerlimit);
 
@@ -195,14 +195,14 @@ static void sprd_chr_rebuild_cmdlist(struct sprd_chr *chr, struct chr_cmd *cmd_s
 
 		if (cmd_set->set == 1 && !chr->drv_cmd_list[index].set) {
 			chr->drv_len = chr->drv_len + 1;
-			wl_info("%s, CHR: start monitoring evt_id:%#x, drv_len: %u",
+			wl_debug("%s, CHR: start monitoring evt_id:%#x, drv_len: %u",
 				__func__, cmd_set->evt_id, chr->drv_len);
 		} else if (cmd_set->set == 0 && chr->drv_cmd_list[index].set) {
 			chr->drv_len = chr->drv_len - 1;
-			wl_info("%s, CHR: stop monitoring evt_id:%#x, drv_len: %u",
+			wl_debug("%s, CHR: stop monitoring evt_id:%#x, drv_len: %u",
 				__func__, cmd_set->evt_id, chr->drv_len);
 		} else {
-			wl_info("%s, CHR: adjust evt's params evt_id:%#x, drv_len: %u",
+			wl_debug("%s, CHR: adjust evt's params evt_id:%#x, drv_len: %u",
 				__func__, cmd_set->evt_id, chr->drv_len);
 		}
 		memcpy(&chr->drv_cmd_list[index], cmd_set, sizeof(struct chr_cmd));
@@ -217,14 +217,14 @@ static void sprd_chr_rebuild_cmdlist(struct sprd_chr *chr, struct chr_cmd *cmd_s
 
 		if (cmd_set->set == 1 && !chr->fw_cmd_list[index].set) {
 			chr->fw_len = chr->fw_len + 1;
-			wl_info("%s, CHR: start monitoring evt_id:%#x, fw_len: %u",
+			wl_debug("%s, CHR: start monitoring evt_id:%#x, fw_len: %u",
 				__func__, cmd_set->evt_id, chr->fw_len);
 		} else if (cmd_set->set == 0 && chr->fw_cmd_list[index].set) {
 			chr->fw_len = chr->fw_len - 1;
-			wl_info("%s, CHR: stop monitoring evt_id:%#x, fw_len: %u",
+			wl_debug("%s, CHR: stop monitoring evt_id:%#x, fw_len: %u",
 				__func__, cmd_set->evt_id, chr->fw_len);
 		} else {
-			wl_info("%s, CHR: adjust evt's params evt_id:%#x, fw_len: %u",
+			wl_debug("%s, CHR: adjust evt's params evt_id:%#x, fw_len: %u",
 				__func__, cmd_set->evt_id, chr->fw_len);
 		}
 		memcpy(&chr->fw_cmd_list[index], cmd_set, sizeof(struct chr_cmd));
@@ -242,11 +242,11 @@ static inline int sprd_chr_set_sockflag(struct sprd_chr *chr, u8 *data)
 		chr->sock_flag = 2;
 		memset(&chr->fw_cmd_list, 0, sizeof(chr->fw_cmd_list));
 		memset(&chr->drv_cmd_list, 0, sizeof(chr->drv_cmd_list));
-		wl_info("CHR: disable all chr_evt, sock_flag set %u", chr->sock_flag);
+		wl_err("CHR: disable all chr_evt, sock_flag set %u", chr->sock_flag);
 		return -1;
 	}
 	chr->sock_flag = 1;
-	wl_info("CHR: enable chr_evt, sock_flag set %u", chr->sock_flag);
+	wl_debug("CHR: enable chr_evt, sock_flag set %u", chr->sock_flag);
 
 	return 0;
 }
@@ -283,11 +283,11 @@ retry:
 	s_addr.sin_port = htons(4758);
 	s_addr.sin_addr.s_addr = in_aton("127.0.0.1");
 
-	wl_info("%s, CHR: wait the server starting", __func__);
+	wl_debug("%s, CHR: wait the server starting", __func__);
 	/* Optimize:block here while server not ready */
 	while (1) {
 		if (chr->thread_exit) {
-			wl_info("%s, CHR: stop wait connect, go exit!", __func__);
+			wl_err("%s, CHR: stop wait connect, go exit!", __func__);
 			goto exit;
 		}
 		complete(&chr->socket_completed);
@@ -299,7 +299,7 @@ retry:
 		if (!ret)
 			break;
 	}
-	wl_info("CHR: wifi_client connected\n");
+	wl_debug("CHR: wifi_client connected\n");
 
 	recv_vec.iov_base = recv_buf;
 	recv_vec.iov_len = CHR_BUF_SIZE;
@@ -312,7 +312,7 @@ retry:
 		buf_pos = 0;
 		memset(recv_buf, 0, sizeof(recv_buf));
 		memset(&recv_msg, 0, sizeof(recv_msg));
-		wl_info("CHR: wait for recv_msg");
+		wl_debug("CHR: wait for recv_msg");
 		ret = kernel_recvmsg(sock, &recv_msg, &recv_vec, 1, CHR_BUF_SIZE, 0);
 
 		if (unlikely(chr->thread_exit))
@@ -327,8 +327,8 @@ retry:
 			goto exit;
 		}
 
-		wl_info("%s, CHR: recvmsg: %s", __func__, recv_buf);
-		wl_info("CHR: msg_len is %d", (int)strlen(recv_buf));
+		wl_debug("%s, CHR: recvmsg: %s", __func__, recv_buf);
+		wl_debug("CHR: msg_len is %d", (int)strlen(recv_buf));
 
 		/* Multiple chr_evt may be sended through a single string */
 		while (ret && recv_buf[buf_pos]) {
@@ -351,7 +351,7 @@ retry:
 			if (ret)
 				wl_err("%s, CHR: set chr_cmd to CP2 failed", __func__);
 		} else {
-			wl_info("%s, CHR: Drop set_chr_cmd in case of power off"
+			wl_warn("%s, CHR: Drop set_chr_cmd in case of power off"
 				"save buf in chr_cmdlist", __func__);
 		}
 	}
@@ -359,7 +359,7 @@ retry:
 	if (sock)
 		sock_release(sock);
 	chr->sock_flag = 0;
-	wl_info("%s, CHR: init socket, try to connect server\n", __func__);
+	wl_debug("%s, CHR: init socket, try to connect server\n", __func__);
 
 	goto retry;
 
@@ -370,7 +370,7 @@ exit:
 	sock_release(sock);
 	sock = NULL;
 	complete(&chr->thread_completed);
-	wl_info("%s, CHR: exit client_thread\n", __func__);
+	wl_debug("%s, CHR: exit client_thread\n", __func__);
 
 	return 0;
 }
@@ -386,7 +386,7 @@ void sprd_chr_handle_power(struct sprd_chr *chr)
 		if (chr->sock_flag == 1 && chr->drv_cmd_list[0].set)
 			sprd_chr_report_open_error(chr, EVT_CHR_OPEN_ERR, chr->open_err_flag - 1);
 		else
-			wl_info("%s, CHR: open err appears, but chr module is closed\n", __func__);
+			wl_debug("%s, CHR: open err appears, but chr module is closed\n", __func__);
 
 		CHR_OPENERR_FLAGSET(&chr->open_err_flag, OPEN_ERR_INIT);
 	}
@@ -402,7 +402,7 @@ void sprd_chr_handle_open(struct sprd_chr *chr)
 	 * that record the chr_evt to be monitored
 	 */
 	if (chr->fw_len) {
-		wl_info("%s, CHR: set chr to CP2 each time open", __func__);
+		wl_debug("%s, CHR: set chr to CP2 each time open", __func__);
 		ret = sprd_set_chr(chr);
 		if (ret)
 			wl_err("%s, CHR: set chr_cmd to CP2 failed", __func__);
@@ -410,7 +410,7 @@ void sprd_chr_handle_open(struct sprd_chr *chr)
 
 	/* if created chr_client_thread falied in sprd_iface_probe, try to create here */
 	if (!chr->chr_sock) {
-		wl_info("CHR: Creating chr_client_thread\n");
+		wl_debug("CHR: Creating chr_client_thread\n");
 		ret = sprd_chr_init(chr);
 		if (ret) {
 			wl_err("%s chr init failed: %d\n", __func__, ret);
@@ -428,7 +428,7 @@ struct sprd_chr *sprd_chr_handle_probe(struct sprd_hif *hif)
 	/* int the chr struct */
 	chr = kzalloc(sizeof(*chr), GFP_KERNEL);
 	if (!chr) {
-		wl_info("%s, CHR: kzalloc chr failed", __func__);
+		wl_err("%s, CHR: kzalloc chr failed", __func__);
 		return NULL;
 	}
 	hif->chr = chr;
@@ -438,7 +438,7 @@ struct sprd_chr *sprd_chr_handle_probe(struct sprd_hif *hif)
 	chr->priv = priv;
 
 	if (!chr->chr_sock) {
-		wl_info("CHR: Creating chr_client_thread\n");
+		wl_debug("CHR: Creating chr_client_thread\n");
 		ret = sprd_chr_init(chr);
 		if (ret) {
 			wl_err("%s, CHR: chr init failed: %d\n", __func__, ret);
@@ -455,7 +455,7 @@ int sprd_chr_init(struct sprd_chr *chr)
 	if (!chr->chr_refcnt) {
 		refcnt = kzalloc(sizeof(*refcnt), GFP_KERNEL);
 		if (!refcnt) {
-			wl_info("%s, kzalloc refcnt failed", __func__);
+			wl_err("%s, kzalloc refcnt failed", __func__);
 			return -ENOMEM;
 		}
 		chr->chr_refcnt = refcnt;
@@ -464,7 +464,7 @@ int sprd_chr_init(struct sprd_chr *chr)
 	chr->chr_client_thread = NULL;
 	chr->chr_sock = NULL;
 
-	wl_info("%s, CHR: ready to init the chr_client_thread", __func__);
+	wl_debug("%s, CHR: ready to init the chr_client_thread", __func__);
 	chr->chr_client_thread = kthread_create(sprd_chr_client_thread, chr, "wifi_driver_chr");
 	if (IS_ERR_OR_NULL(chr->chr_client_thread)) {
 		wl_err("CHR: client thread create failed\n");
@@ -527,7 +527,7 @@ exit:
 	}
 	kfree(chr);
 	chr = NULL;
-	wl_info("%s, CHR: stop chr_client_thread!\n", __func__);
+	wl_debug("%s, CHR: stop chr_client_thread!\n", __func__);
 	return;
 }
 

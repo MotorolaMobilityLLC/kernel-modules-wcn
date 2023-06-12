@@ -589,7 +589,7 @@ static int vendor_start_offload_packet(struct wiphy *wiphy, struct sprd_vif *vif
 	    !tb[ATTR_OFFLOADED_PACKETS_DST_MAC_ADDR] ||
 	    !tb[ATTR_OFFLOADED_PACKETS_PERIOD] ||
 	    !tb[ATTR_OFFLOADED_PACKETS_ETHER_PROTO_TYPE]) {
-		wiphy_err(wiphy, "check start offload para failed\n");
+		wl_err("check start offload para failed\n");
 		return -EINVAL;
 	}
 
@@ -821,7 +821,7 @@ static int vendor_set_country(struct wiphy *wiphy, struct wireless_dev *wdev,
 	char *country;
 
 	if (!data) {
-		wiphy_err(wiphy, "%s data is NULL!\n", __func__);
+		wl_err("%s data is NULL!\n", __func__);
 		return -EINVAL;
 	}
 
@@ -829,11 +829,11 @@ static int vendor_set_country(struct wiphy *wiphy, struct wireless_dev *wdev,
 	country = (char *)nla_data(country_attr);
 
 	if (!country || strlen(country) != SPRD_COUNTRY_CODE_LEN) {
-		wiphy_err(wiphy, "%s invalid country code!\n", __func__);
+		wl_err("%s invalid country code!\n", __func__);
 		return -EINVAL;
 	}
-	wiphy_info(wiphy, "%s %c%c\n", __func__,
-		   toupper(country[0]), toupper(country[1]));
+	wl_info("%s %c%c\n", __func__,
+		toupper(country[0]), toupper(country[1]));
 	return regulatory_hint(wiphy, country);
 }
 
@@ -852,7 +852,7 @@ static int vendor_set_llstat_handler(struct wiphy *wiphy,
 	if (!(priv->fw_capa & SPRD_CAPA_LL_STATS))
 		return -ENOTSUPP;
 	if (!data) {
-		wiphy_err(wiphy, "%s llstat param check filed\n", __func__);
+		wl_err("%s llstat param check filed\n", __func__);
 		return -EINVAL;
 	}
 	err = nla_parse(tb, ATTR_LL_STATS_SET_MAX, data,
@@ -870,10 +870,10 @@ static int vendor_set_llstat_handler(struct wiphy *wiphy,
 		ll_params->aggressive_statistics_gathering =
 		    nla_get_u32(tb[ATTR_LL_STATS_GATHERING]);
 	}
-	wiphy_err(wiphy, "%s mpdu_size_threshold =%u,"
-		  "aggressive_statistics_gathering=%u\n", __func__,
-		  ll_params->mpdu_size_threshold,
-		  ll_params->aggressive_statistics_gathering);
+	wl_debug("%s mpdu_size_threshold =%u,"
+		 "aggressive_statistics_gathering=%u\n", __func__,
+		 ll_params->mpdu_size_threshold,
+		 ll_params->aggressive_statistics_gathering);
 	if (ll_params->aggressive_statistics_gathering)
 		ret = vendor_link_layer_stat(priv, vif, SUBCMD_SET,
 					     ll_params, sizeof(*ll_params),
@@ -931,10 +931,10 @@ static int vendor_get_llstat_handler(struct wiphy *wiphy,
 	radio_st->tx_time = llst->tx_time;
 	radio_st->rx_time = llst->rx_time;
 	radio_st->on_time_scan = llst->on_time_scan;
-	wiphy_err(wiphy, "beacon_rx = %d, rssi_mgmt = %d, on_time = %d, "
-		  "tx_time = %d, rx_time = %d, on_time_scan = %d,\n",
-		  iface_st->beacon_rx, iface_st->rssi_mgmt, radio_st->on_time,
-		  radio_st->tx_time, radio_st->rx_time, radio_st->on_time_scan);
+	wl_debug("beacon_rx = %d, rssi_mgmt = %d, on_time = %d, "
+		 "tx_time = %d, rx_time = %d, on_time_scan = %d,\n",
+		 iface_st->beacon_rx, iface_st->rssi_mgmt, radio_st->on_time,
+		 radio_st->tx_time, radio_st->rx_time, radio_st->on_time_scan);
 	/* androidR need get channel info to pass vts test */
 	if (priv->extend_feature & SPRD_EXTEND_FEATURE_LLSTATE) {
 		ret =
@@ -942,24 +942,23 @@ static int vendor_get_llstat_handler(struct wiphy *wiphy,
 					    SPRD_SUBTYPE_CHANNEL_INFO, NULL,
 					    0, recv_buf, &recv_len);
 		if (ret) {
-			wiphy_err(wiphy, "set externed llstate failed\n");
+			wl_err("set externed llstate failed\n");
 			goto put_iface_fail;
 		}
 		pos = recv_buf;
 		channel_num = *(u32 *)pos;
 		pos += sizeof(u32);
-		wiphy_info(wiphy, "channel num %d\n", channel_num);
+		wl_debug("channel num %d\n", channel_num);
 		radio_st->num_channels = channel_num;
 
 		if (channel_num) {
 			info = (struct llstat_channel_info *)(pos);
-			wiphy_info(wiphy, "cca busy time: %d, on time: %d\n",
-				   info->cca_busy_time, info->on_time);
-			wiphy_info(wiphy,
-				   "center width: %d, center_freq: %d, "
-				   "center_freq0: %d, center_freq1: %d\n",
-				   info->channel_width, info->center_freq,
-				   info->center_freq0, info->center_freq1);
+			wl_debug("cca busy time: %d, on time: %d\n",
+				 info->cca_busy_time, info->on_time);
+			wl_debug("center width: %d, center_freq: %d, "
+				 "center_freq0: %d, center_freq1: %d\n",
+				 info->channel_width, info->center_freq,
+				 info->center_freq0, info->center_freq1);
 			radio_st->channels[0].cca_busy_time =
 			    info->cca_busy_time;
 			radio_st->channels[0].on_time = info->on_time;
@@ -1046,7 +1045,7 @@ static int vendor_clr_llstat_handler(struct wiphy *wiphy,
 		return -ENOTSUPP;
 	memset(r_buf, 0, r_len);
 	if (!data) {
-		wiphy_err(wiphy, "%s wrong llstat clear req mask\n", __func__);
+		wl_err("%s wrong llstat clear req mask\n", __func__);
 		return -EINVAL;
 	}
 	err = nla_parse(tb, ATTR_LL_STATS_CLR_MAX, data, len, NULL, NULL);
@@ -1056,7 +1055,7 @@ static int vendor_clr_llstat_handler(struct wiphy *wiphy,
 		stats_clear_req_mask =
 		    nla_get_u32(tb[ATTR_LL_STATS_CLR_CONFIG_REQ_MASK]);
 	}
-	wiphy_info(wiphy, "stats_clear_req_mask = %u\n", stats_clear_req_mask);
+	wl_debug("stats_clear_req_mask = %u\n", stats_clear_req_mask);
 	ret = vendor_link_layer_stat(priv, vif, SUBCMD_DEL,
 				     &stats_clear_req_mask, r_len, r_buf,
 				     &r_len);
@@ -1539,13 +1538,13 @@ static int vendor_get_logger_feature(struct wiphy *wiphy,
 	feature |= WIFI_LOGGER_WAKE_LOCK_SUPPORTED;
 
 	if (nla_put_u32(reply, ATTR_FEATURE_SET, feature)) {
-		wiphy_err(wiphy, "%s put skb u32 failed\n", __func__);
+		wl_err("%s put skb u32 failed\n", __func__);
 		goto out_put_fail;
 	}
 
 	ret = cfg80211_vendor_cmd_reply(reply);
 	if (ret)
-		wiphy_err(wiphy, "%s reply cmd error\n", __func__);
+		wl_err("%s reply cmd error\n", __func__);
 	return ret;
 
 out_put_fail:
@@ -1561,7 +1560,7 @@ static int vendor_get_feature(struct wiphy *wiphy, struct wireless_dev *wdev,
 	int feature = 0, payload;
 	struct sprd_priv *priv = wiphy_priv(wiphy);
 
-	wiphy_info(wiphy, "%s\n", __func__);
+	wl_debug("%s\n", __func__);
 	payload = sizeof(feature);
 
 	reply = cfg80211_vendor_cmd_alloc_reply_skb(wiphy, payload);
@@ -1584,13 +1583,13 @@ static int vendor_get_feature(struct wiphy *wiphy, struct wireless_dev *wdev,
 		return -ENOMEM;
 
 	if (nla_put_u32(reply, ATTR_FEATURE_SET, feature)) {
-		wiphy_err(wiphy, "%s put u32 error\n", __func__);
+		wl_err("%s put u32 error\n", __func__);
 		goto out_put_fail;
 	}
 
 	ret = cfg80211_vendor_cmd_reply(reply);
 	if (ret)
-		wiphy_err(wiphy, "%s reply cmd error\n", __func__);
+		wl_err("%s reply cmd error\n", __func__);
 	return ret;
 
 out_put_fail:
@@ -1605,7 +1604,7 @@ static int vendor_get_wake_state(struct wiphy *wiphy, struct wireless_dev *wdev,
 	struct sk_buff *skb;
 	int payload;
 
-	wiphy_info(wiphy, "%s\n", __func__);
+	wl_debug("%s\n", __func__);
 	payload = NLMSG_HDRLEN;
 	payload += ATTR_WAKE_MAX * (NLMSG_HDRLEN + sizeof(unsigned int));
 
@@ -1632,13 +1631,13 @@ static int vendor_get_wake_state(struct wiphy *wiphy, struct wireless_dev *wdev,
 	    nla_put_u32(skb, ATTR_WAKE_ICMP4_RX_MULTICAST_CNT, 0) ||
 	    nla_put_u32(skb, ATTR_WAKE_ICMP6_RX_MULTICAST_CNT, 0) ||
 	    nla_put_u32(skb, ATTR_WAKE_OTHER_RX_MULTICAST_CNT, 0)) {
-		wiphy_err(wiphy, "%s nla put error\n", __func__);
+		wl_err("%s nla put error\n", __func__);
 		goto out_put_fail;
 	}
 
 	ret = cfg80211_vendor_cmd_reply(skb);
 	if (ret)
-		wiphy_err(wiphy, "%s reply cmd error\n", __func__);
+		wl_err("%s reply cmd error\n", __func__);
 	return ret;
 
 out_put_fail:
@@ -1650,7 +1649,7 @@ static int vendor_enable_nd_offload(struct wiphy *wiphy,
 				    struct wireless_dev *wdev,
 				    const void *data, int len)
 {
-	wiphy_info(wiphy, "%s\n", __func__);
+	wl_debug("%s\n", __func__);
 
 	return VENDOR_WIFI_SUCCESS;
 }
@@ -1658,7 +1657,7 @@ static int vendor_enable_nd_offload(struct wiphy *wiphy,
 static int vendor_set_mac_oui(struct wiphy *wiphy, struct wireless_dev *wdev,
 			      const void *data, int len)
 {
-	wiphy_info(wiphy, "%s\n", __func__);
+	wl_debug("%s\n", __func__);
 
 	return VENDOR_WIFI_SUCCESS;
 }
@@ -1666,7 +1665,7 @@ static int vendor_set_mac_oui(struct wiphy *wiphy, struct wireless_dev *wdev,
 static int vendor_start_logging(struct wiphy *wiphy, struct wireless_dev *wdev,
 				const void *data, int len)
 {
-	wiphy_info(wiphy, "%s\n", __func__);
+	wl_debug("%s\n", __func__);
 
 	return VENDOR_WIFI_SUCCESS;
 }
@@ -1674,7 +1673,7 @@ static int vendor_start_logging(struct wiphy *wiphy, struct wireless_dev *wdev,
 static int vendor_get_ring_data(struct wiphy *wiphy, struct wireless_dev *wdev,
 				const void *data, int len)
 {
-	wiphy_info(wiphy, "%s\n", __func__);
+	wl_debug("%s\n", __func__);
 
 	return VENDOR_WIFI_SUCCESS;
 }
@@ -1682,7 +1681,7 @@ static int vendor_get_ring_data(struct wiphy *wiphy, struct wireless_dev *wdev,
 static int vendor_memory_dump(struct wiphy *wiphy, struct wireless_dev *wdev,
 			      const void *data, int len)
 {
-	wiphy_info(wiphy, "%s\n", __func__);
+	wl_debug("%s\n", __func__);
 
 	return -EOPNOTSUPP;
 }
@@ -1695,7 +1694,7 @@ static int vendor_get_driver_info(struct wiphy *wiphy,
 	struct sk_buff *reply;
 	char *version = "1.0";
 
-	wiphy_info(wiphy, "%s\n", __func__);
+	wl_debug("%s\n", __func__);
 
 	payload = strlen(version);
 	reply = cfg80211_vendor_cmd_alloc_reply_skb(wiphy, payload);
@@ -1705,13 +1704,13 @@ static int vendor_get_driver_info(struct wiphy *wiphy,
 
 	if (nla_put(reply, ATTR_WIFI_INFO_DRIVER_VERSION,
 		    payload, version)) {
-		wiphy_err(wiphy, "%s put version error\n", __func__);
+		wl_err("%s put version error\n", __func__);
 		goto out_put_fail;
 	}
 
 	ret = cfg80211_vendor_cmd_reply(reply);
 	if (ret)
-		wiphy_err(wiphy, "%s reply cmd error\n", __func__);
+		wl_err("%s reply cmd error\n", __func__);
 	return ret;
 
 out_put_fail:
@@ -1744,13 +1743,13 @@ static int vendor_get_akm_suite(struct wiphy *wiphy, struct wireless_dev *wdev,
 		return -ENOMEM;
 	ret = nla_put(reply, NL80211_ATTR_AKM_SUITES, akm_len, akm);
 	if (ret) {
-		wiphy_err(wiphy, "put akm suite error\n");
+		wl_err("put akm suite error\n");
 		kfree_skb(reply);
 		return ret;
 	}
 	ret = cfg80211_vendor_cmd_reply(reply);
 	if (ret) {
-		wiphy_err(wiphy, "reply cmd error\n");
+		wl_err("reply cmd error\n");
 		return ret;
 	}
 	return 0;
@@ -1767,19 +1766,19 @@ static int vendor_set_offload_packet(struct wiphy *wiphy,
 	struct nlattr *tb[ATTR_OFFLOADED_PACKETS_MAX + 1];
 
 	if (!data) {
-		wiphy_err(wiphy, "%s offload failed\n", __func__);
+		wl_err("%s offload failed\n", __func__);
 		return -EINVAL;
 	}
 
 	err = nla_parse(tb, ATTR_OFFLOADED_PACKETS_MAX, data, len, NULL, NULL);
 	if (err) {
-		wiphy_err(wiphy, "%s parse attr failed", __func__);
+		wl_err("%s parse attr failed", __func__);
 		return err;
 	}
 
 	if (!tb[ATTR_OFFLOADED_PACKETS_REQUEST_ID] ||
 	    !tb[ATTR_OFFLOADED_PACKETS_SENDING_CONTROL]) {
-		wiphy_err(wiphy, "check request id or control failed\n");
+		wl_err("check request id or control failed\n");
 		return -EINVAL;
 	}
 
@@ -1792,7 +1791,7 @@ static int vendor_set_offload_packet(struct wiphy *wiphy,
 	case VENDOR_OFFLOADED_PACKETS_SENDING_START:
 		return vendor_start_offload_packet(wiphy, vif, tb, req);
 	default:
-		wiphy_err(wiphy, "control value is invalid\n");
+		wl_err("control value is invalid\n");
 		return -EINVAL;
 	}
 }

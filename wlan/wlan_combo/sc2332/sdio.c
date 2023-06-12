@@ -604,7 +604,7 @@ void sdio_deinit(struct sprd_hif *hif)
 	sprd_deinit_msg(&hif->tx_list1);
 	sprd_deinit_msg(&hif->tx_list2);
 
-	wl_info("%s\t"
+	wl_debug("%s\t"
 		"net: stop %u, start %u\t"
 		"drop cnt: cmd %u, sta %u, p2p %u\t"
 		"ring_ap:%u ring_cp:%u common:%u sta:%u p2p:%u\n",

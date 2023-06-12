@@ -81,7 +81,7 @@ static void sdio_get_tx_avg_time(struct sprd_hif *hif,
 		sdio_dump_stats(hif);
 		hif->stats.gap_num = 0;
 		hif->stats.tx_cost_time = 0;
-		wl_info("%s:%d packets avg cost time: %lu\n",
+		wl_debug("%s:%d packets avg cost time: %lu\n",
 			__func__, __LINE__, hif->stats.tx_avg_time);
 	}
 }
@@ -294,7 +294,7 @@ static int sdio_suspend_resume_handle(int chn, int mode)
 		    atomic_read(&tx_mgmt->tx_list_cmd.ref) > 0 ||
 		    !list_empty(&tx_mgmt->xmit_msg_list.to_send_list) ||
 		    !list_empty(&tx_mgmt->xmit_msg_list.to_free_list)) {
-			wl_info("%s, %d,Q not empty suspend not allowed\n",
+			wl_err("%s, %d,Q not empty suspend not allowed\n",
 				__func__, __LINE__);
 			return -EBUSY;
 		}
@@ -584,7 +584,7 @@ int sc2355_hif_tx_list(struct sprd_hif *hif,
 #endif
 		INIT_LIST_HEAD(tx_list_head);
 		tx_packets += tx_count;
-		wl_info("tx_list,cnt=%d,total=%lu,m/p=%lu/%lu\n",
+		wl_debug("tx_list,cnt=%d,total=%lu,m/p=%lu/%lu\n",
 			tx_count, tx_packets, mbufalloc, mbufpop);
 		sc2355_add_topop_list(hif->tx_data_port, head, tail, tx_count);
 	}
@@ -692,7 +692,7 @@ int sc2355_tx_data_pop_list(int channel, struct mbuf_t *head,
 #endif
 
 	sc2355_add_topop_list(channel, head, tail, num);
-	wl_info("%s:%d free : %d msg buf\n", __func__, __LINE__, num);
+	wl_debug("%s:%d free : %d msg buf\n", __func__, __LINE__, num);
 
 	return 0;
 }
@@ -733,8 +733,8 @@ int sc2355_tx_cmd_pop_list(int channel, struct mbuf_t *head,
 	}
 
 	tx_mgmt->cmd_poped += num;
-	wl_info("tx_cmd_pop num: %d,poped=%d, send=%d\n",
-		num, tx_mgmt->cmd_poped, tx_mgmt->cmd_send);
+	wl_debug("tx_cmd_pop num: %d,poped=%d, send=%d\n",
+		 num, tx_mgmt->cmd_poped, tx_mgmt->cmd_send);
 	sprdwcn_bus_list_free(channel, head, tail, num);
 
 	return 0;
@@ -760,7 +760,7 @@ int sc2355_push_link(struct sprd_hif *hif, int chn,
 			return -ENOMEM;
 		}
 		if (i == num && pos != tail)
-			wl_info("num of head to tail is not match\n");
+			wl_warn("num of head to tail is not match\n");
 
 		pos = pos->next;
 	}
@@ -942,7 +942,7 @@ void sc2355_rx_work_queue(struct work_struct *work)
 			if ((SPRD_HEAD_GET_TYPE(data) == SPRD_TYPE_CMD ||
 			     SPRD_HEAD_GET_TYPE(data) == SPRD_TYPE_EVENT)) {
 				if (rx_mgmt->rsp_event_cnt != hdr->rsp_cnt) {
-					wl_info
+					wl_err
 					    ("%s, %d, rsp_event_cnt=%d, hdr->cnt=%d\n",
 					     __func__, __LINE__,
 					     rx_mgmt->rsp_event_cnt,
@@ -1254,7 +1254,7 @@ int sc2355_sdio_init(struct sprd_hif *hif)
 	hif->feature = NETIF_F_CSUM_MASK | NETIF_F_SG;
 
 	if (sc2355_hif.max_num < MAX_CHN_NUM) {
-		wl_info("%s: register %d ops\n", __func__, sc2355_hif.max_num);
+		wl_debug("%s: register %d ops\n", __func__, sc2355_hif.max_num);
 
 		for (chn = 0; chn < sc2355_hif.max_num; chn++) {
 			ret = sprdwcn_bus_chn_init(&sc2355_hif.mchn_ops[chn]);

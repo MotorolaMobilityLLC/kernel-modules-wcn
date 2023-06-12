@@ -557,7 +557,6 @@ static void reorder_wlan_delba_event(struct rx_ba_entry *ba_entry,
 	struct rx_ba_node *ba_node = NULL;
 	struct rx_ba_node_desc *ba_node_desc = NULL;
 
-	wl_info("enter %s\n", __func__);
 	ba_node = reorder_find_ba_node(ba_entry,
 				       ba_event->sta_lut_index, ba_event->tid);
 	if (!ba_node) {
@@ -590,7 +589,6 @@ static void reorder_wlan_bar_event(struct rx_ba_entry *ba_entry,
 	struct rx_ba_node *ba_node = NULL;
 	struct rx_ba_node_desc *ba_node_desc = NULL;
 
-	wl_info("enter %s\n", __func__);
 	ba_node = reorder_find_ba_node(ba_entry,
 				       ba_event->sta_lut_index, ba_event->tid);
 	if (!ba_node) {
@@ -686,7 +684,6 @@ static int reorder_wlan_addba_event(struct rx_ba_entry *ba_entry,
 	unsigned short win_size = ba_event->win_param.win_size;
 	unsigned int index_size = reorder_get_index_size(2 * win_size);
 
-	wl_info("enter %s\n", __func__);
 	ba_node = reorder_find_ba_node(ba_entry, sta_lut_index, tid);
 	if (!ba_node) {
 		ba_node = reorder_create_ba_node(ba_entry, sta_lut_index,
@@ -731,7 +728,7 @@ reorder_get_first_seqno_in_buff(struct rx_ba_node_desc *ba_node_desc)
 		seqno = SEQNO_ADD(seqno, 1);
 	}
 
-	wl_info("%s: first seqno: %d\n", __func__, seqno);
+	wl_debug("%s: first seqno: %d\n", __func__, seqno);
 	return seqno;
 }
 
@@ -763,7 +760,7 @@ static void reorder_ba_timeout(struct timer_list *t)
 		if (ba_node->timeout_cnt > MAX_TIMEOUT_CNT) {
 			ba_node->active = 0;
 			ba_node->timeout_cnt = 0;
-			wl_info("%s, %d, reorder_send_delba\n", __func__,
+			wl_debug("%s, %d, reorder_send_delba\n", __func__,
 				__LINE__);
 			reorder_send_delba(ba_entry, ba_node->tid,
 					   ba_node->sta_lut_index);
@@ -778,13 +775,13 @@ static void reorder_ba_timeout(struct timer_list *t)
 		spin_unlock_bh(&ba_entry->skb_list_lock);
 
 		if (!work_pending(&rx_mgmt->rx_work)) {
-			wl_info("%s: queue rx workqueue\n", __func__);
+			wl_debug("%s: queue rx workqueue\n", __func__);
 			queue_work(rx_mgmt->rx_queue, &rx_mgmt->rx_work);
 		}
 	} else {
 		spin_unlock_bh(&ba_entry->skb_list_lock);
 	}
-	wl_info("leave %s\n", __func__);
+	wl_debug("leave %s\n", __func__);
 }
 
 struct sk_buff *sc2355_reorder_get_skb_list(struct rx_ba_entry *ba_entry)
@@ -888,6 +885,7 @@ void sc2355_wlan_ba_session_event(struct sprd_hif *hif, unsigned char *data,
 		return;
 	}
 
+	wl_info("%s ba_event type : %d\n", __func__, type);
 	switch (type) {
 	case SPRD_ADDBA_REQ_EVENT:
 		ret = reorder_wlan_addba_event(ba_entry, ba_event);
@@ -963,7 +961,7 @@ void sc2355_peer_entry_delba(struct sprd_hif *hif, unsigned char lut_index)
 	struct rx_mgmt *rx_mgmt = (struct rx_mgmt *)hif->rx_mgmt;
 	struct rx_ba_entry *ba_entry = &rx_mgmt->ba_entry;
 
-	wl_info("enter %s\n", __func__);
+	wl_debug("enter %s\n", __func__);
 	for (tid = 0; tid < NUM_TIDS; tid++) {
 		ba_node = reorder_find_ba_node(ba_entry, lut_index, tid);
 		if (ba_node) {
