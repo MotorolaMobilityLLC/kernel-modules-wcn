@@ -39,7 +39,11 @@ int mbuf_link_alloc(int chn, struct mbuf_t **head, struct mbuf_t **tail,
 	struct mchn_info_t *mchn = mchn_info();
 	struct buffer_pool *pool = &(mchn->chn_public[chn].pool);
 
-	WCN_DBG(" pool=%p, chn=%d, free=%d\n", pool, chn, pool->free);
+	WCN_DBG("pool=%p, chn=%d, free=%d\n", pool, chn, pool->free);
+	if (sprdwcn_bus_get_carddump_status()) {
+	WCN_ERR("%s err in dump status,chn=%d\n", __func__, chn);
+	return -1;
+	}
 	spin_lock_irqsave(&(pool->lock), pool->irq_flags);
 	if ((*num <= 0) || (pool->free <= 0)) {
 		WCN_ERR("[+]%s err, num %d, free %d)\n",
@@ -137,6 +141,8 @@ int mbuf_pool_deinit(struct buffer_pool *pool)
 	memset(pool->mem, 0x00, (sizeof(struct mbuf_t) +
 	       pool->payload) * pool->size);
 	kfree(pool->mem);
+	pool->mem = NULL;
+	pool->free = 0;
 
 	return 0;
 }
@@ -297,9 +303,13 @@ int mchn_init(struct mchn_ops_t *ops)
 	int ret = -1;
 	struct mchn_info_t *mchn = mchn_info();
 
+	if (ops == NULL) {
+		WCN_INFO("%s err, ops is null", __func__);
+		return -1;
+	}
 	WCN_DBG("[+]%s(chn=%d)\n", __func__, ops->channel);
-	if (ops->hif_type != HW_TYPE_PCIE) {
-		WCN_INFO("%s err, hif_type %d\n", __func__, ops->hif_type);
+	if (ops->hif_type != HW_TYPE_PCIE || !wcn_get_edma_status()) {
+		WCN_INFO("%s err, hif_type %d, chn=%d\n", __func__, ops->hif_type, ops->channel);
 		WARN_ON(1);
 
 		return -1;

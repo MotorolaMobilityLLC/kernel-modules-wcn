@@ -666,6 +666,29 @@ static struct platform_device *to_pdev_from_ep_node(struct device_node *ep_node)
 	return of_find_device_by_node(pdev_node);
 }
 
+/* when pcie is disconnected,reset it */
+void sprd_pcie_reset(void *wcn_dev)
+{
+	struct wcn_pcie_info *priv = get_wcn_device_info();
+	struct platform_device *pdev;
+	struct marlin_device *marlin_dev = wcn_dev;
+
+	pdev = to_pdev_from_ep_node(marlin_dev->np);
+	if (!pdev) {
+		WCN_ERR("can't get pcie rc node\n");
+		return;
+	}
+	WCN_INFO("%s enter\n", __func__);
+	/* check pcie link status, reset when disconnected */
+	if (pci_dev_is_disconnected(priv->dev)) {
+		WCN_ERR("pcie_dev is disconnected,reset\n");
+		sprd_pcie_unconfigure_device(pdev);
+		sprd_pcie_configure_device(pdev);
+		return;
+	}
+	WCN_INFO("EP link status ok,do not reset\n");
+}
+
 /* called by chip_power_on */
 int sprd_pcie_scan_card(void *wcn_dev)
 {
@@ -764,19 +787,20 @@ void sprd_pcie_remove_card(void *wcn_dev)
 
 	edma_del_tx_timer();
 
+	/* rx: kill tasklet */
+	if (edma_hw_pause() < 0)
+		WCN_ERR("edma_hw_pause fail\n");
+	usleep_range(100,200);
 	/* rx: disable txrx irq */
 	if (disable_pcie_irq() < 0) {
 		WCN_ERR(" irq have free\n");
 		return;
 	}
 
-	/* rx: kill tasklet */
 	edma_tasklet_deinit();
 
 	wcn_bus_change_state(priv, WCN_BUS_DOWN);
 
-	if (edma_hw_pause() < 0)
-		WCN_ERR("edma_hw_pause fail\n");
 	init_completion(&priv->remove_done);
 	/* for proc_fs_exit, loopcheck/at/assert */
 	mdbg_fs_channel_destroy();
@@ -794,11 +818,11 @@ void sprd_pcie_remove_card(void *wcn_dev)
 	WCN_INFO("%s: rc node name: %s\n",
 			__func__, dev->of_node->name);
 
-	if (!priv->dev || priv->dev)
+	if (!priv->dev)
 		WCN_ERR("%s: card exist!\n", __func__);
 
 	sprd_pcie_unconfigure_device(pdev);
-
+	priv->dev = NULL;
 	if (wait_for_completion_timeout(&priv->remove_done,
 					msecs_to_jiffies(5000)) == 0)
 		WCN_ERR("remove card time out\n");
@@ -986,6 +1010,14 @@ static int sprd_pcie_probe(struct pci_dev *pdev,
 	/* calling rescan callback to inform download */
 	//if (scan_card_notify != NULL)
 	//	scan_card_notify();
+	if (priv->msi_en == 1) {
+		pci_read_config_dword(pdev->bus->self, 0x0828, &val32);
+		if (priv->irq_num == 32 && val32 != 0xffffffff) {
+			WCN_WARN("irq int_en status 828=0x%x\n", val32);
+			pci_write_config_dword(pdev->bus->self, 0x0828, MSI_IRQ_INT_EN_ALL);
+		}
+		WCN_INFO("irq int_en status 828=0x%x\n", val32);
+	}
 	marlin_scan_finish();
 	WCN_INFO("%s ok\n", __func__);
 	return 0;
