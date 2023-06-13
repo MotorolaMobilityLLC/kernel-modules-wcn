@@ -914,6 +914,7 @@ static ssize_t mdbg_proc_write(struct file *filp,
 			strncmp(mdbg_proc->write_buf, "rebootmarlin", 12) == 0) {
 			WCN_INFO("wcn_integrated marlin gnss need reset\n");
 			WCN_INFO("fail_count is value %d\n", mdbg_proc->fail_count);
+			stop_loopcheck();
 			mdbg_proc->fail_count = 0;
 			sprdwcn_bus_set_carddump_status(false);
 			wcn_reset_cp2();
@@ -943,6 +944,7 @@ static ssize_t mdbg_proc_write(struct file *filp,
 			WCN_INFO("marlin need reset\n");
 			WCN_INFO("fail_count is value %d\n", mdbg_proc->fail_count);
 			WCN_INFO("fail_reset is value %d\n", flag_reset);
+			stop_loopcheck();
 			mdbg_proc->fail_count = 0;
 			marlin_set_download_status(0);
 			sprdwcn_bus_set_carddump_status(false);
@@ -956,6 +958,7 @@ static ssize_t mdbg_proc_write(struct file *filp,
 			flag_reset = 1;
 			WCN_INFO("marlin gnss need reset\n");
 			WCN_INFO("fail_count is value %d\n", mdbg_proc->fail_count);
+			stop_loopcheck();
 			mdbg_proc->fail_count = 0;
 			marlin_set_download_status(0);
 			sprdwcn_bus_set_carddump_status(false);
