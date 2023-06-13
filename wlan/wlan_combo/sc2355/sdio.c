@@ -886,7 +886,7 @@ void sc2355_handle_tx_return(struct sprd_hif *hif,
 
 	tx_mgmt->ring_ap += send_num;
 	atomic_sub(send_num, &list->ref);
-	sc2355_wake_net_ifneed(tx_mgmt->hif, list, tx_mgmt->mode);
+	sc2355_wake_net_ifneed(tx_mgmt->hif, list, tx_mgmt->xmit_msg_list.mode);
 
 	if (priv->credit_capa == TX_NO_CREDIT)
 		return;

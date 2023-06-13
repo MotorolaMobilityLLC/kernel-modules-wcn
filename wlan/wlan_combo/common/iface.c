@@ -357,7 +357,7 @@ static void iface_netflowcontrl_mode(struct sprd_priv *priv,
 	struct sprd_vif *vif;
 
 	vif = sprd_mode_to_vif(priv, mode);
-	if (vif) {
+	if (vif && vif->ndev) {
 		if (state)
 			netif_wake_queue(vif->ndev);
 		else
