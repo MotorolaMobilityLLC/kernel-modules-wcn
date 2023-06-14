@@ -349,13 +349,15 @@ static void receive_tasklet(unsigned long arg)
 }
 
 static int fm_assert_reset(void){
-    int ret_tune = -1;
+
     int ret = -1;
     struct fm_tune_parm parm;
     struct fm_tune_parm powerup_parm;
+    unsigned char payload[2];
+    unsigned char rds_on = 1;
     powerup_parm.err = (unsigned char)0;
-    powerup_parm.freq = 8750;
     parm.freq = last_tune_freq;
+    powerup_parm.freq = 8750;
 
     dev_unisoc_fm_info(fm_miscdev,"start open SPRD fm module after assert reset\n");
 
@@ -366,15 +368,26 @@ static int fm_assert_reset(void){
     } else {
         fmdev->fm_invalid = 0;
         dev_unisoc_fm_info(fm_miscdev,"fm powerup success after assert reset\n");
-        ret_tune = fm_write_cmd(FM_TUNE_CMD, &parm.freq, sizeof(parm.freq),NULL, NULL);
-        if (ret_tune == 0){
-            dev_unisoc_fm_info(fm_miscdev,"fm tune success freq: %d after assert reset\n",parm.freq);
+        ret = fm_write_cmd(FM_TUNE_CMD, &parm.freq, sizeof(parm.freq),NULL, NULL);
+        if (ret == 0){
+            dev_unisoc_fm_info(fm_miscdev,"fm tune success after assert reset:freq = %d\n",parm.freq);
         } else {
-            dev_unisoc_fm_info(fm_miscdev,"fm tune fail after assert reset\n");
+            return ret;
         }
-        return ret_tune;
+        payload[0] = rds_on;
+        payload[1] = rds_on;
+        ret = fm_write_cmd(FM_SET_RDS_MODE, payload,
+        sizeof(payload), NULL, NULL);
+        if (ret < 0) {
+        return ret;
+        } else {
+            dev_unisoc_fm_err(fm_miscdev,"(fmdrv) %s FM write rds mode cmd status successful %d\n",
+            __func__, ret);
+        }
+        return ret;
     }
 }
+
 
 ssize_t fm_read_rds_data(struct file *filp, char __user *buf,
     size_t count, loff_t *pos)
@@ -388,6 +401,17 @@ ssize_t fm_read_rds_data(struct file *filp, char __user *buf,
         if (ret != 0) {
             dev_unisoc_fm_info(fm_miscdev,"fm assert reset fail\n");
         }
+        #if(LINUX_VERSION_CODE >= KERNEL_VERSION(5,15,0))
+        fmdev->rds_han.rds_parse_start_time = ktime_get_real_seconds();
+        #else
+        fmdev->rds_han.rds_parse_start_time = get_seconds();
+        #endif
+    } else {
+        #if(LINUX_VERSION_CODE >= KERNEL_VERSION(5,15,0))
+        fmdev->rds_han.rds_parse_start_time = ktime_get_real_seconds();
+        #else
+        fmdev->rds_han.rds_parse_start_time = get_seconds();
+        #endif
     }
 
     dev_unisoc_fm_info(fm_miscdev,"(FM_RDS) fm start to read RDS data\n");
@@ -1260,11 +1284,6 @@ int fm_rds_onoff(void *arg)
 		return ret;
 	}
 
-	#if(LINUX_VERSION_CODE >= KERNEL_VERSION(5,15,0))
-    fmdev->rds_han.rds_parse_stop_time = ktime_get_real_seconds();
-    #else
-    fmdev->rds_han.rds_parse_stop_time = get_seconds();
-    #endif
 
 	return ret;
 }

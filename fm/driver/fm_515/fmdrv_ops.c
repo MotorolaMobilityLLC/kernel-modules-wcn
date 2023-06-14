@@ -60,8 +60,8 @@ struct wakeup_source *fm_wakelock;
 #include <misc/wcn_integrate_platform.h>
 #pragma GCC diagnostic ignored "-Wunused-variable"
 #pragma GCC diagnostic ignored "-Wunused-function"
-extern struct mchn_ops_t fm_sipc_tx_ops;
-extern struct mchn_ops_t fm_sipc_rx_ops;
+extern struct mchn_ops_t fm_sipc2_tx_ops;
+extern struct mchn_ops_t fm_sipc2_rx_ops;
 extern struct mchn_ops_t fm_sdio_tx_ops;
 extern struct mchn_ops_t fm_sdio_rx_ops;
 extern struct mchn_ops_t fm_pcie_tx_ops;
@@ -71,9 +71,11 @@ int fm_dma_buf_free(int num);
 struct device *fm_miscdev = NULL;
 #define FM_DUMP_DATA
 
-extern  int  PCIE;
-extern  int  SIPC;
-extern  int  SDIO;
+int PCIE = 0;
+int SIPC1 = 0;
+int SIPC2 = 0;
+int SDIO = 0;
+
 
 struct platform_device *g_fm_pdev = 0;
 
@@ -375,7 +377,7 @@ int fm_open(struct inode *inode, struct file *filep) {
 int fm_release(struct inode *inode, struct file *filep) {
     dev_unisoc_fm_info(fm_miscdev,"fm_misc_release, power status:%d\n",fmdev->power_status);
     fm_powerdown();
-    if (SIPC) {
+    if (SIPC1 || SIPC2) {
         wake_up_interruptible(&fmdev->rds_han.rx_queue);
         fmdev->rds_han.new_data_flag = 1;
     } else if (PCIE) {
@@ -420,16 +422,44 @@ struct miscdevice fm_misc_device = {
     .name = FM_DEV_NAME,
     .fops = &fm_misc_fops,
 };
+//spic1 
+static int fm_sipc1_parse_dt(struct fm_init_data **init, struct device *dev)
+{
+    struct device_node *np = dev->of_node;
+    struct fm_init_data *pdata = NULL;
+    int ret;
 
-/*#ifdef CONFIG_OF
-static const struct of_device_id  of_match_table_fm[] = {
-    { .compatible = "sprd,marlin3_fm", },
-    { .compatible = "sprd,wcn_fm_internal_chip", },
-    { },
-};
-MODULE_DEVICE_TABLE(of, of_match_table_fm);
-#endif*/
-static int fm_sipc_parse_dt(struct fm_init_data **init, struct device *dev)
+    pdata = devm_kzalloc(dev, sizeof(struct fm_init_data), GFP_KERNEL);
+    if (!pdata)
+        return -ENOMEM;
+    ret = of_property_read_string(np, "sprd,name", (const char **)&pdata->name);
+    if (ret)
+        goto error;
+
+    /*sprd,dst*/
+    pdata->dst = SPRD_FM_DST;
+    /*sprd,tx_channel*/
+    pdata->tx_channel = SPRD_FM_TX_CHANNEL;
+    /*sprd,rx_channel*/
+    pdata->rx_channel = SPRD_FM_RX_CHANNEL;
+    /*sprd,tx_bufid*/
+    pdata->tx_bufid = SPRD_FM_TX_BUFID;
+    /*sprd,rx_bufid*/
+    pdata->rx_bufid = SPRD_FM_RX_BUFID;
+
+    ret = of_property_read_u32(np, "sprd,lna_gpio", (uint32_t *)&pdata->lna_gpio);
+    ret = of_property_read_u32(np, "sprd,ana_inner", (uint32_t *)&pdata->ana_inner);
+
+    *init = pdata;
+    return 0;
+error:
+    devm_kfree(dev, pdata);
+    *init = NULL;
+    return ret;
+}
+
+//sipc2
+static int fm_sipc2_parse_dt(struct fm_init_data **init, struct device *dev)
 {
     struct device_node *np = dev->of_node;
     struct fm_init_data *pdata = NULL;
@@ -533,20 +563,83 @@ static int fm_sdio_probe(struct platform_device *pdev) {
     return 0;
 }
 
-
-static int fm_sipc_probe(struct platform_device *pdev)
+static int fm_sipc1_probe(struct platform_device *pdev)
 {
-    int sipc = 1;
+    int ret = -EINVAL;
+    char *ver_str = FM_VERSION;
+    int rval = 0;
+
+    struct fm_init_data *pdata = (struct fm_init_data *)pdev->dev.platform_data;
+
+ #ifdef CONFIG_OF
+    struct device_node *np;
+    np = pdev->dev.of_node;
+
+    fmdev->switch_ana_innner_gpio = of_get_named_gpio(np,
+            "switch-inner-ana-gpios", 0);
+    if (!gpio_is_valid(fmdev->switch_ana_innner_gpio)) {
+        pr_info("fm not support inner ana\n");
+    } else {
+        pr_info("fm support inner ana\n");
+        if (devm_gpio_request(&pdev->dev,
+            fmdev->switch_ana_innner_gpio, "fm_ana_gpio"))
+            pr_info("request fm gpio error\n");
+    }
+
+    if (of_property_read_bool(np, "sprd,fm-sant")) {
+        pr_info("fm support short antenna\n");
+        fmdev->short_ana = 1;
+    }
+#endif
+
+    dev_unisoc_fm_info(fm_miscdev,"marlin2 FM driver Version: %s", ver_str);
+
+    if (pdev->dev.of_node && !pdata) {
+        ret = fm_sipc1_parse_dt(&pdata, &pdev->dev);
+        if (ret) {
+            dev_unisoc_fm_info(fm_miscdev,"failed to parse fm device tree, ret=%d\n", ret);
+            return ret;
+        }
+    }
+
+    dev_unisoc_fm_info(fm_miscdev,"fm: after parse device tree, name=%s, dst=%u, tx_channel=%u, rx_channel=%u, tx_bufid=%u, rx_bufid=%u\n",
+        pdata->name, pdata->dst, pdata->tx_channel, pdata->rx_channel, pdata->tx_bufid, pdata->rx_bufid);
+
+    fmdev->pdata = pdata;
+    SIPC1 = 1;
+    ret = sbuf_register_notifier(pdata->dst, pdata->tx_channel,
+                    pdata->rx_bufid, fm_handler, pdata);
+    if (ret) {
+        dev_unisoc_fm_info(fm_miscdev,"regitster notifier failed (%d)\n", ret);
+        return ret;
+    }
+
+    fm_miscdev = &pdev->dev;
+
+    ret = misc_register(&fm_misc_device);
+    if (ret < 0) {
+        dev_unisoc_fm_info(fm_miscdev,"misc_register failed!");
+        rval = sbuf_register_notifier(fmdev->pdata->dst, fmdev->pdata->tx_channel,
+                    fmdev->pdata->rx_bufid, NULL, NULL);
+        return ret;
+    }
+    dev_unisoc_fm_info(fm_miscdev,"fm_init success.\n");
+    return 0;
+}
+
+static int fm_sipc2_probe(struct platform_device *pdev)
+{
+    int sipc2 = 1;
     int ret = -EINVAL;
     char *ver_str = FM_VERSION;
     //int rval = 0;
 
     struct fm_init_data *pdata = (struct fm_init_data *)pdev->dev.platform_data;
-    SIPC = sipc;
+    SIPC2 = sipc2;
     dev_unisoc_fm_info(fm_miscdev,"marlin2 FM driver Version: %s", ver_str);
 
     if (pdev->dev.of_node && !pdata) {
-        ret = fm_sipc_parse_dt(&pdata, &pdev->dev);
+        ret = fm_sipc2_parse_dt(&pdata, &pdev->dev);
         if (ret) {
             dev_unisoc_fm_err(fm_miscdev,"failed to parse fm device tree, ret=%d\n", ret);
             return ret;
@@ -574,8 +667,8 @@ static int fm_sipc_probe(struct platform_device *pdev)
                     // fmdev->pdata->rx_bufid, NULL, NULL);
         return ret;
     }
-    sprdwcn_bus_chn_init(&fm_sipc_rx_ops);
-    sprdwcn_bus_chn_init(&fm_sipc_tx_ops);
+    sprdwcn_bus_chn_init(&fm_sipc2_rx_ops);
+    sprdwcn_bus_chn_init(&fm_sipc2_tx_ops);
     dev_unisoc_fm_info(fm_miscdev,"fm_init success.\n");
     return 0;
 }
@@ -618,7 +711,7 @@ static int fm_sdio_remove(struct platform_device *pdev) {
 
 static int fm_sipc_remove(struct platform_device *pdev)
 {
-    //int rval = 0;
+    int rval = 0;
     dev_unisoc_fm_info(fm_miscdev,"exit_fm_driver!\n");
     misc_deregister(&fm_misc_device);
     // rval = sbuf_register_notifier(fmdev->pdata->dst, fmdev->pdata->tx_channel,
@@ -627,9 +720,17 @@ static int fm_sipc_remove(struct platform_device *pdev)
         // dev_unisoc_fm_info(fm_miscdev,"unregitster notifier failed (%d)\n", rval);
         // return rval;
     // }
-    sprdwcn_bus_chn_deinit(&fm_sipc_rx_ops);
-    sprdwcn_bus_chn_deinit(&fm_sipc_tx_ops);
-
+    if (SIPC2) {
+        sprdwcn_bus_chn_deinit(&fm_sipc2_rx_ops);
+        sprdwcn_bus_chn_deinit(&fm_sipc2_tx_ops);
+    } else {
+        rval = sbuf_register_notifier(fmdev->pdata->dst, fmdev->pdata->tx_channel,
+                    fmdev->pdata->rx_bufid, NULL, NULL);
+        if (rval) {
+            dev_unisoc_fm_info(fm_miscdev,"unregitster notifier failed (%d)\n", rval);
+            return rval;
+        }
+    }
     return 0;
 }
 
@@ -657,6 +758,7 @@ enum sprd_hif_type {
     SPRD_HW_SC2355_SDIO,	
     SPRD_HW_SC2355_SIPC2,
     SPRD_HW_SC2355_PCIE,
+    SPRD_HW_SC2355_SIPC1,
 };
 
 
@@ -681,6 +783,10 @@ struct fm_match_data g_sc2355_pcie_data = {
     .hw_type = SPRD_HW_SC2355_PCIE,
 };
 
+struct fm_match_data g_sc2355_sipc1_data = {
+    .hw_type = SPRD_HW_SC2355_SIPC1,
+};
+
 
 
 struct of_device_id fm_global_match_table[] = {
@@ -688,6 +794,7 @@ struct of_device_id fm_global_match_table[] = {
     { .compatible = "sprd,marlin3-fm", .data = &g_sc2355_sdio_data},
     { .compatible = "sprd,wcn_fm_internal_chip", .data = &g_sc2355_sipc2_data},
     { .compatible = "sprd,fm-pcie", .data = &g_sc2355_pcie_data},
+    { .compatible = "sprd,wcn_fm", .data = &g_sc2355_sipc1_data},
     { },
 };
 MODULE_DEVICE_TABLE(of, fm_global_match_table);
@@ -715,8 +822,8 @@ static int sprd_fm_probe(struct platform_device *pdev)
 
     if (p_match_data->hw_type == SPRD_HW_SC2355_SIPC2) {
 
-        pr_info("%s sipc transport data!", __func__);
-        return fm_sipc_probe(pdev);
+        pr_info("%s sipc2 transport data!", __func__);
+        return fm_sipc2_probe(pdev);
 
     } else if (p_match_data->hw_type == SPRD_HW_SC2355_SDIO) {
 
@@ -727,7 +834,12 @@ static int sprd_fm_probe(struct platform_device *pdev)
 
         dev_unisoc_fm_info(fm_miscdev,"fm: probe pcie success: \n");
         return fm_pcie_probe(pdev);
-    } else {
+    } else if (p_match_data->hw_type == SPRD_HW_SC2355_SIPC1) {
+
+        dev_unisoc_fm_info(fm_miscdev,"fm: probe sipc success: \n");
+        return fm_sipc1_probe(pdev);
+    }
+     else {
         pr_err("%s error hw_type %d.\n", __func__, p_match_data->hw_type);
         dump_stack();
         return -EINVAL;
@@ -762,6 +874,8 @@ static int sprd_fm_remove(struct platform_device *pdev)
         return fm_sdio_remove(pdev);
     } else if (p_match_data->hw_type == SPRD_HW_SC2355_PCIE) {
         return fm_pcie_remove(pdev);
+    } else if (p_match_data->hw_type == SPRD_HW_SC2355_PCIE) {
+        return fm_sipc_remove(pdev); 
     } else {
         pr_info("%s not find matched data!", __func__);
         return -EINVAL;

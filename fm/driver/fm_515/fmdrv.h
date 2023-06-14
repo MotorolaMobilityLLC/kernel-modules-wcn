@@ -519,6 +519,8 @@ struct fm_rx_data {
     unsigned int channel;
     struct mbuf_t *head;
     struct mbuf_t *tail;
+    unsigned char		*addr;
+	unsigned int		len;
     unsigned int num;
     struct list_head entry;
 };

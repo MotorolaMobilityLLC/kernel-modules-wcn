@@ -321,7 +321,7 @@ static struct notifier_block fm_reset_block = {
        .notifier_call = fm_reset,
 };
 
-static int fm_probe(struct platform_device *pdev)
+static int fm_sipc_probe(struct platform_device *pdev)
 {
     int ret = -EINVAL;
     char *ver_str = FM_VERSION;

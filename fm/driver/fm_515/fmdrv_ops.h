@@ -21,6 +21,12 @@ extern struct fmdrv_ops *fmdev;
 int  fm_device_init_driver(void);
 void fm_device_exit_driver(void);
 
+#define SPRD_FM_DST		3
+#define SPRD_FM_TX_CHANNEL	4
+#define SPRD_FM_RX_CHANNEL	4
+#define SPRD_FM_TX_BUFID	14
+#define SPRD_FM_RX_BUFID	13
+
 struct fm_init_data {
 	char		*name;
 	uint8_t		dst;

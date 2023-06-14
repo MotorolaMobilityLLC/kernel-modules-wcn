@@ -34,6 +34,7 @@
 #include <linux/types.h>
 #include <linux/interrupt.h>
 #include <linux/wait.h>
+#include <linux/sipc.h>
 #include <linux/version.h>
 #include "fmdrv.h"
 /*#include <soc/sprd/sdio_dev.h>*/
@@ -113,9 +114,10 @@ struct dma_buf {
 };
 
 extern struct device *fm_miscdev;
-int SIPC = 0;
-int SDIO = 0;
-int PCIE = 0;
+extern int SIPC1;
+extern int SIPC2;
+extern int SDIO;
+extern int PCIE;
 
 /**************************for test*************************************/
 #ifdef FM_TEST
@@ -169,13 +171,67 @@ static void dump_buf(unsigned char *buf, unsigned char len, const char *func) {
         dev_unisoc_fm_info(fm_miscdev,"%s buf [%d]: 0x%02X\n", func, i, buf[i]);
     dev_unisoc_fm_info(fm_miscdev,"\n");
 }
+
+static void dump_tx_cmd(unsigned char *addr, unsigned char len)
+{
+    int i;
+
+    dev_unisoc_fm_info(fm_miscdev,"fmdrv send the command (%d) :\n", len);
+    for (i = 0; i < len; i++)
+        dev_unisoc_fm_info(fm_miscdev,"fm send command :--0x%02X\n", addr[i]);
+    dev_unisoc_fm_info(fm_miscdev,"\n");
+}
 #endif
 
 /**********send function**************/
 
-//sipc
+//sipc1
+static int fm_sipc1_send_cmd(unsigned char subcmd, void *payload,
+		int payload_len)
+{
+	unsigned char *cmd_buf;
+	struct fm_cmd_hdr *cmd_hdr;
+	int size;
+	int cnt = 0;
 
-static int fm_sipc_send_cmd(unsigned char subcmd, void *payload, int payload_len) {
+	size = sizeof(struct fm_cmd_hdr) +
+		((payload == NULL) ? 0 : payload_len);
+
+	cmd_buf = kzalloc(size, GFP_KERNEL);
+	if (!cmd_buf) {
+		return -ENOMEM;
+    }
+
+	/* Fill command information */
+	cmd_hdr = (struct fm_cmd_hdr *)cmd_buf;
+	cmd_hdr->header = 0x01;
+	cmd_hdr->opcode = hci_opcode_pack(HCI_GRP_VENDOR_SPECIFIC, FM_SPRD_OP_CODE);
+	cmd_hdr->len = ((payload == NULL) ? 0 : payload_len) + 1;
+	cmd_hdr->fm_subcmd = subcmd;
+
+	if (payload != NULL)
+		memcpy(cmd_buf + sizeof(struct fm_cmd_hdr), payload, payload_len);
+	fmdev->tx_buf_p = cmd_buf;
+	fmdev->tx_len = size;
+#ifdef FM_DUMP_DATA
+	dump_tx_cmd((unsigned char *)fmdev->tx_buf_p, (unsigned char)size);
+#endif
+	cnt = sbuf_write(fmdev->pdata->dst, fmdev->pdata->tx_channel, fmdev->pdata->tx_bufid,
+			 fmdev->tx_buf_p, fmdev->tx_len, -1);
+	dev_unisoc_fm_info(fm_miscdev,"fmdrv write cmd return cnt:%d",cnt);
+	if (cnt < 0) {
+		dev_unisoc_fm_err(fm_miscdev,"fmdrv write cmd to sipc fail!!!\n");
+		kfree(cmd_buf);
+		return -EBUSY;
+	}
+
+    kfree(cmd_buf);
+	return 0;
+}
+
+//sipc2
+
+static int fm_sipc2_send_cmd(unsigned char subcmd, void *payload, int payload_len) {
     int num = 1;
     unsigned char *cmd_buf;
     struct fm_cmd_hdr *cmd_hdr;
@@ -348,7 +404,7 @@ static int fm_send_cmd(unsigned char subcmd, void *payload, int payload_len) {
 
 /**************write cmd function***************/
 
-//sipc
+//sipc1 and sipc2
 
 static int fm_sipc_write_cmd(unsigned char subcmd, void *payload,
         unsigned char payload_len, void *response, unsigned char *response_len){
@@ -359,7 +415,11 @@ static int fm_sipc_write_cmd(unsigned char subcmd, void *payload,
     mutex_lock(&fmdev->mutex);
     init_completion(&fmdev->commontask_completion);
     //ret = fm_send_cmd(subcmd, payload, payload_len);
-    ret = fm_sipc_send_cmd(subcmd, payload, payload_len);
+    if(SIPC1){
+        ret = fm_sipc1_send_cmd(subcmd, payload, payload_len);
+    } else {
+        ret = fm_sipc2_send_cmd(subcmd, payload, payload_len);
+    }
     if (ret < 0) {
         __pm_relax(fm_wakelock);
         mutex_unlock(&fmdev->mutex);
@@ -490,8 +550,8 @@ static int fm_pcie_write_cmd(unsigned char subcmd, void *payload,
 static int fm_write_cmd(unsigned char subcmd, void *payload,
                         unsigned char payload_len,  void *response,
                         unsigned char *response_len) {
-    if (SIPC) {
-        dev_unisoc_fm_info(fm_miscdev,"(fmdrv)  start sipc: %d\n",SIPC);
+    if (SIPC1 || SIPC2) {
+        dev_unisoc_fm_info(fm_miscdev,"(fmdrv)  start sipc: \n");
         return fm_sipc_write_cmd(subcmd,payload,payload_len, response, response_len);
     } else if (SDIO) {
         dev_unisoc_fm_info(fm_miscdev,"(fmdrv)  start sdio: %d\n",SDIO);
@@ -578,7 +638,7 @@ static void receive_tasklet(unsigned long arg){
         parse_pcie_header(head, tail, num, sdio_hdr);
 
         receive_buf = head->buf + FM_PCIE_HEAD_LEN;
-        } else if (SIPC) {
+        } else if (SIPC2) {
             sipc_hdr = kmalloc(sizeof(struct fm_sipc_hdr), GFP_ATOMIC);
             if (!sipc_hdr) {
             dev_unisoc_fm_err(fm_miscdev,"fm sipc_hdr kmalloc fail\n");
@@ -586,7 +646,6 @@ static void receive_tasklet(unsigned long arg){
             }
         receive_buf = head->buf + FM_SIPC_HEAD_LEN;
         }
-        
     if (receive_buf) {
         if ((*(receive_buf + 1)) == 0x0e) {
             memcpy(fmdev->com_respbuf, receive_buf + 2, (*(receive_buf+2)) + 1);
@@ -605,30 +664,165 @@ static void receive_tasklet(unsigned long arg){
         }
         sprdwcn_bus_push_list(channel, head, tail, num);
     }
-        if(SDIO | PCIE)
+        if(SDIO || PCIE)
         {
             kfree(sdio_hdr);
             sdio_hdr = NULL;
-        } else if (SIPC) {
+        } else if (SIPC2) {
             kfree(sipc_hdr);
             sipc_hdr = NULL;
 
         }
-        
         kfree(rx);
         rx = NULL;
         spin_unlock_bh(&fmdev->rw_lock);
     }
 }
 
+//sipc1 receive_tasklet
+static void fm_sipc1_receive_tasklet(unsigned long arg)
+{
+	struct fmdrv_ops *fmdev;
+	struct fm_rx_data *rx = NULL;
+	unsigned char *p = NULL;
+	int next_packet_len = 0;
+	int last_packet_len = 0;
+
+	fmdev = (struct fmdrv_ops *)arg;
+	if (unlikely(!fmdev)) {
+		dev_unisoc_fm_err(fm_miscdev,"fm_rx_task fmdev is NULL\n");
+		return;
+	}
+	dev_unisoc_fm_info(fm_miscdev,"fm receive_tasklet sipc start running\n");
+	while (!list_empty(&fmdev->rx_head)) {
+		spin_lock_bh(&fmdev->rw_lock);
+
+		rx = list_first_entry_or_null(&fmdev->rx_head,
+				struct fm_rx_data, entry);
+		if (rx)
+			list_del(&rx->entry);
+		else {
+			spin_unlock_bh(&fmdev->rw_lock);
+			return;
+		}
+			p = rx->addr;
+			next_packet_len = rx->len;
+		do{
+			if ((*((rx->addr)+1)) == 0x0e) {
+				memcpy(fmdev->com_respbuf, rx->addr + 2 , (*(rx->addr+2)) + 1 );
+				dev_unisoc_fm_info(fm_miscdev,"fm RX before commontask_completion=0x%x\n",
+				fmdev->commontask_completion.done);
+				complete(&fmdev->commontask_completion);
+				dev_unisoc_fm_info(fm_miscdev,"fm RX after commontask_completion=0x%x\n",
+				fmdev->commontask_completion.done);
+			}
+
+			else if (((*((rx->addr)+1)) == 0xFF) &&
+				((*((rx->addr)+3)) == 0x30)) {
+				memcpy(fmdev->seek_respbuf, rx->addr + 2 ,
+				(*(rx->addr+2)) + 1 );
+				/*fmdev->seek_response = rx;*/
+				dev_unisoc_fm_info(fm_miscdev,"fm RX before seektask_completion=0x%x\n",
+				fmdev->seektask_completion.done);
+				complete(&fmdev->seektask_completion);
+				dev_unisoc_fm_info(fm_miscdev,"fm RX after seektask_completion=0x%x\n",
+				fmdev->seektask_completion.done);
+			}
+			else if (((*((rx->addr)+1)) == 0xFF) &&
+				((*((rx->addr)+3)) == 0x00))
+				rds_parser(rx->addr + 4);
+			else {
+				dev_unisoc_fm_err(fm_miscdev,"fmdrv error:unknown event !!!\n");
+			}
+
+				last_packet_len = *((rx->addr)+2) + 3;
+				dev_unisoc_fm_info(fm_miscdev,"this packet len is %d\n ", last_packet_len);
+				next_packet_len = next_packet_len - last_packet_len;
+				dev_unisoc_fm_info(fm_miscdev,"next packet len is %d\n ", next_packet_len);
+			if(next_packet_len>0){
+				rx->addr = rx->addr + last_packet_len;
+			}
+		}
+		while(next_packet_len>0);
+
+		kfree(p);
+		p  = NULL;
+		kfree(rx);
+		rx = NULL;
+		spin_unlock_bh(&fmdev->rw_lock);
+	}
+}
+//sipc 1 rx
+void fm_handler (int event, void *data)
+{
+    struct fm_init_data *pdata = data;
+    int cnt = 0;
+    unsigned char *buf;
+
+    __pm_wakeup_event(fm_wakelock, jiffies_to_msecs(HZ*1));
+	dev_unisoc_fm_info(fm_miscdev,"fm handler event=%d\n", event);
+
+	switch (event) {
+	case SBUF_NOTIFY_WRITE:
+		break;
+	case SBUF_NOTIFY_READ:
+		buf = kzalloc(FM_READ_SIZE, GFP_KERNEL);
+		if (!buf) {
+			dev_unisoc_fm_err(fm_miscdev,"(fmdrv): %s(): failed to create buffer.\n", __func__);
+			return;
+		}
+		cnt = sbuf_read(pdata->dst,
+				pdata->rx_channel,
+				pdata->rx_bufid,
+				(void *)buf,
+				FM_READ_SIZE,
+				0);
+
+		dev_unisoc_fm_info(fm_miscdev,"fm handler read data len =%d\n", cnt);
+
+		if (cnt < 0) {
+			kfree(buf);
+			break;
+		}
+#ifdef FM_DUMP_DATA
+			dump_rx_data(buf, cnt);
+#endif
+
+		if (fmdev != NULL) {
+			struct fm_rx_data *rx = kzalloc(sizeof(struct fm_rx_data), GFP_KERNEL);
+			if (!rx) {
+				dev_unisoc_fm_err(fm_miscdev,"(fmdrv): %s(): No memory to create fm rx buf\n", __func__);
+				return;
+			}
+
+			rx->addr = buf;
+			rx->len  = cnt;
+			spin_lock_bh(&fmdev->rw_lock);
+			list_add_tail(&rx->entry, &fmdev->rx_head);
+			spin_unlock_bh(&fmdev->rw_lock);
+			dev_unisoc_fm_err(fm_miscdev,"(fmdrv) %s(): tasklet_schedule start\n", __func__);
+			tasklet_schedule(&fmdev->rx_task);
+		}
+		break;
+	default:
+		dev_unisoc_fm_info(fm_miscdev,"Received event is invalid(event=%d)\n", event);
+		break;
+	}
+
+	//kfree(buf);
+
+}
+
 static int fm_assert_reset(void){
-    int ret_tune = -1;
+
     int ret = -1;
     struct fm_tune_parm parm;
     struct fm_tune_parm powerup_parm;
+    unsigned char payload[2];
+    unsigned char rds_on = 1;
     powerup_parm.err = (unsigned char)0;
-    powerup_parm.freq = 8750;
     parm.freq = last_tune_freq;
+    powerup_parm.freq = 8750;
 
     dev_unisoc_fm_info(fm_miscdev,"start open SPRD fm module after assert reset\n");
 
@@ -639,15 +833,29 @@ static int fm_assert_reset(void){
     } else {
         fmdev->fm_invalid = 0;
         dev_unisoc_fm_info(fm_miscdev,"fm powerup success after assert reset\n");
-        ret_tune = fm_write_cmd(FM_TUNE_CMD, &parm.freq, sizeof(parm.freq),NULL, NULL);
-        if (ret_tune == 0){
-            dev_unisoc_fm_info(fm_miscdev,"fm tune freq: %d success after assert reset\n",parm.freq);
+        ret = fm_write_cmd(FM_TUNE_CMD, &parm.freq, sizeof(parm.freq),NULL, NULL);
+        if (ret == 0){
+            dev_unisoc_fm_info(fm_miscdev,"fm tune success after assert reset:freq = %d\n",parm.freq);
         } else {
             dev_unisoc_fm_info(fm_miscdev,"fm tune fail after assert reset\n");
+            return ret;
         }
-        return ret_tune;
+        payload[0] = rds_on;
+        payload[1] = rds_on;
+        ret = fm_write_cmd(FM_SET_RDS_MODE, payload,
+        sizeof(payload), NULL, NULL);
+        if (ret < 0) {
+        dev_unisoc_fm_err(fm_miscdev,"(fmdrv) %s FM write rds mode cmd status failed %d\n",
+            __func__, ret);
+        return ret;
+        } else {
+            dev_unisoc_fm_err(fm_miscdev,"(fmdrv) %s FM write rds mode cmd status successful %d\n",
+            __func__, ret);
+        }
+        return ret;
     }
 }
+
 
 ssize_t fm_read_rds_data(struct file *filp, char __user *buf, size_t count, loff_t *pos) {
     int timeout = -1;
@@ -659,6 +867,17 @@ ssize_t fm_read_rds_data(struct file *filp, char __user *buf, size_t count, loff
         if (ret != 0) {
             dev_unisoc_fm_info(fm_miscdev,"fm assert reset fail\n");
         }
+        #if(LINUX_VERSION_CODE >= KERNEL_VERSION(5,15,0))
+        fmdev->rds_han.rds_parse_start_time = ktime_get_real_seconds();
+        #else
+        fmdev->rds_han.rds_parse_start_time = get_seconds();
+        #endif
+    } else {
+        #if(LINUX_VERSION_CODE >= KERNEL_VERSION(5,15,0))
+        fmdev->rds_han.rds_parse_start_time = ktime_get_real_seconds();
+        #else
+        fmdev->rds_han.rds_parse_start_time = get_seconds();
+        #endif
     }
 
     dev_unisoc_fm_info(fm_miscdev,"(FM_RDS) fm start to read RDS data\n");
@@ -1058,10 +1277,8 @@ int fm_powerup(struct fm_tune_parm *p) {
     unsigned short payload[65];
     int ret = -1;
     struct fm_config_t fm_data;
-    //sipc
-    
-    //int i = 0;
-    if (SIPC) {
+
+    if (SIPC1 || SIPC2) {
         uint32_t anten = fmdev->pdata->lna_gpio;
         uint32_t ana_switch = fmdev->pdata->ana_inner;
         if (ana_switch == 1){
@@ -1085,7 +1302,9 @@ int fm_powerup(struct fm_tune_parm *p) {
     parm.freq = 875;
     parm.freq *= 10;
     dev_unisoc_fm_info(fm_miscdev,"fm ioctl power up freq= %d\n", parm.freq);
-    get_fm_config_param(&fm_data);
+    if(!SIPC1) {
+        get_fm_config_param(&fm_data);
+    }
     payload[0] = parm.freq;
     memcpy(&payload[1],&fm_data,sizeof(struct fm_config_t));
     ret = fm_write_cmd(FM_POWERUP_CMD, payload, sizeof(payload), NULL, NULL);
@@ -1102,16 +1321,14 @@ int fm_powerdown(void) {
     uint32_t anten;
     uint32_t ana_switch;
 
-    if (SIPC) {
+    if (SIPC1 || SIPC2) {
 
         anten = fmdev->pdata->lna_gpio;
         ana_switch = fmdev->pdata->ana_inner;
     }
-    
 
     fmdev->power_status --;
     fmdev->fm_pd = 1;
-    
 
     payload = FM_OFF;
     dev_unisoc_fm_info(fm_miscdev,"fm ioctl power down\n");
@@ -1125,9 +1342,9 @@ int fm_powerdown(void) {
     }
     /* stop_marlin(MARLIN_FM); */
     if (stop_marlin(MARLIN_FM) < 0) {
-        dev_unisoc_fm_err(fm_miscdev,"fm_powerdown stop_marlin failed");  
+        dev_unisoc_fm_err(fm_miscdev,"fm_powerdown stop_marlin failed");
     }
-    if (SIPC) {
+    if (SIPC1 || SIPC2) {
     if (ana_switch == 1) {
     fmdev->fm_state = 0;
     gpio_request(anten, "FM_ANT_EN_GPIO");
@@ -1735,11 +1952,6 @@ int fm_rds_onoff(void *arg) {
         return ret;
     }
 
-    #if(LINUX_VERSION_CODE >= KERNEL_VERSION(5,15,0))
-    fmdev->rds_han.rds_parse_start_time = ktime_get_real_seconds();
-    #else
-    fmdev->rds_han.rds_parse_start_time = get_seconds();
-    #endif
     return ret;
 }
 
@@ -1867,7 +2079,7 @@ void fm_rds_init(void) {
 
 
 
-struct mchn_ops_t fm_sipc_tx_ops = {
+struct mchn_ops_t fm_sipc2_tx_ops = {
     .channel = FM_SIPC_TX_CHANNEL,
     .hif_type = HW_TYPE_SIPC,
     .inout = FM_TX_INOUT,
@@ -1875,7 +2087,7 @@ struct mchn_ops_t fm_sipc_tx_ops = {
     .pop_link = fm_sipc_tx_cback,
 };
 
-struct mchn_ops_t fm_sipc_rx_ops = {
+struct mchn_ops_t fm_sipc2_rx_ops = {
     .channel = FM_SIPC_RX_CHANNEL,
     .hif_type = HW_TYPE_SIPC,
     .inout = FM_RX_INOUT,
@@ -1926,11 +2138,13 @@ int __init init_fm_driver(void) {
     fmdev = kzalloc(sizeof(struct fmdrv_ops), GFP_KERNEL);
     if (!fmdev)
         return -ENOMEM;
-    if (SIPC) {
+    if (SIPC2) {
         init_completion(&fmdev->completed);
         fmdev->read_buf =  kzalloc(FM_READ_SIZE, GFP_KERNEL);
     }
-    
+    if (SIPC1) {
+        init_completion(&fmdev->completed);
+    }
     init_completion(&fmdev->commontask_completion);
     init_completion(&fmdev->seektask_completion);
     spin_lock_init(&(fmdev->rw_lock));
@@ -1952,10 +2166,14 @@ int __init init_fm_driver(void) {
     //sdiom_register_pt_rx_process(FM_TYPE, FM_SUBTYPE0, fm_rx_cback);
     //sdiom_register_pt_tx_release(FM_TYPE, FM_SUBTYPE0, fm_tx_cback);
     dev_unisoc_fm_info(fm_miscdev,"fm init channel...\n");
-   
+
      /* retval = sdiodev_readchn_init(FM_CHANNEL_READ, fm_read, 0);*/
     ret = fm_device_init_driver();
-    tasklet_init(&fmdev->rx_task, receive_tasklet, (unsigned long)fmdev);
+    if (SIPC1) {
+        tasklet_init(&fmdev->rx_task, fm_sipc1_receive_tasklet, (unsigned long)fmdev);
+    } else {
+        tasklet_init(&fmdev->rx_task, receive_tasklet, (unsigned long)fmdev);
+    }
     /* RDS init */
     fm_rds_init();
     init_waitqueue_head(&fmdev->rds_han.rx_queue);
@@ -1965,7 +2183,7 @@ int __init init_fm_driver(void) {
     setup_timer(&test_timer, timer_cb, 0);
     test_init();
 #endif
-    if (SIPC){
+    if (SIPC1 || SIPC2) {
     fmdev->fm_state = 0;
     fmdev->headset_state = 1;
     }
@@ -1977,15 +2195,12 @@ int __init init_fm_driver(void) {
 void __exit exit_fm_driver(void) {
     fm_device_exit_driver();
 
-    if (SIPC)
-    {
+    if (SIPC1 || SIPC2) {
        tasklet_kill(&fmdev->tx_task);
        kfree(fmdev->read_buf);
        fmdev->read_buf = NULL;
     }
-    
     tasklet_kill(&fmdev->rx_task);
-    
     kfree(g_rds_data_string);
     g_rds_data_string = NULL;
     kfree(fmdev);
