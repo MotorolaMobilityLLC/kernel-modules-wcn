@@ -291,6 +291,13 @@ static int iface_open(struct net_device *ndev)
 		count++;
 	}
 
+	/* iface_open call start_marlin, the first CMD will be send.
+	 * block_cmd_after_close = 1 indicate that the CMD cannot
+	 * be sent between the last CMD_CLOSE and start_marlin.
+	 */
+	if (atomic_read(&hif->block_cmd_after_close) == 1)
+		atomic_set(&hif->block_cmd_after_close, 0);
+
 	netdev_info(ndev, "Power on WCN (%d time)\n",
 		    atomic_read(&hif->power_cnt));
 
@@ -330,7 +337,7 @@ static int iface_close(struct net_device *ndev)
 
 	/* hif->power_cnt = 1 means there is only one mode and
 	 * stop_marlin will be called after closed.but it should
-	 * not send any command between close and stop_marlin,
+	 * not send any command between close and start_marlin,
 	 * block_cmd_after_close need set to 1 to block other cmd.
 	 */
 	if (atomic_read(&hif->power_cnt) == 1)
@@ -340,9 +347,6 @@ static int iface_close(struct net_device *ndev)
 	netdev_info(ndev, "Power off WCN (%d time)\n",
 		    atomic_read(&hif->power_cnt));
 	sprd_iface_set_power(hif, false);
-
-	if (atomic_read(&hif->block_cmd_after_close) == 1)
-		atomic_set(&hif->block_cmd_after_close, 0);
 
 	return 0;
 }

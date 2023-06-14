@@ -758,7 +758,7 @@ int sc2355_send_cmd_recv_rsp(struct sprd_priv *priv, struct sprd_msg *msg, u8 *r
 			*rlen = 0;
 		if (ret)
 			wl_err("API check fail, return!!\n");
-		goto out;
+		return -1;
 	}
 	hdr = (struct sprd_cmd_hdr *)(msg->tran_data + priv->hif.hif_offset);
 	cmd_id = hdr->cmd_id;
@@ -769,9 +769,6 @@ int sc2355_send_cmd_recv_rsp(struct sprd_priv *priv, struct sprd_msg *msg, u8 *r
 		if (cmd_id != CMD_CLOSE) {
 			wl_info("%s need block cmd after close : %s\n",
 				__func__, cmd_str);
-			sprd_chip_free_msg(&priv->chip, msg);
-			kfree(msg->tran_data);
-			cmdevt_unlock_cmd(cmd, hif);
 			goto out;
 		}
 	}
@@ -780,9 +777,6 @@ int sc2355_send_cmd_recv_rsp(struct sprd_priv *priv, struct sprd_msg *msg, u8 *r
 		if (cmd_id != CMD_CLOSE && cmd_id != CMD_OPEN) {
 			wl_info("%s need block cmd while change iface : %s\n",
 				__func__, cmd_str);
-			sprd_chip_free_msg(&priv->chip, msg);
-			kfree(msg->tran_data);
-			cmdevt_unlock_cmd(cmd, hif);
 			goto out;
 		}
 	}
@@ -834,7 +828,13 @@ int sc2355_send_cmd_recv_rsp(struct sprd_priv *priv, struct sprd_msg *msg, u8 *r
 			sc2355_assert_cmd(priv, cmd_id, CMD_RSP_TIMEOUT_ERROR);
 	}
 	cmdevt_unlock_cmd(cmd, hif);
+	return ret;
 out:
+	sprd_chip_free_msg(&priv->chip, msg);
+	kfree(msg->tran_data);
+	if (rlen)
+		*rlen = 0;
+	cmdevt_unlock_cmd(cmd, hif);
 	return ret;
 }
 

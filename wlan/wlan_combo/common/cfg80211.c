@@ -1311,23 +1311,12 @@ void sprd_cfg80211_stop_p2p_device(struct wiphy *wiphy,
 
 	netdev_info(vif->ndev, "%s\n", __func__);
 
-	/* hif->power_cnt = 1 means there is only one mode and
-	 * stop_marlin will be called after closed.but it should
-	 * not send any command between close and stop_marlin,
-	 * block_cmd_after_close need set to 1 to block other cmd.
-	 */
-	if (atomic_read(&hif->power_cnt) == 1)
-		atomic_set(&hif->block_cmd_after_close, 1);
-
 	sprd_report_scan_done(vif, true);
 	sprd_uninit_fw(vif);
 
 	wiphy_info(wiphy, "%s Power off WCN (%d time)\n", __func__,
 		atomic_read(&hif->power_cnt));
 	sprd_iface_set_power(hif, false);
-
-	if (atomic_read(&hif->block_cmd_after_close) == 1)
-		atomic_set(&hif->block_cmd_after_close, 0);
 }
 
 int sprd_cfg80211_set_mac_acl(struct wiphy *wiphy, struct net_device *ndev,
