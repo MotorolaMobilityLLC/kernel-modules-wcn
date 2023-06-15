@@ -1857,12 +1857,23 @@ static int mtty_sdio_bluetooth_reset(struct notifier_block *this, unsigned long 
             while(ret < block_size){
                 dev_unisoc_bt_info(ttyBT_dev,"%s before tty_insert_flip_string ret: %d, len: %d\n",
                         __func__, ret, RESET_BUFSIZE);
+                if (PCIE) {
+                    ret = tty_insert_flip_string(mtty_dev->port0,
+                                    (unsigned char *)reset_buf,
+                                    RESET_BUFSIZE);   // -BT_SDIO_HEAD_LEN
+                } else {
                 ret = tty_insert_flip_string(mtty_dev->port,
                                     (unsigned char *)reset_buf,
                                     RESET_BUFSIZE);   // -BT_SDIO_HEAD_LEN
+                }
                 dev_unisoc_bt_info(ttyBT_dev,"%s ret: %d, len: %d\n", __func__, ret, RESET_BUFSIZE);
-                if (ret)
-                    tty_flip_buffer_push(mtty_dev->port);
+                if (ret) {
+                    if (PCIE) {
+                        tty_flip_buffer_push(mtty_dev->port0);
+                    } else {
+                        tty_flip_buffer_push(mtty_dev->port);
+                    }
+                }
                 block_size = block_size - ret;
                 ret = 0;
             }
