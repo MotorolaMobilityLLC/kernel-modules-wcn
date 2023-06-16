@@ -337,7 +337,6 @@ struct sprd_chip_ops sc2332_chip_ops = {
 	.set_mc_filter = sc2332_set_mc_filter,
 	.set_11v_feature_support = sc2332_set_11v_feature_support,
 	.set_11v_sleep_mode = sc2332_set_11v_sleep_mode,
-	.xmit_data2cmd = sc2332_xmit_data2cmd,
 	.set_random_mac = sc2332_set_random_mac,
 	.do_delay_work = sc2332_do_delay_work,
 	.notify_ip = sc2332_notify_ip,

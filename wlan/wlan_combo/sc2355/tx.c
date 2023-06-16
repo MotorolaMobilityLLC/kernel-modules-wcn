@@ -1554,8 +1554,10 @@ int sc2355_tx_prepare(struct sprd_chip *chip, struct sk_buff *skb)
 	struct sprd_hif *hif = &priv->hif;
 
 	if (hif->hw_type == SPRD_HW_SC2355_PCIE) {
-		if (sprdwcn_bus_get_status() == WCN_BUS_DOWN) {
-			wl_err("%s,wcn bus is down, drop skb!\n", __func__);
+		if (hif->suspend_mode != SPRD_PS_RESUMED ||
+		    sprdwcn_bus_get_status() == WCN_BUS_DOWN) {
+			wl_err("%s, suspend(%d) or bus down, drop skb!\n",
+			       __func__, hif->suspend_mode);
 			dev_kfree_skb(skb);
 			return -1;
 		}

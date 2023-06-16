@@ -280,15 +280,11 @@ static int sipc_msg_send(void *xmit_data, u16 xmit_len, int channel)
 
 	addr = (u8 *)blk.addr + SPRD_SIPC_HEAD_RESERV;
 	blk.length = xmit_len + SPRD_SIPC_HEAD_RESERV;
-	/* memcpy(((u8 *)addr), xmit_data, xmit_len); */
-	/* FIXME sharkle V8 none cache workaround, tempuse */
-	{
-		u8 *pos;
-
-		pos = (u8 *)xmit_data;
-		for (ret = xmit_len - 1; ret >= 0; ret--)
-			addr[ret] = pos[ret];
-	}
+	/* armv8 device memory : memory mapped io region, which
+	 * never cached, access must be asigned.
+	 * use memcpy_toio/memcpy_fromio to access instead memcpy.
+	 */
+	memcpy_toio(((u8 *)addr), xmit_data, xmit_len);
 
 	/* FIXME if use less irq to CP, use sblock_send_prepare */
 	/* ret = sblock_send_prepare(WLAN_CP_ID, channel, &blk); */
@@ -884,8 +880,22 @@ void sipc_deinit(struct sprd_hif *hif)
 
 int sc2332_tx_special_data(struct sk_buff *skb, struct net_device *ndev)
 {
-	if (skb->protocol == cpu_to_be16(ETH_P_PAE))
+	u8 *data_temp;
+	struct sprd_eap_hdr *eap_temp;
+	struct sprd_vif *vif = netdev_priv(ndev);
+
+	data_temp = skb->data + sizeof(struct ethhdr);
+	eap_temp = (struct sprd_eap_hdr *)data_temp;
+
+	if (skb->protocol == cpu_to_be16(ETH_P_PAE)) {
 		wl_info("TX special data: 802.1x\n");
+		if (vif->mode == SPRD_MODE_P2P_GO &&
+		    eap_temp->type == EAP_PACKET_TYPE &&
+		    eap_temp->code == EAP_FAILURE_CODE) {
+			sc2332_xmit_data2cmd(skb, ndev);
+			return NETDEV_TX_OK;
+		}
+	}
 	else if (skb->protocol == cpu_to_be16(WAPI_TYPE))
 		wl_info("TX special data: WAPI\n");
 	sprd_filter_data_debug(skb, ndev, "TX");

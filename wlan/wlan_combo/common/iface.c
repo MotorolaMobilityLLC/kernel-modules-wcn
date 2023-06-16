@@ -575,25 +575,16 @@ static int iface_prepare_xmit(struct sprd_vif *vif, struct net_device *ndev,
 		return -1;
 	}
 
-	if (hif->hw_type == SPRD_HW_SC2355_PCIE &&
-		hif->suspend_mode != SPRD_PS_RESUMED) {
-		wl_err("not resumed, drop skb\n");
-		dev_kfree_skb(skb);
-		return -1;
-	}
-
 	return sprd_chip_tx_prepare(&vif->priv->chip, skb);
 }
 
 static netdev_tx_t iface_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 {
 	int ret = 0;
-	u8 *data_temp;
 	int offset;
 	struct sprd_vif *vif = netdev_priv(ndev);
 	struct sprd_hif *hif = &vif->priv->hif;
 	struct sprd_msg *msg = NULL;
-	struct sprd_eap_hdr *eap_temp;
 	struct sk_buff *tmp_skb = skb;
 	unsigned int skb_len;
 	int print_len;
@@ -601,17 +592,6 @@ static netdev_tx_t iface_start_xmit(struct sk_buff *skb, struct net_device *ndev
 	ret = iface_prepare_xmit(vif, ndev, skb);
 	if (-1 == ret)
 		goto out;
-
-	data_temp = (u8 *)(skb->data) + sizeof(struct ethhdr);
-	eap_temp = (struct sprd_eap_hdr *)data_temp;
-
-	if (vif->mode == SPRD_MODE_P2P_GO &&
-	    skb->protocol == cpu_to_be16(ETH_P_PAE) &&
-	    eap_temp->type == EAP_PACKET_TYPE &&
-	    eap_temp->code == EAP_FAILURE_CODE) {
-		sprd_xmit_data2cmd(vif->priv, skb, ndev);
-		return NETDEV_TX_OK;
-	}
 
 	/* Hardware tx data queue prority is lower than management queue
 	 * management frame will be send out early even that get into queue
@@ -1861,7 +1841,7 @@ int sprd_iface_probe(struct platform_device *pdev,
 #ifdef ENABLE_CHR
 	struct sprd_chr *chr;
 #endif
-	int ret;
+	int ret = 0;
 
 	wl_info("Spreadtrum WLAN Driver (Ver. %s, %s)\n",
 		SPRD_DRIVER_VERSION, utsname()->release);
@@ -1883,58 +1863,53 @@ int sprd_iface_probe(struct platform_device *pdev,
 	ret = sprd_hif_init(hif);
 	if (ret) {
 		wl_err("%s hif init failed: %d\n", __func__, ret);
-		sprd_core_free(priv);
-		return ret;
+		goto err_hif_init;
 	}
 
 #ifdef ENABLE_CHR
 	chr = sprd_chr_handle_probe(hif);
 	if (!chr) {
 		wl_err("%s, CHR: chr struct malloc failed", __func__);
-		sprd_hif_deinit(hif);
-		sprd_core_free(priv);
-		return -ENOMEM;
+		ret = -ENOMEM;
+		goto err_chr_probe;
 	}
 #endif
 	ret = sprd_iface_set_power(hif, true);
 	if (ret) {
-#ifdef ENABLE_CHR
-		sprd_chr_deinit(chr, PROBE_DEINIT);
-#endif
-		sprd_hif_deinit(hif);
-		sprd_core_free(priv);
-		return ret;
+		wl_err("%s iface_set_power failed : %d", __func__, ret);
+		goto err_power_on;
 	}
 
 	ret = iface_core_init(&pdev->dev, priv);
 	if (ret) {
 		wl_err("%s core init failed: %d\n", __func__, ret);
-		sprd_iface_set_power(hif, false);
-#ifdef ENABLE_CHR
-		sprd_chr_deinit(chr, PROBE_DEINIT);
-#endif
-		sprd_hif_deinit(hif);
-		sprd_core_free(priv);
-		return ret;
+		goto err_core_init;
 	}
 
 	ret = iface_notify_init(priv);
 	if (ret) {
 		wl_err("%s notify init failed: %d\n", __func__, ret);
-		iface_core_deinit(priv);
-		sprd_iface_set_power(hif, false);
-#ifdef ENABLE_CHR
-		sprd_chr_deinit(chr, PROBE_DEINIT);
-#endif
-		sprd_hif_deinit(hif);
-		sprd_core_free(priv);
-		return ret;
+		goto err_notify_init;
 	}
 
 	/* Power off chipset in order to save power */
 	sprd_iface_set_power(hif, false);
 	priv->probe_done = true;
 
+	return ret;
+
+err_notify_init:
+	iface_core_deinit(priv);
+err_core_init:
+	sprd_iface_set_power(hif, false);
+err_power_on:
+#ifdef ENABLE_CHR
+	sprd_chr_deinit(chr, PROBE_DEINIT);
+err_chr_probe:
+#endif
+	sprd_hif_deinit(hif);
+err_hif_init:
+	sprd_core_free(priv);
 	return ret;
 }
 
@@ -1949,15 +1924,15 @@ int sprd_iface_remove(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
+	iface_notify_deinit(priv);
+	iface_core_deinit(priv);
+	sprd_iface_set_power(hif, false);
 #ifdef ENABLE_CHR
 	sprd_chr_deinit(hif->chr, REMOVE_DEINIT);
 #endif
-	iface_notify_deinit(priv);
-	iface_core_deinit(priv);
 	sprd_hif_deinit(hif);
 	sprd_core_free(priv);
 	iface_set_priv(NULL);
-	sprd_iface_set_power(hif, false);
 
 	return 0;
 }

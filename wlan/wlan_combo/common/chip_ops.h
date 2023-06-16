@@ -126,7 +126,6 @@ struct sprd_chip_ops {
 				       u16 val);
 	int (*set_11v_sleep_mode)(struct sprd_priv *priv, struct sprd_vif *vif,
 				  u8 status, u16 interval);
-	int (*xmit_data2cmd)(struct sk_buff *skb, struct net_device *ndev);
 	int (*set_random_mac)(struct sprd_priv *priv, struct sprd_vif *vif,
 			      u8 random_mac_flag, u8 *addr);
 	int (*set_max_clients_allowed)(struct sprd_priv *priv,
@@ -684,16 +683,6 @@ static inline int sprd_set_11v_sleep_mode(struct sprd_priv *priv,
 	if (priv->chip.ops->set_11v_sleep_mode)
 		return priv->chip.ops->set_11v_sleep_mode(priv, vif, status,
 							  interval);
-
-	return 0;
-}
-
-static inline int sprd_xmit_data2cmd(struct sprd_priv *priv,
-				     struct sk_buff *skb,
-				     struct net_device *ndev)
-{
-	if (priv->chip.ops->xmit_data2cmd)
-		return priv->chip.ops->xmit_data2cmd(skb, ndev);
 
 	return 0;
 }
