@@ -2894,6 +2894,11 @@ out:
 	return 0;
 }
 
+/*
+ * msg_ptr | hif_offset | dscr_rsvd | msdu_dscr | eth_data
+ * before : skb->data --> eth_data
+ * after : skb->data --> dscr_rsvd
+ */
 int sc2355_hif_fill_msdu_dscr(struct sprd_vif *vif,
 			      struct sk_buff *skb, u8 type, u8 offset)
 {
@@ -2901,13 +2906,9 @@ int sc2355_hif_fill_msdu_dscr(struct sprd_vif *vif,
 	struct tx_msdu_dscr *dscr;
 	struct sprd_hif *hif;
 	u8 lut_index;
-	struct sk_buff *temp_skb;
-	unsigned char dscr_rsvd = 0;
 	struct ethhdr *ethhdr = (struct ethhdr *)skb->data;
 	u8 is_special_data = 0;
 	bool is_vowifi2cmd = false;
-
-#define MSG_PTR_LEN 8
 
 	if (ethhdr->h_proto == htons(ETH_P_ARP) ||
 	    ethhdr->h_proto == htons(ETH_P_TDLS) ||
@@ -2919,28 +2920,6 @@ int sc2355_hif_fill_msdu_dscr(struct sprd_vif *vif,
 
 	hif = &vif->priv->hif;
 
-	if (hif->hw_type == SPRD_HW_SC2355_SDIO)
-		dscr_rsvd = 0;
-	else
-		dscr_rsvd = MSDU_DSCR_RSVD;
-
-	if (skb_headroom(skb) < (DSCR_LEN + hif->hif_offset +
-				 MSG_PTR_LEN + dscr_rsvd)) {
-		temp_skb = skb;
-
-		skb = skb_realloc_headroom(skb, (DSCR_LEN + hif->hif_offset +
-						 MSG_PTR_LEN + dscr_rsvd));
-		kfree_skb(temp_skb);
-		if (!skb) {
-			wl_err("%s:%d failed to unshare skbuff: NULL\n",
-			       __func__, __LINE__);
-			return -EPERM;
-		}
-#if defined(MORE_DEBUG)
-		hif->stats.tx_realloc++;
-#endif
-	}
-
 	if (skb->data) {
 		memcpy(hif->skb_da, skb->data, ETH_ALEN);
 	}
@@ -2951,7 +2930,7 @@ int sc2355_hif_fill_msdu_dscr(struct sprd_vif *vif,
 		wl_err("%s, %d, sta disconn, no data tx!", __func__, __LINE__);
 		return -EPERM;
 	}
-	skb_push(skb, sizeof(struct tx_msdu_dscr) + offset);
+	skb_push(skb, sizeof(struct tx_msdu_dscr));
 	dscr = (struct tx_msdu_dscr *)(skb->data);
 	memset(dscr, 0x00, sizeof(struct tx_msdu_dscr));
 	dscr->common.type = (type == SPRD_TYPE_CMD ?
@@ -2974,11 +2953,11 @@ int sc2355_hif_fill_msdu_dscr(struct sprd_vif *vif,
 	dscr->sta_lut_index = lut_index;
 
 	/* For MH to get phys addr */
-	if (hif->hw_type != SPRD_HW_SC2355_SDIO) {
+	if (hif->dscr_rsvd > 0) {
 		unsigned long dma_addr = 0;
-		skb_push(skb, dscr_rsvd);
+		skb_push(skb, hif->dscr_rsvd);
 		dma_addr = virt_to_phys(skb->data) | SPRD_MH_ADDRESS_BIT;
-		memcpy(skb->data, &dma_addr, dscr_rsvd);
+		memcpy(skb->data, &dma_addr, hif->dscr_rsvd);
 	}
 
 	if (skb->ip_summed == CHECKSUM_PARTIAL) {
@@ -3010,21 +2989,23 @@ int sc2355_xmit_data2cmd_wq(struct sk_buff *skb, struct net_device *ndev)
 	/*fill dscr header first*/
 	if (sc2355_hif_fill_msdu_dscr(vif, skb, SPRD_TYPE_CMD, 0))
 		return -EPERM;
-	/*alloc five byte for fw 16 byte need
-	 *dscr:11+flag:5 =16
-	 */
-	if (hif->hw_type != SPRD_HW_SC2355_PCIE &&
-		hif->hw_type != SPRD_HW_SC2355_SIPC) {
-		skb_push(skb,FLAG_SIZE);
-		memcpy(skb->data,temp_flag,FLAG_SIZE);
-	}
-	    /*send group in BK to avoid FW hang*/
-	    dscr = (struct tx_msdu_dscr *)skb->data;
+
+	/*send group in BK to avoid FW hang*/
+	dscr = (struct tx_msdu_dscr *)(skb->data + hif->dscr_rsvd);
 	if ((vif->mode == SPRD_MODE_AP || vif->mode == SPRD_MODE_P2P_GO) &&
 		dscr->sta_lut_index < 6) {
 		dscr->buffer_info.msdu_tid = prio_1;
 		wl_debug("%s, %d, SOFTAP/GO group go as BK\n", __func__,
 			__LINE__);
+	}
+
+	/* alloc five byte for fw 16 byte need
+	 * dscr:11+flag:5 =16
+	 * tmp_flag | dscr_rsvd | msdu_dscr | eth_data
+	 */
+	if (hif->hw_type == SPRD_HW_SC2355_SDIO) {
+		skb_push(skb, FLAG_SIZE);
+		memcpy(skb->data, temp_flag, FLAG_SIZE);
 	}
 
 	/*create work queue*/

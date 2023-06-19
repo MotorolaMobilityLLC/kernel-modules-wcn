@@ -51,6 +51,7 @@
 #define MAX_CHN_NUM	16
 
 #define DSCR_LEN	sizeof(struct tx_msdu_dscr)
+#define MSG_PTR_LEN	8
 
 #define GET_MSG_BUF(ptr) \
 	((struct sprd_msg *) \
@@ -280,9 +281,9 @@ bool sc2355_is_vowifi_pkt(struct sk_buff *skb, bool *b_cmd_path);
 void sc2355_dequeue_tofreelist_buf(struct sprd_hif *hif, struct sprd_msg *msg);
 void sc2355_tx_flush(struct sprd_hif *hif, struct sprd_vif *vif);
 int sc2355_tx_special_data(struct sk_buff *skb, struct net_device *ndev);
-int sc2355_send_data_offset(void);
 int sc2355_send_data(struct sprd_vif *vif, struct sprd_msg *msg,
 		     struct sk_buff *skb, u8 type, u8 offset, bool flag);
+int sc2355_needed_headroom(struct sprd_priv *priv);
 int sc2355_tx_do_csum(const unsigned char *buff, int len);
 void sc2355_tx_prepare_addba(struct sprd_hif *hif, unsigned char lut_index,
 		     struct sprd_peer_entry *peer_entry,unsigned char tid);

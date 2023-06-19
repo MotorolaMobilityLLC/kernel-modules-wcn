@@ -611,9 +611,12 @@ void sprd_rx_monitor_process(struct sprd_vif *vif,
 }
 
 static int iface_prepare_xmit(struct sprd_vif *vif, struct net_device *ndev,
-			      struct sk_buff *skb)
+			      struct sk_buff **pskb)
 {
 	struct sprd_hif *hif = &vif->priv->hif;
+	struct sk_buff *skb = *pskb;
+	struct sk_buff *tmp_skb = skb;
+	int ret = 0;
 
 	/* drop nonlinearize skb */
 	if (skb_linearize(skb)) {
@@ -629,7 +632,26 @@ static int iface_prepare_xmit(struct sprd_vif *vif, struct net_device *ndev,
 		return -1;
 	}
 
-	return sprd_chip_tx_prepare(&vif->priv->chip, skb);
+	ret = sprd_chip_tx_prepare(&vif->priv->chip, skb);
+	if (ret)
+		return ret;
+
+	if (skb_headroom(skb) < ndev->needed_headroom) {
+		skb = skb_realloc_headroom(skb, ndev->needed_headroom);
+		dev_kfree_skb(tmp_skb);
+		if (!skb) {
+			netdev_err(ndev,
+				   "%s skb_realloc_headroom failed\n",
+				   __func__);
+			return -1;
+		}
+#if defined(MORE_DEBUG)
+                hif->stats.tx_realloc++;
+#endif
+		*pskb = skb;
+	}
+	return ret;
+
 }
 
 static netdev_tx_t iface_start_xmit(struct sk_buff *skb, struct net_device *ndev)
@@ -639,11 +661,10 @@ static netdev_tx_t iface_start_xmit(struct sk_buff *skb, struct net_device *ndev
 	struct sprd_vif *vif = netdev_priv(ndev);
 	struct sprd_hif *hif = &vif->priv->hif;
 	struct sprd_msg *msg = NULL;
-	struct sk_buff *tmp_skb = skb;
 	unsigned int skb_len;
 	int print_len;
 
-	ret = iface_prepare_xmit(vif, ndev, skb);
+	ret = iface_prepare_xmit(vif, ndev, &skb);
 	if (-1 == ret)
 		goto out;
 
@@ -682,18 +703,6 @@ static netdev_tx_t iface_start_xmit(struct sk_buff *skb, struct net_device *ndev
 	if (!msg) {
 		ndev->stats.tx_fifo_errors++;
 		return NETDEV_TX_BUSY;
-	}
-
-	if (skb_headroom(skb) < ndev->needed_headroom) {
-		skb = skb_realloc_headroom(skb, ndev->needed_headroom);
-		dev_kfree_skb(tmp_skb);
-		if (!skb) {
-			netdev_err(ndev,
-				   "%s skb_realloc_headroom failed\n",
-				   __func__);
-			sprd_chip_free_msg(&vif->priv->chip, msg);
-			goto out;
-		}
 	}
 
 	offset = sprd_send_data_offset(vif->priv);
@@ -1736,8 +1745,7 @@ static struct sprd_vif *iface_register_netdev(struct sprd_priv *priv,
 	}
 	ndev->netdev_ops = &sprd_netdev_ops;
 	ndev->priv_destructor = free_netdev;
-	ndev->needed_headroom = sizeof(struct sprd_data_hdr) + NET_IP_ALIGN +
-	    SPRD_SKB_HEAD_RESERV_LEN + sprd_hif_reserve_len(&priv->hif);
+	ndev->needed_headroom = sprd_needed_headroom(priv);
 	ndev->watchdog_timeo = 2 * HZ;
 	ndev->features |= priv->hif.feature;
 	SET_NETDEV_DEV(ndev, wlan_misc_device.this_device);

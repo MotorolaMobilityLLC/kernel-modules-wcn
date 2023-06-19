@@ -353,6 +353,7 @@ struct sprd_chip_ops sc2332_chip_ops = {
 	.vendor_deinit = sc2332_vendor_deinit,
 	.send_data = sc2332_send_data,
 	.send_data_offset = sc2332_send_data_offset,
+	.needed_headroom = sc2332_needed_headroom,
 	.set_sniffer = sc2332_set_sniffer,
 };
 

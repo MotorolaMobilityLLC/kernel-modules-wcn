@@ -179,7 +179,7 @@ struct sprd_hif {
 	unsigned long tx_num[MAX_LUT_NUM];
 	unsigned char skb_da[ETH_ALEN];
 
-	int hif_offset;
+	int hif_offset, dscr_rsvd;
 	unsigned char rx_cmd_port;
 	unsigned char rx_data_port;
 	unsigned char tx_cmd_port;
@@ -224,7 +224,6 @@ struct sprd_hif_ops {
 	void (*deinit)(struct sprd_hif *hif);
 	int (*post_init)(struct sprd_hif *hif);
 	void (*post_deinit)(struct sprd_hif *hif);
-	int (*reserv_len)(struct sprd_hif *hif);
 	int (*sync_version)(struct sprd_priv *priv);
 	void (*download_hw_param)(struct sprd_priv *priv);
 	void (*fill_all_buffer)(struct sprd_hif *hif);
@@ -333,14 +332,6 @@ static inline int sprd_hif_init(struct sprd_hif *hif)
 static inline void sprd_hif_deinit(struct sprd_hif *hif)
 {
 	hif->ops->deinit(hif);
-}
-
-static inline int sprd_hif_reserve_len(struct sprd_hif *hif)
-{
-	if (hif->ops->reserv_len)
-		return hif->ops->reserv_len(hif);
-
-	return 0;
 }
 
 static inline void sprd_hif_fill_all_buffer(struct sprd_hif *hif)

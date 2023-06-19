@@ -1464,6 +1464,7 @@ int sc2355_sipc_init(struct sprd_hif *hif)
 
 
 	hif->hif_offset = 0;
+	hif->dscr_rsvd = MSDU_DSCR_RSVD;
 	hif->rx_cmd_port = SIPC_WIFI_CMD_RX;
 	hif->rx_data_port = SIPC_WIFI_DATA0_RX;
 	hif->tx_cmd_port = SIPC_WIFI_CMD_TX;

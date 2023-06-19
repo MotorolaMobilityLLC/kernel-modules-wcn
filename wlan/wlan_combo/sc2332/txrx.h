@@ -50,6 +50,7 @@ unsigned short sc2332_rx_rsp_process(struct sprd_priv *priv, u8 *msg,
 int sc2332_send_data_offset(void);
 int sc2332_send_data(struct sprd_vif *vif, struct sprd_msg *msg,
 		     struct sk_buff *skb, u8 type, u8 offset, bool flag);
+int sc2332_needed_headroom(struct sprd_priv *priv);
 
 static inline void sc2332_tx_wakeup(struct sprd_hif *hif)
 {

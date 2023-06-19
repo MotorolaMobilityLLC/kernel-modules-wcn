@@ -247,13 +247,10 @@ unsigned int sc2355_qos_get_tid_index(void *skb, int data_offset,
 				      unsigned char *tid, unsigned char *tos)
 {
 	int priority;
-	struct qos_ether_header *eh;
 
 	if (!qos_enable)
 		return SPRD_AC_BE;
-	/* vo vi bk be */
-	eh = (struct qos_ether_header *)(((struct sk_buff *)(skb))->data +
-					 data_offset);
+
 	priority = qos_pkt_get_prio(skb, data_offset, tos);
 	*tid = priority;
 

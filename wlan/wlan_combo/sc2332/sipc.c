@@ -251,11 +251,6 @@ int sc2332_reset_self(struct sprd_priv *priv)
 }
 #endif
 
-static int sipc_reserv_len(struct sprd_hif *hif)
-{
-	return SPRD_SIPC_RESERV_LEN;
-}
-
 static int sipc_msg_send(void *xmit_data, u16 xmit_len, int channel)
 {
 	int ret;
@@ -788,6 +783,7 @@ int sipc_init(struct sprd_hif *hif)
 	hif->wake_last_time = jiffies;
 	hif->keep_wake = wakeup_source_create("keep_wakelock");
 	wakeup_source_add(hif->keep_wake);
+	hif->hif_offset = SPRD_SIPC_RESERV_LEN;
 
 	ret = sprd_init_msg(SPRD_TX_MSG_CMD_NUM, &hif->tx_list0);
 	if (ret) {
@@ -905,7 +901,6 @@ int sc2332_tx_special_data(struct sk_buff *skb, struct net_device *ndev)
 struct sprd_hif_ops sc2332_sipc_ops = {
 	.init = sipc_init,
 	.deinit = sipc_deinit,
-	.reserv_len = sipc_reserv_len,
 	.reset = sc2332_reset,
 	.tx_special_data = sc2332_tx_special_data,
 #ifdef DRV_RESET_SELF

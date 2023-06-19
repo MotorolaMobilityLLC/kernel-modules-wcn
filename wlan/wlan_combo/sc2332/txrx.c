@@ -393,8 +393,7 @@ int sc2332_send_data(struct sprd_vif *vif, struct sprd_msg *msg,
 	}
 
 	buf = skb->data;
-	skb_push(skb, sizeof(*hdr) + offset +
-		 sprd_hif_reserve_len(&vif->priv->hif));
+	skb_push(skb, sizeof(*hdr) + offset + vif->priv->hif.hif_offset);
 	hdr = (struct sprd_data_hdr *)skb->data;
 	memset(hdr, 0, sizeof(*hdr));
 	hdr->common.type = SPRD_TYPE_DATA;
@@ -423,4 +422,16 @@ int sc2332_send_data(struct sprd_vif *vif, struct sprd_msg *msg,
 int sc2332_send_data_offset(void)
 {
 	return SPRD_SEND_DATA_OFFSET;
+}
+
+int sc2332_needed_headroom(struct sprd_priv *priv)
+{
+/*
+ * data path min headroom : sipc = 58, sdio = 26
+ * | 16              | 8        | 32/0       | 2      | eth_data |
+ * | skb_head_reserv | data_hdr | hif_offset | offset | eth_data |
+ */
+	struct sprd_hif *hif = &priv->hif;
+	return (SPRD_SKB_HEAD_RESERV_LEN + sizeof(struct sprd_data_hdr) +
+		SPRD_SEND_DATA_OFFSET + hif->hif_offset);
 }

@@ -166,6 +166,7 @@ struct sprd_chip_ops {
 	int (*send_data)(struct sprd_vif *vif, struct sprd_msg *msg,
 			 struct sk_buff *skb, u8 type, u8 offset, bool flag);
 	int (*send_data_offset)(void);
+	int (*needed_headroom)(struct sprd_priv *priv);
 	void (*fc_add_share_credit)(struct sprd_vif *vif);
 	void (*defrag_recover)(struct sprd_vif *vif);
 	int (*set_sniffer)(struct net_device *ndev, struct ifreq *ifr);
@@ -896,6 +897,14 @@ static inline int sprd_send_data_offset(struct sprd_priv *priv)
 {
 	if (priv->chip.ops->send_data_offset)
 		return priv->chip.ops->send_data_offset();
+
+	return 0;
+}
+
+static inline int sprd_needed_headroom(struct sprd_priv *priv)
+{
+	if (priv->chip.ops->needed_headroom)
+		return priv->chip.ops->needed_headroom(priv);
 
 	return 0;
 }

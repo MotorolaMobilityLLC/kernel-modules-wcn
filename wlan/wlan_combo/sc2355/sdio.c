@@ -500,7 +500,6 @@ int sc2355_hif_tx_list(struct sprd_hif *hif,
 	struct tx_mgmt *tx_mgmt;
 	struct mbuf_t *head = NULL, *tail = NULL, *mbuf_pos;
 	struct list_head *pos, *tx_list_tail, *n_list;
-	unsigned long *msg_ptr;
 	unsigned char *data_ptr;
 	struct tx_msdu_dscr *dscr;
 #if defined(MORE_DEBUG)
@@ -538,7 +537,7 @@ int sc2355_hif_tx_list(struct sprd_hif *hif,
 		sc2355_tcp_ack_move_msg(hif->priv, msg_pos);
 		data_ptr = (unsigned char *)(msg_pos->tran_data) -
 		    hif->hif_offset;
-		dscr = (struct tx_msdu_dscr *)msg_pos->tran_data;
+		dscr = (struct tx_msdu_dscr *)(msg_pos->tran_data + hif->dscr_rsvd);
 		dscr->color_bit = sc2355_fc_set_clor_bit(tx_mgmt, i + 1);
 		tx_mgmt->seq_num++;
 		dscr->seq_num = tx_mgmt->seq_num;
@@ -546,11 +545,6 @@ int sc2355_hif_tx_list(struct sprd_hif *hif,
 #if defined(MORE_DEBUG)
 		tx_bytes += msg_pos->skb->len;
 #endif
-		msg_ptr = (unsigned long *)(data_ptr - sizeof(unsigned long *));
-		/*store msg ptr to skb header room
-		 *for call back func free
-		 */
-		*msg_ptr = (unsigned long)msg_pos;
 
 		if (!mbuf_pos) {
 			wl_err("%s:%d mbuf addr is NULL!\n", __func__,
@@ -1226,6 +1220,7 @@ int sc2355_sdio_init(struct sprd_hif *hif)
 		hif->peer_entry[i].ctx_id = 0xff;
 
 	hif->hif_offset = sizeof(struct sc2355_sdiohal_puh);
+	hif->dscr_rsvd = 0;
 	hif->rx_cmd_port = SDIO_RX_CMD_PORT;
 	hif->rx_data_port = SDIO_RX_DATA_PORT;
 	hif->tx_cmd_port = SDIO_TX_CMD_PORT;

@@ -1596,6 +1596,7 @@ int pcie_init(struct sprd_hif *hif)
 
 
 	hif->hif_offset = 0;
+	hif->dscr_rsvd = MSDU_DSCR_RSVD;
 	hif->rx_cmd_port = PCIE_RX_CMD_PORT;
 	hif->rx_data_port = PCIE_RX_ADDR_DATA_PORT;
 	hif->tx_cmd_port = PCIE_TX_CMD_PORT;

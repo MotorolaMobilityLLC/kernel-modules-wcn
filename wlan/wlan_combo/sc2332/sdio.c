@@ -535,6 +535,7 @@ int sdio_init(struct sprd_hif *hif)
 	hif->wake_last_time = jiffies;
 	hif->keep_wake = wakeup_source_create("keep_wakelock");
 	wakeup_source_add(hif->keep_wake);
+	hif->hif_offset = 0;
 
 	ret = sprd_init_msg(SPRD_RX_MSG_NUM, &hif->tx_list0);
 	if (ret) {

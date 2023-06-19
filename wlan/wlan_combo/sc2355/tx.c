@@ -1590,7 +1590,7 @@ int sc2355_tx(struct sprd_chip *chip, struct sprd_msg *msg)
 	unsigned int qos_index = 0;
 	struct sprd_peer_entry *peer_entry = NULL;
 	unsigned char tid = 0, tos = 0;
-	struct tx_msdu_dscr *dscr = (struct tx_msdu_dscr *)msg->tran_data;
+	struct tx_msdu_dscr *dscr = NULL;
 	struct tx_mgmt *tx_mgmt = (struct tx_mgmt *)hif->tx_mgmt;
 
 	if (-1 == tx_prepare_tx_msg(hif, msg))
@@ -1598,22 +1598,10 @@ int sc2355_tx(struct sprd_chip *chip, struct sprd_msg *msg)
 
 	if (msg->msglist == &tx_mgmt->tx_list_qos_pool) {
 		struct sprd_qos_peer_list *data_list;
-
-		if (hif->hw_type == SPRD_HW_SC2355_PCIE ||
-			hif->hw_type == SPRD_HW_SC2355_SIPC) {
-			dscr =
-			    (struct tx_msdu_dscr *)(msg->tran_data +
-						    MSDU_DSCR_RSVD);
-			qos_index =
-			    sc2355_qos_get_tid_index(msg->skb,
-						     MSDU_DSCR_RSVD + DSCR_LEN,
-						     &tid, &tos);
-		} else {
-			dscr = (struct tx_msdu_dscr *)(msg->tran_data);
-			qos_index =
-			    sc2355_qos_get_tid_index(msg->skb, DSCR_LEN, &tid,
-						     &tos);
-		}
+		dscr = (struct tx_msdu_dscr *)(msg->tran_data + hif->dscr_rsvd);
+		qos_index =
+		    sc2355_qos_get_tid_index(msg->skb, DSCR_LEN + hif->dscr_rsvd,
+					     &tid, &tos);
 
 		qos_index =
 		    sc2355_qos_change_priority_if(hif->priv, &tid, &tos,
@@ -1653,9 +1641,7 @@ int sc2355_tx(struct sprd_chip *chip, struct sprd_msg *msg)
 								msg->tran_data,
 								msg->len,
 								DMA_TO_DEVICE);
-		if (hif->hw_type == SPRD_HW_SC2355_PCIE ||
-			hif->hw_type == SPRD_HW_SC2355_SIPC)
-			SAVE_ADDR(msg->tran_data, msg, 8);
+		SAVE_ADDR(msg->tran_data - hif->hif_offset, msg, MSG_PTR_LEN);
 
 		tx_enqueue_data_msg(msg, hif);
 		atomic_inc(&tx_mgmt->tx_list[msg->mode]->mode_list_num);
@@ -2302,11 +2288,8 @@ int sc2355_send_data(struct sprd_vif *vif, struct sprd_msg *msg,
 		return -EPERM;
 	}
 
+	/* msg->tran_data --> skb->data --> dscr_rsvd */
 	sprd_fill_msg(msg, skb, skb->data, skb->len);
-
-	if (hif->hw_type == SPRD_HW_SC2355_PCIE ||
-		hif->hw_type == SPRD_HW_SC2355_SIPC)
-		buf = skb->data + MSDU_DSCR_RSVD + DSCR_LEN;
 
 	if (sc2355_tcp_ack_filter_send(vif->priv, msg, buf, plen))
 		return 0;
@@ -2315,23 +2298,26 @@ int sc2355_send_data(struct sprd_vif *vif, struct sprd_msg *msg,
 	if (ret)
 		wl_err("%s TX data Err: %d\n", __func__, ret);
 
-	if (hif->tdls_flow_count_enable == 1 && vif->sm_state == SPRD_CONNECTED) {
-		if (hif->hw_type == SPRD_HW_SC2355_PCIE ||
-			hif->hw_type == SPRD_HW_SC2355_SIPC) {
-			sc2355_tdls_count_flow(vif, buf, skb->len);
-		} else {
-			sc2355_tdls_count_flow(vif,
-					       skb->data + offset + DSCR_LEN,
-					       skb->len - offset - DSCR_LEN);
-		}
+	if (hif->tdls_flow_count_enable == 1 &&
+	    vif->sm_state == SPRD_CONNECTED) {
+		sc2355_tdls_count_flow(vif, buf, plen);
 	}
 
 	return ret;
 }
 
-int sc2355_send_data_offset(void)
+int sc2355_needed_headroom(struct sprd_priv *priv)
 {
-	return SPRD_SEND_DATA_OFFSET;
+/*
+ * data path min headroom : sdio = 28, pcie/sipc = 24
+ * tmp_flag : only used for data2cmd
+ * | 8       | 4/0        | 0/5       | 11        | eth_data |
+ * | msg_ptr | hif_offset | dscr_rsvd | msdu_dscr | eth_data |
+ */
+	struct sprd_hif *hif = &priv->hif;
+
+	return (MSG_PTR_LEN + hif->hif_offset +
+		hif->dscr_rsvd + DSCR_LEN);
 }
 
 void sc2355_tx_addba(struct sprd_hif *hif,
