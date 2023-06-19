@@ -8,10 +8,7 @@
 #include "common/debug.h"
 #include "common/vendor.h"
 #include "cmdevt.h"
-#ifdef CONFIG_SC2355_WLAN_NAN
 #include <linux/version.h>
-#include "nan.h"
-#endif /* CONFIG_SC2355_WLAN_NAN */
 #include "rtt.h"
 
 #define SPRD_ACS_LTE_EVENT_INDEX	35
@@ -19,6 +16,30 @@
 
 #define MAX_CHANNELS			16
 #define MAX_BUCKETS			4
+
+enum vendor_event_nan {
+	VENDOR_EVENT_NAN_MONITOR_RSSI = 0,
+	/* NAN */
+	VENDOR_EVENT_NAN = 0x1400,
+};
+
+/* link layer stats */
+enum vendor_attr {
+	ATTR_UNSPEC,
+	ATTR_GET_LLSTAT,
+	ATTR_CLR_LLSTAT,
+	/* NAN */
+	ATTR_NAN,
+	ATTR_ROAMING_POLICY = 5,
+	ATTR_VENDOR_AFTER_LAST,
+	ATTR_VENDOR_MAX =
+		ATTR_VENDOR_AFTER_LAST - 1,
+};
+
+static const struct nla_policy
+	roaming_policy[ATTR_VENDOR_MAX + 1] = {
+	[ATTR_ROAMING_POLICY] = {.type = NLA_U32},
+};
 
 struct llstat_data {
 	int rssi_mgmt;
@@ -3764,18 +3785,6 @@ static const struct wiphy_vendor_command vendor_cmd[] = {
 		.maxattr = ATTR_SAR_LIMITS_MAX,
 	},
 
-#ifdef CONFIG_SC2355_WLAN_NAN
-	{/* 0x1300 */
-		{
-		    .vendor_id = OUI_SPREAD,
-		    .subcmd = VENDOR_CMD_NAN
-		},
-		.flags = WIPHY_VENDOR_CMD_NEED_WDEV |
-			WIPHY_VENDOR_CMD_NEED_NETDEV,
-		.doit = sc2355_nan_vendor_cmds,
-		.policy = VENDOR_CMD_RAW_DATA,
-	},
-#endif /* CONFIG_SC2355_WLAN_NAN */
 #ifdef CONFIG_SC2355_WLAN_RTT
 	{
 		{

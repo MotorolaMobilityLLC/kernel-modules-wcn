@@ -18,7 +18,6 @@ ifeq ($(BSP_MODULE_ION_VERSION),ums9620)
 CONFIG_SPRD_PAMWIFI := y
 endif
 
-# ccflags-y += -DCONFIG_SC2355_WLAN_NAN
 # ccflags-y += -DCONFIG_SC2355_WLAN_RTT
 # ccflags-y += -DDRV_RESET_SELF
 
@@ -101,7 +100,6 @@ SC2355_WLAN := \
 		sc2355/tx.o \
 		sc2355/fcc.o \
 		sc2355/vendor.o \
-		sc2355/nan.o \
 		sc2355/rtt.o
 
 SC2355_SDIO_WLAN := sc2355/sdio.o

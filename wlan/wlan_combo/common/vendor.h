@@ -118,24 +118,6 @@ enum vendor_attr_gscan_id {
 	ATTR_MAX
 };
 
-/* link layer stats */
-enum vendor_attr {
-	ATTR_UNSPEC,
-	ATTR_GET_LLSTAT,
-	ATTR_CLR_LLSTAT,
-	/* NAN */
-	ATTR_NAN,
-	ATTR_ROAMING_POLICY = 5,
-	ATTR_VENDOR_AFTER_LAST,
-	ATTR_VENDOR_MAX =
-		ATTR_VENDOR_AFTER_LAST - 1,
-};
-
-static const struct nla_policy
-	roaming_policy[ATTR_VENDOR_MAX + 1] = {
-	[ATTR_ROAMING_POLICY] = {.type = NLA_U32},
-};
-
 /*start of link layer stats, CMD ID:14,15,16*/
 enum vendor_attr_ll_stats_set {
 	ATTR_LL_STATS_SET_INVALID = 0,
@@ -839,12 +821,6 @@ enum vendor_event_gscan {
 	SPRD_RTT_EVENT_COMPLETE_INDEX,
 
 	VENDOR_EVENT_INDEX_MAX,
-};
-
-enum vendor_event_nan {
-	VENDOR_EVENT_NAN_MONITOR_RSSI = 0,
-	/* NAN */
-	VENDOR_EVENT_NAN = 0x1400,
 };
 
 /*end of get supported feature---CMD ID:38*/

@@ -17,9 +17,6 @@
 #include "common/tdls.h"
 #include "hw_param.h"
 #include "hw_sipc_param.h"
-#ifdef CONFIG_SC2355_WLAN_NAN
-#include "nan.h"
-#endif /* CONFIG_SC2355_WLAN_NAN */
 #include "qos.h"
 #include "scan.h"
 #include "rtt.h"
@@ -4435,11 +4432,6 @@ unsigned short sc2355_rx_evt_process(struct sprd_priv *priv, u8 *msg)
 	case EVT_SUSPEND_RESUME:
 		cmdevt_report_suspend_resume_evt(vif, data, len);
 		break;
-#ifdef CONFIG_SC2355_WLAN_NAN
-	case EVT_NAN:
-		sc2355_nan_event(vif, data, len);
-		break;
-#endif /* CONFIG_SC2355_WLAN_NAN */
 	case EVT_STA_LUT_INDEX:
 		if (hif->hw_type == SPRD_HW_SC2355_PCIE)
 			sc2355_pcie_event_sta_lut(vif, data, len);
