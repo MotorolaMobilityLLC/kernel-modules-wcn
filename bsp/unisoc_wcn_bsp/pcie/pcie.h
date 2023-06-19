@@ -19,6 +19,14 @@
 #include <misc/wcn_bus.h>
 #include <linux/time.h>
 
+#include <linux/version.h>
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 17, 15)
+#include "../../../../../../kernel6.1/drivers/pci/pci.h"
+#else
+#include "../../../../../../kernel5.15/kernel5.15/drivers/pci/pci.h"
+#endif
+
+
 #define DRVER_NAME      "wcn_pcie"
 
 /* Synopsis PCIE configuration registers */
@@ -45,7 +53,8 @@
 #define OBREG1_OFFSET_ADDR	(0x10000 + (1 * 0x200))
 #define IBREG1_OFFSET_ADDR	(0x10000 + (1 * 0x200) + 0x100)
 
-#define EP_IBAR0_BASE_M3E	0X40800000
+#define MSI_IRQ_INT_EN_ALL      0xffffffff
+#define EP_IBAR0_BASE_M3E		0X40800000
 #define EDMA_GLB_REG_BASE_M3E	0x600000
 #define EDMA_CHN_REG_BASE_M3E	0x601000
 /* 8M align */
@@ -211,6 +220,7 @@ static inline enum wcn_bus_pm_state sprd_pcie_get_aspm_policy(void)
 int wcn_pcie_get_bus_status(void);
 void sprd_pcie_set_carddump_status(unsigned int flag);
 unsigned int sprd_pcie_get_carddump_status(void);
+void sprd_pcie_reset(void *wcn_dev);
 int sprd_pcie_scan_card(void *wcn_dev);
 void sprd_pcie_register_scan_notify(void *func);
 void sprd_pcie_remove_card(void *wcn_dev);

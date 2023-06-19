@@ -115,6 +115,10 @@ void wcn_dump_process(enum wcn_source_type type)
 		return;
 	}
 
+	if (g_match_config && g_match_config->unisoc_wcn_pcie) {
+	/* check pcie link status, reset if disconnected, or do nothing */
+		wcn_reset_pcie();
+	}
 	WCN_INFO("%s dumpmem begin\n", __func__);
 	sprdwcn_bus_set_carddump_status(true);
 
