@@ -1357,6 +1357,7 @@ void sc2355_pcie_event_sta_lut(struct sprd_vif *vif, u8 *data, u16 len)
 unsigned short sc2355_pcie_get_data_csum(void *entry, void *data)
 {
 	unsigned short csum = 0;
+#if 0
 	struct rx_mh_desc *mh_desc = (struct rx_mh_desc *)data;
 	struct sprd_hif *hif = (struct sprd_hif *)entry;
 
@@ -1364,6 +1365,7 @@ unsigned short sc2355_pcie_get_data_csum(void *entry, void *data)
 		if (mh_desc->tcp_checksum_en)
 			csum = mh_desc->tcp_hw_checksum;
 	}
+#endif
 
 	return csum;
 }
