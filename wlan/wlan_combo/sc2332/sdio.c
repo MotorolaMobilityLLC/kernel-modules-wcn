@@ -192,6 +192,7 @@ static int sdio_tx_cmd(struct sprd_hif *hif, struct sprd_msg_list *list)
 	while ((msg = sprd_peek_msg(list))) {
 		if (unlikely(hif->exit)) {
 			dev_kfree_skb(msg->skb);
+			msg->skb = NULL;
 			sprd_dequeue_msg(msg, list);
 			continue;
 		}
@@ -201,6 +202,7 @@ static int sdio_tx_cmd(struct sprd_hif *hif, struct sprd_msg_list *list)
 				"tx drop cmd msg,dropcnt:%u\n",
 				hif->drop_cmd_cnt);
 			dev_kfree_skb(msg->skb);
+			msg->skb = NULL;
 			sprd_dequeue_msg(msg, list);
 			continue;
 		}
@@ -213,6 +215,7 @@ static int sdio_tx_cmd(struct sprd_hif *hif, struct sprd_msg_list *list)
 			dev_err(&hif->pdev->dev, "%s err:%d\n", __func__, ret);
 			/* fixme if need retry */
 			dev_kfree_skb(msg->skb);
+			msg->skb = NULL;
 			sprd_dequeue_msg(msg, list);
 		}
 	}
@@ -246,6 +249,7 @@ static int sdio_tx_data(struct sprd_hif *hif,
 	while ((msg = sc2332_qos_peek_msg(qos, &pkts))) {
 		if (unlikely(hif->exit)) {
 			dev_kfree_skb(msg->skb);
+			msg->skb = NULL;
 			sc2332_qos_update(qos, msg, &msg->list);
 			sprd_dequeue_msg(msg, list);
 			sc2332_qos_need_resch(qos);
@@ -264,6 +268,7 @@ static int sdio_tx_data(struct sprd_hif *hif,
 			dev_err(&hif->pdev->dev,
 				"tx drop %s msg,dropcnt:%u\n", pinfo, cnt);
 			dev_kfree_skb(msg->skb);
+			msg->skb = NULL;
 			mode = msg->mode;
 			sc2332_qos_update(qos, msg, &msg->list);
 			sprd_dequeue_msg(msg, list);

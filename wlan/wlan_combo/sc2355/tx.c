@@ -155,10 +155,13 @@ static void tx_sdio_flush_txlist(struct sprd_msg_list *list)
 		cnt++;
 	}
 	while ((msg = sprd_peek_msg(list))) {
-		if (msg->skb)
+		if (msg->skb) {
 			dev_kfree_skb(msg->skb);
-		else
+			msg->skb = NULL;
+		} else {
 			kfree(msg->tran_data);
+			msg->tran_data = NULL;
+		}
 		sprd_dequeue_msg(msg, list);
 		continue;
 	}
@@ -627,6 +630,15 @@ static int tx_prepare_tx_msg(struct sprd_hif *hif, struct sprd_msg *msg)
 		hif->stats.tx_dropped++;
 #endif
 		INIT_LIST_HEAD(&msg->list);
+		/* skb == NULL in cmd msg */
+		if (msg->skb) {
+			dev_kfree_skb(msg->skb);
+			msg->skb = NULL;
+		} else {
+			kfree(msg->tran_data);
+			msg->tran_data = NULL;
+		}
+
 		sprd_free_msg(msg, msg->msglist);
 		return -1;
 	}
@@ -1158,7 +1170,10 @@ void sc2355_flush_mode_txlist(struct tx_mgmt *tx_mgmt, enum sprd_mode mode)
 
 			list_for_each_entry_safe(pos_buf, temp_buf,
 						 data_list, list) {
-				dev_kfree_skb(pos_buf->skb);
+				if (pos_buf->skb) {
+					dev_kfree_skb(pos_buf->skb);
+					pos_buf->skb = NULL;
+				}
 				list_del(&pos_buf->list);
 				sprd_free_msg(pos_buf, pos_buf->msglist);
 			}
@@ -1216,6 +1231,7 @@ void sc2355_dequeue_data_list(struct mbuf_t *head, int num)
 			return;
 		}
 		dev_kfree_skb(msg_pos->skb);
+		msg_pos->skb = NULL;
 		/*delete node from to_free_list */
 		spin_lock_bh(&msg_pos->xmit_msg_list->free_lock);
 		list_del(&msg_pos->list);
@@ -1606,6 +1622,10 @@ int sc2355_tx(struct sprd_chip *chip, struct sprd_msg *msg)
 			 qos_index, tid, tos);
 		if (qos_index == SPRD_AC_MAX) {
 			INIT_LIST_HEAD(&msg->list);
+			if (msg->skb) {
+				dev_kfree_skb(msg->skb);
+				msg->skb = NULL;
+			}
 			sprd_free_msg(msg, msg->msglist);
 			return -EPERM;
 		}
@@ -2393,6 +2413,7 @@ void sc2355_tx_ba_mgmt(struct sprd_priv *priv, struct sprd_vif *vif,
 	unsigned char *data_ptr;
 	u8 *rbuf;
 	u16 rlen = (1 + sizeof(struct host_addba_param));
+	int ret = 0;
 
 	msg = get_cmdbuf(priv, vif, len, cmd_id);
 	if (!msg) {
@@ -2406,8 +2427,8 @@ void sc2355_tx_ba_mgmt(struct sprd_priv *priv, struct sprd_vif *vif,
 
 	memcpy(msg->data, data, len);
 	data_ptr = (unsigned char *)data;
-
-	if (send_cmd_recv_rsp(priv, msg, rbuf, &rlen))
+	ret = send_cmd_recv_rsp(priv, msg, rbuf, &rlen);
+	if (ret || rlen == 0)
 		goto out;
 	/*if tx ba req failed, need to clear txba map*/
 	if (cmd_id == CMD_ADDBA_REQ && rbuf[0] != ADDBA_REQ_RESULT_SUCCESS) {

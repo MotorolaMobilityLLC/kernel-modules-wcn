@@ -984,6 +984,7 @@ void sc2355_pcie_handle_pop_list(void *data)
 	for (i = 0; i < pop->num; i++) {
 		msg_pos = GET_MSG_BUF(mbuf_pos);
 		dev_kfree_skb(msg_pos->skb);
+		msg_pos->skb = NULL;
 		mbuf_pos = mbuf_pos->next;
 	}
 

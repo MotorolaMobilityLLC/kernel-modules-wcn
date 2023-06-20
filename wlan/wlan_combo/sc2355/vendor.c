@@ -3337,9 +3337,8 @@ static int vendor_apf_req_send_recv(struct sprd_vif *vif,
 	}
 
 	ret = send_cmd_recv_rsp(priv, msg, (u8 *)apf_rsp, &rsp_len);
-	if (ret != 0) {
-		wl_err("%s ret %d.\n", __func__, ret);
-	}
+	if (ret != 0 || rsp_len == 0)
+		wl_err("%s ret:%d rsp_len:%d\n", __func__, ret, rsp_len);
 
 	*r_len = rsp_len;
 	return ret;

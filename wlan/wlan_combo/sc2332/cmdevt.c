@@ -298,14 +298,8 @@ static int cmdevt_send_cmd(struct sprd_priv *priv, struct sprd_msg *msg)
 			     hdr->plen - sizeof(*hdr), 0);
 
 	ret = sprd_chip_tx(&priv->chip, msg);
-	if (ret) {
+	if (ret)
 		wl_err("%s TX cmd Err: %d\n", __func__, ret);
-		/* now cmd msg dropped */
-		if (msg->skb) {
-			dev_kfree_skb(msg->skb);
-			msg->skb = NULL;
-		}
-	}
 
 	return ret;
 }
@@ -402,24 +396,12 @@ int sc2332_send_cmd_recv_rsp(struct sprd_priv *priv, struct sprd_msg *msg,
 	hif = &priv->hif;
 	if (hif->cp_asserted == 1) {
 		wl_err("%s CP2 assert\n", __func__);
-		sprd_chip_free_msg(&priv->chip, msg);
-		if (msg->skb) {
-			dev_kfree_skb(msg->skb);
-			msg->skb = NULL;
-		}
-		return -EIO;
+		ret = -EIO;
+		goto out;
 	}
 
 	if (cmdevt_lock_cmd(cmd)) {
-		sprd_chip_free_msg(&priv->chip, msg);
-		if (msg->skb) {
-			dev_kfree_skb(msg->skb);
-			msg->skb = NULL;
-		}
-
-		if (rlen)
-			*rlen = 0;
-
+		ret = -1;
 		goto out;
 	}
 	hdr = (struct sprd_cmd_hdr *)msg->skb->data;
@@ -431,7 +413,6 @@ int sc2332_send_cmd_recv_rsp(struct sprd_priv *priv, struct sprd_msg *msg,
 		if (cmd_id != CMD_CLOSE) {
 			wl_err("%s need block cmd after close : %s\n",
 				__func__, cmd_str);
-			sprd_chip_free_msg(&priv->chip, msg);
 			cmdevt_unlock_cmd(cmd);
 			goto out;
 		}
@@ -441,7 +422,6 @@ int sc2332_send_cmd_recv_rsp(struct sprd_priv *priv, struct sprd_msg *msg,
 		if (cmd_id != CMD_CLOSE && cmd_id != CMD_OPEN) {
 			wl_err("%s need block cmd while change iface : %s\n",
 				__func__, cmd_str);
-			sprd_chip_free_msg(&priv->chip, msg);
 			cmdevt_unlock_cmd(cmd);
 			goto out;
 		}
@@ -450,8 +430,7 @@ int sc2332_send_cmd_recv_rsp(struct sprd_priv *priv, struct sprd_msg *msg,
 	ret = cmdevt_send_cmd(priv, msg);
 	if (ret) {
 		cmdevt_unlock_cmd(cmd);
-
-		return -1;
+		return ret;
 	}
 
 	ret = cmdevt_recv_rsp_timeout(priv, timeout);
@@ -472,8 +451,15 @@ int sc2332_send_cmd_recv_rsp(struct sprd_priv *priv, struct sprd_msg *msg,
 	}
 
 	cmdevt_unlock_cmd(cmd);
+	return ret;
 
 out:
+	sprd_chip_free_msg(&priv->chip, msg);
+	dev_kfree_skb(msg->skb);
+	msg->skb = NULL;
+	if (rlen)
+		*rlen = 0;
+
 	return ret;
 }
 

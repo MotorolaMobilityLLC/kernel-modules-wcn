@@ -355,7 +355,7 @@ static const char *cmdevt_evt2str(u8 evt)
 #ifdef ENABLE_PAM_WIFI
 	case EVT_PAMWIFI_UL_RESOURCE_EVENT:
 		return "EVT_PAMWIFI_UL_RESOURCE_EVENT";
-#endif	
+#endif
 #ifdef ENABLE_CHR
 	case EVT_CHR:
 		return "EVT_CHR";
@@ -736,20 +736,16 @@ int sc2355_send_cmd_recv_rsp(struct sprd_priv *priv, struct sprd_msg *msg, u8 *r
 	hif = &priv->hif;
 	if (hif->cp_asserted == 1) {
 		wl_err("%s CP2 assert\n", __func__);
-		sprd_chip_free_msg(&priv->chip, msg);
-		kfree(msg->tran_data);
-		return -EIO;
+		ret = -EIO;
+		goto out;
 	}
 
 	ret = sc2355_api_version_available_check(priv, msg);
 	if (ret || cmdevt_lock_cmd(cmd, hif)) {
-		sprd_chip_free_msg(&priv->chip, msg);
-		kfree(msg->tran_data);
-		if (rlen)
-			*rlen = 0;
 		if (ret)
 			wl_err("API check fail, return!!\n");
-		return -1;
+		ret = -1;
+		goto out;
 	}
 	hdr = (struct sprd_cmd_hdr *)(msg->tran_data + priv->hif.hif_offset);
 	cmd_id = hdr->cmd_id;
@@ -760,6 +756,7 @@ int sc2355_send_cmd_recv_rsp(struct sprd_priv *priv, struct sprd_msg *msg, u8 *r
 		if (cmd_id != CMD_CLOSE) {
 			wl_err("%s need block cmd after close : %s\n",
 				__func__, cmd_str);
+			cmdevt_unlock_cmd(cmd, hif);
 			goto out;
 		}
 	}
@@ -768,6 +765,7 @@ int sc2355_send_cmd_recv_rsp(struct sprd_priv *priv, struct sprd_msg *msg, u8 *r
 		if (cmd_id != CMD_CLOSE && cmd_id != CMD_OPEN) {
 			wl_err("%s need block cmd while change iface : %s\n",
 				__func__, cmd_str);
+			cmdevt_unlock_cmd(cmd, hif);
 			goto out;
 		}
 	}
@@ -823,9 +821,9 @@ int sc2355_send_cmd_recv_rsp(struct sprd_priv *priv, struct sprd_msg *msg, u8 *r
 out:
 	sprd_chip_free_msg(&priv->chip, msg);
 	kfree(msg->tran_data);
+	msg->tran_data = NULL;
 	if (rlen)
 		*rlen = 0;
-	cmdevt_unlock_cmd(cmd, hif);
 	return ret;
 }
 
@@ -2949,6 +2947,7 @@ int sc2355_hif_fill_msdu_dscr(struct sprd_vif *vif,
 
 	lut_index = sc2355_find_lut_index(hif, vif);
 	if (lut_index < 6 && (!sc2355_is_group(hif->skb_da))) {
+		kfree_skb(skb);
 		wl_err("%s, %d, sta disconn, no data tx!", __func__, __LINE__);
 		return -EPERM;
 	}
@@ -3009,10 +3008,8 @@ int sc2355_xmit_data2cmd_wq(struct sk_buff *skb, struct net_device *ndev)
 	struct sprd_hif *hif = &vif->priv->hif;
 
 	/*fill dscr header first*/
-	if (sc2355_hif_fill_msdu_dscr(vif, skb, SPRD_TYPE_CMD, 0)) {
-		dev_kfree_skb(skb);
+	if (sc2355_hif_fill_msdu_dscr(vif, skb, SPRD_TYPE_CMD, 0))
 		return -EPERM;
-	}
 	/*alloc five byte for fw 16 byte need
 	 *dscr:11+flag:5 =16
 	 */

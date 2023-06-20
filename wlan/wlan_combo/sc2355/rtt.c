@@ -763,10 +763,10 @@ int sc2355_rtt_get_capabilities(struct wiphy *wiphy, struct wireless_dev *wdev,
 	memcpy(cmd->data, data, len);
 
 	ret = send_cmd_recv_rsp(vif->priv, msg, rsp, &rsp_len);
-	if (ret) {
-		netdev_err(vif->ndev,
+	netdev_err(vif->ndev,
 			   "%s: ret=%d, rsp_len=%d\n", __func__, ret, rsp_len);
-	}
+	if (ret || rsp_len == 0)
+		netdev_err(vif->ndev, "%s: cmd send error\n", __func__);
 
 	/* report capabilities */
 	skb = cfg80211_vendor_cmd_alloc_reply_skb(wiphy, RTT_RSP_LEN);

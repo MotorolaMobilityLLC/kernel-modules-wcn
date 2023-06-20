@@ -656,7 +656,6 @@ static netdev_tx_t iface_start_xmit(struct sk_buff *skb, struct net_device *ndev
 		 * as debug sdiom later, just drop the msg here
 		 * wapi temp drop
 		 */
-		dev_kfree_skb(skb);
 		return NETDEV_TX_OK;
 	}
 

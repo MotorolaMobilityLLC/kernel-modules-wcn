@@ -230,7 +230,7 @@ int sc2332_tx(struct sprd_chip *chip, struct sprd_msg *msg)
 			msg->skb = NULL;
 		}
 		sprd_free_msg(msg, msg->msglist);
-		return 0;
+		return -1;
 	}
 
 	sprd_queue_msg(msg, msg->msglist);
@@ -382,6 +382,8 @@ int sc2332_send_data(struct sprd_vif *vif, struct sprd_msg *msg,
 
 	if (is_wapi(vif, skb->data)) {
 		if (sc2332_rebuild_wapi_skb(vif, &skb)) {
+			if (skb)
+				dev_kfree_skb(skb);
 			sprd_free_msg(msg, msg->msglist);
 			return -ENOMEM;
 		}
