@@ -169,10 +169,6 @@ static int sprd_chr_decode_str(struct chr_cmd *cmd_set, u8 *data)
 	sprd_chr_get_cmdval(&cmd_set->maxcount, pos, "maxcount=", 16);
 	sprd_chr_get_cmdval(&cmd_set->timerlimit, pos, "tlimit=", 16);
 
-	wl_debug("CHR: decode_str: %s, %s, %#x, %d, %#x, %#x\n",
-		cmd_set->evt_type, cmd_set->module, cmd_set->evt_id,
-		cmd_set->set, cmd_set->maxcount, cmd_set->timerlimit);
-
 	snprintf(temp_str, CHR_BUF_SIZE, "wcn_chr_set_event,module=WIFI,"
 		"event_id=0x%x,set=%d,maxcount=0x%x,tlimit=0x%x", cmd_set->evt_id,
 		cmd_set->set, cmd_set->maxcount, cmd_set->timerlimit);
@@ -242,11 +238,9 @@ static inline int sprd_chr_set_sockflag(struct sprd_chr *chr, u8 *data)
 		chr->sock_flag = 2;
 		memset(&chr->fw_cmd_list, 0, sizeof(chr->fw_cmd_list));
 		memset(&chr->drv_cmd_list, 0, sizeof(chr->drv_cmd_list));
-		wl_err("CHR: disable all chr_evt, sock_flag set %u", chr->sock_flag);
 		return -1;
 	}
 	chr->sock_flag = 1;
-	wl_debug("CHR: enable chr_evt, sock_flag set %u", chr->sock_flag);
 
 	return 0;
 }
@@ -256,6 +250,7 @@ static int sprd_chr_client_thread(void *params)
 	int ret, sbuf_len, buf_pos;
 	struct sockaddr_in s_addr;
 	char recv_buf[CHR_BUF_SIZE] = {0};
+	int connect_limit = 0;
 	struct msghdr recv_msg = {0};
 	struct kvec recv_vec = {0};
 	struct chr_cmd command = {0};
@@ -286,7 +281,7 @@ retry:
 	wl_debug("%s, CHR: wait the server starting", __func__);
 	/* Optimize:block here while server not ready */
 	while (1) {
-		if (chr->thread_exit) {
+		if (chr->thread_exit || connect_limit++ >= CHR_CONNECT_LIMIT) {
 			wl_err("%s, CHR: stop wait connect, go exit!", __func__);
 			goto exit;
 		}
@@ -294,12 +289,13 @@ retry:
 		msleep(1000);
 
 		ret = sock->ops->connect(sock, (struct sockaddr *)&s_addr,
-				     sizeof(s_addr), 0);
+					 sizeof(s_addr), 0);
 
 		if (!ret)
 			break;
 	}
 	wl_debug("CHR: wifi_client connected\n");
+	connect_limit = 0;
 
 	recv_vec.iov_base = recv_buf;
 	recv_vec.iov_len = CHR_BUF_SIZE;
@@ -312,7 +308,6 @@ retry:
 		buf_pos = 0;
 		memset(recv_buf, 0, sizeof(recv_buf));
 		memset(&recv_msg, 0, sizeof(recv_msg));
-		wl_debug("CHR: wait for recv_msg");
 		ret = kernel_recvmsg(sock, &recv_msg, &recv_vec, 1, CHR_BUF_SIZE, 0);
 
 		if (unlikely(chr->thread_exit))
@@ -320,15 +315,14 @@ retry:
 		/* when an unknown err occurs in kernel_recvmsg,
 		* a large amount of information will be printfed
 		* cyclically, affecting the use of "kernel.log".
-		* So go to "retry" to re-connect with server.
+		* So go to "exit".
 		*/
-		if (unlikely(ret <= 0)) {
+		if (unlikely(ret <= 0 || strlen(recv_buf) == 0)) {
 			wl_err("%s, CHR: kernel_recvmsg faild, go to exit", __func__);
 			goto exit;
 		}
 
 		wl_debug("%s, CHR: recvmsg: %s", __func__, recv_buf);
-		wl_debug("CHR: msg_len is %d", (int)strlen(recv_buf));
 
 		/* Multiple chr_evt may be sended through a single string */
 		while (ret && recv_buf[buf_pos]) {

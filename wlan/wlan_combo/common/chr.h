@@ -23,6 +23,7 @@
 #define CHR_BUF_SIZE			1024
 #define CHR_CP2_DATA_LEN		11
 #define CHR_WAIT_TIMEOUT		2000
+#define CHR_CONNECT_LIMIT		10
 
 #define CHR_OPENERR_FLAGSET(A, B) 	(*A = B)
 
