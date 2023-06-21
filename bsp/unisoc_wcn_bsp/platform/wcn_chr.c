@@ -140,6 +140,30 @@ static int parse_event(char *buf, int len)
 	return 0;
 }
 
+static __be32 my_aton(const char *str)
+{
+	unsigned int l;
+	unsigned int val;
+	int i;
+
+	l = 0;
+	for (i = 0; i < 4; i++) {
+		l <<= 8;
+		if (*str != '\0') {
+			val = 0;
+				while (*str != '\0' && *str != '.' && *str != '\n') {
+					val *= 10;
+					val += *str - '0';
+					str++;
+				}
+			l |= val;
+			if (*str != '\0')
+				str++;
+		}
+	}
+	return htonl(l);
+}
+
 static int client_rx_thread(void *data)
 {
 	int ret;
@@ -164,7 +188,7 @@ retry:
 
 	s_addr.sin_family = AF_INET;
 	s_addr.sin_port = htons(4756);
-	s_addr.sin_addr.s_addr = in_aton("127.0.0.1");
+	s_addr.sin_addr.s_addr = my_aton("127.0.0.1");
 
 	WCN_INFO("wait for chr server ready\n");
 

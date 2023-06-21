@@ -11,11 +11,13 @@
 #include <linux/workqueue.h>
 #include <linux/rtc.h>
 #include <linux/timekeeping.h>
+#include <misc/wcn_bus.h>
 
 #include "wcn_glb.h"
 #include "wcn_misc.h"
 #include "wcn_procfs.h"
 #include "pcie.h"
+#include "wcn_types.h"
 
 #define LOOPCHECK_TIMER_INTERVAL      5
 #define WCN_LOOPCHECK_INIT	1
@@ -31,6 +33,11 @@ struct wcn_loopcheck {
 };
 
 static struct wcn_loopcheck loopcheck;
+extern bool isInAtCmd;
+
+#define BUS_TYPE_PCIE 1
+#define BUS_TYPE_SDIO 2
+#define BUS_TYPE_SIPC 3
 
 #ifdef BUILD_WCN_PCIE
 static int loopcheck_send_pcie(char *cmd, unsigned int len)
@@ -56,6 +63,10 @@ static int loopcheck_send_pcie(char *cmd, unsigned int len)
 	}
 	if (pcie_dev->pci_status == WCN_BUS_DOWN) {
 		WCN_ERR("%s:PCIE wcn bus down\n", __func__);
+		return -1;
+	}
+	if (isInAtCmd) {
+		WCN_ERR("%s: PCIE is In AT CMD... \n", __func__);
 		return -1;
 	}
 
@@ -88,6 +99,24 @@ static int loopcheck_send_pcie(char *cmd, unsigned int len)
 }
 #endif
 
+bool is_match_config_bus_type(int bus_type){
+	struct wcn_match_data *g_match_config = get_wcn_match_config();
+
+	if (!g_match_config)
+		return false;
+
+	switch (bus_type) {
+	case BUS_TYPE_PCIE:
+		return g_match_config->unisoc_wcn_pcie;
+	case BUS_TYPE_SDIO:
+		return g_match_config->unisoc_wcn_sdio;
+	case BUS_TYPE_SIPC:
+		return g_match_config->unisoc_wcn_sipc;
+	default:
+		return false;
+	}
+}
+
 static int loopcheck_send(char *buf, unsigned int len)
 {
 	unsigned char *send_buf = NULL;
@@ -95,17 +124,16 @@ static int loopcheck_send(char *buf, unsigned int len)
 	struct mbuf_t *tail = NULL;
 	int ret = 0, num = 1;
 	struct mchn_ops_t *p_mdbg_proc_ops = get_mdbg_proc_op() + MDBG_AT_TX_OPS;
-	struct wcn_match_data *g_match_config = get_wcn_match_config();
 	unsigned int pub_head_rsv;
 
-	if (g_match_config && g_match_config->unisoc_wcn_pcie) {
+	if (is_match_config_bus_type(BUS_TYPE_PCIE)) {
 #ifdef BUILD_WCN_PCIE
 		ret = loopcheck_send_pcie(buf, len);
 #endif
 		return ret;
 	}
 
-	if (g_match_config && g_match_config->unisoc_wcn_sdio)
+	if (is_match_config_bus_type(BUS_TYPE_SDIO))
 		pub_head_rsv = SDIOHAL_PUB_HEAD_RSV;
 	else
 		pub_head_rsv = PUB_HEAD_RSV;
@@ -127,7 +155,7 @@ static int loopcheck_send(char *buf, unsigned int len)
 		head->len = len;
 		head->next = NULL;
 
-		if (g_match_config && g_match_config->unisoc_wcn_sdio) {
+		if (is_match_config_bus_type(BUS_TYPE_SDIO)) {
 			ret = sprdwcn_bus_push_list_direct(p_mdbg_proc_ops->channel,
 							   head, tail, num);
 			if (p_mdbg_proc_ops->pop_link)
@@ -139,6 +167,10 @@ static int loopcheck_send(char *buf, unsigned int len)
 		} else {
 			ret = sprdwcn_bus_push_list(p_mdbg_proc_ops->channel,
 						    head, tail, num);
+			if (ret == -E_INVALIDPARA)
+				if (is_match_config_bus_type(BUS_TYPE_SIPC))
+					sprdwcn_bus_list_free(p_mdbg_proc_ops->channel,
+								head, tail, num);
 		}
 
 		if (ret != 0)

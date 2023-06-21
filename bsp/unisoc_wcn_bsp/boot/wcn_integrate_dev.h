@@ -176,8 +176,10 @@ struct wcn_init_data {
 #define WIFI_EFUSE_BLOCK_COUNT (3)
 #define WCN_EFUSE_BLOCK_COUNT (4)
 
+#define MARLIN_SHORT_WAIT_CP_INIT_POLL_TIME (4)
 #define MARLIN_WAIT_CP_INIT_POLL_TIME_MS	(9)	/* 9ms */
 #define MARLIN_WAIT_CP_INIT_COUNT	(512)
+#define MARLIN_SHORT_WAIT_CP_INIT_MAX_TIME	(20000) /* 20s */
 #define MARLIN_WAIT_CP_INIT_MAX_TIME (80000)
 #define WCN_WAIT_SLEEP_MAX_COUNT (150)
 #define WCN_WAIT_SHUTDOWN_MAX_COUNT (16)
@@ -266,6 +268,7 @@ struct wcn_device {
 	char	firmware_path_ext[FIRMWARE_FILEPATHNAME_LENGTH_MAX];
 	u32	file_length;
 	u32	fstab;
+	u32	rstpad_setting;
 	/* FS OPS info: */
 	struct	wcn_platform_fs platform_fs;
 	int	status;
@@ -288,6 +291,7 @@ struct wcn_device {
 	struct	completion download_done;
 	struct wcn_debug_bus dbus;
 	bool db_to_ddr_disable;
+	bool pm_qos_enable;
 };
 
 struct wcn_device_manage {

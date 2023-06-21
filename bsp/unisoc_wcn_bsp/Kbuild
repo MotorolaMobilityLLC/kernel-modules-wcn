@@ -66,6 +66,7 @@ WCN_BSP_PLATFORM := \
 		platform/gnss/gnss.o \
 		platform/wcn_dump.o \
 		platform/gnss_dump.o \
+		platform/wcn_pm_qos.o \
 		platform/wcn_gnss_dump.o \
 		platform/wcn_swd_dap.o \
 		platform/mem_pd_mgr.o \

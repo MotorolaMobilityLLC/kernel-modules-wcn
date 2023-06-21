@@ -141,14 +141,14 @@ static enum wcn_hard_intf_type sdio_get_hwintf_type(void)
 	return HW_TYPE_SDIO;
 }
 
-static bool sdio_is_suspended(bool important)
-{
-	return !sdiohal_is_resumed(important);
-}
-
 static void sdio_debug_point_show(void)
 {
 	sdiohal_debug_point_show();
+}
+
+static bool sdio_is_suspended(bool important)
+{
+	return !sdiohal_is_resumed(important);
 }
 
 static struct sprdwcn_bus_ops sdiohal_bus_ops = {

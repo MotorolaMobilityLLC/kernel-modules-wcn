@@ -31,6 +31,7 @@
 #include "wcn_txrx.h"
 #include "mdbg_type.h"
 #include "../include/wcn_dbg.h"
+#include "../sdio/sdiohal.h"
 
 u32 wcn_print_level = WCN_DEBUG_OFF;
 
@@ -128,11 +129,12 @@ void wcn_dump_process(enum wcn_source_type type)
 	}
 
 	dump_cnt++;
-
+	if (g_match_config && g_match_config->unisoc_wcn_m3lite)
+		sdiohal_dump_aon_reg();
 	if (g_match_config && g_match_config->unisoc_wcn_integrated)
 		mdbg_dump_mem_integ(type);
 	else
-		mdbg_dump_mem();
+		mdbg_dump_mem(type);
 
 	WCN_INFO("%s dumpmem end\n", __func__);
 }
@@ -171,6 +173,7 @@ void __wcn_assert_interface(enum wcn_source_type type, char *str)
 	wcn_chr_report_event(str, 0);
 	sprdwcn_bus_debug_point_show();
 	/*wcn reset or dump process*/
+	wcn_pm_qos_reset();
 	stop_loopcheck();
 	wcnlog_clear_log();
 
@@ -932,7 +935,7 @@ static ssize_t mdbg_proc_write(struct file *filp,
 			mutex_lock(&mdbg_proc->mutex);
 			marlin_set_sleep(MARLIN_MDBG, FALSE);
 			marlin_set_wakeup(MARLIN_MDBG);
-			mdbg_dump_mem();
+			mdbg_dump_mem(WCN_SOURCE_BTWF);
 			marlin_set_sleep(MARLIN_MDBG, TRUE);
 			mutex_unlock(&mdbg_proc->mutex);
 			return count;
@@ -1020,6 +1023,7 @@ static ssize_t mdbg_proc_write(struct file *filp,
 			WCN_ERR("%s:PCIE device link error\n", __func__);
 			return -1;
 		}
+		wcn_set_tx_complete_status(0);
 		/* make sure don't send at cmd to pcie when chip has power off */
 		if ((strncmp(mdbg_proc->write_buf, "at+loopcheck", 12) == 0)) {
 			if (atomic_inc_return(&pcie_dev->xmit_cnt) >=

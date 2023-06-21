@@ -61,6 +61,12 @@
 #define M3L_BTWF_XLTBUF_WAIT	0x20
 #define M3L_BTWF_PLL_PWR_WAIT	0x40
 #define M3L_BTWF_WAKEUP_LOCK	0x60
+#define SD_D3				0x408404A0
+#define SD_D0				0x408404A4
+#define SD_D2				0x408404A8
+#define SD_D1				0x408404AC
+#define SD_CLK				0x408404B0
+#define SD_CMD				0x408404B4
 /**************WCN END**************/
 
 #define M3L_CP_RESET_REG		0x40088288

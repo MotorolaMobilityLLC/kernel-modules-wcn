@@ -160,6 +160,7 @@ EXPORT_SYMBOL(slp_mgr_deinit);
 
 int slp_mgr_death(void)
 {
+	WCN_INFO("%s enter\n", __func__);
 	atomic_set(&(slp_mgr.cp2_state), STAY_DEATH);
 	return 0;
 }

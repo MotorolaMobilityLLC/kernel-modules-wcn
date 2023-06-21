@@ -102,6 +102,32 @@ struct sub_sys_pm_state {
 	unsigned int state:2;
 	unsigned int rsvd:26;
 };
+
+struct aspm_latency {
+	u32 l0s;			/* L0s latency (nsec) */
+	u32 l1;				/* L1 latency (nsec) */
+};
+
+struct sprdwcn_pcie_link_state {
+	struct pci_dev *child;
+	struct pci_dev *parent;
+	u32 aspm_enabled;
+	u32 aspm_cap;
+
+	struct aspm_latency latency_up;
+	struct aspm_latency latency_dw;
+
+	struct aspm_latency acceptable;
+
+	struct {
+		u32 up_cap_ptr;
+		u32 dw_cap_ptr;
+		u32 ctl1;
+		u32 ctl2;
+	} l1ss;
+	void *priv;
+};
+
 struct wcn_pcie_info {
 	struct platform_device *rc_pd;
 	struct pci_dev *dev;
@@ -138,6 +164,7 @@ struct wcn_pcie_info {
 	atomic_t card_exist;
 	atomic_t is_suspending;
 	struct mutex pm_lock;
+	struct sprdwcn_pcie_link_state link_state;
 };
 
 struct inbound_reg {
@@ -204,16 +231,11 @@ static inline struct wcn_pcie_info *get_wcn_device_info(void)
 
 #ifdef CONFIG_PCIEASPM
 int sprd_pcie_set_aspm_policy(enum sub_sys subsys, enum wcn_bus_pm_state state);
-enum wcn_bus_pm_state sprd_pcie_get_aspm_policy(void);
 #else
 static inline int sprd_pcie_set_aspm_policy(enum sub_sys subsys,
 					    enum wcn_bus_pm_state state)
 {
 	return -EINVAL;
-}
-static inline enum wcn_bus_pm_state sprd_pcie_get_aspm_policy(void)
-{
-	return 0;
 }
 #endif
 

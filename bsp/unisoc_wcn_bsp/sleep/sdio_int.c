@@ -44,11 +44,14 @@ void sdio_record_power_notify(bool notify_cb_sts)
 	sdio_power_notify = notify_cb_sts;
 }
 
-void sdio_wait_pub_int_done(void)
+bool sdio_wait_pub_int_done(void)
 {
 	struct slp_mgr_t *slp_mgr;
-	long ret = 0;
+
 	struct wcn_match_data *g_match_config = get_wcn_match_config();
+
+	long ret = -1;
+
 
 	slp_mgr = slp_get_info();
 
@@ -70,11 +73,16 @@ void sdio_wait_pub_int_done(void)
 			marlin_avdd18_dcxo_enable(false);
 		ret = wait_event_killable_timeout(sdio_int.pub_int_done,
 			atomic_read(&flag_pub_int_done), usecs_to_jiffies(3000 * 10));
+	
+		if (g_match_config && g_match_config->unisoc_wcn_m3lite && is_ums9620)
+			marlin_avdd18_dcxo_enable(false);
 
 		WCN_INFO("flag_pub_int_done(%s)-%d\n", ret == 0 ? "timeout" : "success",
 			atomic_read(&flag_pub_int_done));
 	} else
-		WCN_INFO("sdio power_notify was NULL\n");
+		WCN_INFO("sdio power_notify is NULL\n");
+
+	return !!ret;
 }
 EXPORT_SYMBOL(sdio_wait_pub_int_done);
 

@@ -27,6 +27,7 @@
 #include <linux/workqueue.h>
 #include <misc/marlin_platform.h>
 #include <misc/wcn_bus.h>
+#include <linux/notifier.h>
 
 #include "../pcie/edma_engine.h"
 #include "../sleep/sdio_int.h"
@@ -98,6 +99,9 @@ static struct completion find_tsx_completion;
 static const struct firmware *tsx_firmware;
 static bool is_tsx_found = true;
 static bool is_boot_ufs;
+
+unsigned char  is_ums9620;
+unsigned char  is_ums9620_uob;
 unsigned char  flag_reset;
 unsigned char  flag_download_done;
 char functionmask[8];
@@ -155,6 +159,73 @@ unsigned int marlin_get_wcn_chipid(void)
 	pr_info("marlin: chipid=%x, %s\n", chip_id, __func__);
 
 	return chip_id;
+}
+
+static int get_boot_device(void)
+{
+	struct device_node *cmdline_node;
+	const char *cmd_line;
+	int ret;
+
+	is_boot_ufs = 0;
+	cmdline_node = of_find_node_by_path("/chosen");
+	ret = of_property_read_string(cmdline_node, "bootargs", &cmd_line);
+	if (ret) {
+		pr_err("Can not get bootargs \r\n");
+		return ret;
+	}
+
+	if (strstr(cmd_line, "ufs")) {
+		is_boot_ufs = 1;
+		pr_info("boot from ufs \n");
+		return 0;
+	}
+
+	pr_info("boot from emmc \n");
+
+	return 0;
+}
+
+static int get_boot_hardware(void)
+{
+	struct device_node *cmdline_node;
+	const char *cmd_line;
+	int ret;
+
+	is_ums9620 = 0;
+	cmdline_node = of_find_node_by_path("/chosen");
+	ret = of_property_read_string(cmdline_node, "bootargs", &cmd_line);
+	if (ret)
+		return ret;
+
+	if (strstr(cmd_line, "UMS9620")) {
+		is_ums9620 = 1;
+		pr_info("boot UMS9620 according to chipid\n");
+		return 0;
+	}
+
+	return 0;
+}
+
+static int get_boot_board(void)
+{
+	struct device_node *cmdline_node;
+	const char *cmd_line;
+	int ret;
+
+	is_ums9620_uob = 0;
+	cmdline_node = of_find_node_by_path("/chosen");
+	ret = of_property_read_string(cmdline_node, "bootargs", &cmd_line);
+	if (ret)
+		return ret;
+
+	if (strstr(cmd_line, "ums9620_2h10_uob")) {
+		is_ums9620_uob = 1;
+		pr_info("boot ums9620 uob\n");
+		return 0;
+	}
+
+	return 0;
 }
 
 enum wcn_chip_id_type wcn_get_chip_type(void)
@@ -851,6 +922,10 @@ static int gnss_download_firmware(void)
 
 	pimghdr = (struct sys_img_header *)(firmware->data);
 	sec_img_magic = pimghdr->magic_num;
+	if (sec_img_magic != SEC_IMAGE_MAGIC) {
+		pr_info("%s image magic 0x%x, SEC_IMAGE_MAGIC =  0x%x\n",
+			__func__, sec_img_magic, SEC_IMAGE_MAGIC);
+	}
 	if (sec_img_magic == SEC_IMAGE_MAGIC) {
 		if (pimghdr->img_real_size == 0 ||
 			(pimghdr->img_signed_size <=
@@ -858,6 +933,16 @@ static int gnss_download_firmware(void)
 			pimghdr->img_signed_size > firmware->size) {
 			release_firmware(firmware);
 			pr_err("%s check signed img fail.\n", __func__);
+			return -1;
+		}
+
+		wcn_write_data_to_phy_addr(
+			marlin_dev->base_addr_gnss,
+			(void *)firmware->data, pimghdr->img_signed_size);
+		if (wcn_firmware_sec_verify(2, marlin_dev->base_addr_gnss,
+			pimghdr->img_signed_size) < 0) {
+			pr_err("%s sec verify fail.\n", __func__);
+			release_firmware(firmware);
 			return -1;
 		}
 
@@ -1007,6 +1092,10 @@ static int btwifi_download_firmware(void)
 
 	pimghdr = (struct sys_img_header *)(firmware->data);
 	sec_img_magic = pimghdr->magic_num;
+	if (sec_img_magic != SEC_IMAGE_MAGIC) {
+		pr_info("%s image magic 0x%x, SEC_IMAGE_MAGIC =  0x%x\n",
+			__func__, sec_img_magic, SEC_IMAGE_MAGIC);
+	}
 	if (sec_img_magic == SEC_IMAGE_MAGIC) {
 		if (pimghdr->img_real_size == 0 ||
 			(pimghdr->img_signed_size <=
@@ -1017,6 +1106,15 @@ static int btwifi_download_firmware(void)
 			return -1;
 		}
 
+		wcn_write_data_to_phy_addr(
+			marlin_dev->base_addr_btwf,
+			(void *)firmware->data, pimghdr->img_signed_size);
+		if (wcn_firmware_sec_verify(1, marlin_dev->base_addr_btwf,
+			pimghdr->img_signed_size) < 0) {
+			pr_err("%s sec verify fail.\n", __func__);
+			release_firmware(firmware);
+			return -1;
+		}
 		tx_img_size = pimghdr->img_real_size;
 		tx_img_ptr = vmalloc(tx_img_size);
 		if (!tx_img_ptr) {
@@ -1165,12 +1263,11 @@ static int wcn_pmic_do_bound(struct wcn_pmic_config *pmic, bool bound)
 
 static inline int wcn_avdd12_parent_bound_chip(bool enable)
 {
-	if (marlin_dev->need_to_check_ufs) {
+	if (is_ums9620) {
 		pr_info("is_boot_ufs=%d enable=%d", is_boot_ufs, enable);
-		if (!is_boot_ufs) {
-			pr_info("is emmc\n");
+		if (!is_boot_ufs)
 			return wcn_pmic_do_bound(&marlin_dev->avdd12_parent_bound_chip, enable);
-		}
+
 		return 0;
 	} else {
 		return wcn_pmic_do_bound(&marlin_dev->avdd12_parent_bound_chip, enable);
@@ -1180,32 +1277,6 @@ static inline int wcn_avdd12_parent_bound_chip(bool enable)
 static inline int wcn_avdd12_bound_xtl(bool enable)
 {
 	return wcn_pmic_do_bound(&marlin_dev->avdd12_bound_wbreq, enable);
-}
-
-static int get_boot_device(void)
-{
-	struct device_node *cmdline_node;
-	const char *cmd_line;
-	int ret;
-
-	is_boot_ufs = 0;
-	cmdline_node = of_find_node_by_path("/chosen");
-	ret = of_property_read_string(cmdline_node, "bootargs", &cmd_line);
-	if (ret) {
-		pr_err("Can not get bootargs \r\n");
-		return ret;
-	}
-
-	if (marlin_dev->need_to_check_ufs) {
-		if (strstr(cmd_line, "ufs")) {
-			is_boot_ufs = 1;
-			pr_info("boot from ufs\n");
-			return 0;
-		}
-		pr_info("boot from emmc\n");
-		return 0;
-	}
-	return 0;
 }
 
 /* wifipa bound XTLEN3, gnss not need wifipa bound */
@@ -1304,6 +1375,7 @@ out:
 
 static int marlin_parse_dt(struct platform_device *pdev)
 {
+	struct device_node *node;
 	struct device_node *np = pdev->dev.of_node;
 	struct device_node *cmdline_node;
 	struct regmap *pmu_apb_gpr;
@@ -1427,37 +1499,23 @@ static int marlin_parse_dt(struct platform_device *pdev)
 			pr_err("xtal 26m gpio request err: %d\n", ret);
 	}
 
-	ret = of_address_to_resource(np, 0, &res);
+	node = of_parse_phandle(np, "memory-region", 0);
+	if (!node) {
+		pr_err("no memory-region specified\n");
+		ret = of_address_to_resource(np, 0, &res);
+	} else {
+		ret = of_address_to_resource(node, 0, &res);
+	}
 	if (ret) {
-		pr_info("No BTWF mem.\n");
+		pr_info("No WCN mem.\n");
 	} else {
 		marlin_dev->base_addr_btwf = res.start;
 		marlin_dev->maxsz_btwf = resource_size(&res);
-		pr_info("cp base = 0x%llx, size = 0x%x\n",
-			 (u64)marlin_dev->base_addr_btwf,
-			 marlin_dev->maxsz_btwf);
-	}
-
-	ret = of_address_to_resource(np, 1, &res);
-	if (ret) {
-		pr_info("No GNSS mem.\n");
-	} else {
 		marlin_dev->base_addr_gnss = res.start;
 		marlin_dev->maxsz_gnss = resource_size(&res);
 		pr_info("cp base = 0x%llx, size = 0x%x\n",
-			 (u64)marlin_dev->base_addr_gnss,
-			 marlin_dev->maxsz_gnss);
-	}
-
-	/* check emmc or ufs */
-	ret = of_property_read_string(np, "sprd,check-emmc-ufs",
-		(const char **)&marlin_dev->emmc_ufs);
-	if (!ret) {
-		marlin_dev->need_to_check_ufs = true;
-		pr_info("need to check emmc or ufs\n");
-	} else {
-		marlin_dev->need_to_check_ufs = false;
-		pr_info("Don't need to check emmc or ufs\n");
+			 (u64)marlin_dev->base_addr_btwf,
+			 marlin_dev->maxsz_btwf);
 	}
 
 	pr_info("BTWF_FIRMWARE_PATH len=%ld\n",
@@ -2140,6 +2198,47 @@ static int set_cp_mem_status(enum wcn_sub_sys subsys, int val)
 	return ret;
 }
 
+int set_cp_pin_ds(unsigned int addr, unsigned int val)
+{
+	int ret = 0;
+	unsigned int temp_val = 0;
+
+	struct wcn_match_data *g_match_config = get_wcn_match_config();
+
+	if (g_match_config && (!g_match_config->unisoc_wcn_m3lite)) {
+		pr_info("g_match_config:%x\n", g_match_config->unisoc_wcn_m3lite);
+		return 0;
+	}
+
+	ret = sprdwcn_bus_reg_read(addr, &temp_val, 1);
+	if (ret < 0) {
+		pr_err("%s read pin_reg error:%d\n", __func__, ret);
+		return ret;
+	}
+	pr_info("addr:0x%x, read val:0x%x\n", addr, temp_val);
+
+	temp_val &= ~(0x7 << 19);
+	temp_val |= (val << 19);
+
+	pr_info("addr:0x%x, modify val:0x%x\n", addr, temp_val);
+
+	ret = sprdwcn_bus_reg_write(addr, &temp_val, 1);
+	if (ret < 0) {
+		pr_err("write pin_reg error:%d\n", ret);
+		return ret;
+	}
+
+	ret = sprdwcn_bus_reg_read(addr, &temp_val, 1);
+	if (ret < 0) {
+		pr_err("%s read pin_reg error:%d\n", __func__, ret);
+		return ret;
+	}
+
+	pr_info("addr:0x%x, write val:0x%x\n", addr, temp_val);
+
+	return ret;
+}
+
 int enable_spur_remove(void)
 {
 	int ret;
@@ -2318,6 +2417,9 @@ static void pre_btwifi_download_sdio(struct work_struct *work)
 			check_cp_clock_mode();
 			marlin_write_cali_data();
 			mem_pd_save_bin();
+		} else {
+			pr_info("n6p-1 disable vddsim2\n");
+			marlin_avdd18_dcxo_enable(false);
 		}
 #ifdef WCN_RDCDBG
 		/*rdc_debug.c*/
@@ -3085,6 +3187,16 @@ int start_marlin(enum wcn_sub_sys subsys)
 	}
 	if (marlin_set_power(subsys, true) < 0)
 		goto unlock;
+
+	if (g_match_config && g_match_config->unisoc_wcn_m3lite && is_ums9620_uob) {
+		set_cp_pin_ds(SD_D3, 3);
+		set_cp_pin_ds(SD_D0, 3);
+		set_cp_pin_ds(SD_D2, 3);
+		set_cp_pin_ds(SD_D1, 3);
+		set_cp_pin_ds(SD_CLK, 3);
+		set_cp_pin_ds(SD_CMD, 3);
+	}
+
 	if (g_match_config && !g_match_config->unisoc_wcn_pcie)
 		ret = mem_pd_mgr(subsys, true);
 
@@ -3203,9 +3315,11 @@ int marlin_probe(struct platform_device *pdev)
 	if (g_match_config && g_match_config->unisoc_wcn_slp)
 		slp_mgr_init();
 
+	get_boot_hardware();
 	/* register ops */
 	wcn_bus_init();
 	get_boot_device();
+	get_boot_board();
 	bus_ops = get_wcn_bus_ops();
 	bus_ops->start_wcn = start_marlin;
 	bus_ops->stop_wcn = stop_marlin;
@@ -3344,6 +3458,8 @@ static void __marlin_shutdown(void)
 	wcn_avdd12_bound_xtl(false);
 	wcn_wifipa_bound_xtl(false);
 	wifipa_enable(0);
+	marlin_analog_power_enable(false);
+	marlin_chip_en(false, false);
 
 	if (g_match_config && !g_match_config->unisoc_wcn_pcie)
 		sdio_pub_int_poweron(false);

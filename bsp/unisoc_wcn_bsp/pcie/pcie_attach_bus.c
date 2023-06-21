@@ -104,11 +104,6 @@ static void pcie_set_carddump_status(unsigned int flag)
 	return sprd_pcie_set_carddump_status(flag);
 }
 
-static int pcie_get_aspm_policy(void)
-{
-	return sprd_pcie_get_aspm_policy();
-}
-
 static int pcie_set_aspm_policy(enum sub_sys subsys,
 				enum wcn_bus_pm_state state)
 {
@@ -159,7 +154,6 @@ static struct sprdwcn_bus_ops pcie_bus_ops = {
 	.get_bus_status = pcie_get_bus_status,
 	.get_carddump_status = pcie_get_carddump_status,
 	.set_carddump_status = pcie_set_carddump_status,
-	.get_pm_policy = pcie_get_aspm_policy,
 	.set_pm_policy = pcie_set_aspm_policy,
 	.register_rescan_cb = pcie_register_rescan_cb,
 	.rescan = pcie_rescan,

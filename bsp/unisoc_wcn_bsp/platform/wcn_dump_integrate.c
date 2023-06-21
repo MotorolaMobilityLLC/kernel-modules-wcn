@@ -39,6 +39,7 @@
 /* magic number, not change it */
 #define WCN_DUMP_VERSION_NAME "WCN_DUMP_HEAD__"
 #define WCN_DUMP_ALIGN(x) (((x) + 3) & ~3)
+extern int wcn_sipc_mdbg_debug_show(void);
 
 static struct mdbg_ring_t	*mdev_ring;
 gnss_dump_callback gnss_dump_handle;
@@ -355,6 +356,10 @@ static int btwf_dump_mem(enum wcn_source_type type)
  */
 void mdbg_dump_mem_integ(enum wcn_source_type type)
 {
+	/* print debugbus information beforce dump for debugging */
+	if (wcn_platform_chip_type() == WCN_PLATFORM_TYPE_QOGIRL6)
+		debug_bus_show("WCN Assert");
+
 	if (wcn_platform_chip_type() == WCN_PLATFORM_TYPE_SHARKL3) {
 		if (type == WCN_SOURCE_GNSS) {
 			/* dump gnss */
@@ -371,6 +376,7 @@ void mdbg_dump_mem_integ(enum wcn_source_type type)
 		/* dump btwf */
 		btwf_dump_mem(type);
 	}
+	wcn_sipc_mdbg_debug_show();
 }
 
 int dump_arm_reg_integ(void)

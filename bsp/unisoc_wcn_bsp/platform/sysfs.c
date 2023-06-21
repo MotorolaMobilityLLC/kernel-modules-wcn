@@ -18,10 +18,13 @@
 #include "../sdio/sdiohal.h"
 #include "wcn_dbg.h"
 #include "wcn_glb.h"
+#include "wcn_debug_bus.h"
 #include "wcn_boot.h"
 #include "wcn_types.h"
 static bool from_ddr;
+extern int is_wcn_shutdown;
 
+bool isInAtCmd;
 struct wcn_sysfs_info sysfs_info;
 
 void wcn_send_atcmd_lock(void)
@@ -301,9 +304,12 @@ static ssize_t wcn_sysfs_show_sw_ver(struct device *dev,
 {
 	size_t len = 0;
 	char a[] = "at+spatgetcp2info\r\n";
+	isInAtCmd = true;
 
+	WCN_INFO("%s \n", __func__);
 	if (!marlin_get_module_status()) {
 		memcpy(buf, sysfs_info.sw_ver_buf, sysfs_info.sw_ver_len);
+		isInAtCmd = false;
 		return sysfs_info.sw_ver_len;
 	}
 
@@ -317,6 +323,7 @@ static ssize_t wcn_sysfs_show_sw_ver(struct device *dev,
 	/* because cp2 pass wrong len */
 	len = strlen(buf);
 	WCN_INFO("show:len=%zd\n", len);
+	isInAtCmd = false;
 
 	return len;
 }
@@ -420,6 +427,13 @@ static ssize_t wcn_sysfs_show_armlog_status(struct device *dev,
 	wcn_send_atcmd(a, strlen(a), buf, &len);
 
 	WCN_INFO("%s:len=%zd, buf=%s\n", __func__, len, buf);
+	if (!memcmp(buf, "+ARMLOG: ", strlen("+ARMLOG: "))) {
+		buf[0] = buf[strlen("+ARMLOG: ")];
+		buf[1] = '\0';
+	} else {
+		buf[0] = '\0';
+	}
+
 	len = strlen(buf);
 	WCN_INFO("show:len=%zd\n", len);
 
@@ -562,11 +576,10 @@ static ssize_t wcn_sysfs_store_reset_dump(struct device *dev,
 
 	if (strncmp(buf, "dump", 4) == 0) {
 		atomic_set(&sysfs_info.is_reset, WCN_ASSERT_ONLY_DUMP);
+	} else if (strncmp(buf, "reset_dump", 10) == 0) {
+		atomic_set(&sysfs_info.is_reset, WCN_ASSERT_BOTH_RESET_DUMP);
 	} else if (strncmp(buf, "reset", 5) == 0) {
-		if (strncmp(buf, "reset_dump", 10) == 0) {
-			atomic_set(&sysfs_info.is_reset, WCN_ASSERT_BOTH_RESET_DUMP);
-		} else
-			atomic_set(&sysfs_info.is_reset, WCN_ASSERT_ONLY_RESET);
+		atomic_set(&sysfs_info.is_reset, WCN_ASSERT_ONLY_RESET);
 	} else if (strncmp(buf, "manual_dump", 11) == 0) {
 		wcn_assert_interface(WCN_SOURCE_BTWF, "dumpmem");
 	} else
@@ -609,6 +622,37 @@ static ssize_t wcn_sysfs_store_atcmd(struct device *dev,
 static DEVICE_ATTR(atcmd, 0644,
 		   wcn_sysfs_show_atcmd,
 		   wcn_sysfs_store_atcmd);
+
+static ssize_t wcn_sysfs_show_shutting_down(struct device *dev,
+					 struct device_attribute *attr,
+					 char *buf)
+{
+	ssize_t len = PAGE_SIZE;
+
+	len = snprintf(buf, len, "%d\n", is_wcn_shutdown);
+
+	return len;
+}
+
+static ssize_t wcn_sysfs_store_shutting_down(struct device *dev,
+					  struct device_attribute *attr,
+					  const char *buf, size_t count)
+{
+	WCN_INFO("%s: buf=%s, count=%lu\n", __func__, buf, count);
+
+	if (strncmp(buf, "shutting", strlen("shutting")) == 0) {
+		WCN_INFO("%s:Ready to shutdown\n", __func__);
+		is_wcn_shutdown = 1;
+	} else {
+		WCN_INFO("%s:Clear WCN shutdown flag\n", __func__);
+		is_wcn_shutdown = 0;
+	}
+
+	return count;
+}
+static DEVICE_ATTR(shutting_down, 0644,
+		   wcn_sysfs_show_shutting_down,
+		   wcn_sysfs_store_shutting_down);
 
 static ssize_t debugbus_show(struct device *dev,
 					struct device_attribute *attr, char *buf)
@@ -685,6 +729,58 @@ static ssize_t debugbus_store(struct device *dev,
 }
 /* aiaiai: wcn_sys_show_debugbus to debugbus_show, wcn_sys_store_debugbus to debugbus_store */
 static DEVICE_ATTR_RW(debugbus);
+
+
+static ssize_t debugbus_show_trigger_store(struct device *dev, struct device_attribute *attr,
+				const char *buf, size_t count)
+{
+	WCN_INFO("%s %s enter\n", buf, __func__);
+
+	debug_bus_show("debugbus_show_trigger_store");
+	return count;
+}
+static DEVICE_ATTR_WO(debugbus_show_trigger);
+
+static ssize_t pm_qos_enable_store(struct device *dev, struct device_attribute *attr,
+				const char *buf, size_t count)
+{
+	WCN_INFO("%s %s enter\n", __func__, buf);
+
+	if (!strncmp(buf, "enable", strlen("enable")))
+		wcn_pm_qos_enable();
+	else if (!strncmp(buf, "disable", strlen("disable")))
+		wcn_pm_qos_disable();
+	else
+		WCN_INFO("Invalid, valid strings:'enable' or 'disable'\n");
+
+	return count;
+}
+static DEVICE_ATTR_WO(pm_qos_enable);
+
+/**
+ * pm_policy_store - Configure PCIe ASPM from user space.
+ *
+ *
+ * Write 1(BUS_PM_DISABLE),2(BUS_PM_L0s_L1_ENABLE) and 3(BUS_PM_L0s_L1_ENABLE)
+ * to pm_policy node.
+ */
+static ssize_t pm_policy_store(struct device *dev, struct device_attribute *attr,
+				const char *buf, size_t count)
+{
+	int ret = 0;
+	unsigned long res = 0;
+
+	ret = kstrtoul(buf, 10, &res);
+	if (ret < 0 || (res < BUS_PM_DISABLE || res > BUS_PM_ALL_ENABLE)) {
+		WCN_ERR("incorrect value written to pm_policy\n");
+		return -EINVAL;
+	}
+
+	sprdwcn_bus_set_pm_policy(AUTO, res);
+	return count;
+
+}
+static DEVICE_ATTR_WO(pm_policy);
 /*
  * ud710_3h10:/sys/devices/platform/sprd-marlin3 # ls
  * sleep_state driver driver_override fwlog hw_pg_ver modalias of_node power
@@ -859,7 +955,11 @@ static struct attribute *wcn_attrs[] = {
 	&dev_attr_loglevel.attr,
 	&dev_attr_reset_dump.attr,
 	&dev_attr_atcmd.attr,
+	&dev_attr_shutting_down.attr,
 	&dev_attr_debugbus.attr,
+	&dev_attr_debugbus_show_trigger.attr,
+	&dev_attr_pm_qos_enable.attr,
+	&dev_attr_pm_policy.attr,
 	NULL,
 };
 

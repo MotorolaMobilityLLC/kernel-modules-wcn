@@ -222,7 +222,7 @@ int gnss_dump_data(void *start_addr, int len, u32 skip)
 		temp_buf = buf;
 		if (likely(!skip))
 			memcpy_fromio(buf, start_addr+count, trans_size);
-		while (gnss_ring_free_space() - 1 == 0) {
+		while ((int)gnss_ring_free_space() - 1 <= 0) {
 			WCN_ERR("no space to write mem,sleep...\n");
 			msleep(20);
 		}
@@ -1089,7 +1089,7 @@ static int btwf_dump_mem(size_t skip)
  * 0x40300000 - 0x40358000  wifi 352k share RAM
  * 0x400f1000 - 0x400fe100  wifi reg
  */
-int mdbg_dump_mem(void)
+int mdbg_dump_mem(enum wcn_source_type type)
 {
 	struct wcn_match_data *g_match_config = get_wcn_match_config();
 	int i;
@@ -1114,6 +1114,8 @@ int mdbg_dump_mem(void)
 	/* mdbg_atcmd_clean(); */
 	cp_dcache_clean_invalid_all();
 
+	if (type == WCN_SOURCE_GNSS)
+		goto dump_gnss;
 	if (wcn_fill_dump_head_info(btwf_reg, btwf_reg_cnt))
 		return -1;
 
@@ -1134,6 +1136,7 @@ int mdbg_dump_mem(void)
 
 	btwf_dump_mem(skip_modules);
 
+dump_gnss:
 	/*check the status of gnss*/
 	if (!(marlin_get_power() < 80)) {
 	WCN_INFO("need to dump gnss!\n");

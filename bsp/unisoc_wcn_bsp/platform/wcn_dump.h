@@ -12,6 +12,7 @@
 #ifndef _WCN_DUMP_H
 #define _WCN_DUMP_H
 
+int mdbg_dump_mem(enum wcn_source_type type);
 struct wcn_dump_mem_reg {
 	u32 addr;
 	u32 len;
@@ -61,7 +62,6 @@ struct wcn_dump_head_info {
 extern int btwf_reg_cnt;
 extern struct wcn_dump_mem_reg btwf_reg[MAX_DUMP_REG];
 
-int mdbg_dump_mem(void);
 int dump_arm_reg(void);
 
 void sprdwcn_bus_armreg_write(unsigned int reg_index, unsigned int value);
