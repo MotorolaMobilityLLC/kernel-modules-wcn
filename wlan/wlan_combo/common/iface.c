@@ -1212,7 +1212,6 @@ static int iface_ioctl(struct net_device *ndev, struct ifreq *req, void __user *
 	case SPRDWLSETCOUNTRY:
 		return iface_priv_cmd(ndev, data);
 	case SPRDWLSETMIRACAST:
-		netdev_err(ndev, "for vts test %d\n", cmd);
 		return sprd_set_miracast(priv, ndev, data);
 	case SPRDWLSETFCC:
 	case SPRDWLSETSUSPEND:
@@ -1240,7 +1239,6 @@ static int iface_ioctl(struct net_device *ndev, struct ifreq *req, int cmd)
 	case SPRDWLSETCOUNTRY:
 		return iface_priv_cmd(ndev, req);
 	case SPRDWLSETMIRACAST:
-		netdev_err(ndev, "for vts test %d\n", cmd);
 		return sprd_set_miracast(priv, ndev, req);
 	case SPRDWLSETFCC:
 	case SPRDWLSETSUSPEND:

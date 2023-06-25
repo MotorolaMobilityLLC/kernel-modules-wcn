@@ -660,12 +660,6 @@ struct sprd_msg *sc2355_get_cmdbuf(struct sprd_priv *priv, struct sprd_vif *vif,
 		ctx_id = vif->ctx_id;
 	}
 
-	/* bug：1807181
-	 * CMD_SET_MIRACAST command is sent to driver through station mode
-	 * by supplicant, but it needs to be sent to CP2 through P2P mode*/
-	if ((cmd_id == CMD_SET_MIRACAST) && (vif))
-		ctx_id = vif->mode;
-
 	if (cmd_id >= CMD_OPEN) {
 
 		if (cmd_id == CMD_POWER_SAVE &&
@@ -3358,6 +3352,8 @@ int sc2355_set_miracast(struct net_device *ndev, struct ifreq *ifr)
 	char *command = NULL;
 	unsigned short subtype;
 	int ret = 0, value;
+	/* p2p go/gc ctx_id */
+	u8 ctx_id = STAP_MODE_P2P;
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
 	if (data == NULL)
 		return -EINVAL;
@@ -3371,7 +3367,7 @@ int sc2355_set_miracast(struct net_device *ndev, struct ifreq *ifr)
 		return -EINVAL;
 #endif
 
-	/*add length check to avoid invalid NULL ptr*/
+	/* add length check to avoid invalid NULL ptr */
 	if (priv_cmd.total_len <= 0 || priv_cmd.total_len > 4096) {
 		wl_err("%s: priv cmd total len is invalid", __func__);
 		return -EINVAL;
@@ -3389,7 +3385,13 @@ int sc2355_set_miracast(struct net_device *ndev, struct ifreq *ifr)
 	if (subtype == 5) {
 		value = *((int *)(command + 2 * sizeof(unsigned short)));
 		wl_debug("%s: set miracast value : %d", __func__, value);
+		/* bug:1807181
+		 * CMD_SET_MIRACAST command is sent to driver through station mode
+		 * by supplicant, but it needs to be sent to CP2 through P2P mode
+		 */
+		vif = sc2355_ctxid_to_vif(priv, ctx_id);
 		ret = sc2355_enable_miracast(priv, vif, value);
+		sprd_put_vif(vif);
 	}
 out:
 	kfree(command);
