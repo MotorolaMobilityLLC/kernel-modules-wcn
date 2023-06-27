@@ -963,14 +963,8 @@ static ssize_t mdbg_proc_write(struct file *filp,
 		}
 		if (strncmp(mdbg_proc->write_buf, "rebootwcn", 9) == 0) {
 			flag_reset = 1;
-			WCN_INFO("marlin gnss need reset\n");
-			WCN_INFO("fail_count is value %d\n", mdbg_proc->fail_count);
 			stop_loopcheck();
-			mdbg_proc->fail_count = 0;
-			marlin_set_download_status(0);
-			sprdwcn_bus_set_carddump_status(false);
-			marlin_chip_en(false, true);
-			wcn_reset_cp2();
+			wcn_reset_process();
 			flag_reset = 0;
 			return count;
 		}
