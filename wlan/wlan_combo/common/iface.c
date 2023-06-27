@@ -342,11 +342,7 @@ static int iface_open(struct net_device *ndev)
 	while ((!vif->priv->probe_done) && (count < 1000)) {
 		printk_ratelimited("%s error! driver probe not done, wait\n",
 				   __func__);
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
-		usleep_range_state(2500, 3000, TASK_UNINTERRUPTIBLE);
-#else
 		usleep_range(2500, 3000);
-#endif
 		count++;
 	}
 
@@ -795,11 +791,7 @@ static int iface_set_whitelist(struct net_device *ndev, char *command,
 	return ret;
 }
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
 static int iface_priv_cmd(struct net_device *ndev, void __user *data)
-#else
-static int iface_priv_cmd(struct net_device *ndev, struct ifreq *ifr)
-#endif
 {
 	int n_clients;
 	struct sprd_vif *vif = netdev_priv(ndev);
@@ -811,17 +803,10 @@ static int iface_priv_cmd(struct net_device *ndev, struct ifreq *ifr)
 	u8 *mac_addr = NULL, *tmp, *mac_list;
 	int ret = 0, skip, counter, index;
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
 	if (!data)
 		return -EINVAL;
 	if (copy_from_user(&priv_cmd, data, sizeof(priv_cmd)))
 		return -EFAULT;
-#else
-	if (!ifr->ifr_data)
-		return -EINVAL;
-	if (copy_from_user(&priv_cmd, ifr->ifr_data, sizeof(priv_cmd)))
-		return -EFAULT;
-#endif
 
 	/* add length check to avoid invalid NULL ptr */
 	if (priv_cmd.total_len <= 0 || priv_cmd.total_len > 4096) {
@@ -1014,11 +999,7 @@ out:
 	return ret;
 }
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
 static int iface_set_power_save(struct net_device *ndev, void __user *data)
-#else
-static int iface_set_power_save(struct net_device *ndev, struct ifreq *ifr)
-#endif
 {
 	struct sprd_vif *vif = netdev_priv(ndev);
 	struct sprd_priv *priv = vif->priv;
@@ -1026,17 +1007,10 @@ static int iface_set_power_save(struct net_device *ndev, struct ifreq *ifr)
 	char *command = NULL;
 	int ret = 0, skip, value;
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
 	if (!data)
 		return -EINVAL;
 	if (copy_from_user(&priv_cmd, data, sizeof(priv_cmd)))
 		return -EFAULT;
-#else
-	if (!ifr->ifr_data)
-		return -EINVAL;
-	if (copy_from_user(&priv_cmd, ifr->ifr_data, sizeof(priv_cmd)))
-		return -EFAULT;
-#endif
 
 	/* add length check to avoid invalid NULL ptr */
 	if (priv_cmd.total_len <= 0 || priv_cmd.total_len > 4096) {
@@ -1102,11 +1076,7 @@ out:
 	return ret;
 }
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
 static int iface_set_p2p_mac(struct net_device *ndev, void __user *data)
-#else
-static int iface_set_p2p_mac(struct net_device *ndev, struct ifreq *ifr)
-#endif
 {
 	struct sprd_vif *vif = netdev_priv(ndev);
 	struct sprd_priv *priv = vif->priv;
@@ -1117,17 +1087,10 @@ static int iface_set_p2p_mac(struct net_device *ndev, struct ifreq *ifr)
 	u8 addr[ETH_ALEN] = { 0 };
 	#define P2P_MAC_SKIP_LEN 11
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
 	if (!data)
 		return -EINVAL;
 	if (copy_from_user(&priv_cmd, data, sizeof(priv_cmd)))
 		return -EFAULT;
-#else
-	if (!ifr->ifr_data)
-		return -EINVAL;
-	if (copy_from_user(&priv_cmd, ifr->ifr_data, sizeof(priv_cmd)))
-		return -EFAULT;
-#endif
 
 	/* add length check to avoid invalid NULL ptr */
 	if (priv_cmd.total_len < P2P_MAC_SKIP_LEN + ETH_ALEN ||
@@ -1187,11 +1150,7 @@ out:
 	return ret;
 }
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
 static int iface_set_ndev_mac(struct net_device *ndev, void __user *data)
-#else
-static int iface_set_ndev_mac(struct net_device *ndev, struct ifreq *ifr)
-#endif
 {
 	struct sprd_vif *vif = netdev_priv(ndev);
 	struct sprd_hif *hif = &vif->priv->hif;
@@ -1200,17 +1159,10 @@ static int iface_set_ndev_mac(struct net_device *ndev, struct ifreq *ifr)
 	int ret = 0;
 	u8 addr[ETH_ALEN] = { 0 };
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
 	if (!data)
 		return -EINVAL;
 	if (copy_from_user(&priv_cmd, data, sizeof(priv_cmd)))
 		return -EFAULT;
-#else
-	if (!ifr->ifr_data)
-		return -EINVAL;
-	if (copy_from_user(&priv_cmd, ifr->ifr_data, sizeof(priv_cmd)))
-		return -EFAULT;
-#endif
 
 	/* add length check to avoid invalid NULL ptr */
 	if (priv_cmd.total_len < ETH_ALEN || priv_cmd.total_len > 4096) {
@@ -1265,9 +1217,15 @@ out:
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
 static int iface_ioctl(struct net_device *ndev, struct ifreq *req, void __user *data,  int cmd)
+#else
+static int iface_ioctl(struct net_device *ndev, struct ifreq *req, int cmd)
+#endif
 {
 	struct sprd_vif *vif = netdev_priv(ndev);
 	struct sprd_priv *priv = vif->priv;
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 15, 0))
+	void __user *data = req->ifr_data;
+#endif
 
 	switch (cmd) {
 	case SPRDWLIOCTL:
@@ -1284,43 +1242,14 @@ static int iface_ioctl(struct net_device *ndev, struct ifreq *req, void __user *
 		return iface_set_p2p_mac(ndev, data);
 	case SPRDWLSETNDEVMAC:
 		return iface_set_ndev_mac(ndev, data);
-	default:
-		netdev_err(ndev, "Unsupported IOCTL %d\n", cmd);
-		return -ENOTSUPP;
-	}
-	return 0;
-}
-#else
-static int iface_ioctl(struct net_device *ndev, struct ifreq *req, int cmd)
-{
-	struct sprd_vif *vif = netdev_priv(ndev);
-	struct sprd_priv *priv = vif->priv;
-
-	switch (cmd) {
-	case SPRDWLIOCTL:
-	case SPRDWLSETCOUNTRY:
-		return iface_priv_cmd(ndev, req);
-	case SPRDWLSETMIRACAST:
-		return sprd_set_miracast(priv, ndev, req);
-	case SPRDWLSETFCC:
-	case SPRDWLSETSUSPEND:
-		return iface_set_power_save(ndev, req);
-	case SPRDWLVOWIFI:
-		return sprd_set_vowifi(priv, ndev, req);
-	case SPRDWLSETP2PMAC:
-		return iface_set_p2p_mac(ndev, req);
-	case SPRDWLSETNDEVMAC:
-		return iface_set_ndev_mac(ndev, req);
 	case SPRDWLSNIFFER:
-		return sprd_set_sniffer(priv, ndev, req);
+		return sprd_set_sniffer(priv, ndev, data);
 	default:
 		netdev_err(ndev, "Unsupported IOCTL %d\n", cmd);
 		return -ENOTSUPP;
 	}
-
 	return 0;
 }
-#endif
 
 static int iface_set_mac(struct net_device *dev, void *addr)
 {
@@ -1646,11 +1575,7 @@ static void iface_deinit_vif(struct sprd_vif *vif)
 
 	if (vif->ref > 0) {
 		do {
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
-			usleep_range_state(2000, 2500, TASK_UNINTERRUPTIBLE);
-#else
 			usleep_range(2000, 2500);
-#endif
 			cnt++;
 			if (time_after(jiffies, timeout)) {
 				netdev_err(vif->ndev, "%s timeout cnt %d\n",

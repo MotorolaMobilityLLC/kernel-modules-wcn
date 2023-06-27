@@ -684,11 +684,7 @@ static int sipc_sblock_init(struct sprd_hif *hif)
 	while (time_before(jiffies, timeout)) {
 		ret = sblock_query(WLAN_CP_ID, channel[i]);
 		if (ret) {
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
-			usleep_range_state(8000, 10000, TASK_UNINTERRUPTIBLE);
-#else
 			usleep_range(8000, 10000);
-#endif
 			continue;
 		} else {
 			i++;

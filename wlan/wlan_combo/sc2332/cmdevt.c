@@ -785,11 +785,7 @@ void sc2332_cmd_deinit(struct sprd_cmd *cmd)
 			wl_err("%s cmd lock timeout\n", __func__);
 			break;
 		}
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
-		usleep_range_state(2000, 2500, TASK_UNINTERRUPTIBLE);
-#else
 		usleep_range(2000, 2500);
-#endif
 	}
 	cmdevt_clean_cmd(cmd);
 	mutex_destroy(&cmd->cmd_lock);
@@ -1696,7 +1692,7 @@ int sc2332_xmit_data2cmd(struct sk_buff *skb, struct net_device *ndev)
 	 * GC/STA: wdev->current_bss->pub.channel
 	 * GO/SotfAP: wdev->channel
 	 */
-	u8 channel = 0;
+	u16 channel = 0;
 	int ret;
 	struct ethhdr ehdr;
 	struct ieee80211_hdr_3addr *hdr;
@@ -1714,15 +1710,15 @@ int sc2332_xmit_data2cmd(struct sk_buff *skb, struct net_device *ndev)
 		wl_err("%s can not get channel\n", __func__);
 		return -EINVAL;
 	}
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+
 	if (vif->mode == SPRD_MODE_P2P_GO || vif->mode == SPRD_MODE_AP) {
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
 		chandef = wdev_chandef(ndev->ieee80211_ptr, 0);
 		channel = chandef->chan->hw_value;
-	}
 #else
-	if (vif->mode == SPRD_MODE_P2P_GO || vif->mode == SPRD_MODE_AP)
 		channel = ndev->ieee80211_ptr->chandef.chan->hw_value;
 #endif
+	}
 
 	memcpy(&ehdr, skb->data, sizeof(struct ethhdr));
 	/* 802.3 to 802.11 */
@@ -1797,11 +1793,7 @@ static int cmdevt_set_vowifi_state(struct sprd_priv *priv, struct sprd_vif *vif,
 	return send_cmd_recv_rsp(priv, msg, NULL, NULL);
 }
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
 int sc2332_set_vowifi(struct net_device *ndev, void __user *data)
-#else
-int sc2332_set_vowifi(struct net_device *ndev, struct ifreq *ifr)
-#endif
 {
 	struct sprd_vif *vif = netdev_priv(ndev);
 	struct sprd_priv *priv = vif->priv;
@@ -1810,17 +1802,10 @@ int sc2332_set_vowifi(struct net_device *ndev, struct ifreq *ifr)
 	char *command = NULL;
 	int ret, value;
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
 	if (!data)
 		return -EINVAL;
 	if (copy_from_user(&priv_cmd, data, sizeof(priv_cmd)))
 		return -EFAULT;
-#else
-	if (!ifr->ifr_data)
-		return -EINVAL;
-	if (copy_from_user(&priv_cmd, ifr->ifr_data, sizeof(priv_cmd)))
-		return -EFAULT;
-#endif
 
 	/* bug1745380, add length check to avoid invalid NULL ptr */
 	if ((priv_cmd.total_len < sizeof(*vowifi)) ||
@@ -1871,7 +1856,7 @@ static int cmdevt_set_sniffer(struct sprd_priv *priv, struct sprd_vif *vif,
 	return send_cmd_recv_rsp(priv, msg, NULL, NULL);
 }
 
-int sc2332_set_sniffer(struct net_device *ndev, struct ifreq *ifr)
+int sc2332_set_sniffer(struct net_device *ndev, void __user *data)
 {
 	struct sprd_vif *vif = netdev_priv(ndev);
 	struct sprd_priv *priv = vif->priv;
@@ -1881,9 +1866,9 @@ int sc2332_set_sniffer(struct net_device *ndev, struct ifreq *ifr)
 	int ret = 0, skip, value;
 	unsigned int channel = 0;
 
-	if (!ifr->ifr_data)
+	if (!data)
 		return -EINVAL;
-	if (copy_from_user(&priv_cmd, ifr->ifr_data, sizeof(priv_cmd)))
+	if (copy_from_user(&priv_cmd, data, sizeof(priv_cmd)))
 		return -EFAULT;
 
 	/* add length check to avoid invalid NULL ptr */

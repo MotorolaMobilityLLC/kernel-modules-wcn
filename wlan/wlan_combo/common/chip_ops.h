@@ -116,11 +116,7 @@ struct sprd_chip_ops {
 			      struct sprd_connect_info *conn_info);
 	int (*set_mc_filter)(struct sprd_priv *priv, struct sprd_vif *vif,
 			     u8 sub_type, u8 num, u8 *mac_addr);
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
 	int (*set_miracast)(struct net_device *ndev, void __user *data);
-#else
-	int (*set_miracast)(struct net_device *ndev, struct ifreq *ifr);
-#endif
 	int (*set_11v_feature_support)(struct sprd_priv *priv,
 				       struct sprd_vif *vif,
 				       u16 val);
@@ -134,17 +130,11 @@ struct sprd_chip_ops {
 	bool (*do_delay_work)(struct sprd_work *work);
 	int (*notify_ip)(struct sprd_priv *priv, struct sprd_vif *vif,
 			 u8 ip_type, u8 *ip_addr);
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
 	int (*set_vowifi)(struct net_device *ndev, void __user *data);
-#else
-	int (*set_vowifi)(struct net_device *ndev, struct ifreq *ifr);
-#endif
 	int (*dump_survey)(struct wiphy *wiphy, struct net_device *ndev,
 			   int idx, struct survey_info *s_info);
-
 	int (*npi_send_recv)(struct sprd_priv *priv, struct sprd_vif *vif,
 			     u8 *s_buf, u16 s_len, u8 *r_buf, u16 *r_len);
-
 	void (*qos_init_default_map)(void);
 	void (*qos_enable)(int flag);
 	void (*qos_wmm_ac_init)(struct sprd_priv *priv);
@@ -169,7 +159,7 @@ struct sprd_chip_ops {
 	int (*needed_headroom)(struct sprd_priv *priv);
 	void (*fc_add_share_credit)(struct sprd_vif *vif);
 	void (*defrag_recover)(struct sprd_vif *vif);
-	int (*set_sniffer)(struct net_device *ndev, struct ifreq *ifr);
+	int (*set_sniffer)(struct net_device *ndev, void __user *data);
 #ifdef ENABLE_CHR
 	int (*set_chr)(struct sprd_chr *chr);
 #endif
@@ -728,7 +718,6 @@ static inline int sprd_notify_ip(struct sprd_priv *priv, struct sprd_vif *vif,
 	return 0;
 }
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
 static inline int sprd_set_vowifi(struct sprd_priv *priv,
 				  struct net_device *ndev, void __user *data)
 {
@@ -745,24 +734,6 @@ static inline int sprd_set_miracast(struct sprd_priv *priv,
 		return priv->chip.ops->set_miracast(ndev, data);
 	return 0;
 }
-#else
-static inline int sprd_set_vowifi(struct sprd_priv *priv,
-				  struct net_device *ndev, struct ifreq *ifr)
-{
-	if (priv->chip.ops->set_vowifi)
-		return priv->chip.ops->set_vowifi(ndev, ifr);
-
-	return 0;
-}
-
-static inline int sprd_set_miracast(struct sprd_priv *priv,
-				struct net_device *ndev, struct ifreq *ifr)
-{
-	if (priv->chip.ops->set_miracast)
-		return priv->chip.ops->set_miracast(ndev, ifr);
-	return 0;
-}
-#endif
 
 static inline int sprd_dump_survey(struct sprd_priv *priv, struct wiphy *wiphy,
 				   struct net_device *ndev, int idx,
@@ -924,10 +895,10 @@ static inline void sprd_defrag_recover(struct sprd_priv *priv,
 }
 
 static inline int sprd_set_sniffer(struct sprd_priv *priv,
-				   struct net_device *ndev, struct ifreq *ifr)
+				   struct net_device *ndev, void __user *data)
 {
 	if (priv->chip.ops->set_sniffer)
-		return priv->chip.ops->set_sniffer(ndev, ifr);
+		return priv->chip.ops->set_sniffer(ndev, data);
 
 	return 0;
 }

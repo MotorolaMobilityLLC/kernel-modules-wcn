@@ -1126,13 +1126,8 @@ int sc2355_set_random_mac(struct sprd_priv *priv, struct sprd_vif *vif,
 			  u8 random_mac_flag, u8 *addr);
 int sc2355_send_tdls_cmd(struct sprd_vif *vif, const u8 *peer, int oper);
 bool sc2355_do_delay_work(struct sprd_work *work);
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
 int sc2355_set_vowifi(struct net_device *ndev, void __user *data);
 int sc2355_set_miracast(struct net_device *ndev, void __user *data);
-#else
-int sc2355_set_vowifi(struct net_device *ndev, struct ifreq *ifr);
-int sc2355_set_miracast(struct net_device *ndev, struct ifreq *ifr);
-#endif
 void sc2355_scan_timeout(struct timer_list *t);
 int sc2355_scan(struct wiphy *wiphy,
 		struct cfg80211_scan_request *request);
@@ -1146,7 +1141,7 @@ int sc2355_vendor_init(struct wiphy *wiphy);
 int sc2355_vendor_deinit(struct wiphy *wiphy);
 int sc2355_dump_survey(struct wiphy *wiphy, struct net_device *ndev,
 		       int idx, struct survey_info *s_info);
-int sc2355_set_sniffer(struct net_device *ndev, struct ifreq *ifr);
+int sc2355_set_sniffer(struct net_device *ndev, void __user *data);
 #ifdef ENABLE_CHR
 int sc2355_set_chr(struct sprd_chr *chr);
 #endif

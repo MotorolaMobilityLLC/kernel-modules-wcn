@@ -16,6 +16,12 @@
 #define MAX_AP_CACHE_PER_SCAN		32
 #define OUI_SPREAD			0x001374
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+#define SPRD_NLA_STRCPY(dst, nla, dstsize)	nla_strscpy(dst, nla, dstsize)
+#else
+#define SPRD_NLA_STRCPY(dst, nla, dstsize)	nla_strlcpy(dst, nla, dstsize)
+#endif
+
 enum {
 	/* Memory dump of FW */
 	WIFI_LOGGER_MEMORY_DUMP_SUPPORTED = (1 << (0)),

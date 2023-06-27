@@ -1296,11 +1296,7 @@ void sc2355_cmd_deinit(struct sprd_cmd *cmd)
 			wl_err("%s cmd lock timeout\n", __func__);
 			break;
 		}
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
-		usleep_range_state(2000, 2500, TASK_UNINTERRUPTIBLE);
-#else
 		usleep_range(2000, 2500);
-#endif
 	}
 	cmdevt_clean_cmd(cmd);
 	mutex_destroy(&cmd->cmd_lock);
@@ -3092,11 +3088,7 @@ static int cmdevt_set_tlv_data(struct sprd_priv *priv, struct sprd_vif *vif,
 	return send_cmd_recv_rsp(priv, msg, NULL, NULL);
 }
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
 int sc2355_set_vowifi(struct net_device *ndev, void __user *data)
-#else
-int sc2355_set_vowifi(struct net_device *ndev, struct ifreq *ifr)
-#endif
 {
 	struct sprd_vif *vif = netdev_priv(ndev);
 	struct sprd_priv *priv = vif->priv;
@@ -3104,19 +3096,10 @@ int sc2355_set_vowifi(struct net_device *ndev, struct ifreq *ifr)
 	struct tlv_data *tlv;
 	int ret;
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
 	if (!data)
 		return -EINVAL;
-
 	if (copy_from_user(&priv_cmd, data, sizeof(priv_cmd)))
 		return -EFAULT;
-#else
-	if (!ifr->ifr_data)
-		return -EINVAL;
-
-	if (copy_from_user(&priv_cmd, ifr->ifr_data, sizeof(priv_cmd)))
-		return -EFAULT;
-#endif
 
 	/*bug1743709, add length check to avoid invalid NULL ptr*/
 	if ((priv_cmd.total_len < sizeof(*tlv)) ||
@@ -3191,7 +3174,7 @@ static int cmdevt_set_sniffer(struct sprd_priv *priv, struct sprd_vif *vif,
 	return send_cmd_recv_rsp(priv, msg, NULL, NULL);
 }
 
-int sc2355_set_sniffer(struct net_device *ndev, struct ifreq *ifr)
+int sc2355_set_sniffer(struct net_device *ndev, void __user *data)
 {
 	struct sprd_vif *vif = netdev_priv(ndev);
 	struct sprd_priv *priv = vif->priv;
@@ -3201,9 +3184,9 @@ int sc2355_set_sniffer(struct net_device *ndev, struct ifreq *ifr)
 	unsigned int channel = 0;
 	u16 chns_5g[64] = {0x00};
 
-	if (!ifr->ifr_data)
+	if (!data)
 		return -EINVAL;
-	if (copy_from_user(&priv_cmd, ifr->ifr_data, sizeof(priv_cmd)))
+	if (copy_from_user(&priv_cmd, data, sizeof(priv_cmd)))
 		return -EFAULT;
 
 	/* add length check to avoid invalid NULL ptr */
@@ -3318,11 +3301,7 @@ out:
 	return ret;
 }
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
 int sc2355_set_miracast(struct net_device *ndev, void __user *data)
-#else
-int sc2355_set_miracast(struct net_device *ndev, struct ifreq *ifr)
-#endif
 {
 	struct sprd_vif *vif = netdev_priv(ndev);
 	struct sprd_priv *priv = vif->priv;
@@ -3332,18 +3311,11 @@ int sc2355_set_miracast(struct net_device *ndev, struct ifreq *ifr)
 	int ret = 0, value;
 	/* p2p go/gc ctx_id */
 	u8 ctx_id = STAP_MODE_P2P;
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+
 	if (data == NULL)
 		return -EINVAL;
 	if (copy_from_user(&priv_cmd, data, sizeof(priv_cmd)))
 		return -EINVAL;
-
-#else
-	if (ifr->ifr_data == NULL)
-		return -EINVAL;
-	if (copy_from_user(&priv_cmd, ifr->ifr_data, sizeof(priv_cmd)))
-		return -EINVAL;
-#endif
 
 	/* add length check to avoid invalid NULL ptr */
 	if (priv_cmd.total_len <= 0 || priv_cmd.total_len > 4096) {

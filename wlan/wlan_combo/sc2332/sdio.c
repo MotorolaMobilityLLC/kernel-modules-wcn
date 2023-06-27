@@ -88,11 +88,7 @@ static int sdio_flush_num(struct sprd_priv *priv, int num)
 	wakeup_source_add(wake);
 	__pm_stay_awake(wake);
 	while (!sdiom_resume_wait_status()) {
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
-		usleep_range_state(2000, 3000, TASK_UNINTERRUPTIBLE);
-#else
 		usleep_range(2000, 3000);
-#endif
 		if (count++ >= 1000) {
 			dev_err(&sc2332_hif->pdev->dev,
 				"%s wait resume erro\n", __func__);
@@ -302,11 +298,7 @@ static int sdio_tx_data(struct sprd_hif *hif,
 		} else {
 			printk_ratelimited("%s pt_write_skb err:%d\n",
 					   __func__, ret);
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
-			usleep_range_state(800, 1000, TASK_UNINTERRUPTIBLE);
-#else
 			usleep_range(800, 1000);
-#endif
 			break;
 		}
 	}

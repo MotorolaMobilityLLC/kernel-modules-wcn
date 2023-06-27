@@ -95,41 +95,20 @@ void sipc_buf_mm_deinit(struct sprd_msg_list *list)
 {
 	struct sipc_buf_node *node;
 	struct sipc_buf_node *pos;
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
-	struct timespec64 txmsgftime1, txmsgftime2;
+	unsigned long txmsgftime1, txmsgftime2;
 
-	memset(&txmsgftime1, 0, sizeof(struct timespec64));
-	memset(&txmsgftime2, 0, sizeof(struct timespec64));
 	atomic_add(SPRDWL_NODE_EXIT_VAL, &list->ref);
 	if (atomic_read(&list->ref) > SPRDWL_NODE_EXIT_VAL)
 		wl_err("%s ref not ok! wait for pop!\n", __func__);
 
-	ktime_get_real_ts64(&txmsgftime1);
+	txmsgftime1 = sprd_get_ktime();
 	while (atomic_read(&list->ref) > SPRDWL_NODE_EXIT_VAL) {
-		ktime_get_real_ts64(&txmsgftime2);
-		if (((unsigned long)(timespec64_to_ns(&txmsgftime2) -
-			timespec64_to_ns(&txmsgftime1))/1000000) > 3000)
+		txmsgftime2 = sprd_get_ktime();
+		if (((txmsgftime2 - txmsgftime1) / 1000000) > 3000)
 			break;
-		usleep_range_state(2000, 2500, TASK_UNINTERRUPTIBLE);
+		usleep_range(2000, 2500);
 	}
-#else
-	 struct timespec txmsgftime1, txmsgftime2;
 
-        memset(&txmsgftime1, 0, sizeof(struct timespec));
-        memset(&txmsgftime2, 0, sizeof(struct timespec));
-        atomic_add(SPRDWL_NODE_EXIT_VAL, &list->ref);
-        if (atomic_read(&list->ref) > SPRDWL_NODE_EXIT_VAL)
-                wl_err("%s ref not ok! wait for pop!\n", __func__);
-
-        getnstimeofday(&txmsgftime1);
-        while (atomic_read(&list->ref) > SPRDWL_NODE_EXIT_VAL) {
-                getnstimeofday(&txmsgftime2);
-                if (((unsigned long)(timespec_to_ns(&txmsgftime2) -
-                        timespec_to_ns(&txmsgftime1))/1000000) > 3000)
-                        break;
-                usleep_range(2000, 2500);
-        }
-#endif
 	wl_info("%s list->ref ok!\n", __func__);
 
 	list_for_each_entry_safe(node, pos, &list->busylist, list) {

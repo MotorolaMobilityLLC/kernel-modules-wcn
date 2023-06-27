@@ -228,4 +228,5 @@ void sprd_free_msg(struct sprd_msg *msg, struct sprd_msg_list *list);
 void sprd_queue_msg(struct sprd_msg *msg, struct sprd_msg_list *list);
 struct sprd_msg *sprd_peek_msg(struct sprd_msg_list *list);
 void sprd_dequeue_msg(struct sprd_msg *msg, struct sprd_msg_list *list);
+unsigned long sprd_get_ktime(void);
 #endif

@@ -48,41 +48,38 @@ err_alloc_buf:
 	return -ENOMEM;
 }
 
+unsigned long sprd_get_ktime(void)
+{
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+	struct timespec64 ktime;
+
+	ktime_get_real_ts64(&ktime);
+	return timespec64_to_ns(&ktime);
+#else
+	struct timespec ktime;
+
+	getnstimeofday(&ktime);
+	return timespec_to_ns(&ktime);
+#endif
+}
+
 void sprd_deinit_msg(struct sprd_msg_list *list)
 {
 	struct sprd_msg *msg;
 	struct sprd_msg *pos;
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
-	struct timespec64 txmsgftime1, txmsgftime2;
-#else
-	struct timespec txmsgftime1, txmsgftime2;
-#endif
+	unsigned long txmsgftime1, txmsgftime2;
 
 	atomic_add(SPRD_MSG_EXIT_VAL, &list->ref);
 	if (atomic_read(&list->ref) > SPRD_MSG_EXIT_VAL)
 		wl_err("%s ref not ok! wait for pop!\n", __func__);
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
-	ktime_get_real_ts64(&txmsgftime1);
+	txmsgftime1 = sprd_get_ktime();
 	while (atomic_read(&list->ref) > SPRD_MSG_EXIT_VAL) {
-		ktime_get_real_ts64(&txmsgftime2);
-		if (((unsigned long)(timespec64_to_ns(&txmsgftime2) -
-				     timespec64_to_ns(&txmsgftime1)) / 1000000) >
-		    3000)
-			break;
-		usleep_range_state(2000, 2500, TASK_UNINTERRUPTIBLE);
-	}
-#else
-	getnstimeofday(&txmsgftime1);
-	while (atomic_read(&list->ref) > SPRD_MSG_EXIT_VAL) {
-		getnstimeofday(&txmsgftime2);
-		if (((unsigned long)(timespec_to_ns(&txmsgftime2) -
-				     timespec_to_ns(&txmsgftime1)) / 1000000) >
-		    3000)
+		txmsgftime2 = sprd_get_ktime();
+		if (((txmsgftime2 - txmsgftime1) / 1000000) > 3000)
 			break;
 		usleep_range(2000, 2500);
 	}
-#endif
 
 	wl_debug("%s list->ref ok!\n", __func__);
 

@@ -363,11 +363,7 @@ void sc2332_tcp_ack_deinit(struct sprd_priv *priv)
 			wl_err("%s cmd lock timeout!\n", __func__);
 			WARN_ON(1);
 		}
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
-		usleep_range_state(2000, 2500, TASK_UNINTERRUPTIBLE);
-#else
 		usleep_range(2000, 2500);
-#endif
 	}
 	for (i = 0; i < SPRD_TCP_ACK_NUM; i++)
 		del_timer_sync(&ack_m->ack_info[i].timer);
