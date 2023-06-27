@@ -7,7 +7,7 @@
 #define __HIF_H__
 
 #include <linux/platform_device.h>
-#include <misc/marlin_platform.h>
+#include "marlin_platform.h"
 
 #include "debug.h"
 #include "msg.h"

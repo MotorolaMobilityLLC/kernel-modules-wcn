@@ -7,7 +7,7 @@
 #ifndef __BUS_COMMON_H__
 #define __BUS_COMMON_H__
 
-#include <misc/wcn_bus.h>
+#include "wcn_bus.h"
 
 int bus_chn_init(struct mchn_ops_t *ops, int hif_type);
 

@@ -10,7 +10,7 @@
  */
 
 #include <linux/delay.h>
-#include <misc/wcn_bus.h>
+#include "wcn_bus.h"
 #include "wcn_swd_dap.h"
 #include "../include/wcn_dbg.h"
 

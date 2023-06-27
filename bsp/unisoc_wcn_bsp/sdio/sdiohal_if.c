@@ -7,7 +7,7 @@
  */
 
 #include "sdiohal.h"
-#include <misc/wcn_bus.h>
+#include "wcn_bus.h"
 
 static int sdio_preinit(void)
 {

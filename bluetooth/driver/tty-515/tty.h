@@ -14,8 +14,8 @@
 
 #ifndef __MTTY_H
 #define __MTTY_H
-#include <misc/wcn_bus.h>
-#include <misc/mchn.h>
+#include "wcn_bus.h"
+#include "mchn.h"
 
 //sipc
 #define SPRD_BT_DST         3

@@ -6,7 +6,7 @@
 #include <linux/io.h>
 #include <linux/of_device.h>
 #include <linux/regmap.h>
-#include <misc/marlin_platform.h>
+#include "marlin_platform.h"
 
 #include "cmdevt.h"
 #include "common/chip_ops.h"

@@ -25,8 +25,8 @@
 #include <linux/unistd.h>
 #include <linux/vmalloc.h>
 #include <linux/workqueue.h>
-#include <misc/marlin_platform.h>
-#include <misc/wcn_bus.h>
+#include "marlin_platform.h"
+#include "wcn_bus.h"
 #include <linux/notifier.h>
 
 #include "../pcie/edma_engine.h"

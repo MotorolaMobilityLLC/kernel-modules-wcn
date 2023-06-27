@@ -4,7 +4,7 @@
  */
 #include <linux/delay.h>
 #include <linux/kthread.h>
-#include <misc/wcn_bus.h>
+#include "wcn_bus.h"
 
 #include "slp_mgr.h"
 #include "slp_sdio.h"

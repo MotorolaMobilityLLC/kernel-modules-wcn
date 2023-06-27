@@ -10,7 +10,7 @@
 #include <linux/types.h>
 #include <linux/uaccess.h>
 #include <linux/version.h>
-#include <misc/marlin_platform.h>
+#include "marlin_platform.h"
 #include <net/genetlink.h>
 
 #include "chip_ops.h"

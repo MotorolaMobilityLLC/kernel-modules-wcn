@@ -6,7 +6,7 @@
 #ifndef __WCN_INTEGRATE_DEV_H__
 #define __WCN_INTEGRATE_DEV_H__
 
-#include <misc/wcn_integrate_platform.h>
+#include "wcn_integrate_platform.h"
 #include "rf.h"
 #include "wcn_glb.h"
 

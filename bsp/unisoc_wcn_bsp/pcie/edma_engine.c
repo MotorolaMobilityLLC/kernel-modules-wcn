@@ -10,8 +10,8 @@
 
 #include <linux/delay.h>
 #include <linux/timer.h>
-#include <misc/marlin_platform.h>
-#include <misc/wcn_bus.h>
+#include "marlin_platform.h"
+#include "wcn_bus.h"
 #include <linux/pci.h>
 #include <linux/pcie-rc-sprd.h>
 #include "edma_engine.h"

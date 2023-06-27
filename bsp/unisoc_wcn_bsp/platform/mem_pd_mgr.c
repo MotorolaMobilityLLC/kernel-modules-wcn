@@ -19,7 +19,7 @@
 #include <linux/interrupt.h>
 #include <linux/kernel.h>
 #include <linux/kthread.h>
-#include <misc/marlin_platform.h>
+#include "marlin_platform.h"
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/of_gpio.h>
@@ -28,7 +28,7 @@
 #include <linux/slab.h>
 #include <linux/spinlock.h>
 
-#include <misc/wcn_bus.h>
+#include "wcn_bus.h"
 #include "mem_pd_mgr.h"
 #include "../include/wcn_glb_reg.h"
 #include "../sleep/sdio_int.h"

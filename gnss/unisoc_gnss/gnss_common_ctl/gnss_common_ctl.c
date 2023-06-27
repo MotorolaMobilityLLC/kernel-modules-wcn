@@ -12,7 +12,7 @@
 
 #include <linux/bug.h>
 #include <linux/delay.h>
-#include <misc/marlin_platform.h>
+#include "marlin_platform.h"
 #include <linux/init.h>
 #include <linux/kernel.h>
 #include <linux/miscdevice.h>
@@ -25,7 +25,7 @@
 #include <linux/slab.h>
 #include <linux/sysfs.h>
 #include <linux/version.h>
-#include <misc/wcn_bus.h>
+#include "wcn_bus.h"
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(5, 17, 15)
 #include <linux/platform_data/sprd_ump96xx_tsensor.h>

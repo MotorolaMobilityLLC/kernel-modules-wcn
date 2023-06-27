@@ -11,7 +11,7 @@
 #include <linux/module.h>
 #include <linux/spinlock.h>
 #include <linux/delay.h>
-#include <misc/wcn_bus.h>
+#include "wcn_bus.h"
 
 #include "sdio_int.h"
 #include "slp_mgr.h"

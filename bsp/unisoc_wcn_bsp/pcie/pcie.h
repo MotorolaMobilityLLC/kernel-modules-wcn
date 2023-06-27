@@ -16,7 +16,7 @@
 #define __PCIE_DRV_H__
 
 #include <linux/pci.h>
-#include <misc/wcn_bus.h>
+#include "wcn_bus.h"
 #include <linux/time.h>
 
 #include <linux/version.h>

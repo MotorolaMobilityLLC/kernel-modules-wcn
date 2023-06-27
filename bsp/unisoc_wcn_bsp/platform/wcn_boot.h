@@ -8,7 +8,7 @@
 #ifndef _WCN_BOOT
 #define _WCN_BOOT
 
-#include <misc/marlin_platform.h>
+#include "marlin_platform.h"
 
 #include "rf/rf.h"
 

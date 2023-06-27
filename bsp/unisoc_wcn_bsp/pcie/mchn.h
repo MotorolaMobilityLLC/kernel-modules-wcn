@@ -15,7 +15,7 @@
 #include <linux/slab.h>
 #include <linux/spinlock.h>
 #include <linux/interrupt.h>
-#include <misc/wcn_bus.h>
+#include "wcn_bus.h"
 
 #define MCHN_MAX_NUM 32
 

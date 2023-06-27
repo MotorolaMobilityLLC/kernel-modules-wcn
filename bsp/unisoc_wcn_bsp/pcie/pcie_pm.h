@@ -10,7 +10,7 @@
 
 #ifndef __PCIE_PM_H__
 #define __PCIE_PM_H__
-#include <misc/wcn_bus.h>
+#include "wcn_bus.h"
 
 /* B = 0x70 (PCI_CAP_ID_EXP) ID = 0x10 */
 #define VF_LINK_CAPABILITIES_REG		0x0C

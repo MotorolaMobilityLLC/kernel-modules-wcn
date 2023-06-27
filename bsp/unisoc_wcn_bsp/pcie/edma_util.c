@@ -8,8 +8,8 @@
  * GNU General Public License for more details.
  */
 
-#include <misc/mchn.h>
-#include <misc/wcn_bus.h>
+#include "mchn.h"
+#include "wcn_bus.h"
 
 #include "edma_engine.h"
 #include "mchn.h"

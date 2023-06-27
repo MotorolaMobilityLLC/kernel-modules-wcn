@@ -22,7 +22,7 @@ KO_MODULE_PATH := $(src)
 # Build Options
 #
 ccflags-y += -I$(KO_MODULE_PATH)
-
+ccflags-y += -I$(KO_MODULE_PATH)/../../../include
 
 #
 # Final Objects

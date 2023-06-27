@@ -22,7 +22,7 @@
 #include <linux/ioport.h>
 #include <linux/clk.h>
 #include <linux/of_gpio.h>
-#include <misc/marlin_platform.h>
+#include "marlin_platform.h"
 #include "unisoc_bt_log.h"
 
 static struct rfkill *bt_rfk;

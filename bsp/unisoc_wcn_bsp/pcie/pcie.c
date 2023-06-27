@@ -17,7 +17,7 @@
 #include <linux/pci_ids.h>
 #include <linux/pcie-rc-sprd.h>
 #include <linux/platform_device.h>
-#include <misc/wcn_bus.h>
+#include "wcn_bus.h"
 
 #include "edma_engine.h"
 #include "ioctl.h"

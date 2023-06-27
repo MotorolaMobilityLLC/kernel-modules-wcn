@@ -14,8 +14,8 @@
 #include <linux/types.h>
 #include <linux/uaccess.h>
 #include <linux/vmalloc.h>
-#include <misc/marlin_platform.h>
-#include <misc/wcn_bus.h>
+#include "marlin_platform.h"
+#include "wcn_bus.h"
 
 #include "common/common.h"
 #include "hw_param.h"

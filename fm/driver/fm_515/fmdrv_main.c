@@ -38,13 +38,13 @@
 #include <linux/version.h>
 #include "fmdrv.h"
 /*#include <soc/sprd/sdio_dev.h>*/
-/*#include <misc/mdbg_sdio.h>*/
+/*#include "mdbg_sdio.h"*/
 #include "fmdrv_ops.h"
 #include "fmdrv_main.h"
 #include "fmdrv_rds_parser.h"
 #include "fm_rf_marlin3.h"
 
-#include <misc/marlin_platform.h>
+#include "marlin_platform.h"
 #include <linux/pm_wakeup.h>
 #include <linux/gpio.h>
 #include <linux/dma-direction.h>
@@ -62,8 +62,8 @@
 #endif
 
 //sipc
-#include <misc/wcn_integrate_platform.h>
-#include <misc/wcn_bus.h>
+#include "wcn_integrate_platform.h"
+#include "wcn_bus.h"
 #include <linux/gpio.h>
 #include <linux/notifier.h>
 #define FM_CHANNEL_WRITE        5

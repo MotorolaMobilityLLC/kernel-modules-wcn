@@ -5,7 +5,7 @@
 #ifndef __WCN_GLB_H__
 #define __WCN_GLB_H__
 
-#include <misc/marlin_platform.h>
+#include "marlin_platform.h"
 
 #include "bufring.h"
 #include "loopcheck.h"

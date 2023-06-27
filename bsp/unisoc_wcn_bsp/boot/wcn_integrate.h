@@ -37,7 +37,7 @@
 #include <linux/unistd.h>
 #include <linux/vmalloc.h>
 #include <linux/workqueue.h>
-#include <misc/wcn_integrate_platform.h>
+#include "wcn_integrate_platform.h"
 #include "linux/sipc.h"
 
 #include "wcn_integrate_dev.h"

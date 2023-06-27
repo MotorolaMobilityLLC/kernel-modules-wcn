@@ -12,7 +12,7 @@
 #include <linux/kobject.h>
 #include <linux/miscdevice.h>
 #include <linux/slab.h>
-#include <misc/wcn_bus.h>
+#include "wcn_bus.h"
 
 #include "pcie.h"
 #include "../sdio/sdiohal.h"

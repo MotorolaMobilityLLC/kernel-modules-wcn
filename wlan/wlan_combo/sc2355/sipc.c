@@ -13,7 +13,7 @@
 #include <linux/regmap.h>
 #include <linux/of_device.h>
 
-#include <misc/marlin_platform.h>
+#include "marlin_platform.h"
 
 #include "common/common.h"
 #include "common/chip_ops.h"

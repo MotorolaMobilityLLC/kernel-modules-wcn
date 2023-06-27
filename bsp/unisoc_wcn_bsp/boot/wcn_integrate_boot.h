@@ -6,7 +6,7 @@
 #ifndef __WCN_INTEGRATE_BOOT_H__
 #define __WCN_INTEGRATE_BOOT_H__
 
-#include <misc/wcn_integrate_platform.h>
+#include "wcn_integrate_platform.h"
 
 int start_integrate_wcn(u32 subsys);
 int stop_integrate_wcn(u32 subsys);

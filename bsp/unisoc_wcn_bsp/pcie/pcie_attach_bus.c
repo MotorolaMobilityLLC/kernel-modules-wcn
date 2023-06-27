@@ -8,7 +8,7 @@
  * GNU General Public License for more details.
  */
 
-#include <misc/wcn_bus.h>
+#include "wcn_bus.h"
 
 #include "bus_common.h"
 #include "edma_engine.h"

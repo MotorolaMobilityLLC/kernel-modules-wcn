@@ -11,7 +11,7 @@
 #include <linux/device.h>
 #include <linux/scatterlist.h>
 #include <linux/slab.h>
-#include <misc/wcn_bus.h>
+#include "wcn_bus.h"
 #include <uapi/linux/sched/types.h>
 
 #include "bus_common.h"

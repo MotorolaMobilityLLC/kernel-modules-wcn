@@ -9,11 +9,11 @@
 #include <linux/irq.h>
 #include <linux/interrupt.h>
 #include <linux/kthread.h>
-#include <misc/marlin_platform.h>
+#include "marlin_platform.h"
 #include <linux/module.h>
 #include <linux/spinlock.h>
 
-#include <misc/wcn_bus.h>
+#include "wcn_bus.h"
 
 #include "sdio_int.h"
 #include "slp_mgr.h"

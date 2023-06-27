@@ -7,7 +7,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
  */
-#include <misc/wcn_integrate_platform.h>
+#include "wcn_integrate_platform.h"
 
 #include "bufring.h"
 #include "wcn_glb.h"

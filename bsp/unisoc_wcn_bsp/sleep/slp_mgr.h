@@ -9,8 +9,8 @@
 #define __SLP_MGR_H__
 
 #include <linux/completion.h>
-#include <misc/marlin_platform.h>
-#include <misc/wcn_bus.h>
+#include "marlin_platform.h"
+#include "wcn_bus.h"
 
 #define SLP_MGR_HEADER "[slp_mgr]"
 #define SLP_MGR_ERR(fmt, args...)	\

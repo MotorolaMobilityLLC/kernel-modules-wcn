@@ -41,9 +41,9 @@
 #include <linux/io.h>
 #include <linux/notifier.h>
 
-#include <misc/wcn_integrate_platform.h>
-#include <misc/marlin_platform.h>
-#include <misc/wcn_bus.h>
+#include "wcn_integrate_platform.h"
+#include "marlin_platform.h"
+#include "wcn_bus.h"
 
 
 #include "alignment/sitm.h"

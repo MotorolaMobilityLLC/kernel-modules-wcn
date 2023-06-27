@@ -5,7 +5,7 @@
 
 #include <linux/ctype.h>
 #include <linux/moduleparam.h>
-#include <misc/wcn_bus.h>
+#include "wcn_bus.h"
 #include <linux/miscdevice.h>
 #include <net/ip.h>
 

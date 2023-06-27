@@ -3,7 +3,8 @@ load("//kernel6.1:unisoc_bazels/unisoc_constants.bzl", "UNISOC_SOC")
 
 kernel_module(
     name = "unisoc_wcn_bsp",
-    srcs = glob([
+    srcs =["//unisoc_modules/kernel6.1/wcn/include:unisoc-wcn-include"] +
+	glob([
         "**/*.c",
         "**/*.h",
         "**/Kbuild",

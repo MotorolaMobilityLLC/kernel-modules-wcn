@@ -11,7 +11,7 @@
 #ifndef __WCN_DEBUG_BUS_H__
 #define __WCN_DEBUG_BUS_H__
 
-#include <misc/wcn_integrate_platform.h>
+#include "wcn_integrate_platform.h"
 #include "wcn_integrate_dev.h"
 
 #define DEBUGBUS_TO_DDR_BASE	0x87210000

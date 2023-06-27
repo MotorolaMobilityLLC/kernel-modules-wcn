@@ -18,7 +18,7 @@
 #include <linux/version.h>
 #include <linux/pm_wakeup.h>
 #include <linux/version.h>
-#include <misc/marlin_platform.h>
+#include "marlin_platform.h"
 #include <linux/export.h>
 #include "unisoc_bt_log.h"
 

@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: GPL-2.0-only
  *
  */
-#include <misc/wcn_bus.h>
+#include "wcn_bus.h"
 
 #include "bufring.h"
 #include "edma_engine.h"

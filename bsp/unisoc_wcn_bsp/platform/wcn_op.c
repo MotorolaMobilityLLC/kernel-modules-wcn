@@ -10,7 +10,7 @@
 #include <linux/kernel.h>
 #include <linux/kdev_t.h>
 #include <linux/miscdevice.h>
-#include <misc/marlin_platform.h>
+#include "marlin_platform.h"
 #include <linux/module.h>
 #include <linux/major.h>
 #include <linux/proc_fs.h>
@@ -20,7 +20,7 @@
 #include <linux/types.h>
 #include <linux/timer.h>
 #include <linux/uaccess.h>
-#include <misc/wcn_bus.h>
+#include "wcn_bus.h"
 #include "../sleep/slp_mgr.h"
 
 #define WCN_OP_NAME	"wcn_op"

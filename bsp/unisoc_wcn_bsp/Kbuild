@@ -13,6 +13,7 @@ KO_MODULE_PATH := $(src)
 
 ccflags-y += -I$(KO_MODULE_PATH)
 ccflags-y += -I$(KO_MODULE_PATH)/include
+ccflags-y += -I$(KO_MODULE_PATH)/../../include
 ccflags-y += -I$(KO_MODULE_PATH)/boot
 ccflags-y += -I$(KO_MODULE_PATH)/pcie
 ccflags-y += -I$(KO_MODULE_PATH)/platform

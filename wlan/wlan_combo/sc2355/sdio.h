@@ -10,7 +10,7 @@
 #include <linux/types.h>
 #include <linux/wait.h>
 #include <linux/workqueue.h>
-#include <misc/wcn_bus.h>
+#include "wcn_bus.h"
 
 #include "common/hif.h"
 

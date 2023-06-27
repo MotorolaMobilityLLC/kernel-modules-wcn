@@ -34,7 +34,7 @@
 #include <linux/mutex.h>
 #include <linux/slab.h>
 #include <linux/spinlock.h>
-#include <misc/wcn_bus.h>
+#include "wcn_bus.h"
 #include "sprd_wcn.h"
 #include "./sipc/wcn_sipc.h"
 #include "pcie.h"

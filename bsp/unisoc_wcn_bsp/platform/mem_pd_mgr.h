@@ -20,8 +20,8 @@
 #ifndef __MEM_PD_MGR__
 #define __MEM_PD_MGR__
 
-#include <misc/marlin_platform.h>
-#include <misc/wcn_bus.h>
+#include "marlin_platform.h"
+#include "wcn_bus.h"
 
 #define MEM_PD_MGR_HEADER "[mem_pd]"
 

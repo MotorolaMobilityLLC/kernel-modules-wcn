@@ -39,6 +39,7 @@ KO_MODULE_NAME := sprd_wlan_combo
 KO_MODULE_PATH := $(src)
 
 ccflags-y += -I$(KO_MODULE_PATH)
+ccflags-y += -I$(KO_MODULE_PATH)/../../include
 ccflags-y += -I$(KO_MODULE_PATH)/common
 ccflags-y += -I$(KO_MODULE_PATH)/sc2332
 ccflags-y += -I$(KO_MODULE_PATH)/sc2355

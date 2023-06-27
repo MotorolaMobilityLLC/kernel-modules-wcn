@@ -26,8 +26,8 @@
 #include "common/common.h"
 #include <linux/version.h>
 #include <linux/firmware.h>
-#include <misc/marlin_platform.h>
-#include <misc/wcn_bus.h>
+#include "marlin_platform.h"
+#include "wcn_bus.h"
 
 #define SYSTEM_WIFI_CONFIG_FILE "wifi_board_config.ini"
 #define SYSTEM_WIFI_AB_CONFIG_FILE "wifi_board_config_ab.ini"

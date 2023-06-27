@@ -11,7 +11,7 @@
 #include <linux/workqueue.h>
 #include <linux/rtc.h>
 #include <linux/timekeeping.h>
-#include <misc/wcn_bus.h>
+#include "wcn_bus.h"
 
 #include "wcn_glb.h"
 #include "wcn_misc.h"

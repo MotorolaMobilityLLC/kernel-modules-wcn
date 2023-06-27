@@ -11,7 +11,7 @@
  * GNU General Public License for more details.
  */
 #include <linux/cpufreq.h>
-#include <misc/wcn_bus.h>
+#include "wcn_bus.h"
 #include "wcn_glb.h"
 #include "wcn_gnss.h"
 #include "wcn_procfs.h"

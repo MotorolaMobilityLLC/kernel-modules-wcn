@@ -11,7 +11,7 @@
 #include <linux/kdev_t.h>
 #include <linux/kernel.h>
 #include <linux/major.h>
-#include <misc/marlin_platform.h>
+#include "marlin_platform.h"
 #include <linux/miscdevice.h>
 #include <linux/module.h>
 #include <linux/printk.h>

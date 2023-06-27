@@ -15,7 +15,7 @@
 #include <linux/types.h>
 #include <linux/wait.h>
 
-#include <misc/wcn_bus.h>
+#include "wcn_bus.h"
 
 #define SMP_HEADERFLAG 0X7E7E7E7E
 #define SMP_RESERVEDFLAG 0X5A5A

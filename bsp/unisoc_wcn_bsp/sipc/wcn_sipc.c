@@ -7,7 +7,7 @@
 #include <linux/of_device.h>
 #include <linux/sched.h>
 #include <linux/seq_file.h>
-#include <misc/wcn_bus.h>
+#include "wcn_bus.h"
 #include <uapi/linux/sched/types.h>
 #include "bus_common.h"
 #include "wcn_integrate.h"

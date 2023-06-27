@@ -36,7 +36,7 @@
 
 #include <linux/version.h>
 #include <linux/pm_wakeup.h>
-#include <misc/marlin_platform.h>
+#include "marlin_platform.h"
 #include <linux/gpio.h>
 #include <linux/of_gpio.h>
 
@@ -56,8 +56,8 @@
 #include <linux/notifier.h>
 
 struct wakeup_source *fm_wakelock;
-#include <misc/wcn_bus.h>
-#include <misc/wcn_integrate_platform.h>
+#include "wcn_bus.h"
+#include "wcn_integrate_platform.h"
 #pragma GCC diagnostic ignored "-Wunused-variable"
 #pragma GCC diagnostic ignored "-Wunused-function"
 extern struct mchn_ops_t fm_sipc2_tx_ops;

@@ -18,7 +18,7 @@
 #include <linux/time.h>
 #include <linux/interrupt.h>
 #include <linux/completion.h>
-#include <misc/wcn_bus.h>
+#include "wcn_bus.h"
 
 #define	FM_DEV_NAME         "fm"
 #define FM_NAME             "fm"

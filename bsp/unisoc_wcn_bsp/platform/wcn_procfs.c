@@ -17,8 +17,8 @@
 #include <linux/seq_file.h>
 #include <linux/wait.h>
 #include <linux/version.h>
-#include <misc/marlin_platform.h>
-#include <misc/wcn_bus.h>
+#include "marlin_platform.h"
+#include "wcn_bus.h"
 
 #include "edma_engine.h"
 #include "pcie.h"

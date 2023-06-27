@@ -19,8 +19,8 @@
 #include <linux/regmap.h>
 #include <linux/slab.h>
 #include <linux/sysfs.h>
-#include <misc/marlin_platform.h>
-#include <misc/wcn_bus.h>
+#include "marlin_platform.h"
+#include "wcn_bus.h"
 #include "gnss.h"
 #include "sprd_wcn.h"
 #ifdef BUILD_WCN_PCIE

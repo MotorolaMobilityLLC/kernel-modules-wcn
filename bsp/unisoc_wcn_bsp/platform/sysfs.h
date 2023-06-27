@@ -9,7 +9,7 @@
 #ifndef __SYSFS_H__
 #define __SYSFS_H__
 
-#include <misc/wcn_bus.h>
+#include "wcn_bus.h"
 
 #define WCN_UEVENT_SOURCE	"SOURCE=wcnmarlin"
 #define WCN_UEVENT_FW_ERRO	"EVENT=FW_ERROR"

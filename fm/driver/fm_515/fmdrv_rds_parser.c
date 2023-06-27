@@ -22,7 +22,7 @@
 #include "fmdrv.h"
 #include "fmdrv_main.h"
 
-#include <misc/marlin_platform.h>
+#include "marlin_platform.h"
 #include "fm_rf_marlin3.h"
 
 #include "unisoc_fm_log.h"

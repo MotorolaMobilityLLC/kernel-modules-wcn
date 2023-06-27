@@ -36,7 +36,7 @@
 #include "../platform/gnss/gnss.h"
 #include "gnss_firmware_bin.h"
 #include "marlin_firmware_bin.h"
-#include <misc/wcn_bus.h>
+#include "wcn_bus.h"
 #include "wcn_glb.h"
 #include "wcn_glb_reg.h"
 #include "wcn_log.h"
