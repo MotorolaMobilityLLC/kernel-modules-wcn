@@ -11,6 +11,7 @@
 #include <linux/delay.h>
 #include <linux/file.h>
 #include <linux/fs.h>
+#include "wcn_integrate.h"
 #include "gnss.h"
 #include <linux/kthread.h>
 #include <linux/printk.h>
@@ -31,21 +32,6 @@
 #include "gnss_dump.h"
 #include "wcn_gnss_dump.h"
 #include "sprd_wcn.h"
-
-enum {
-	REGMAP_AON_APB = 0x0,	/* AON APB */
-	REGMAP_PMU_APB,
-	/*
-	 * NOTES:SharkLE use it,but PIKE2 not.
-	 * We should config the DTS for PIKE2 also.
-	 */
-	REGMAP_PUB_APB, /* SharkLE only:for ddr offset */
-	REGMAP_ANLG_WRAP_WCN,
-	REGMAP_ANLG_PHY_G5, /* SharkL3 only */
-	REGMAP_ANLG_PHY_G6, /* SharkLE only */
-	REGMAP_WCN_REG,	/* SharkL3 only:0x403A 0000 */
-	REGMAP_TYPE_NR,
-};
 
 #define DUMP_PACKET_SIZE	(1024)
 
@@ -80,6 +66,8 @@ struct cp_reg_dump {
 };
 
 static char gnss_dump_level; /* 0: default, all, 1: only data, pmu, aon */
+static char gnss_pll_switch_flag = 1;/*0:switch fail, 1:switch suc*/
+extern struct wcn_device_manage s_wcn_device;
 
 static u32 cgm_gnss_clk_gate_en = 1;
 void gnss_set_clk_gate_en(u32 flag)
@@ -91,7 +79,6 @@ static void gnss_write_data_to_phy_addr(phys_addr_t phy_addr,
 					      void *src_data, u32 size)
 {
 	void *virt_addr;
-
 	GNSSDUMP_ERR("gnss_write_data_to_phy_addr entry\n");
 	virt_addr = shmem_ram_vmap_nocache(SIPC_ID_GNSS, phy_addr, size);
 	if (virt_addr) {
@@ -113,6 +100,30 @@ static void gnss_read_data_from_phy_addr(phys_addr_t phy_addr,
 		shmem_ram_unmap(SIPC_ID_GNSS, virt_addr);
 	} else
 		GNSSDUMP_ERR("%s shmem_ram_vmap_nocache fail\n", __func__);
+}
+
+static void get_gnss_pll_switch_state(void)
+{
+	struct wcn_device *wcn_dev;
+	phys_addr_t phy_addr;
+	struct wcn_dfs_sync_info dfs_info;
+
+	wcn_dev = s_wcn_device.gnss_device;
+	phy_addr = wcn_dev->base_addr - WCN_GNSS_DDR_OFFSET
+				+ WCN_SYS_DFS_SYNC_ADDR_OFFSET;
+	gnss_read_data_from_phy_addr(phy_addr, &dfs_info,
+				sizeof(struct wcn_dfs_sync_info));
+	GNSSDUMP_INFO("gnss_dfs_info: 0x%x-0x%x-0x%x\n",
+			dfs_info.gnss_dfs_info, dfs_info.debugdfs0,
+			dfs_info.debugdfs1);
+	/*debugdfs1[27]:dfs_done*/
+	if (dfs_info.debugdfs1 | (1 << 27)) {
+		gnss_pll_switch_flag = 1;
+		return;
+	}
+	/*gnss not switch pll*/
+	GNSSDUMP_INFO("gnss not switch pll");
+	gnss_pll_switch_flag = 0;
 }
 
 static void gnss_soft_reset_release_cpu(u32 type)
@@ -271,8 +282,14 @@ static int gnss_integrated_dump_mem(void)
 	GNSSDUMP_INFO("gnss_dump_mem entry\n");
 	wcn_get_gnss_base_addr();
 
-	if (wcn_platform_chip_type() == WCN_PLATFORM_TYPE_QOGIRL6
-		|| wcn_platform_chip_type() == WCN_PLATFORM_TYPE_SHARKL3)
+	if (wcn_platform_chip_type() == WCN_PLATFORM_TYPE_QOGIRL6) {
+		get_gnss_pll_switch_state();
+		/*gnss dont dump unless pll switch done*/
+		if (gnss_pll_switch_flag == 0)
+			return ret;
+		gnss_hold_cpu();
+	}
+	if (wcn_platform_chip_type() == WCN_PLATFORM_TYPE_SHARKL3)
 		gnss_hold_cpu();
 
 	for (i = 0; i < gnss_reg_cnt; i++) {
