@@ -624,6 +624,8 @@ int edma_hw_pause(void)
 	u32 retries;
 	struct wcn_pcie_info *priv = get_wcn_device_info();
 
+	WCN_INFO("%s Enter\n", __func__);
+
 	tmp.reg = readl((void *)(&edma->dma_glb_reg->dma_pause.reg));
 	if (!tmp.reg)
 		wcn_dump_ep_regs(priv);
@@ -648,13 +650,27 @@ int edma_hw_restore(void)
 {
 	struct edma_info *edma = edma_info();
 	union dma_glb_pause_reg tmp;
+	u32 retries;
 	struct wcn_pcie_info *priv = get_wcn_device_info();
+
+	WCN_INFO("%s Enter\n", __func__);
 
 	tmp.reg = readl((void *)(&edma->dma_glb_reg->dma_pause.reg));
 	if (!tmp.reg)
 		wcn_dump_ep_regs(priv);
 	tmp.bit.rf_dma_pause = 0;
 	writel(tmp.reg, (void *)(&edma->dma_glb_reg->dma_pause.reg));
+
+	for (retries = 0; retries < 5; retries++) {
+		tmp.reg = readl((void *)(&edma->dma_glb_reg->dma_pause.reg));
+		if (tmp.bit.rf_dma_pause_status == 0)
+			return 0;
+		WCN_INFO("%s:retries=%d, value=0x%x\n", __func__, retries,
+			 tmp.reg);
+		udelay(10);
+	}
+	edma_dump_glb_reg();
+	WCN_INFO("%s fail\n", __func__);
 
 	return 0;
 }

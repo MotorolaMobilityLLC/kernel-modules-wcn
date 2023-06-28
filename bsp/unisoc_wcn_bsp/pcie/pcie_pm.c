@@ -268,12 +268,15 @@ static void sprdwcn_pcie_aspm_check_latency(struct pci_dev *child, u32 *aspm_cap
 static int sprdwcn_pcie_aspm_get_cap(struct pci_dev *pdev, u32 *aspm_cap, u32 *aspm_eb)
 {
 	struct aspm_register_info upreg = {0}, dwreg = {0};
-	struct wcn_pcie_info *priv = pci_get_drvdata(pdev);
+	struct wcn_pcie_info *priv;
 	u32 reg32, encoding;
-	struct aspm_latency *acceptable = &priv->link_state.acceptable;
+	struct aspm_latency *acceptable;
 
 	if (!pdev || !pdev->bus->self || !aspm_cap || !aspm_eb)
 		return -EINVAL;
+
+	priv = pci_get_drvdata(pdev);
+	acceptable = &priv->link_state.acceptable;
 
 	pcie_get_aspm_reg(pdev->bus->self, &upreg);
 	pcie_get_aspm_reg(pdev, &dwreg);
@@ -526,6 +529,11 @@ int sprdwcn_pci_enable_link_state(struct pci_dev *pdev, enum wcn_bus_pm_state st
 	int ret = -1, link_state_pending = 0;
 	struct wcn_pcie_info *priv = pci_get_drvdata(pdev);
 
+	if (!priv) {
+		WCN_ERR("%s priv is null\n", __func__);
+		return -EINVAL;
+	}
+
 	WARN(pcie_aspm_enabled(pdev), "kernel standard ASPM policy conflict!");
 	priv->link_state.child = pdev;
 	priv->link_state.parent = pci_upstream_bridge(pdev);
@@ -559,7 +567,7 @@ int sprdwcn_pci_enable_link_state(struct pci_dev *pdev, enum wcn_bus_pm_state st
 
 	WCN_INFO("ASPM(0x%x->0x%x)\n", aspm_eb, link_state_pending);
 	if (aspm_eb == link_state_pending) {
-		WCN_INFO("ASPM has been enabled\n");
+		WCN_INFO("ASPM not change\n");
 		return 0;
 	}
 
@@ -572,6 +580,11 @@ int sprdwcn_pci_enable_link_state(struct pci_dev *pdev, enum wcn_bus_pm_state st
 int sprdwcn_pci_enable_link_state_sample(enum wcn_bus_pm_state state)
 {
 	struct wcn_pcie_info *priv = get_wcn_device_info();
+
+	if (!priv) {
+		WCN_ERR("%s priv is null\n", __func__);
+		return -EINVAL;
+	}
 
 	return sprdwcn_pci_enable_link_state(priv->dev, state);
 }

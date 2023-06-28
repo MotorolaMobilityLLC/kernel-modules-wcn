@@ -1141,6 +1141,8 @@ static int sprd_ep_suspend(struct device *dev)
 	if (!pdev)
 		return 0;
 
+	sprd_pcie_set_aspm_policy(AUTO, BUS_PM_DISABLE);
+
 	pci_save_state(to_pci_dev(dev));
 	priv->saved_state = pci_store_saved_state(to_pci_dev(dev));
 
@@ -1165,23 +1167,35 @@ static int sprd_ep_resume(struct device *dev)
 	if (!pdev)
 		return 0;
 
-	pci_load_and_free_saved_state(to_pci_dev(dev), &priv->saved_state);
-	pci_restore_state(to_pci_dev(dev));
-	pci_write_config_dword(to_pci_dev(dev), 0x60, 0);
-
 	ret = pci_set_power_state(pdev, PCI_D0);
 	WCN_INFO("pci_set_power_state(PCI_D0) ret %d\n", ret);
 	ret = pci_enable_wake(pdev, PCI_D0, 0);
 	WCN_INFO("pci_enable_wake(PCI_D0) ret %d\n", ret);
 
+	pci_load_and_free_saved_state(to_pci_dev(dev), &priv->saved_state);
+	pci_restore_state(to_pci_dev(dev));
+	pci_write_config_dword(to_pci_dev(dev), 0x60, 0);
+
 	ret = sprd_ep_addr_map(priv);
 	if (ret)
 		return ret;
 
-	edma_hw_restore();
+	/*
+	 * Re-enable ASPM function:
+	 * Come from: pcie_config_aspm_link()
+	 * When system enter suspend, PCIe registers about ASPM will be cleared
+	 * and never be saved, so it's necessary to config PCIe ASPM registers
+	 * regardless of the value of parameter @state.
+	 * Invalid call trace:
+	 * pci_pm_resume_noirq()->pci_raw_set_power_state()->pcie_config_aspm_link()
+	 */
+	sprd_pcie_set_aspm_policy(AUTO, BUS_PM_ALL_ENABLE);
 
 	wcn_bus_change_state(priv, WCN_BUS_UP);
 	atomic_set(&priv->is_suspending, 0);
+
+	edma_hw_restore();
+
 	mdbg_device_lock_notify();
 	for (chn = 0; chn < 16; chn++) {
 		ops = mchn_ops(chn);
@@ -1197,16 +1211,6 @@ static int sprd_ep_resume(struct device *dev)
 		}
 	}
 	mdbg_device_unlock_notify();
-	/*
-	 * Re-enable ASPM function:
-	 * Come from: pcie_config_aspm_link()
-	 * When system enter suspend, PCIe registers about ASPM will be cleared
-	 * and never be saved, so it's necessary to config PCIe ASPM registers
-	 * regardless of the value of parameter @state.
-	 * Invalid call trace:
-	 * pci_pm_resume_noirq()->pci_raw_set_power_state()->pcie_config_aspm_link()
-	 */
-	sprd_pcie_set_aspm_policy(AUTO, BUS_PM_ALL_ENABLE);
 	WCN_INFO("%s[-]\n", __func__);
 	return 0;
 }
