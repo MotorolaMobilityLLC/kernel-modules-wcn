@@ -1010,6 +1010,7 @@ static void mtty_close(struct tty_struct *tty, struct file *filp)
 static void mtty_pcie_close(struct tty_struct *tty, struct file *filp)
 {
     struct mtty_device *mtty = NULL;
+    int ret = 0;
     mtty_dma_buf_free(BT_PCIE_RX_MAX_NUM);
     if (tty == NULL) {
         pr_err("mtty close input tty is NULL!\n");
@@ -1025,7 +1026,8 @@ static void mtty_pcie_close(struct tty_struct *tty, struct file *filp)
     sprdwcn_bus_chn_deinit(&bt_pcie_rx_ops);
     sprdwcn_bus_chn_deinit(&bt_pcie_tx_ops0);
     sitm_cleanup();
-    pr_info("mtty_close device success !\n");
+    ret = stop_marlin(MARLIN_BLUETOOTH);
+    pr_info("mtty_close power off state ret = %d!\n", ret);
 }
 
 /*******************write function***************/
