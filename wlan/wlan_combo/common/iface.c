@@ -671,7 +671,7 @@ static netdev_tx_t iface_start_xmit(struct sk_buff *skb, struct net_device *ndev
 	 * by use tx mgmt cmd
 	 */
 	/* send 802.1x or WAPI frame from cmd channel */
-	ret = sprd_hif_tx_special_data(&vif->priv->hif, skb, ndev);
+	ret = sprd_hif_tx_special_data(hif, skb, ndev);
 	if (ret == NETDEV_TX_OK || ret == NETDEV_TX_BUSY)
 		return ret;
 
@@ -702,7 +702,7 @@ static netdev_tx_t iface_start_xmit(struct sk_buff *skb, struct net_device *ndev
 	}
 
 	offset = sprd_send_data_offset(vif->priv);
-	sprd_hif_throughput_ctl_pd(hif, skb->len);
+
 	skb_len = skb->len;
 	print_len = skb->len > 64 ? 64 : skb->len;
 	print_hex_dump_debug("TX packet: ", DUMP_PREFIX_OFFSET,

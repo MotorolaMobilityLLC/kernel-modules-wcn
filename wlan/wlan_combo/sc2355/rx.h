@@ -247,6 +247,5 @@ int sc2355_rx_deinit(struct sprd_hif *hif);
 void sc2355_rx_mh_addr_process(struct rx_mgmt *rx_mgmt, void *data,
 		   int len, int buffer_type);
 void sc2355_count_rx_tp(struct sprd_hif *hif, int len);
-void sc2355_sdio_rx_throughput_statistic(unsigned int len);
 
 #endif

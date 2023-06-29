@@ -14,6 +14,7 @@
 #include "rx.h"
 #include "txrx.h"
 #include "sipc_buf.h"
+#include "cpu_performance.h"
 
 static bool rx_mh_ipv6_ext_hdr(unsigned char nexthdr)
 {
@@ -148,10 +149,6 @@ int sprd_rx_defragment_attack_check(struct sprd_priv *priv, struct sk_buff *skb)
 	return 0;
 }
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
-extern int wcn_thread_setattr(unsigned dir, struct sched_attr *attr);
-static struct sched_attr attr;
-#endif
 static void rx_skb_process(struct sprd_priv *priv, struct sk_buff *skb)
 {
 	struct sprd_vif *vif = NULL;
@@ -162,10 +159,6 @@ static void rx_skb_process(struct sprd_priv *priv, struct sk_buff *skb)
 	struct ethhdr *eth;
 	int ret = 0;
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
-	attr.sched_flags |= (SCHED_FLAG_KEEP_ALL | SCHED_FLAG_UTIL_CLAMP_MIN);
-	attr.sched_policy = SCHED_NORMAL;
-#endif
 	hif = &priv->hif;
 	msdu_desc = (struct rx_msdu_desc *)skb->data;
 
@@ -209,21 +202,11 @@ static void rx_skb_process(struct sprd_priv *priv, struct sk_buff *skb)
 	if (hif->tdls_flow_count_enable == 1)
 		sc2355_tdls_count_flow(vif, skb->data + ETH_ALEN,
 				       skb->len - ETH_ALEN);
-	sc2355_sdio_rx_throughput_statistic(skb->len);
-	if (hif->hw_type == SPRD_HW_SC2355_SDIO) {
+	sc2355_rx_tp_statistic(skb->len);
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
-		if (attr.sched_util_min != 400 &&
-			throughput_static.throughput_rx >= SET_UCLAMP_THRESHOLD) {
-			attr.sched_util_min = 400;
-			ret = wcn_thread_setattr(0, &attr);
-	/*need reset sdiohal_rx_thread util to 0*/
-		} else if (attr.sched_util_min &&
-			throughput_static.throughput_rx < SET_UCLAMP_THRESHOLD) {
-			attr.sched_util_min = 0;
-			ret = wcn_thread_setattr(0, &attr);
-		}
+	if (hif->hw_type == SPRD_HW_SC2355_SDIO)
+		sc2355_set_wcn_thread_uclamp();
 #endif
-	}
 
 	if ((vif->mode == SPRD_MODE_AP ||
 	     vif->mode == SPRD_MODE_P2P_GO) && msdu_desc->uc_w2w_flag) {

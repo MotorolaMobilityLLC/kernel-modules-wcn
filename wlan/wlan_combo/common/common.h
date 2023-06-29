@@ -27,7 +27,6 @@
 #include <net/addrconf.h>
 #include <net/cfg80211.h>
 #include <net/if_inet6.h>
-#include <uapi/linux/sched/types.h>
 
 #include "cfg80211.h"
 #include "cmd.h"

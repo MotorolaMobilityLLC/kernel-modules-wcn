@@ -11,7 +11,6 @@
 #include <linux/wait.h>
 #include <linux/workqueue.h>
 #include <misc/wcn_bus.h>
-#include <linux/pm_qos.h>
 
 #include "common/hif.h"
 
@@ -25,23 +24,6 @@
 /*use port 10 because fifo_len = 8*/
 #define SDIO_TX_DATA_PORT	10
 
-
-
-#define DISABLE_PD_THRESHOLD (25 * 0x100000)  //200Mbit/s  or 25Mbyte/s
-#define SET_UCLAMP_THRESHOLD (25 * 0x100000)  //200Mbit/s  or 25Mbyte/s
-
-struct throughput_sta {
-	unsigned long tx_bytes;
-	unsigned long last_time;
-	unsigned long rx_bytes;
-	unsigned long rx_last_time;
-	unsigned long throughput_rx;
-	unsigned long throughput_tx;
-	bool disable_pd_flag;
-	bool uclamp_set_flag;
-	struct  pm_qos_request pm_qos_request_idle;
-};
-
 struct sc2355_sdiohal_puh {
 	unsigned int pad:6;
 	unsigned int check_sum:1;
@@ -50,5 +32,4 @@ struct sc2355_sdiohal_puh {
 	unsigned int subtype:4;
 	unsigned int type:4;
 };/* 32bits public header */
-extern struct throughput_sta throughput_static;
 #endif /* __SDIO_H__ */

@@ -100,7 +100,8 @@ SC2355_WLAN := \
 		sc2355/tx.o \
 		sc2355/fcc.o \
 		sc2355/vendor.o \
-		sc2355/rtt.o
+		sc2355/rtt.o \
+		sc2355/cpu_performance.o
 
 SC2355_SDIO_WLAN := sc2355/sdio.o
 

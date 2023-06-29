@@ -231,7 +231,8 @@ struct sprd_hif_ops {
 			     unsigned char *data, int len,
 			     bool send_now);
 	int (*reset)(struct sprd_hif *hif);
-	void (*throughput_ctl_pd)(unsigned int len);
+	void (*tp_ctl_pd)(unsigned int len);
+	void (*tp_ctl_uclamp)(struct sprd_hif *hif);
 #ifdef DRV_RESET_SELF
 	int (*reset_self)(struct sprd_priv *priv);
 #endif
@@ -251,6 +252,18 @@ static inline void sprd_hif_post_deinit(struct sprd_hif *hif)
 {
 	if (hif->ops->post_deinit)
 		hif->ops->post_deinit(hif);
+}
+
+static inline void sprd_hif_tp_ctl_pd(struct sprd_hif *hif, unsigned int len)
+{
+	if (hif->ops->tp_ctl_pd)
+		hif->ops->tp_ctl_pd(len);
+}
+
+static inline void sprd_hif_tp_ctl_uclamp(struct sprd_hif *hif)
+{
+	if (hif->ops->tp_ctl_uclamp)
+		hif->ops->tp_ctl_uclamp(hif);
 }
 
 static inline bool sprd_hif_is_on(struct sprd_hif *hif)
@@ -343,12 +356,6 @@ static inline int sprd_hif_tx_special_data(struct sprd_hif *hif,
 	if (hif->ops->tx_special_data)
 		return hif->ops->tx_special_data(skb, ndev);
 	return -1;
-}
-
-static inline void sprd_hif_throughput_ctl_pd(struct sprd_hif *hif, unsigned int len)
-{
-	if (hif->ops->throughput_ctl_pd)
-		hif->ops->throughput_ctl_pd(len);
 }
 
 static inline void sprd_hif_tx_flush(struct sprd_hif *hif, struct sprd_vif *vif)

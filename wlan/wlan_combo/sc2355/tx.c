@@ -12,6 +12,7 @@
 #include "rx.h"
 #include "tx.h"
 #include "txrx.h"
+#include "cpu_performance.h"
 
 #define MAX_FW_TX_DSCR	(1024)
 
@@ -782,21 +783,8 @@ static int sc2355_tx_thread(void *data)
 		sc2355_tx_down(tx_mgmt);
 		if (unlikely(tx_mgmt->tx_thread_exit))
 			goto exit;
-                if (!throughput_static.uclamp_set_flag &&
-                   (throughput_static.throughput_tx >= SET_UCLAMP_THRESHOLD ||
-                    throughput_static.throughput_rx >= SET_UCLAMP_THRESHOLD)) {
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
-                    sc2355_set_thread_uclamp(tx_mgmt->tx_thread, 600);
-#else
-                    sc2355_set_thread_uclamp(tx_mgmt->tx_thread, 400);
-#endif
-                    throughput_static.uclamp_set_flag = true;
-                } else if (throughput_static.uclamp_set_flag &&
-                           (throughput_static.throughput_tx < SET_UCLAMP_THRESHOLD &&
-                            throughput_static.throughput_rx < SET_UCLAMP_THRESHOLD)) {
-                            sc2355_set_thread_uclamp(tx_mgmt->tx_thread, 0);
-                            throughput_static.uclamp_set_flag = false;
-                }
+
+		sprd_hif_tp_ctl_uclamp(tx_mgmt->hif);
 		tx_work_queue(tx_mgmt);
 	}
 
@@ -1900,25 +1888,6 @@ void sc2355_tx_up(struct tx_mgmt *tx_mgmt)
 {
 	complete(&tx_mgmt->tx_completed);
 }
-//set uclamp params for bug 1959864
-int sc2355_set_thread_uclamp(struct task_struct *thread, int sched_util_min)
-{
-	struct sched_attr attr = {};
-	int ret = 0;
-
-	if (!thread) {
-		wl_err("%s: failed to set sched attr point thread null\n",__func__);
-		return -1;
-	}
-	attr.sched_policy = thread->policy;
-	if (thread->sched_reset_on_fork)
-		attr.sched_flags |= SCHED_FLAG_RESET_ON_FORK;
-	attr.sched_flags |= (SCHED_FLAG_KEEP_ALL | SCHED_FLAG_UTIL_CLAMP_MIN);
-	attr.sched_util_min = sched_util_min;
-	ret = sched_setattr(thread,&attr);
-
-	return ret;
-}
 
 int sc2355_tx_init(struct sprd_hif *hif)
 {
@@ -2220,6 +2189,7 @@ int sc2355_send_data(struct sprd_vif *vif, struct sprd_msg *msg,
 	hif = &vif->priv->hif;
 
 	buf = skb->data;
+	sprd_hif_tp_ctl_pd(hif, skb->len);
 
 	if (sc2355_hif_fill_msdu_dscr(vif, skb, SPRD_TYPE_DATA, offset)) {
 		sprd_free_msg(msg, msg->msglist);
