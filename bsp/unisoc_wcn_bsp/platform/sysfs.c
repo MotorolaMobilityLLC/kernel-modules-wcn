@@ -133,7 +133,9 @@ static int wcn_send_atcmd(void *cmd, size_t cmd_len,
 	ret = sprdwcn_bus_push_list(0, head, tail, num);
 	if (ret) {
 		WCN_INFO("sprdwcn_bus_push_list error=%d\n", ret);
-		if ((ret == -E_INVALIDPARA) && g_match_config && !g_match_config->unisoc_wcn_pcie)
+		if ((ret == -E_INVALIDPARA) && g_match_config && g_match_config->unisoc_wcn_sipc)
+			sprdwcn_bus_list_free(0, head, tail, num);
+		else if ((ret == -ENODEV) && g_match_config && g_match_config->unisoc_wcn_sdio)
 			sprdwcn_bus_list_free(0, head, tail, num);
 		wcn_send_atcmd_unlock();
 		return -ENOMEM;
