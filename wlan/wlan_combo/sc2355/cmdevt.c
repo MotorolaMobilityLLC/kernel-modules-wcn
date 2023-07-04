@@ -614,10 +614,10 @@ int sc2355_assert_cmd(struct sprd_priv *priv, u8 cmd_id,
 
 		if ((strlen(cmd_str) + strlen(reason_str) + strlen("[CMD] ") +
 		     strlen(", [REASON] ")) < ASSERT_INFO_BUF_SIZE)
-			idx += sprintf(buf + idx, "[CMD] %s, [REASON] %s",
+			idx += snprintf(buf + idx, ASSERT_INFO_BUF_SIZE - idx, "[CMD] %s, [REASON] %s",
 				    cmd_str, reason_str);
 		else
-			idx += sprintf(buf + idx, "[CMD ID] %d, [REASON ID] %d",
+			idx += snprintf(buf + idx, ASSERT_INFO_BUF_SIZE - idx, "[CMD ID] %d, [REASON ID] %d",
 				    cmd_id, reason);
 
 		buf[idx] = '\0';

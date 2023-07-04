@@ -932,7 +932,7 @@ static int iface_priv_cmd(struct net_device *ndev, void __user *data)
 		if (priv->fw_std & SPRD_STD_11V)
 			feat = priv->wnm_ft_support;
 
-		sprintf(command, "%s %d", CMD_11V_GET_CFG, feat);
+		snprintf(command, priv_cmd.total_len, "%s %d", CMD_11V_GET_CFG, feat);
 		netdev_info(ndev, "%s: get 11v feat\n", __func__);
 		if (copy_to_user(priv_cmd.buf, command, priv_cmd.total_len)) {
 			netdev_err(ndev, "%s: get 11v copy failed\n", __func__);
