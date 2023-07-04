@@ -523,7 +523,7 @@ static void tx_flush_all_txlist(struct tx_mgmt *tx_dev)
 	tx_flush_data_txlist(tx_dev);
 }
 
-static void tx_prepare_addba(struct sprd_hif *hif, unsigned char lut_index,
+void sc2355_tx_prepare_addba(struct sprd_hif *hif, unsigned char lut_index,
 			     struct sprd_peer_entry *peer_entry,
 			     unsigned char tid)
 {
@@ -567,12 +567,6 @@ static void tx_prepare_addba(struct sprd_hif *hif, unsigned char lut_index,
 		}
 		sprd_put_vif(vif);
 	}
-}
-
-void sc2355_tx_prepare_addba(struct sprd_hif *hif, unsigned char lut_index,
-                     struct sprd_peer_entry *peer_entry,unsigned char tid)
-{
-	return tx_prepare_addba(hif,lut_index,peer_entry,tid);
 }
 
 static int tx_prepare_tx_msg(struct sprd_hif *hif, struct sprd_msg *msg)
@@ -1560,7 +1554,7 @@ int sc2355_tx(struct sprd_chip *chip, struct sprd_msg *msg)
 		}
 		dscr->buffer_info.msdu_tid = tid;
 		peer_entry = &hif->peer_entry[dscr->sta_lut_index];
-		tx_prepare_addba(hif, dscr->sta_lut_index, peer_entry, tid);
+		sc2355_tx_prepare_addba(hif, dscr->sta_lut_index, peer_entry, tid);
 		data_list =
 		    &tx_mgmt->tx_list[msg->mode]->q_list[qos_index].p_list[dscr->sta_lut_index];
 		tx_mgmt->tx_list[msg->mode]->lut_id = dscr->sta_lut_index;
@@ -2332,6 +2326,11 @@ void sc2355_tx_ba_mgmt(struct sprd_priv *priv, struct sprd_vif *vif,
 		u16 tid = 0;
 
 		addba = (struct host_addba_param *)(rbuf + 1);
+		if (addba->lut_index >= MAX_LUT_NUM || addba->addba_param.tid >= NUM_TIDS) {
+			wl_err("TID/lut_index is too large, lut_index: %d, tid: %d\n",
+				addba->lut_index, addba->addba_param.tid);
+			goto out;
+		}
 		peer_entry = &hif->peer_entry[addba->lut_index];
 		tid = addba->addba_param.tid;
 		if (!test_and_clear_bit(tid, &peer_entry->ba_tx_done_map))
