@@ -67,6 +67,7 @@ struct mdbg_proc_t {
 	struct mdbg_proc_entry		snap_shoot;
 	struct mdbg_proc_entry          wcn_chr;
 	struct mdbg_proc_entry          assert_cnt;
+	struct mdbg_proc_entry          assert_info;
 	struct mutex		mutex;
 	char write_buf[MDBG_WRITE_SIZE];
 	int fail_count;
@@ -1157,6 +1158,35 @@ static const struct proc_ops mdbg_assert_cnt_fops = {
 	.proc_read           = mdbg_assert_cnt_read,
 };
 
+static ssize_t mdbg_assert_info_read(struct file *filp,
+		char __user *buf, size_t count, loff_t *ppos)
+{
+	int len;
+
+	if (!buf || !count)
+		return -EINVAL;
+
+	if (*ppos)
+		return 0;
+
+	len = strlen(wcn_assert_str);
+	if (copy_to_user(buf, wcn_assert_str, len)) {
+		WCN_ERR("%s: copy_to_user failed\n", __func__);
+		return -EINVAL;
+	}
+
+	*ppos += len;
+
+	WCN_INFO("fw assert:%s\n", wcn_assert_str);
+	sprdwcn_bus_debug_point_show();
+
+	return len;
+}
+
+static const struct proc_ops mdbg_assert_info_fops = {
+	.proc_read           = mdbg_assert_info_read,
+};
+
 int mdbg_memory_alloc(void)
 {
 	mdbg_proc->assert.buf =  kzalloc(MDBG_ASSERT_SIZE, GFP_KERNEL);
@@ -1418,6 +1448,14 @@ int proc_fs_init(void)
 						&mdbg_assert_cnt_fops,
 						&(mdbg_proc->assert_cnt));
 
+	mdbg_proc->assert_info.name = "assert_info";
+	mdbg_proc->assert_info.entry = proc_create_data(
+						mdbg_proc->assert_info.name,
+						0444,
+						mdbg_proc->procdir,
+						&mdbg_assert_info_fops,
+						&(mdbg_proc->assert_info));
+
 	if (g_match_config && !g_match_config->unisoc_wcn_pcie)
 		mdbg_fs_channel_init();
 
@@ -1449,6 +1487,7 @@ void proc_fs_exit(void)
 	remove_proc_entry(mdbg_proc->dir_name, NULL);
 	remove_proc_entry(mdbg_proc->wcn_chr.name, mdbg_proc->procdir);
 	remove_proc_entry(mdbg_proc->assert_cnt.name, mdbg_proc->procdir);
+	remove_proc_entry(mdbg_proc->assert_info.name, mdbg_proc->procdir);
 
 	kfree(mdbg_proc);
 	mdbg_proc = NULL;
