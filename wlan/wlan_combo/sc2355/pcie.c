@@ -1640,7 +1640,6 @@ err:
 
 	for (; chn > 0; chn--)
 		sprdwcn_bus_chn_deinit(&sc2355_hif.mchn_ops[chn]);
-	sc2355_hif.mchn_ops = NULL;
 	sc2355_hif.max_num = 0;
 
 	return ret;
