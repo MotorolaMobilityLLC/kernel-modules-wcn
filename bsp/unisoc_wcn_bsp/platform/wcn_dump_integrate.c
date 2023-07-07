@@ -310,7 +310,7 @@ static int btwf_dump_mem(enum wcn_source_type type)
 		}
 	}
 
-	if (type == WCN_SOURCE_GNSS && wcn_platform_chip_type() == WCN_PLATFORM_TYPE_SHARKL3) {
+	if (type == WCN_SOURCE_GNSS) {
 		mdbg_cpu_reset();//only soft reset not reset release
 		return 0;
 	}
@@ -360,22 +360,16 @@ void mdbg_dump_mem_integ(enum wcn_source_type type)
 	if (wcn_platform_chip_type() == WCN_PLATFORM_TYPE_QOGIRL6)
 		debug_bus_show("WCN Assert");
 
-	if (wcn_platform_chip_type() == WCN_PLATFORM_TYPE_SHARKL3) {
-		if (type == WCN_SOURCE_GNSS) {
-			/* dump gnss */
-			gnss_dump_mem(0);
-			/* dump btwf */
-			btwf_dump_mem(type);//only send sleep ,not dump btwf
-		} else {
-			/* dump btwf */
-			btwf_dump_mem(type);
-		}
-	} else {
-		 /* dump gnss */
+	if (type == WCN_SOURCE_GNSS) {
+		/* dump gnss */
 		gnss_dump_mem(0);
+		/* dump btwf */
+		btwf_dump_mem(type);//only send sleep ,not dump btwf
+	} else {
 		/* dump btwf */
 		btwf_dump_mem(type);
 	}
+
 	wcn_sipc_mdbg_debug_show();
 }
 
