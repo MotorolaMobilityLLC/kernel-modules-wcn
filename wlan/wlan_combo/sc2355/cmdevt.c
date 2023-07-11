@@ -595,7 +595,6 @@ int sc2355_assert_cmd(struct sprd_priv *priv, u8 cmd_id,
 	struct sprd_hif *hif = &priv->hif;
 	struct rx_mgmt *rx_mgmt = NULL;
 	char buf[ASSERT_INFO_BUF_SIZE] = { 0 };
-	u8 idx = 0;
 	const char *cmd_str =NULL, *reason_str = NULL;
 	cmd_str = cmdevt_cmd2str(cmd_id);
 	reason_str = cmdevt_assert_reason_to_str(reason);
@@ -614,13 +613,13 @@ int sc2355_assert_cmd(struct sprd_priv *priv, u8 cmd_id,
 
 		if ((strlen(cmd_str) + strlen(reason_str) + strlen("[CMD] ") +
 		     strlen(", [REASON] ")) < ASSERT_INFO_BUF_SIZE)
-			idx += snprintf(buf + idx, ASSERT_INFO_BUF_SIZE - idx, "[CMD] %s, [REASON] %s",
-				    cmd_str, reason_str);
+			snprintf(buf, ASSERT_INFO_BUF_SIZE, "[CMD] %s, [REASON] %s",
+				 cmd_str, reason_str);
 		else
-			idx += snprintf(buf + idx, ASSERT_INFO_BUF_SIZE - idx, "[CMD ID] %d, [REASON ID] %d",
-				    cmd_id, reason);
+			snprintf(buf, ASSERT_INFO_BUF_SIZE, "[CMD ID] %d, [REASON ID] %d",
+				 cmd_id, reason);
 
-		buf[idx] = '\0';
+		buf[ASSERT_INFO_BUF_SIZE - 1] = '\0';
 
 		mdbg_assert_interface(buf);
 
