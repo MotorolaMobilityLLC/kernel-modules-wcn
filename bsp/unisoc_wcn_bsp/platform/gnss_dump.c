@@ -327,52 +327,53 @@ static int gnss_ext_hold_cpu(void)
 	return ret;
 }
 
+#define ALLOC_SIZE 4096
+
 static int gnss_ext_dump_data(unsigned int start_addr, int len)
 {
 	u8 *buf = NULL;
-	int ret = 0;
-	//, count = 0, trans = 0;
-	void  *iram_buffer = NULL;
-	//mm_segment_t fs;
+	int i = 0, ret = 0, count = 0,
+	    end_len = 0, write_len = 0;
+	unsigned int base_addr;
 
-	GNSSDUMP_INFO("%s, addr:%x,len:%d\n", __func__, start_addr, len);
-	buf = kzalloc(len, GFP_KERNEL);
+	buf = kzalloc(ALLOC_SIZE, GFP_KERNEL);
 	if (!buf) {
 		GNSSDUMP_ERR("%s kzalloc buf error\n", __func__);
 		return -ENOMEM;
 	}
 
-	iram_buffer = vmalloc(len);
-	if (!iram_buffer) {
-		GNSSDUMP_ERR("%s vmalloc iram_buffer error\n", __func__);
-		kfree(buf);
-		return -ENOMEM;
+	count = DIV_ROUND_UP(len, ALLOC_SIZE);
+	end_len = len % ALLOC_SIZE;
+	for (i = 0; i < count; i++) {
+		base_addr = start_addr + i * ALLOC_SIZE;
+		if (end_len == 0) {
+			write_len = ALLOC_SIZE;
+		} else {
+			if (i == count - 1)
+				write_len = end_len;
+			else
+				write_len = ALLOC_SIZE;
+		}
+		ret = sprdwcn_bus_direct_read(base_addr, buf, write_len);
+		GNSSDUMP_INFO("%s, write_times:%d, addr:%x, len:%d, total_len:%d\n",
+			__func__, i, base_addr, write_len, len);
+		if (ret < 0) {
+			GNSSDUMP_ERR("%s read error:%d\n", __func__, ret);
+			goto dump_data_done;
+		}
+
+		ret = gnss_dump_data(buf, write_len, 0);
+		if (ret != write_len) {
+			GNSSDUMP_ERR("%s failed size is %d, ret %d\n", __func__,
+				     write_len, ret);
+			goto dump_data_done;
+		}
 	}
-	memset(iram_buffer, 0, len);
-
-	ret = sprdwcn_bus_direct_read(start_addr, buf, len);
-
-	//fs = get_fs();
-	//set_fs(KERNEL_DS);
-	if (ret < 0) {
-		GNSSDUMP_ERR("%s read error:%d\n", __func__, ret);
-		goto dump_data_done;
-	}
-
-	memcpy(iram_buffer, buf, len);
-
-	ret = gnss_dump_data(buf, len, 0);
-	if (ret != len) {
-		GNSSDUMP_ERR("%s failed size is %d, ret %d\n", __func__,
-				     len, ret);
-		goto dump_data_done;
-	}
-	GNSSDUMP_INFO("%s finish %d\n", __func__, len);
+	GNSSDUMP_INFO("%s finish %d, count: %d\n", __func__, len, count);
 	ret = 0;
 
 dump_data_done:
 	kfree(buf);
-	//set_fs(fs);
 	return ret;
 }
 
