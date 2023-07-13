@@ -142,5 +142,6 @@ int sprd_iface_remove(struct platform_device *pdev);
 int sprd_iface_set_power(struct sprd_hif *hif, int val);
 void sprd_filter_data_debug(struct sk_buff *skb, struct net_device *ndev, const char *direct);
 struct udphdr *sprd_get_udphdr(struct sk_buff *skb, unsigned char *iphdrlen);
+int sprd_iface_report_assert_evt(struct sprd_priv *priv);
 
 #endif

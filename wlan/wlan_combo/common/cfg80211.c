@@ -251,6 +251,31 @@ void sprd_cancel_reset_work(struct sprd_priv *priv)
 }
 #endif
 
+static void sprd_do_reset_delay_work(struct work_struct *work)
+{
+	struct sprd_priv *priv = container_of(work, struct sprd_priv,
+					      reset_delay_work.work);
+	struct sprd_hif *hif = &priv->hif;
+
+	mutex_lock(&hif->reset_lock);
+	if (hif->cp_asserted && hif->report_try++ < 5) {
+		wl_info("Try to report assert a %d time \n", hif->report_try);
+		sprd_iface_report_assert_evt(priv);
+		schedule_delayed_work(&priv->reset_delay_work, msecs_to_jiffies(500));
+	}
+	mutex_unlock(&hif->reset_lock);
+}
+
+static void sprd_init_reset_delay_work(struct sprd_priv *priv)
+{
+	INIT_DELAYED_WORK(&priv->reset_delay_work, sprd_do_reset_delay_work);
+}
+
+static void sprd_deinit_reset_delay_work(struct sprd_priv *priv)
+{
+	cancel_delayed_work_sync(&priv->reset_delay_work);
+}
+
 static enum sprd_mode cfg80211_type_to_mode(enum nl80211_iftype type, char *name)
 {
 	enum sprd_mode mode;
@@ -1622,6 +1647,7 @@ struct sprd_priv *sprd_core_create(struct sprd_chip_ops *chip_ops)
 #ifdef DRV_RESET_SELF
 	cfg80211_init_reset_work(priv);
 #endif
+	sprd_init_reset_delay_work(priv);
 	spin_lock_init(&adap_info.adap_lock);
 
 	return priv;
@@ -1638,6 +1664,7 @@ void sprd_core_free(struct sprd_priv *priv)
 #ifdef DRV_RESET_SELF
 	cfg80211_deinit_reset_work(priv);
 #endif
+	sprd_deinit_reset_delay_work(priv);
 	sprd_cmd_deinit(priv);
 
 	wiphy = priv->wiphy;

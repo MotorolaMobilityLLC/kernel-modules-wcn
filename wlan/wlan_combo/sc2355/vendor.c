@@ -3938,6 +3938,10 @@ static const struct nl80211_vendor_cmd_info vendor_events[] = {
 	[SPRD_RTT_EVENT_COMPLETE_INDEX] = {
 		.vendor_id = OUI_SPREAD,
 		.subcmd = VENDOR_GSCAN_WIFI_EVT_RTT_EVENT_COMPLETE
+	},
+	[SPRD_VENDOR_EVENT_ASSERT_INDEX] = {
+		.vendor_id = OUI_SPREAD,
+		.subcmd = SPRD_EVENT_ASSERT
 	}
 };
 

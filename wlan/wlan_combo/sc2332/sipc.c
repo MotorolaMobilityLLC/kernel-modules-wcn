@@ -88,11 +88,14 @@ static int sc2332_reset(struct sprd_hif *hif)
 	}
 
 	/* need reset hif->cp_assert flag */
+	mutex_lock(&hif->reset_lock);
 	if (unlikely(hif->cp_asserted)) {
 		hif->cp_asserted = 0;
-		wl_debug("%s reset hif->cp_asserted flag:%d!\n", __func__,
-			hif->cp_asserted);
+		hif->report_try = 0;
+		wl_debug("%s reset hif->cp_asserted flag:%d and hif->report_try flag: %d!\n",
+			 __func__, hif->cp_asserted, hif->report_try);
 	}
+	mutex_unlock(&hif->reset_lock);
 
 	list_for_each_entry_safe(vif, tmp, &priv->vif_list, vif_node) {
 		int ciphyr_type, key_index;
@@ -823,6 +826,7 @@ int sipc_init(struct sprd_hif *hif)
 	hif->cp_asserted = 0;
 	hif->exit = 0;
 	hif->remove_flag = 0;
+	mutex_init(&hif->reset_lock);
 
 	return 0;
 
@@ -861,6 +865,7 @@ void sipc_deinit(struct sprd_hif *hif)
 	sprd_deinit_msg(&hif->tx_list0);
 	sprd_deinit_msg(&hif->tx_list1);
 	sprd_deinit_msg(&hif->tx_list2);
+	mutex_destroy(&hif->reset_lock);
 
 	wl_debug("%s\t"
 		"net: stop %u, start %u\t"

@@ -213,6 +213,8 @@ struct sprd_hif {
 #ifdef DRV_RESET_SELF
 	u8 drv_resetting;
 #endif
+	struct mutex reset_lock;
+	int report_try;
 };
 
 struct sprd_hif_ops {
@@ -293,6 +295,10 @@ static inline int sprd_hif_power_on(struct sprd_hif *hif)
 		return 0;
 
 	if (start_marlin(MARLIN_WIFI)) {
+		if (hif->cp_asserted) {
+			wl_info("%s start_marlin error but return true\n", __func__);
+			return 0;
+		}
 		atomic_sub(1, &hif->power_cnt);
 		return -ENODEV;
 	}
@@ -310,6 +316,10 @@ static inline int sprd_hif_power_on(struct sprd_hif *hif)
 	}
 
 	if (sprd_sync_version(hif)) {
+		if (hif->cp_asserted) {
+			wl_info("%s cmd_sync error but return true\n", __func__);
+			return 0;
+		}
 		atomic_sub(1, &hif->power_cnt);
 		return -EIO;
 	}

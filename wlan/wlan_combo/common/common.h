@@ -228,6 +228,7 @@ struct sprd_priv {
 	struct work_struct reset_work;
 	struct workqueue_struct *reset_workq;
 #endif
+	struct delayed_work reset_delay_work;
 
 	struct dentry *debugfs;
 	struct sprd_channel_list ch_2g4_info;

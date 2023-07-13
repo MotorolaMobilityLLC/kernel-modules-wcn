@@ -1143,6 +1143,8 @@ int sc2355_sdio_init(struct sprd_hif *hif)
 
 	hif->cp_asserted = 0;
 	hif->exit = 0;
+	mutex_init(&hif->reset_lock);
+
 	return 0;
 
 err:
@@ -1172,6 +1174,7 @@ void sc2355_sdio_deinit(struct sprd_hif *hif)
 	sc2355_tp_static_deinit();
 	sc2355_tx_deinit(hif);
 	sc2355_rx_deinit(hif);
+	mutex_destroy(&hif->reset_lock);
 }
 
 void sdio_post_deinit(struct sprd_hif *hif)

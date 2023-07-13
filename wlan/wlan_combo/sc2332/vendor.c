@@ -2646,6 +2646,10 @@ static const struct nl80211_vendor_cmd_info vendor_events[] = {
 		.vendor_id = OUI_SPREAD,
 		.subcmd = SPRD_REINIT_ACS,
 	},
+	[SPRD_VENDOR_EVENT_ASSERT_INDEX] = {
+		.vendor_id = OUI_SPREAD,
+		.subcmd = SPRD_EVENT_ASSERT
+	}
 };
 
 int sc2332_vendor_init(struct wiphy *wiphy)

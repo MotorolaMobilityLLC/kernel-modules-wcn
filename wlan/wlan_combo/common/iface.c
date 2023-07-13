@@ -121,8 +121,7 @@ static struct miscdevice wlan_misc_device = {
 };
 
 #ifndef DRV_RESET_SELF
-static int iface_host_reset(struct notifier_block *nb,
-			    unsigned long data, void *ptr)
+static int iface_host_reset(void)
 {
 	struct sprd_priv *priv = iface_get_priv();
 	struct sprd_hif *hif;
@@ -155,8 +154,7 @@ static int iface_host_reset(struct notifier_block *nb,
 	return NOTIFY_OK;
 }
 #else
-static int iface_host_reset(struct notifier_block *nb,
-			    unsigned long data, void *ptr)
+static int iface_host_reset(void)
 {
 	struct sprd_priv *priv = iface_get_priv();
 	struct sprd_hif *hif;
@@ -180,8 +178,51 @@ static int iface_host_reset(struct notifier_block *nb,
 }
 #endif
 
+static int iface_host_delay_reset(void)
+{
+	struct sprd_priv *priv = iface_get_priv();
+	struct sprd_hif *hif;
+	struct sprd_cmd *cmd = &priv->cmd;
+
+	if (!priv) {
+		wl_err("%s sprd_prv is NULL\n", __func__);
+		return NOTIFY_OK;
+	}
+
+	hif = &priv->hif;
+	hif->cp_asserted = 1;
+	complete(&cmd->completed);
+	sprd_chip_force_exit((void *)&priv->chip);
+
+	wl_info("%s start process\n", __func__);
+	schedule_delayed_work(&priv->reset_delay_work, msecs_to_jiffies(0));
+
+	return NOTIFY_OK;
+}
+
+static int iface_reset(struct notifier_block *nb,
+		       unsigned long data, void *ptr)
+{
+	struct sprd_priv *priv = iface_get_priv();
+	struct sprd_hif *hif;
+
+	if (!priv) {
+		wl_err("%s sprd_prv is NULL\n", __func__);
+		return NOTIFY_OK;
+	}
+
+	hif = &priv->hif;
+	if (hif->hw_type == SPRD_HW_SC2355_SDIO ||
+	    hif->hw_type == SPRD_HW_SC2332_SIPC) {
+		wl_info("%s use iface_host_delay_reset\n", __func__);
+		return iface_host_delay_reset();
+	}
+
+	return iface_host_reset();
+}
+
 static struct notifier_block iface_host_reset_cb = {
-	.notifier_call = iface_host_reset,
+	.notifier_call = iface_reset,
 };
 
 static void iface_stop_net(struct sprd_vif *vif)
@@ -326,6 +367,49 @@ int sprd_iface_set_power(struct sprd_hif *hif, int val)
 			atomic_read(&hif->power_cnt));
 		sprd_hif_power_off(hif);
 	}
+	return ret;
+}
+
+int sprd_iface_report_assert_evt(struct sprd_priv *priv)
+{
+	struct wiphy *wiphy = priv->wiphy;
+	struct sprd_vif *vif = NULL, *tmp_vif;
+	struct sk_buff *reply;
+	int ret = 0;
+	char *data = "FW_ERROR";
+
+	spin_lock_bh(&priv->list_lock);
+	list_for_each_entry(tmp_vif, &priv->vif_list, vif_node) {
+		if (tmp_vif->ndev) {
+			vif = tmp_vif;
+			break;
+		}
+	}
+	spin_unlock_bh(&priv->list_lock);
+
+
+	if (!vif) {
+		wl_err("%s can not get vif!\n", __func__);
+		return -1;
+	}
+
+	reply = cfg80211_vendor_event_alloc(wiphy, &vif->wdev, strlen(data),
+					    SPRD_VENDOR_EVENT_ASSERT_INDEX,
+					    GFP_KERNEL);
+	if (!reply) {
+		wl_err("%s alloc event error\n", __func__);
+		return -ENOMEM;
+	}
+
+	if (nla_put(reply, SPRD_ATTR_ASSERT, strlen(data), data)) {
+		netdev_info(vif->ndev, "nla put failed");
+		kfree_skb(reply);
+		return -1;
+	}
+
+	cfg80211_vendor_event(reply, GFP_KERNEL);
+	wl_info("%s success\n", __func__);
+
 	return ret;
 }
 
