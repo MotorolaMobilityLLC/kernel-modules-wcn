@@ -1491,14 +1491,22 @@ int wcn_remove(struct platform_device *pdev)
 void wcn_shutdown(struct platform_device *pdev)
 {
 	struct wcn_device *wcn_dev = platform_get_drvdata(pdev);
+	u32 wcn_open_status = wcn_dev->wcn_open_status;
 
+	pr_info("%s start, open_state=%d\n", __func__, wcn_open_status);
+	if (wcn_dev && wcn_dev_is_marlin(wcn_dev)) {
+		wcn_dev->wcn_open_status = 0;
+		wcn_set_loopcheck_state(false);
+		wcn_bus_deinit();
+	}
 	if (wcn_platform_chip_type() == WCN_PLATFORM_TYPE_QOGIRL6) {
 		WCN_INFO("%s WCN A-DIE powerdown\n", __func__);
 		wcn_sys_power_clock_unsupport(true);
 		return;
 	}
 
-	if (wcn_dev && wcn_dev->wcn_open_status) {
+	if (wcn_dev && wcn_open_status) {
+		pr_warn("marlin some subsys power is on, force close\n");
 		/* CPU hold on */
 		wcn_proc_native_stop(wcn_dev);
 		/* wifipa power off */
@@ -1506,13 +1514,10 @@ void wcn_shutdown(struct platform_device *pdev)
 			wcn_marlin_power_enable_vddwifipa(false);
 			/* ASIC: disable vddcon, wifipa interval time > 1ms */
 			usleep_range(VDDWIFIPA_VDDCON_MIN_INTERVAL_TIME,
-				     VDDWIFIPA_VDDCON_MAX_INTERVAL_TIME);
+				VDDWIFIPA_VDDCON_MAX_INTERVAL_TIME);
 		}
 		/* vddcon power off */
 		wcn_power_enable_vddcon(false);
-		/* dcxo1v8 power off*/
-		if (wcn_platform_chip_type() == WCN_PLATFORM_TYPE_QOGIRL6)
-			wcn_power_enable_dcxo1v8(false);
 		wcn_sys_soft_reset();
 		wcn_sys_soft_release();
 		wcn_sys_deep_sleep_en();
