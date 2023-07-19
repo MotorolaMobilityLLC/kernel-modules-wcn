@@ -55,6 +55,7 @@
 .sblk.mapped_smem_base = _mapped_smem_base}
 
 static struct wcn_sipc_info_t g_sipc_info = {0};
+static int sipc_recvseq_debug_count = 0;
 
 /* default sipc channel info */
 /* at/bt/fm use sbuf channel 4:  */
@@ -92,9 +93,9 @@ static struct sipc_chn_info g_sipc_chn[SIPC_CHN_NUM] = {
 	INIT_SIPC_CHN_SBLOCK(SIPC_WIFI_CMD_RX, WCNBUS_RX, SIPC_CHN_WIFI_CMD,
 			     4, 2048, 8, 2048, 0, 0, 0),
 	INIT_SIPC_CHN_SBLOCK(SIPC_WIFI_DATA0_TX, WCNBUS_TX, SIPC_CHN_WIFI_DATA0,
-			     64, 1664, 288, 1664, 0, 0, 0),
+			     64, 1664, 256, 1664, 0, 0, 0),
 	INIT_SIPC_CHN_SBLOCK(SIPC_WIFI_DATA0_RX, WCNBUS_RX, SIPC_CHN_WIFI_DATA0,
-			     64, 1664, 288, 1664, 0, 0, 0),
+			     64, 1664, 256, 1664, 0, 0, 0),
 	INIT_SIPC_CHN_SBLOCK(SIPC_WIFI_DATA1_TX, WCNBUS_TX, SIPC_CHN_WIFI_DATA1,
 			     64, 1664, 8, 1664, 0, 0, 0),
 	INIT_SIPC_CHN_SBLOCK(SIPC_WIFI_DATA1_RX, WCNBUS_RX, SIPC_CHN_WIFI_DATA1,
@@ -357,10 +358,12 @@ void wcn_sipc_pop_list_flush(struct sipc_chn_info *sipc_chn)
 		WCN_DEBUG("index:%d  pop_queue->mbuf_num:%d",
 			  sipc_chn->index, pop_queue->mbuf_num);
 		pop_queue->mbuf_tail->next = NULL;
+		sipc_recvseq_debug_store(sipc_chn->chn, SBLK_SEQ_INDEX4);
 		if (sipc_chn->ops != NULL && sipc_chn->ops->pop_link != NULL)
 			sipc_chn->ops->pop_link(sipc_chn->index,
 				pop_queue->mbuf_head, pop_queue->mbuf_tail,
 				pop_queue->mbuf_num);
+		sipc_recvseq_debug_store(sipc_chn->chn, SBLK_SEQ_INDEX5);
 		wcn_sipc_record_mbuf_giveback_to_user(sipc_chn->index,
 			pop_queue->mbuf_num);
 		pop_queue->mbuf_head = pop_queue->mbuf_tail = NULL;
@@ -415,8 +418,11 @@ static int wcn_sipc_recv(struct sipc_chn_info *sipc_chn,
 	head->next = NULL;
 	tail = head;
 
+	sipc_recvseq_debug_store(sipc_chn->chn, SBLK_SEQ_INDEX2);
 	wcn_sipc_pop_list_enqueue(sipc_chn, head, tail, num);
+	sipc_recvseq_debug_store(sipc_chn->chn, SBLK_SEQ_INDEX3);
 	wcn_sipc_pop_list_flush(sipc_chn);/* or in task */
+	sipc_recvseq_debug_store(sipc_chn->chn, SBLK_SEQ_INDEX6);
 	WCN_HERE_CHN(sipc_chn->index);
 
 	return 0;
@@ -748,12 +754,12 @@ static void wcn_sipc_sblk_recv(struct sipc_chn_info *sipc_chn)
 				 blk.addr, length);
 		wcn_sipc_recv(sipc_chn,
 			      (u8 *)blk.addr + SIPC_SBLOCK_HEAD_RESERV, length);
-		sipc_recvseq_debug_store(sipc_chn->chn, SBLK_SEQ_INDEX2);
+		sipc_recvseq_debug_store(sipc_chn->chn, SBLK_SEQ_INDEX7);
 		ret = sblock_release(sipc_chn->dst, sipc_chn->chn, &blk);
 		if (ret)
 			WCN_ERR("release sblock[%d] err:%d\n",
 				sipc_chn->chn, ret);
-		sipc_recvseq_debug_store(sipc_chn->chn, SBLK_SEQ_INDEX3);
+		sipc_recvseq_debug_store(sipc_chn->chn, SBLK_SEQ_INDEX8);
 	}
 }
 
@@ -1281,19 +1287,25 @@ int sipc_recvseq_debug_store(u8 channel, int index)
 	if (index >= SBLK_SEQ_NUM)
 		return -1;
 	if (channel == SIPC_CHN_WIFI_DATA0) {
-		g_sipc_info.chn8_recvseq_info[index].cur_time = div_u64(ktime_get_boot_fast_ns(), 1000);
-		g_sipc_info.chn8_recvseq_info[index].seq_func = __builtin_return_address(0);
+		sipc_recvseq_debug_count %= SIPC_RECVSEQ_DEBUG_MAX;
+		g_sipc_info.chn8_recvseq_info[sipc_recvseq_debug_count][index].cur_time = div_u64(ktime_get_boot_fast_ns(), 1000);
+		g_sipc_info.chn8_recvseq_info[sipc_recvseq_debug_count][index].seq_func = __builtin_return_address(0);
+		if (index == (SBLK_SEQ_NUM - 1))
+			sipc_recvseq_debug_count++;
 	}
 	return 0;
 }
 
 void sipc_recvseq_debug_show(void)
 {
-	int i;
+	int i, j;
 
-	for (i = 0; i < SBLK_SEQ_NUM; i++)
-		WCN_INFO("RECV SEQ %d: %ps : %012llu \n", i, g_sipc_info.chn8_recvseq_info[i].seq_func, \
-			g_sipc_info.chn8_recvseq_info[i].cur_time);
+	for (i = 0; i < SIPC_RECVSEQ_DEBUG_MAX; i++) {
+		WCN_INFO("RECV COUNT %d :\n", i);
+		for (j = 0; j < SBLK_SEQ_NUM; j++)
+			WCN_INFO("RECV SEQ %d: %ps : %012llu \n", i, g_sipc_info.chn8_recvseq_info[i][j].seq_func, \
+				g_sipc_info.chn8_recvseq_info[i][j].cur_time);
+	}
 }
 
 static struct sprdwcn_bus_ops sipc_bus_ops = {

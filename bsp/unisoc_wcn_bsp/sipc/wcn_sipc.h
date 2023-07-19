@@ -52,10 +52,16 @@ enum wcn_sipc_chn_index {
 
 /* debug point for channel 8 debug */
 #define DBG_PT_NUM 1024
+#define SIPC_RECVSEQ_DEBUG_MAX   5
 enum wcn_sblk_recvseq_index {
 	SBLK_SEQ_INDEX1 = 0,
 	SBLK_SEQ_INDEX2,
 	SBLK_SEQ_INDEX3,
+	SBLK_SEQ_INDEX4,
+	SBLK_SEQ_INDEX5,
+	SBLK_SEQ_INDEX6,
+	SBLK_SEQ_INDEX7,
+	SBLK_SEQ_INDEX8,
 	SBLK_SEQ_NUM
 };
 
@@ -76,7 +82,7 @@ struct wcn_sipc_info_t {
 	u32 sipc_channel_state[SIPC_CHN_NUM];
 	struct mutex status_lock;
 	struct sblk_debug_info_t chn8_dbg_info;
-	struct sblk_recvseq_info_t chn8_recvseq_info[SBLK_SEQ_NUM];
+	struct sblk_recvseq_info_t chn8_recvseq_info[SIPC_RECVSEQ_DEBUG_MAX][SBLK_SEQ_NUM];
 };
 
 struct sbuf_info {
