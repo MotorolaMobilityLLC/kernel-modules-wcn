@@ -1377,10 +1377,13 @@ int wcn_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, (void *)wcn_dev);
 
-	if (strcmp(wcn_dev->name, WCN_MARLIN_DEV_NAME) == 0)
+	if (strcmp(wcn_dev->name, WCN_MARLIN_DEV_NAME) == 0) {
 		s_wcn_device.btwf_device = wcn_dev;
-	else if (strcmp(wcn_dev->name, WCN_GNSS_DEV_NAME) == 0)
+		s_wcn_device.btwf_device->wcn_shutdown = 0;
+	} else if (strcmp(wcn_dev->name, WCN_GNSS_DEV_NAME) == 0) {
 		s_wcn_device.gnss_device = wcn_dev;
+		s_wcn_device.gnss_device->wcn_shutdown = 0;
+	}
 
 	if (!s_wcn_device.vddcon_voltage_setted) {
 		s_wcn_device.vddcon_voltage_setted = true;
@@ -1501,6 +1504,7 @@ void wcn_shutdown(struct platform_device *pdev)
 	}
 	if (wcn_platform_chip_type() == WCN_PLATFORM_TYPE_QOGIRL6) {
 		WCN_INFO("%s WCN A-DIE powerdown\n", __func__);
+		wcn_dev->wcn_shutdown = 1;
 		wcn_sys_power_clock_unsupport(true);
 		return;
 	}

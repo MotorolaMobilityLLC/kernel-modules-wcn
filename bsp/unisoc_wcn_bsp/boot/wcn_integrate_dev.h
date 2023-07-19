@@ -274,6 +274,7 @@ struct wcn_device {
 	int	status;
 	u32	wcn_open_status;	/* marlin or gnss subsys status */
 	u32	boot_cp_status;
+	u32 wcn_shutdown;
 	/* driver OPS */
 	int	(*start)(void *arg);
 	int	(*stop)(void *arg);

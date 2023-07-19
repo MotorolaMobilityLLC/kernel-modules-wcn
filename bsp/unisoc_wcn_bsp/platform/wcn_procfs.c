@@ -149,6 +149,7 @@ EXPORT_SYMBOL_GPL(wcn_is_assert);
 void __wcn_assert_interface(enum wcn_source_type type, char *str)
 {
 	int reset_prop = wcn_sysfs_get_reset_prop();
+	struct wcn_match_data *g_match_config = get_wcn_match_config();
 
 	WCN_INFO("wcn_assert_interface %d\n", reset_prop);
 	WCN_ERR("wcn_source_type:%d\n", type);
@@ -164,6 +165,12 @@ void __wcn_assert_interface(enum wcn_source_type type, char *str)
 	if (!marlin_get_power()) {
 		WCN_INFO("no modules open\n");
 		goto out;
+	}
+	if (g_match_config && g_match_config->unisoc_wcn_integrated) {
+		if ((s_wcn_device.btwf_device->wcn_shutdown) || (s_wcn_device.gnss_device->wcn_shutdown)) {
+			WCN_ERR("fw assert hanppend after WCN Shutdown!!\n");
+			return;
+		}
 	}
 
 	if (!mdbg_proc->assert_notify_flag) {
