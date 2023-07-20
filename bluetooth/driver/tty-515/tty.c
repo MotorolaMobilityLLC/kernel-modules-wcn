@@ -69,10 +69,6 @@ static unsigned int log_level = MTTY_LOG_LEVEL_NONE;
 #define COMMAND_HEAD        1
 #define ISO_HEAD            5
 
-#define EVENT_HEAD          4
-#define COMMAND_COMP        14  //Hci_Command_Complete
-#define COMMAND_STATUS      15  //Hci_Command_Status
-
 #define DOWN_ACQUIRE_TIMEOUT_MS 20
 
 #define SDIOM_WR_DIRECT_MOD
@@ -631,14 +627,14 @@ static int mtty_rx_cb(int chn, struct mbuf_t *head, struct mbuf_t *tail, int num
 
     bt_wakeup_host();
     block_size = ((head->buf[2] & 0x7F) << 9) + (head->buf[1] << 1) + (head->buf[0] >> 7);
+
     rx_head = head->buf[BT_SDIO_HEAD_LEN];
     event_type = head->buf[BT_SDIO_HEAD_LEN + 1];
 
-    if(rx_head == EVENT_HEAD && (event_type == COMMAND_COMP || event_type == COMMAND_STATUS)) {
-        dev_unisoc_bt_info(ttyBT_dev,
+    if(rx_head == 0x04 && event_type == 0x0E) {
+        /*dev_unisoc_bt_info(ttyBT_dev,
                            "%s dump head: %d, channel: %d, num: %d, event size: %d\n",
-                           __func__, BT_SDIO_HEAD_LEN, chn, num, block_size);
-        //hex_dump_block((unsigned char *)head->buf, BT_SDIO_HEAD_LEN);
+                           __func__, BT_SDIO_HEAD_LEN, chn, num, block_size);*/
         if(block_size < 16)
             hex_dump_block((unsigned char *)head->buf + BT_SDIO_HEAD_LEN, block_size);
         else
@@ -1091,10 +1087,6 @@ static int mtty_sdio_write(struct tty_struct *tty,
         }
         else {
             hex_dump_block((unsigned char*)buf, 16);
-        }
-
-        if(buf[1] == 0x5B && buf[2] == 0xFD){
-            sprdwcn_bus_debug_point_show();
         }
     }
 
