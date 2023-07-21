@@ -102,6 +102,13 @@ struct sprd_peer_entry {
 #endif
 };
 
+#ifdef ENABLE_N79
+struct modem_n79_info {
+	atomic_t n79_flag;
+	u8 mode_band[SPRD_MODE_MAX];
+};
+#endif
+
 struct sprd_hif {
 	struct platform_device *pdev;
 	const struct sprd_hif_ops *ops;
@@ -215,6 +222,10 @@ struct sprd_hif {
 #endif
 	struct mutex reset_lock;
 	int report_try;
+
+#ifdef ENABLE_N79
+	struct modem_n79_info n79_info;
+#endif
 };
 
 struct sprd_hif_ops {
@@ -373,5 +384,12 @@ static inline void sprd_hif_tx_flush(struct sprd_hif *hif, struct sprd_vif *vif)
 	if (hif->ops->tx_flush)
 		hif->ops->tx_flush(hif, vif);
 }
+
+#ifdef ENABLE_N79
+static inline bool sprd_hif_modemn79_is_enable(struct sprd_hif *hif)
+{
+	return (atomic_read(&hif->n79_info.n79_flag) == 0 ? false : true);
+}
+#endif
 
 #endif

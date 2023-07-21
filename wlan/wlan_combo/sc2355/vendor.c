@@ -7,12 +7,21 @@
 #include "common/common.h"
 #include "common/debug.h"
 #include "common/vendor.h"
+#ifdef ENABLE_N79
+#include "common/report.h"
+#include "scan.h"
+#endif
 #include "cmdevt.h"
 #include <linux/version.h>
 #include "rtt.h"
 
 #define SPRD_ACS_LTE_EVENT_INDEX	35
 #define SPRD_REINIT_ACS			0x35
+
+#ifdef ENABLE_N79
+#define SPRD_VENDOR_EVENT_N79_INDEX	36
+#define SPRD_VENDOR_EVENT_N79		0x1F4
+#endif
 
 #define MAX_CHANNELS			16
 #define MAX_BUCKETS			4
@@ -3942,7 +3951,13 @@ static const struct nl80211_vendor_cmd_info vendor_events[] = {
 	[SPRD_VENDOR_EVENT_ASSERT_INDEX] = {
 		.vendor_id = OUI_SPREAD,
 		.subcmd = SPRD_EVENT_ASSERT
+	},
+#ifdef ENABLE_N79
+	[SPRD_VENDOR_EVENT_N79_INDEX] = {
+		.vendor_id = OUI_SPREAD,
+		.subcmd = SPRD_VENDOR_EVENT_N79
 	}
+#endif
 };
 
 /* buffer scan result in host driver when receive frame from cp2 */
@@ -4666,6 +4681,94 @@ int sc2355_report_acs_lte_event(struct sprd_vif *vif)
 out:
 	return ret;
 }
+
+#ifdef ENABLE_N79
+void vendor_n79_abort_scan(struct sprd_vif *vif)
+{
+	struct sprd_work *misc_work;
+
+	misc_work = sprd_alloc_work(0);
+	if (!misc_work) {
+		pr_err("%s out of memory\n", __func__);
+		return;
+	}
+	if (!vif) {
+		pr_err("%s vif is null!\n", __func__);
+		return;
+	}
+	if (!vif->priv) {
+		pr_err("%s priv is null!\n", __func__);
+		return;
+	}
+	misc_work->vif = vif;
+	misc_work->id = SPRD_WORK_N79_ABORT_SCAN;
+
+	sprd_queue_work(vif->priv, misc_work);
+}
+
+int vendor_report_n79_status(struct sprd_vif *vif, bool n79_flag)
+{
+	struct sprd_priv *priv = vif->priv;
+	struct wiphy *wiphy = priv->wiphy;
+	struct sk_buff *reply = NULL;
+	int payload = sizeof(bool);
+	int  ret = 0, event_value = 0, event_idx = 0;
+
+	event_idx = (vif->mode == SPRD_MODE_AP) ?
+			SPRD_ACS_LTE_EVENT_INDEX : SPRD_VENDOR_EVENT_N79_INDEX;
+	reply = cfg80211_vendor_event_alloc(wiphy, &vif->wdev, payload, event_idx, GFP_KERNEL);
+
+	if (!reply) {
+		netdev_info(vif->ndev,"%s alloc n79 event error\n", __func__);
+		ret = -ENOMEM;
+		goto out;
+	}
+
+	event_value = n79_flag ? VNEDOR_N79_EVENT_ENABLE : VNEDOR_N79_EVENT_DISABLE;
+	if (nla_put_u8(reply, NL80211_ATTR_VENDOR_DATA, event_value))
+		goto out_put_fail;
+
+	cfg80211_vendor_event(reply, GFP_KERNEL);
+
+out:
+	return ret;
+out_put_fail:
+	kfree_skb(reply);
+	reply = NULL;
+	return -EMSGSIZE;
+}
+
+void vendor_report_n79_event(struct sprd_hif *hif, struct sprd_vif *vif)
+{
+	struct sprd_priv *priv = hif->priv;
+	bool n79_flag = false;
+	int softap_5g_band = 0;
+
+	n79_flag = sprd_hif_modemn79_is_enable(hif);
+
+	if (!n79_flag){
+		if (vif->mode == SPRD_MODE_AP)
+			return;
+		vendor_report_n79_status(vif, n79_flag);
+
+		wl_info("%s 5g can be used, n79 is disable\n", __func__);
+		return;
+	}
+
+	wl_info("%s 5g cannot be used, n79 is enable\n", __func__);
+
+	softap_5g_band = hif->n79_info.mode_band[SPRD_MODE_AP];
+
+	if (!softap_5g_band && vif->mode == SPRD_MODE_AP) {
+		return;
+	} else if (priv->scan_request) {
+		vendor_n79_abort_scan(priv->scan_vif);
+		wl_info("%s abort scan!\n", __func__);
+	}
+
+	vendor_report_n79_status(vif, n79_flag);
+}
+#endif
 
 int sc2355_vendor_init(struct wiphy *wiphy)
 {

@@ -40,6 +40,9 @@
 #define SPRD_WORK_FRESH_BO			24
 #define SPRD_WORK_UL_RES_STS_CMD                25
 #define SPRD_WORK_ADAPTIVE			26
+#ifdef ENABLE_N79
+#define SPRD_WORK_N79_ABORT_SCAN		27
+#endif
 
 struct sprd_work {
 	struct list_head list;

@@ -1609,4 +1609,13 @@ struct sprd_gscan_cached_results {
 	struct gscan_result results[MAX_AP_CACHE_PER_SCAN];
 };
 
+#ifdef ENABLE_N79
+enum vendor_n79_event_values {
+	VNEDOR_N79_EVENT_ENABLE = 1,
+	VNEDOR_N79_EVENT_DISABLE,
+};
+
+void vendor_report_n79_event(struct sprd_hif *hif, struct sprd_vif *vif);
+#endif
+
 #endif

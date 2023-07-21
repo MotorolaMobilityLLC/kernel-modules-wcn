@@ -652,6 +652,13 @@ int sprd_cfg80211_stop_ap(struct wiphy *wiphy, struct net_device *ndev)
 #endif
 {
 	struct sprd_priv *priv = wiphy_priv(wiphy);
+
+#ifdef ENABLE_N79
+	struct sprd_vif *vif = netdev_priv(ndev);
+	struct sprd_hif *hif = &priv->hif;
+	hif->n79_info.mode_band[vif->mode] = 0;
+#endif
+
 	netdev_info(ndev, "%s\n", __func__);
 	sprd_fcc_reset_bo(priv);
 
@@ -834,6 +841,11 @@ int sprd_cfg80211_disconnect(struct wiphy *wiphy, struct net_device *ndev,
 	enum sprd_sm_state old_state = vif->sm_state;
 	int ret;
 
+#ifdef ENABLE_N79
+	struct sprd_hif *hif = &vif->priv->hif;
+	hif->n79_info.mode_band[vif->mode] = 0;
+#endif
+
 	netdev_info(ndev, "%s %s reason: %d\n", __func__, vif->ssid,
 		    reason_code);
 
@@ -857,6 +869,11 @@ int sprd_cfg80211_connect(struct wiphy *wiphy, struct net_device *ndev,
 	    (sme->crypto.cipher_group == WLAN_CIPHER_SUITE_WEP104);
 	int ret, i;
 
+#ifdef ENABLE_N79
+	struct sprd_hif *hif = &vif->priv->hif;
+	bool n79_flag = sprd_hif_modemn79_is_enable(hif);
+#endif
+
 	/* workround for bug 795430 */
 	if (!(vif->state & VIF_STATE_OPEN)) {
 		wl_err("%s, error! mode%d connect after closed not allowed",
@@ -871,6 +888,36 @@ int sprd_cfg80211_connect(struct wiphy *wiphy, struct net_device *ndev,
 		sprd_cfg80211_disconnect(wiphy, ndev,
 					 WLAN_REASON_DEAUTH_LEAVING);
 	}
+
+	/* Auth RX unencrypted EAPOL is not implemented, do nothing */
+	/* Set channel */
+	if (sme->channel) {
+		center_freq = sme->channel->center_freq;
+		con.channel =
+		    ieee80211_frequency_to_channel(sme->channel->center_freq);
+		netdev_info(ndev, "channel %d, band %d, center_freq %u.\n",
+			con.channel, sme->channel->band, sme->channel->center_freq);
+	} else if (sme->channel_hint) {
+		center_freq = sme->channel_hint->center_freq;
+		con.channel =
+		    ieee80211_frequency_to_channel(sme->
+						   channel_hint->center_freq);
+		netdev_info(ndev, "channel_hint %d, band %d, center_freq %u.\n", con.channel,
+			sme->channel_hint->band, sme->channel_hint->center_freq);
+	} else {
+		netdev_info(ndev, "No channel specified!\n");
+	}
+
+#ifdef ENABLE_N79
+	if (n79_flag && con.channel > SPRD_2G_CHAN_NR) {
+		cfg80211_connect_result(ndev, vif->bssid, NULL, 0, NULL, 0,
+					WLAN_REASON_QSTA_TIMEOUT, GFP_KERNEL);
+		netdev_info(ndev, "%s %s, can't connect 5g %s, n79 is enable!\n",
+			__func__, vif->ssid, vif->mode == SPRD_MODE_STATION ? "AP" : "GO");
+		ret = -EACCES;
+		goto err;
+	}
+#endif
 
 	/* Set WPS ie and SAE ie */
 	if (sme->ie_len > SPRD_MIN_IE_LEN) {
@@ -981,24 +1028,7 @@ int sprd_cfg80211_connect(struct wiphy *wiphy, struct net_device *ndev,
 		}
 	}
 
-	/* Auth RX unencrypted EAPOL is not implemented, do nothing */
-	/* Set channel */
-	if (sme->channel) {
-		center_freq = sme->channel->center_freq;
-		con.channel =
-		    ieee80211_frequency_to_channel(sme->channel->center_freq);
-		netdev_info(ndev, "channel %d, band %d, center_freq %u.\n",
-			con.channel, sme->channel->band, sme->channel->center_freq);
-	} else if (sme->channel_hint) {
-		center_freq = sme->channel_hint->center_freq;
-		con.channel =
-		    ieee80211_frequency_to_channel(sme->
-						   channel_hint->center_freq);
-		netdev_info(ndev, "channel_hint %d, band %d, center_freq %u.\n", con.channel,
-			sme->channel_hint->band, sme->channel_hint->center_freq);
-	} else {
-		netdev_info(ndev, "No channel specified!\n");
-	}
+
 
 	/* Set BSSID */
 	if (sme->bssid) {

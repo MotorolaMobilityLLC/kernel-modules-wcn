@@ -18,6 +18,10 @@ ifeq ($(BSP_MODULE_ION_VERSION),ums9620)
 CONFIG_SPRD_PAMWIFI := y
 endif
 
+ifeq ($(WLAN_N79_FLAG),n79_enable)
+ccflags-y += -DENABLE_N79
+endif
+
 # ccflags-y += -DCONFIG_SC2355_WLAN_RTT
 # ccflags-y += -DDRV_RESET_SELF
 
