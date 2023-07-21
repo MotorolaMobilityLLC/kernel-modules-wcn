@@ -1502,21 +1502,20 @@ void wcn_shutdown(struct platform_device *pdev)
 	}
 
 	wcn_open_status = wcn_dev->wcn_open_status;
-
 	pr_info("%s start, open_state=%d\n", __func__, wcn_open_status);
-	if (wcn_dev && wcn_dev_is_marlin(wcn_dev)) {
+	if (wcn_dev_is_marlin(wcn_dev)) {
+		wcn_dev->wcn_shutdown = 1;
 		wcn_dev->wcn_open_status = 0;
 		wcn_set_loopcheck_state(false);
 		wcn_bus_deinit();
 	}
 	if (wcn_platform_chip_type() == WCN_PLATFORM_TYPE_QOGIRL6) {
 		WCN_INFO("%s WCN A-DIE powerdown\n", __func__);
-		wcn_dev->wcn_shutdown = 1;
 		wcn_sys_power_clock_unsupport(true);
 		return;
 	}
 
-	if (wcn_dev && wcn_open_status) {
+	if (wcn_open_status) {
 		pr_warn("marlin some subsys power is on, force close\n");
 		/* CPU hold on */
 		wcn_proc_native_stop(wcn_dev);

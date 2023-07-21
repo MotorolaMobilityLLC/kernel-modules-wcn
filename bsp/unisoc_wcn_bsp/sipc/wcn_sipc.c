@@ -352,6 +352,10 @@ void wcn_sipc_pop_list_flush(struct sipc_chn_info *sipc_chn)
 {
 	struct mbuf_t_list	*pop_queue = &sipc_chn->pop_queue;
 
+	if (s_wcn_device.btwf_device->wcn_shutdown) {
+		WCN_ERR("pop_list invalid after WCN Shutdown!!\n");
+		return;
+	}
 	mutex_lock(&sipc_chn->popq_lock);
 	WCN_HERE_CHN(sipc_chn->index);
 	if (pop_queue->mbuf_num) {
@@ -407,6 +411,10 @@ static int wcn_sipc_recv(struct sipc_chn_info *sipc_chn,
 
 	WCN_DEBUG("sipc_recv: sipc_chn->index %d sipc_chn->chn %d\n",
 		 sipc_chn->index, sipc_chn->chn);
+	if (s_wcn_device.btwf_device->wcn_shutdown) {
+		WCN_ERR("stop recv after WCN Shutdown!!\n");
+		return -1;
+	}
 	ret = wcn_sipc_buf_list_alloc(sipc_chn->index, &head, &tail, &num);
 	if (ret || head == NULL || tail == NULL) {
 		WCN_ERR("[%s] sprdwcn_bus_list_alloc fail, chn: %d\n",
@@ -525,6 +533,11 @@ static void wcn_sipc_sbuf_notifer(int event, void *data)
 
 	if (unlikely(!sipc_chn))
 		return;
+
+	if (s_wcn_device.btwf_device->wcn_shutdown) {
+		WCN_ERR("event notify invalid after WCN Shutdown!!\n");
+		return;
+	}
 
 	switch (event) {
 	case SBUF_NOTIFY_WRITE:
@@ -814,6 +827,11 @@ static int wcn_sipc_push_list(int index, struct mbuf_t *head,
 	if (unlikely(!wcn_sipc_ops))
 		return -E_NULLPOINT;
 
+	if (s_wcn_device.btwf_device->wcn_shutdown) {
+		WCN_INFO("%s WCN is shutdown, cancel send\n", __func__);
+		return -E_INVALIDPARA;
+	}
+
 	if (wcn_sipc_ops->inout == WCNBUS_TX) {
 		if (!wcn_push_list_condition_check(head, tail, num)) {
 			WCN_INFO("%s WCN is asserting, cancel send.index=%d",
@@ -1076,7 +1094,6 @@ static void wcn_sipc_resource_deinit(void)
 			continue;
 		mutex_destroy(&g_sipc_chn[index].pushq_lock);
 		mutex_destroy(&g_sipc_chn[index].popq_lock);
-		spin_unlock(&g_sipc_chn[index].chn_static.lock);
 	}
 	mutex_destroy(&g_sipc_info.status_lock);
 }
