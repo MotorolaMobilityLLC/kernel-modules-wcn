@@ -970,8 +970,8 @@ static int tx_filter_ip_pkt(struct sk_buff *skb, struct net_device *ndev)
 					sc2355_vowifi_data_protection(vif);
 			}
 		} else if (ethhdr->h_proto == htons(ETH_P_IP)) {
-			wl_info("vowifi, proto=0x%x, dest=0x%x\n",
-				ethhdr->h_proto, udphdr->dest);
+			wl_info("vowifi, proto=0x%x, dest=%d\n",
+				ntohs(ethhdr->h_proto), ntohs(udphdr->dest));
 		}
 	} else {
 		is_vowifi2cmd = false;
