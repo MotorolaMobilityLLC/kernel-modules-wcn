@@ -1887,6 +1887,41 @@ static int mtty_sdio_bluetooth_reset(struct notifier_block *this, unsigned long 
     return NOTIFY_DONE;
 }
 
+static int n79_flag_notify(struct notifier_block *this, unsigned long ev, void *ptr)
+{
+#define N79_BUFSIZE 5
+
+    int ret = 0;
+    int block_size = N79_BUFSIZE;
+    unsigned char reset_buf[N79_BUFSIZE]= {0x04, 0xff, 0x02, 0x79, 0x01};
+
+    dev_unisoc_bt_info(ttyBT_dev,"%s: n79 flag callback coming\n", __func__);
+    if (mtty_dev != NULL) {
+        if (!work_pending(&mtty_dev->bt_rx_work)) {
+
+            dev_unisoc_bt_info(ttyBT_dev,"%s tty_insert_flip_string", __func__);
+
+            while(ret < block_size){
+                dev_unisoc_bt_info(ttyBT_dev,"%s before tty_insert_flip_string ret: %d, len: %d\n",
+                        __func__, ret, N79_BUFSIZE);
+                ret = tty_insert_flip_string(mtty_dev->port,
+                                    (unsigned char *)reset_buf,
+                                    N79_BUFSIZE);   // -BT_SDIO_HEAD_LEN
+                dev_unisoc_bt_info(ttyBT_dev,"%s ret: %d, len: %d\n", __func__, ret, N79_BUFSIZE);
+                if (ret)
+                    tty_flip_buffer_push(mtty_dev->port);
+                block_size = block_size - ret;
+                ret = 0;
+            }
+        }
+    }
+    return NOTIFY_DONE;
+}
+
+static struct notifier_block n79_flag_block = {
+    .notifier_call = n79_flag_notify,
+};
+
 static struct notifier_block bluetooth_sipc_reset_block = {
     .notifier_call = mtty_sipc_bluetooth_reset,
 };
@@ -2045,6 +2080,7 @@ static int  mtty_sdio_probe(struct platform_device *pdev) {
     rfkill_bluetooth_init(pdev);
     bluesleep_init();
     atomic_notifier_chain_register(&wcn_reset_notifier_list,&bluetooth_sdio_reset_block);
+    atomic_notifier_chain_register(&modem_n79_notifier_list,&n79_flag_block);
     sprdwcn_bus_chn_init(&bt_sdio_rx_ops);
     sprdwcn_bus_chn_init(&bt_sdio_tx_ops);
     sema_init(&sem_id, BT_TX_POOL_SIZE - 1);
