@@ -233,6 +233,12 @@ struct sdiohal_debug_t {
 	void *op_enter_builtin_addr[4], *op_leave_builtin_addr[4];
 };
 
+enum {
+	SDIOHAL_PM_SEL_TX,
+	SDIOHAL_PM_SEL_RX,
+	SDIOHAL_PM_SEL_INVALID,
+};
+
 struct sdiohal_data_t {
 	struct task_struct *tx_thread;
 	struct task_struct *rx_thread;
@@ -278,6 +284,7 @@ struct sdiohal_data_t {
 
 	bool flag_init;
 	atomic_t flag_suspending;
+	atomic_t pm_sel;
 	int gpio_num;
 	unsigned int irq_num;
 	atomic_t irq_cnt;
