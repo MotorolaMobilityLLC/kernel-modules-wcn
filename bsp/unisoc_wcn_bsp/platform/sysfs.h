@@ -29,6 +29,7 @@ struct wcn_sysfs_info {
 	atomic_t set_mask;
 	/* 0:dumpmem; 1:reset */
 	atomic_t is_reset;
+	atomic_t is_n79_mode;
 	char sw_ver_buf[128];
 	size_t sw_ver_len;
 	unsigned char armlog_status;
@@ -41,6 +42,7 @@ struct wcn_sysfs_info {
 int notify_at_cmd_finish(void *buf, unsigned char len);
 void wcn_notify_fw_error(enum wcn_source_type type, char *buf);
 int wcn_sysfs_get_reset_prop(void);
+int wcn_sysfs_get_n79_prop(void);
 void wcn_firmware_init_wq(struct work_struct *work);
 void wcn_firmware_init(void);
 
@@ -50,6 +52,6 @@ void wcn_send_atcmd_lock(void);
 int wcn_send_atcmd(void *cmd, size_t cmd_len, void *response, size_t *response_len);
 void wcn_send_atcmd_unlock(void);
 char *__wcn_get_sw_ver(void);
-
+int wcn_set_armlog_status(void);
 #endif
 

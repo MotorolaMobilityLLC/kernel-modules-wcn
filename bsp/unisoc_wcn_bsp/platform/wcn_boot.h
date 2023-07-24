@@ -28,6 +28,26 @@ extern uint GNSS_DUMP_REG_NUMBER;
 extern unsigned char  flag_download_done;
 extern unsigned char is_ums9620;
 
+#define REG_AON_APB_RESERVED 0x4083C38C
+#define REG_RF_CONTRLLER 0x40150000
+#define REG_LDO_ENABLE1			0x29A4
+#define DEBUD_LDO_ENABLE1		0x29A0
+#define REG_WF_5G_PRI_RX_RF_ENABLE	0x2944
+#define DEBUG_WF_5G_PRI_RX_RF_ENABLE	0x2940
+#define REG_WF_5G_DIV_RX_RF_ENABLE	0x2974
+#define DEBUG_WF_5G_DIV_RX_RF_ENABLE	0x2970
+#define REG_LDO_FC_PULSE1		0x29B4
+#define DEBUG_LDO_FC_PULSE1		0x29B0
+
+int wifi_read_rf_reg(unsigned int addr, unsigned int *data);
+struct wifi_rf_reg *get_wifi_rf_reg(size_t *array_size);
+
+struct wifi_rf_reg {
+	unsigned int reg_addr;
+	unsigned int reg_bit;
+	bool bit_val;
+};
+
 struct wcn_sync_info_t {
 	unsigned int init_status;
 	unsigned int mem_pd_bt_start_addr;
@@ -118,6 +138,7 @@ struct marlin_device {
 	bool is_gnss_in_sysfs;
 	bool need_to_check_ufs;
 	bool btwf_wakeup_lock;
+	bool n79_mode_support;
 	int wifi_need_download_ini_flag;
 	int first_power_on_ready;
 	atomic_t download_finish_flag;

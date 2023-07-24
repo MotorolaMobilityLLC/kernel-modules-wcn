@@ -104,6 +104,7 @@ unsigned char  is_ums9620;
 unsigned char  is_ums9620_uob;
 unsigned char  flag_reset;
 unsigned char  flag_download_done;
+unsigned int have_cfg_n79;
 char functionmask[8];
 static unsigned int reg_val;
 static unsigned int clk_wait_val;
@@ -1461,6 +1462,14 @@ static int marlin_parse_dt(struct platform_device *pdev)
 		marlin_dev->btwf_wakeup_lock = false;
 	}
 
+	if (of_property_read_bool(np, "n79-mode-support")) {
+		pr_info("wcn config n79_mode_support\n");
+		marlin_dev->n79_mode_support = true;
+	} else {
+		pr_info("wcn not config n79_mode_support\n");
+		marlin_dev->n79_mode_support = false;
+	}
+
 	cmdline_node = of_find_node_by_path("/chosen");
 	if (cmdline_node)
 		rc = of_property_read_string(cmdline_node, "bootargs", &cmd_line);
@@ -1839,6 +1848,161 @@ enum wcn_clock_mode wcn_get_xtal_26m_clk_mode(void)
 		return marlin_dev->clk_xtal_26m.mode;
 }
 EXPORT_SYMBOL_GPL(wcn_get_xtal_26m_clk_mode);
+
+static int set_wifi_rfreg_rst(bool val)
+{
+	int ret = 0;
+	unsigned int addr = REG_AON_APB_RESERVED, temp_val = 0;
+
+	ret = sprdwcn_bus_reg_read(addr, &temp_val, 1);
+	if (ret < 0) {
+		pr_err("%s read reg error:%d\n", __func__, ret);
+		return ret;
+	}
+	pr_info("addr:0x%x, read val:0x%x\n", addr, temp_val);
+
+	temp_val &= ~(0x1);
+	temp_val |= val;
+	pr_info("addr:0x%x, modify val:0x%x\n", addr, temp_val);
+
+	ret = sprdwcn_bus_reg_write(addr, &temp_val, 1);
+	if (ret < 0) {
+		pr_err("write reg error:%d\n", ret);
+		return ret;
+	}
+
+	ret = sprdwcn_bus_reg_read(addr, &temp_val, 1);
+	if (ret < 0) {
+		pr_err("%s read reg error:%d\n", __func__, ret);
+		return ret;
+	}
+	pr_info("addr:0x%x, write val:0x%x\n", addr, temp_val);
+
+	return ret;
+}
+
+int wifi_read_rf_reg(unsigned int addr, unsigned int *data)
+{
+	unsigned int reg_data = 0;
+	int ret;
+
+	reg_data = ((addr & 0x7fff) << 16) | (1 << 31);
+	pr_info("%s, before read, write 0x%x to addr: 0x%x\n", __func__, reg_data, addr);
+	ret = sprdwcn_bus_reg_write(REG_RF_CONTRLLER, &reg_data, 4);
+	if (ret < 0) {
+		pr_err("write SPI RF reg error:%d\n", ret);
+		return ret;
+	}
+
+	usleep_range(4000, 6000);
+
+	ret = sprdwcn_bus_reg_read(REG_RF_CONTRLLER, &reg_data, 4);
+	if (ret < 0) {
+		pr_err("read SPI RF reg error:%d\n", ret);
+		return ret;
+	}
+	*data = reg_data & 0xffff;
+	pr_info("%s, read 0x%x from addr: 0x%x\n", __func__, reg_data, addr);
+	return 0;
+}
+
+static int wifi_write_rf_reg(unsigned int addr, unsigned int data)
+{
+	unsigned int reg_data = 0;
+	int ret;
+
+	reg_data = ((addr & 0x7fff) << 16) | data;
+	pr_info("%s, write 0x%x to addr: 0x%x\n", __func__, reg_data, addr);
+	ret = sprdwcn_bus_reg_write(REG_RF_CONTRLLER, &reg_data, 4);
+	if (ret < 0) {
+		pr_err("write SPI RF reg error:%d\n", ret);
+		return ret;
+	}
+
+	return 0;
+}
+
+static struct wifi_rf_reg lna_ldo_enable[] = {
+	{REG_LDO_ENABLE1, (3 << 14), 1},
+	{DEBUD_LDO_ENABLE1, (3 << 14), 1},
+	{REG_LDO_FC_PULSE1, (3 << 14), 1},
+	{DEBUG_LDO_FC_PULSE1, (3 << 14), 1},
+	{REG_WF_5G_PRI_RX_RF_ENABLE, (1 << 15), 0},
+	{DEBUG_WF_5G_PRI_RX_RF_ENABLE, (1 << 15), 1},
+	{REG_WF_5G_DIV_RX_RF_ENABLE, (1 << 15), 0},
+	{DEBUG_WF_5G_DIV_RX_RF_ENABLE, (1 << 15), 1},
+	{REG_LDO_FC_PULSE1, (3 << 14), 0},
+	{DEBUG_LDO_FC_PULSE1, (3 << 14), 0},
+
+	{DEBUG_WF_5G_PRI_RX_RF_ENABLE, (1 << 15), 0},
+	{DEBUG_WF_5G_DIV_RX_RF_ENABLE, (1 << 15), 0},
+	{REG_WF_5G_PRI_RX_RF_ENABLE, (1 << 15), 0},
+	{REG_WF_5G_DIV_RX_RF_ENABLE, (1 << 15), 0},
+	{DEBUD_LDO_ENABLE1, (3 << 14), 0},
+	{REG_LDO_ENABLE1, (3 << 14), 0},
+};
+
+struct wifi_rf_reg *get_wifi_rf_reg(size_t *array_size)
+{
+	*array_size = ARRAY_SIZE(lna_ldo_enable);
+	return lna_ldo_enable;
+}
+
+static void cfg_lna_ldo_n79(bool in_n79)
+{
+	unsigned int i, init_i, num, reg_data = 0;
+
+	pr_info("rf_reg begin\n");
+
+	set_wifi_rfreg_rst(false);
+
+	init_i = (in_n79) ? 0 : 10;
+	num = (in_n79) ? 10 : 6;
+
+	for (i = init_i; i < num + init_i; i++) {
+		pr_info("cfg rf_reg addr: 0x%x, reg_bit: 0x%x, bit_val: %d\n",
+				lna_ldo_enable[i].reg_addr,
+				lna_ldo_enable[i].reg_bit,
+				lna_ldo_enable[i].bit_val);
+		wifi_read_rf_reg(lna_ldo_enable[i].reg_addr, &reg_data);
+
+		if (lna_ldo_enable[i].bit_val)
+			reg_data |= lna_ldo_enable[i].reg_bit;
+		else
+			reg_data &= ~(lna_ldo_enable[i].reg_bit);
+		wifi_write_rf_reg(lna_ldo_enable[i].reg_addr, reg_data);
+		wifi_read_rf_reg(lna_ldo_enable[i].reg_addr, &reg_data);
+	}
+	have_cfg_n79 = (in_n79) ? 1 : 0;
+	pr_info("rf_reg finish, have_cfg_n79: %d\n", have_cfg_n79);
+}
+
+ATOMIC_NOTIFIER_HEAD(modem_n79_notifier_list);
+
+static void notify_bt_n79(void)
+{
+	atomic_notifier_call_chain(&modem_n79_notifier_list, 0, NULL);
+}
+EXPORT_SYMBOL_GPL(modem_n79_notifier_list);
+
+static int modem_n79(struct notifier_block *this, unsigned long ev, void *ptr)
+{
+	pr_info("%s: n79 callback coming\n", __func__);
+
+	return NOTIFY_DONE;
+}
+
+static struct notifier_block modem_n79_block = {
+	.notifier_call = modem_n79,
+};
+
+static int n79_test_init(void)
+{
+	atomic_notifier_chain_register(&modem_n79_notifier_list,
+				       &modem_n79_block);
+
+	return 0;
+}
 
 static int spi_read_rf_reg(unsigned int addr, unsigned int *data)
 {
@@ -2681,7 +2845,7 @@ int wcn_firmware_ready_close(u8 not_allow_map)
 
 static int marlin_set_power(enum wcn_sub_sys subsys, int val)
 {
-	unsigned long timeleft;
+	unsigned long timeleft, auto_is_on;
 	struct wcn_match_data *g_match_config = get_wcn_match_config();
 	int locked = 0;
 
@@ -2703,6 +2867,8 @@ static int marlin_set_power(enum wcn_sub_sys subsys, int val)
 		marlin_dev->power_state, strno(subsys), val);
 	init_completion(&marlin_dev->download_done);
 	init_completion(&marlin_dev->gnss_download_done);
+
+	auto_is_on = (marlin_dev->power_state) & AUTO_RUN_MASK;
 
 	/*  power on */
 	if (val) {
@@ -2776,7 +2942,7 @@ static int marlin_set_power(enum wcn_sub_sys subsys, int val)
 			return 0;
 		}
 		/* 2. the second time, WCN_AUTO coming */
-		else if (subsys == WCN_AUTO) {
+		else if ((subsys == WCN_AUTO) && (wcn_sysfs_get_n79_prop() == 0)) {
 			if (marlin_dev->keep_power_on) {
 				pr_info("have power on, no action\n");
 				set_wifipa_status(subsys, val);
@@ -2790,8 +2956,9 @@ static int marlin_set_power(enum wcn_sub_sys subsys, int val)
 		 * 3. when GNSS open,
 		 *	  |- GNSS and MARLIN have power on and ready
 		 */
-		else if ((((marlin_dev->power_state) & AUTO_RUN_MASK) != 0)
-			|| (((marlin_dev->power_state) & GNSS_MASK) != 0)) {
+		else if (((((marlin_dev->power_state) & AUTO_RUN_MASK) != 0)
+				&& ((wcn_sysfs_get_n79_prop() == 0) || (subsys != MARLIN_GNSS)))
+				|| (((marlin_dev->power_state) & GNSS_MASK) != 0)) {
 			pr_info("GNSS and marlin have ready\n");
 			if (((marlin_dev->power_state) & MARLIN_MASK) == 0)
 				loopcheck_ready_set();
@@ -2803,9 +2970,12 @@ static int marlin_set_power(enum wcn_sub_sys subsys, int val)
 		/* 4. when GNSS close, marlin open.
 		 *	  ->  subsys=gps,GNSS download
 		 */
-		else if (((marlin_dev->power_state) & MARLIN_MASK) != 0) {
-			if ((subsys == MARLIN_GNSS) || (subsys == WCN_AUTO)) {
-				pr_info("BTWF ready, GPS start to download\n");
+		else if ((((marlin_dev->power_state) & MARLIN_MASK) != 0)
+				|| ((((marlin_dev->power_state) & AUTO_RUN_MASK) != 0)
+				&& (wcn_sysfs_get_n79_prop() == 1))) {
+			if ((subsys == MARLIN_GNSS) || ((subsys == WCN_AUTO)
+					&& (wcn_sysfs_get_n79_prop() == 0))) {
+				pr_info("BTWF or n79 AUTO ready, GPS start to download\n");
 				set_wifipa_status(subsys, val);
 				set_bit(subsys, &marlin_dev->power_state);
 				gnss_powerdomain_open();
@@ -2839,7 +3009,8 @@ static int marlin_set_power(enum wcn_sub_sys subsys, int val)
 			set_bit(subsys, &marlin_dev->power_state);
 
 			/* 5.1 first download marlin, and then download gnss */
-			if ((subsys == WCN_AUTO || subsys == MARLIN_GNSS)) {
+			if ((subsys == WCN_AUTO && (wcn_sysfs_get_n79_prop() == 0))
+					|| (subsys == MARLIN_GNSS)) {
 				pr_info("marlin start to download\n");
 				schedule_work(&marlin_dev->download_wq);
 				timeleft = wait_for_completion_timeout(
@@ -2888,6 +3059,12 @@ static int marlin_set_power(enum wcn_sub_sys subsys, int val)
 		/* power on together's Action */
 		power_state_notify_or_not(subsys, val);
 
+		if ((subsys == WCN_AUTO) && (wcn_sysfs_get_n79_prop())) {
+			notify_bt_n79();
+			pr_info("wifi and bt are off, configure rf_reg in n79 mode\n");
+			cfg_lna_ldo_n79(true);
+		}
+
 		pr_info("wcn chip power on and run finish: [%s]\n",
 				  strno(subsys));
 		pr_info("sync log status\n");
@@ -2898,6 +3075,14 @@ static int marlin_set_power(enum wcn_sub_sys subsys, int val)
 			if (flag_reset)
 				flag_reset = 0;
 			goto check_power_state_notify;
+		}
+
+		if ((subsys == WCN_AUTO) && (wcn_sysfs_get_n79_prop() == 0)) {
+			if (have_cfg_n79) {
+				pr_info("rf_reg modem exits n79 mode\n");
+				cfg_lna_ldo_n79(false);
+			} else
+				pr_info("rf_reg has been disabled\n");
 		}
 
 		if (marlin_dev->keep_power_on) {
@@ -2966,6 +3151,36 @@ out:
 
 check_power_state_notify:
 	power_state_notify_or_not(subsys, val);
+
+	if ((val) && (subsys == WCN_AUTO) && (wcn_sysfs_get_n79_prop()) && (auto_is_on == 0)) {
+		notify_bt_n79();
+		if ((test_bit(MARLIN_WIFI, &marlin_dev->power_state) == 0)
+		&& (test_bit(MARLIN_BLUETOOTH, &marlin_dev->power_state) == 0)) {
+			pr_info("gnss is on, bt and wifi are off, configure rf_reg in n79 mode\n");
+			cfg_lna_ldo_n79(true);
+		} else
+			pr_info("bt or wifi is on, do not configure rf_reg in n79 mode\n");
+	}
+	/*when auto or gnss open, bt and wifi close. open bt or wifi, need to sync wcn log status*/
+	if ((val) && (((subsys == MARLIN_BLUETOOTH)
+	&& (test_bit(MARLIN_WIFI, &marlin_dev->power_state) == 0))
+	|| ((subsys == MARLIN_WIFI)
+	&& (test_bit(MARLIN_BLUETOOTH, &marlin_dev->power_state) == 0)))) {
+		pr_info("marlin has power on, open bt or wifi, sync log status\n");
+		wcn_set_armlog_status();
+	}
+
+	if ((!val) && (wcn_sysfs_get_n79_prop())) {
+		if ((((subsys == MARLIN_BLUETOOTH)
+		&& (test_bit(MARLIN_WIFI, &marlin_dev->power_state) == 0))
+		|| ((subsys == MARLIN_WIFI)
+		&& (test_bit(MARLIN_BLUETOOTH, &marlin_dev->power_state) == 0)))) {
+			pr_info("wifi and bt are off, reconfig rf_reg in n79 mode\n");
+			cfg_lna_ldo_n79(true);
+		} else
+			pr_info("wifi or bt is on, do not reconfig rf_reg in n79 mode\n");
+	}
+
 	pr_debug("mutex_unlock\n");
 	if (unlikely(locked))
 		mutex_unlock(&marlin_dev->power_lock);
@@ -3355,6 +3570,7 @@ int marlin_probe(struct platform_device *pdev)
 	flag_reset = 0;
 	loopcheck_init();
 	reset_test_init();
+	n79_test_init();
 	init_wcn_sysfs();
 	INIT_WORK(&marlin_dev->download_wq, pre_btwifi_download_sdio);
 	INIT_WORK(&marlin_dev->gnss_dl_wq, pre_gnss_download_firmware);

@@ -328,6 +328,7 @@ struct sprdwcn_bus_ops {
 };
 
 extern struct atomic_notifier_head wcn_reset_notifier_list;
+extern struct atomic_notifier_head modem_n79_notifier_list;
 
 extern void module_bus_init(void);
 extern void module_bus_deinit(void);

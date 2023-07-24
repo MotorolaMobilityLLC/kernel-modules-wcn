@@ -197,7 +197,7 @@ static int wcn_get_sw_ver(void)
 	return 0;
 }
 
-static int wcn_set_armlog_status(void)
+int wcn_set_armlog_status(void)
 {
 	char a[16];
 
@@ -555,6 +555,103 @@ static DEVICE_ATTR(loglevel, 0644,
 		   wcn_sysfs_show_loglevel,
 		   wcn_sysfs_store_loglevel);
 
+int wcn_sysfs_get_n79_prop(void)
+{
+	return atomic_read(&sysfs_info.is_n79_mode);
+}
+
+static ssize_t n79_mode_show(struct device *dev,
+					struct device_attribute *attr,
+					char *buf)
+{
+	ssize_t len = 0;
+	int n79_prop = wcn_sysfs_get_n79_prop();
+
+	scnprintf(buf, PAGE_SIZE, "%d\n", n79_prop);
+	len = strlen(buf);
+	return len;
+}
+
+static ssize_t n79_mode_store(struct device *dev, struct device_attribute *attr,
+				const char *buf, size_t count)
+{
+	unsigned long res;
+	int ret;
+	struct wcn_match_data *g_match_config = get_wcn_match_config();
+
+	WCN_INFO("%s: rf_reg n79_mode buf=%s\n", __func__, buf);
+	if ((g_match_config && (!g_match_config->unisoc_wcn_m3lite))
+	|| (!marlin_dev->n79_mode_support)) {
+		WCN_INFO("g_match_config = %d, do not support n79\n",
+				g_match_config->unisoc_wcn_m3lite);
+		return -EINVAL;
+	}
+	ret = kstrtoul(buf, 10, &res);
+	if (ret < 0) {
+		WCN_ERR("incorrect value written to n79_mode\n");
+		return -EINVAL;
+	}
+
+	if (res) {
+		if (wcn_sysfs_get_n79_prop() == 0) {
+			atomic_set(&sysfs_info.is_n79_mode, 1);
+			start_marlin(WCN_AUTO);
+		} else
+			WCN_INFO("rf_reg has been config in n79_mode\n");
+	} else {
+		if (wcn_sysfs_get_n79_prop() == 1) {
+			WCN_INFO("rf_reg do not exit n79_mode\n");
+			atomic_set(&sysfs_info.is_n79_mode, 0);
+			stop_marlin(WCN_AUTO);
+		} else
+			WCN_INFO("rf_reg has not been config, modem is not in n79\n");
+	}
+	return count;
+}
+
+static DEVICE_ATTR_RW(n79_mode);
+
+static ssize_t rf_reg_show(struct device *dev,
+					struct device_attribute *attr,
+					char *buf)
+{
+	ssize_t len = 0;
+	unsigned int i, temp_val = 0;
+	char temp_buf[128];
+	struct wifi_rf_reg *temp_lna_ldo_enable = get_wifi_rf_reg(&len);
+	struct wcn_match_data *g_match_config = get_wcn_match_config();
+
+	if ((g_match_config && (!g_match_config->unisoc_wcn_m3lite))
+	|| (!marlin_dev->n79_mode_support)) {
+		WCN_INFO("g_match_config = %d, do not support n79\n",
+				g_match_config->unisoc_wcn_m3lite);
+		return 0;
+	}
+	if (marlin_get_power() == 0) {
+		WCN_INFO("wcn has not power on, can not read rf_reg\n");
+		return 0;
+	}
+	for (i = 0; i < len / 2; i++) {
+		wifi_read_rf_reg(temp_lna_ldo_enable[i].reg_addr, &temp_val);
+
+		scnprintf(temp_buf, PAGE_SIZE, "%s%x%s%x\n",
+				"addr: 0x", temp_lna_ldo_enable[i].reg_addr,
+				", reg_val: 0x", temp_val);
+		strcat(buf, temp_buf);
+	}
+	len = strlen(buf);
+	return len;
+}
+
+static ssize_t rf_reg_store(struct device *dev, struct device_attribute *attr,
+				const char *buf, size_t count)
+{
+	WCN_INFO("%s: buf=%s, not support to write\n", __func__, buf);
+	return count;
+}
+
+static DEVICE_ATTR_RW(rf_reg);
+
 static ssize_t wcn_sysfs_show_reset_dump(struct device *dev,
 					 struct device_attribute *attr,
 					 char *buf)
@@ -610,14 +707,34 @@ static ssize_t wcn_sysfs_show_atcmd(struct device *dev,
 	return scnprintf(buf, PAGE_SIZE, "%s\n", "not support to read");
 }
 
+#define N79_ATCMD "at+spn79="
 static ssize_t wcn_sysfs_store_atcmd(struct device *dev,
 				     struct device_attribute *attr,
 				     const char *buf, size_t count)
 {
 	int ret;
+	char *parse_cmd;
+	struct wcn_match_data *g_match_config = get_wcn_match_config();
 
 	WCN_INFO("%s: buf=%s\n", __func__, buf);
 
+	parse_cmd = strstr(buf, N79_ATCMD);
+	if (parse_cmd) {
+		if ((g_match_config && (!g_match_config->unisoc_wcn_m3lite))
+		|| (!marlin_dev->n79_mode_support)) {
+			WCN_INFO("g_match_config = %d, do not support n79\n",
+					g_match_config->unisoc_wcn_m3lite);
+			return count;
+		}
+		if (!strncmp(parse_cmd + strlen(N79_ATCMD), "1", 1)) {
+			if (wcn_sysfs_get_n79_prop() == 0) {
+				atomic_set(&sysfs_info.is_n79_mode, 1);
+				start_marlin(WCN_AUTO);
+			} else
+				WCN_INFO("rf_reg has been config in n79_mode\n");
+		}
+		return count;
+	}
 	ret = wcn_send_atcmd((void *)buf, count, NULL, NULL);
 	if (ret < 0)
 		return ret;
@@ -875,6 +992,8 @@ static struct attribute *wcn_attrs[] = {
 	&dev_attr_pm_qos_enable.attr,
 	&dev_attr_pm_policy.attr,
 	&dev_attr_slp_info.attr,
+	&dev_attr_n79_mode.attr,
+	&dev_attr_rf_reg.attr,
 	NULL,
 };
 
@@ -965,6 +1084,7 @@ int init_wcn_sysfs(void)
 		atomic_set(&sysfs_info.is_reset, 0x0);
 		sysfs_info.armlog_status = 1;
 #endif
+	atomic_set(&sysfs_info.is_n79_mode, 0);
 
 	return 0;
 }
