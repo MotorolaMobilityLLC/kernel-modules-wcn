@@ -352,6 +352,66 @@ struct msg_q {
 	struct event_t event;
 };
 
+struct edma_debug_control_block {
+	int msi_irq;
+	int channel;
+	bool rx;
+	u64 cur_time;
+
+	union {
+		struct edma_debug_tx {
+			bool tx_complete;
+		} tx;
+
+		struct edma_debug_rx {
+			bool rx_push;
+		} rx;
+	} txrx_dbg;
+};
+
+struct edma_debug_mbuf {
+	int channel;
+	struct mbuf_t *head, *tail;
+	int num;
+	u64 oper_time;
+};
+
+#define EDMA_MSI_DEBUG_POINT_NUM		100
+#define EDMA_MBUF_LINK_DEBUG_POINT_NUM	30
+
+enum edma_link_oper_type {
+	EDMA_TX_PUSH,
+	EDMA_TX_POP,
+	EDMA_RX_PUSH,
+	EDMA_RX_POP,
+};
+
+struct edma_two_link_debug {
+	struct edma_debug_control_block dcb[EDMA_MSI_DEBUG_POINT_NUM];
+	int cur_index;
+
+	struct edma_debug_mbuf tx_push_list[EDMA_MBUF_LINK_DEBUG_POINT_NUM];
+	int tx_push_list_idx;
+	struct edma_debug_mbuf tx_pop_list[EDMA_MBUF_LINK_DEBUG_POINT_NUM];
+	int tx_pop_list_idx;
+	struct edma_debug_mbuf rx_push_list[EDMA_MBUF_LINK_DEBUG_POINT_NUM];
+	int rx_push_list_idx;
+	struct edma_debug_mbuf rx_pop_list[EDMA_MBUF_LINK_DEBUG_POINT_NUM];
+	int rx_pop_list_idx;
+};
+
+#define edma_tx_list_push_dp(channel, head, tail, num) \
+	edma_debug_info_save_for_mbuf(EDMA_TX_PUSH, (channel), (head), (tail), (num))
+
+#define edma_tx_list_pop_dp(channel, head, tail, num) \
+	edma_debug_info_save_for_mbuf(EDMA_TX_POP, (channel), (head), (tail), (num))
+
+#define edma_rx_list_push_dp(channel, head, tail, num) \
+	edma_debug_info_save_for_mbuf(EDMA_RX_PUSH, (channel), (head), (tail), (num))
+
+#define edma_rx_list_pop_dp(channel, head, tail, num) \
+	edma_debug_info_save_for_mbuf(EDMA_RX_POP, (channel), (head), (tail), (num))
+
 struct edma_info {
 	struct edma_glb_reg *dma_glb_reg;
 	struct edma_chn_reg *dma_chn_reg;
@@ -382,6 +442,7 @@ struct edma_info {
 	unsigned long cur_chn_status;
 	struct mutex mpool_lock;
 	spinlock_t tasklet_lock;
+	struct edma_two_link_debug dbg;
 };
 
 /*EDMA_GLB_REG_BASE*/
@@ -502,6 +563,7 @@ int delete_queue(struct msg_q *q);
 int edma_hw_restore(void);
 void edma_del_tx_timer(void);
 int edma_tasklet_deinit(void);
+void edma_debug_info_show(void);
 
 #ifdef BUILD_WCN_PCIE
 struct edma_info *edma_info(void);

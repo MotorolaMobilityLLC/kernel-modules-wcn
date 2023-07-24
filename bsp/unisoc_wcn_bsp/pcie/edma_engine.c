@@ -52,6 +52,127 @@ static inline s64 timespec_to_ns_64(const struct timespec64 *ts)
 	return ((s64) ts->tv_sec * NSEC_PER_SEC) + ts->tv_nsec;
 }
 
+#define edma_print_mbuf_list(a, idx, s, m) \
+	WCN_INFO("[%2d]%s: CHN=%2d, HEAD:0x%x(0x%x), TAIL:0x%x(0x%x), num=%d, time=%llu.%llu%s", \
+	idx, #a, edma->dbg.a##_list[idx].channel, edma->dbg.a##_list[idx].head, \
+	edma->dbg.a##_list[idx].head->phy, edma->dbg.a##_list[idx].tail, \
+	edma->dbg.a##_list[idx].tail->phy, edma->dbg.a##_list[idx].num, \
+	s, m, edma->dbg.a##_list_idx - 1 == idx ? "[LAST]" : "")
+
+void edma_debug_info_show(void)
+{
+	int idx = 0;
+	struct edma_info *edma = edma_info();
+	u64 ns = 0, rem = 0;
+
+	WCN_INFO("MSI-INFO:\n");
+	for (idx = 0; idx < ARRAY_SIZE(edma->dbg.dcb); idx++) {
+		ns = edma->dbg.dcb[idx].cur_time;
+		rem = do_div(ns, NSEC_PER_SEC);
+		WCN_INFO("[%2d]: IRQ=%2d, CHN=%2d, DIR=%2s-%8s time=%llu.%llu%s\n",
+			idx, edma->dbg.dcb[idx].msi_irq, edma->dbg.dcb[idx].channel,
+			edma->dbg.dcb[idx].rx ? "RX" : "TX", edma->dbg.dcb[idx].rx ?
+			(edma->dbg.dcb[idx].txrx_dbg.rx.rx_push ? "PUSH" : "POP") :
+			(edma->dbg.dcb[idx].txrx_dbg.tx.tx_complete ? "COMPLETE" : "POP"),
+			ns, rem, idx == edma->dbg.cur_index - 1 ? "[LAST]" : "");
+	}
+
+	WCN_INFO("MBUF-TX_PUSH:");
+	for (idx = 0; idx < ARRAY_SIZE(edma->dbg.tx_push_list); idx++) {
+		ns = edma->dbg.tx_push_list[idx].oper_time;
+		rem = do_div(ns, NSEC_PER_SEC);
+		edma_print_mbuf_list(tx_push, idx, ns, rem);
+	}
+
+	WCN_INFO("MBUF-TX_POP:");
+	for (idx = 0; idx < ARRAY_SIZE(edma->dbg.tx_pop_list); idx++) {
+		ns = edma->dbg.tx_pop_list[idx].oper_time;
+		rem = do_div(ns, NSEC_PER_SEC);
+		edma_print_mbuf_list(tx_pop, idx, ns, rem);
+	}
+
+	WCN_INFO("MBUF-RX_PUSH:");
+	for (idx = 0; idx < ARRAY_SIZE(edma->dbg.rx_push_list); idx++) {
+		ns = edma->dbg.rx_push_list[idx].oper_time;
+		rem = do_div(ns, NSEC_PER_SEC);
+		edma_print_mbuf_list(rx_push, idx, ns, rem);
+	}
+
+	WCN_INFO("MBUF-RX_POP:");
+	for (idx = 0; idx < ARRAY_SIZE(edma->dbg.rx_pop_list); idx++) {
+		ns = edma->dbg.rx_pop_list[idx].oper_time;
+		rem = do_div(ns, NSEC_PER_SEC);
+		edma_print_mbuf_list(rx_pop, idx, ns, rem);
+	}
+
+}
+
+static void edma_debug_info_save_by_msi_irq(int irq)
+{
+	struct edma_info *edma = edma_info();
+	int *idx = &edma->dbg.cur_index, msi_irq = irq, chn = 0;
+	u32 remainder = 0;
+
+	*idx = *idx % ARRAY_SIZE(edma->dbg.dcb);
+	edma->dbg.dcb[*idx].cur_time = ktime_get_boottime_ns();
+	edma->dbg.dcb[*idx].msi_irq = irq;
+	remainder = do_div(msi_irq, 2);
+	edma->dbg.dcb[*idx].channel = chn = msi_irq;
+
+	edma->dbg.dcb[*idx].rx = edma->chn_sw[chn].inout == RX ? true : false;
+	if (edma->dbg.dcb[*idx].rx)
+		edma->dbg.dcb[*idx].txrx_dbg.rx.rx_push = remainder ? true : false;
+	else
+		edma->dbg.dcb[*idx].txrx_dbg.tx.tx_complete = remainder ? true : false;
+
+	(*idx)++;
+}
+
+static void __edma_debug_info_save_for_mbuf(int chn, struct mbuf_t *head,
+	struct mbuf_t *tail, int num, struct edma_debug_mbuf *dbg_mbuf)
+{
+	dbg_mbuf->oper_time = ktime_get_boottime_ns();
+	dbg_mbuf->channel = chn;
+	dbg_mbuf->head = head;
+	dbg_mbuf->tail = tail;
+	dbg_mbuf->num = num;
+}
+
+static void edma_debug_info_save_for_mbuf(enum edma_link_oper_type type,
+	int chn, struct mbuf_t *head, struct mbuf_t *tail, int num)
+{
+	struct edma_info *edma = edma_info();
+	int *idx = NULL;
+	struct edma_debug_mbuf *dbg_mbuf = NULL;
+
+	switch (type) {
+	case EDMA_TX_PUSH:
+		dbg_mbuf = edma->dbg.tx_push_list;
+		idx = &edma->dbg.tx_push_list_idx;
+		break;
+	case EDMA_TX_POP:
+		dbg_mbuf = edma->dbg.tx_pop_list;
+		idx = &edma->dbg.tx_pop_list_idx;
+		break;
+	case EDMA_RX_PUSH:
+		dbg_mbuf = edma->dbg.rx_push_list;
+		idx = &edma->dbg.rx_push_list_idx;
+		break;
+	case EDMA_RX_POP:
+		dbg_mbuf = edma->dbg.rx_pop_list;
+		idx = &edma->dbg.rx_pop_list_idx;
+		break;
+	default:
+		WARN_ONCE(true, "%s: Unexpected type=%d\n", __func__, type);
+		break;
+	}
+
+	if (idx != NULL)
+		*idx %= EDMA_MBUF_LINK_DEBUG_POINT_NUM;
+
+	__edma_debug_info_save_for_mbuf(chn, head, tail, num, &dbg_mbuf[(*idx)++]);
+}
+
 void edma_print_mbuf_data(int channel, struct mbuf_t *head,
 			  struct mbuf_t *tail, const char *func)
 {
@@ -67,8 +188,8 @@ void edma_print_mbuf_data(int channel, struct mbuf_t *head,
 		return;
 	}
 	print_len = head->len;
-	sprintf(print_str, "WCN PCIE: %s bt:  ", func);
-	print_hex_dump(KERN_INFO, print_str, DUMP_PREFIX_NONE,
+	sprintf(print_str, "WCN PCIE: %s bt: ", func);
+	print_hex_dump_debug(print_str, DUMP_PREFIX_NONE,
 		16, 1, head->buf, (print_len < MAX_PRINT_BYTE_NUM ?
 		print_len : MAX_PRINT_BYTE_NUM), true);
 }
@@ -392,10 +513,13 @@ static int edma_hw_next_dscr(int chn, int inout, struct desc **next)
 			}
 		}
 		if (i == 5) {
+			dump_dscr_reg(&edma->dma_chn_reg[chn].dma_dscr);
+			edma_dump_chn_reg(chn);
 			WCN_ERR(
 				"%s(%d,%d) timeout hw_next:0x%p, 0x%x, 0x%x\n",
 				__func__, chn, inout, hw_next,
 				ptr_l[0], ptr_l[1]);
+			hw_next = NULL;
 		}
 
 	}
@@ -425,16 +549,20 @@ int edma_sw_link_done_dscr(struct desc *head, struct desc **tail)
 	return 0;
 }
 
-static int dscr_ring_empty(int chn)
+static bool dscr_ring_empty(int chn)
 {
-	struct desc *dscr;
+	struct desc *dscr = NULL;
 	struct edma_info *edma = edma_info();
 
 	edma_hw_next_dscr(chn, edma->chn_sw[chn].inout, &dscr);
+	if (!IS_ERR_OR_NULL(dscr))
+		return true;
+
 	dscr = mpool_phy_to_vir(dscr);
 	if (dscr == edma->chn_sw[chn].dscr_ring.head)
-		return ERROR;
-	return OK;
+		return true;
+
+	return false;
 }
 
 static int dscr_zero(struct desc *dscr)
@@ -490,22 +618,6 @@ int dscr_link_cpdu(int inout, struct desc *dscr, struct cpdu_head *cpdu)
 	dscr->link.p = cpdu;
 
 	return 0;
-}
-
-static void  n6pro_set_bit(unsigned int bit, unsigned long *status)
-{
-	unsigned long old;
-
-	old = *status;
-	*status = old | (1 << bit);
-}
-
-static void  n6pro_clear_bit(unsigned int bit, unsigned long *status)
-{
-	unsigned long old;
-
-	old = *status;
-	*status = old  & ~(1 << bit);
 }
 
 static int edma_pop_link(int chn, struct desc *__head, struct desc *__tail,
@@ -599,7 +711,7 @@ static int edma_hw_tx_req(int chn)
 	wcn_set_tx_complete_status(2);
 	edma->dma_chn_reg[chn].dma_tx_req.reg = 1;
 
-	n6pro_set_bit(chn, &edma->cur_chn_status);
+	set_bit(chn, &edma->cur_chn_status);
 
 	return 0;
 }
@@ -825,8 +937,11 @@ int edma_push_link(int chn, void *head, void *tail, int num)
 		WARN_ON(1);
 		return -1;
 	}
-	if (inout == TX)
+	if (inout == TX) {
 		edma_print_mbuf_data(chn, head, tail, __func__);
+		edma_tx_list_push_dp(chn, head, tail, num);
+	} else
+		edma_rx_list_push_dp(chn, head, tail, num);
 
 	if (!wcn_get_edma_status()) {
 		WCN_ERR("%s:don not push the data, card removed, chn=%d\n", __func__, chn);
@@ -897,7 +1012,7 @@ static int edma_pending_q_buffer(int chn, void *head, void *tail, int num)
 	q = &(edma->chn_sw[chn].pending_q);
 
 	if ((q->wt + 1) % (q->max) == q->rd) {
-		WCN_ERR("%s(%d) full\n", __func__, chn);
+		pr_warn_ratelimited("WARN %s(%d) full\n", __func__, chn);
 		return ERROR;
 	}
 	q->ring[q->wt].head = head;
@@ -990,7 +1105,7 @@ static int edma_pending_q_flush(int chn)
 int edma_tx_complete_isr(int chn, int mode)
 {
 	struct desc *start, *end;
-	void *head, *tail;
+	void *head = NULL, *tail = NULL;
 	int node = 0, ret;
 	struct edma_info *edma = edma_info();
 
@@ -1003,6 +1118,8 @@ int edma_tx_complete_isr(int chn, int mode)
 			edma_pop_link(chn, start, end, (void **)(&head),
 				      (void **)(&tail), &node);
 		}
+		edma_tx_list_pop_dp(chn, head, tail, node);
+
 		if (edma->chn_sw[chn].wait == 0) {
 			if (node > 0)
 				ret = mchn_hw_pop_link(chn, head, tail, node);
@@ -1058,22 +1175,29 @@ static int edma_tx_pop_isr(int chn)
 static int edma_rx_push_isr(int chn)
 {
 	int ret, node = 0;
-	struct desc *end;
-	void *head, *tail;
+	struct desc *end = NULL;
+	void *head = NULL, *tail = NULL;
 
 	struct edma_info *edma = edma_info();
 
 	ret = dscr_ring_empty(chn);
 	if (!ret) {
 		edma_hw_next_dscr(chn, edma->chn_sw[chn].inout, &end);
+		if (!end) {
+			WCN_WARN("%s: Unable to get RX pop dscr in RX push", __func__);
+			goto rx_pop;
+		}
 		end = mpool_phy_to_vir(end);
 		if (end != edma->chn_sw[chn].dscr_ring.head)
 			edma_pop_link(chn, edma->chn_sw[chn].dscr_ring.head,
 				      end, (void **)(&head), (void **)(&tail),
 				      &node);
+		edma_rx_list_pop_dp(chn, head, tail, node);
 		if (node > 0)
 			mchn_hw_pop_link(chn, head, tail, node);
 	}
+
+rx_pop:
 	if (edma->chn_sw[chn].dscr_ring.free > 0)
 		mchn_hw_req_push_link(chn, edma->chn_sw[chn].dscr_ring.free);
 
@@ -1096,6 +1220,8 @@ static int edma_rx_pop_isr(int chn)
 
 	edma_pop_link(chn, edma->chn_sw[chn].dscr_ring.head, end,
 		      (void **)(&head), (void **)(&tail), &node);
+	/* Recording invalid MSI interrupt messages */
+	edma_rx_list_pop_dp(chn, head, tail, node);
 	if (node > 0) {
 		edma_print_mbuf_data(chn, head, tail, __func__);
 		mchn_hw_pop_link(chn, head, tail, node);
@@ -1293,12 +1419,14 @@ int msi_irq_handle(int irq)
 	struct edma_info *edma = edma_info();
 	struct wcn_pcie_info *priv;
 
-	WCN_INFO("irq msi handle=%d\n", irq);
+	WCN_DBG("irq msi handle=%d\n", irq);
 	if (!wcn_get_edma_status()) {
 		WCN_ERR("do not handle this irq, card removed\n");
 		return -1;
 	}
 	local_irq_save(irq_flags);
+
+	edma_debug_info_save_by_msi_irq(irq);
 	chn = (irq - 0) / 2;
 	dma_int.reg = edma->dma_chn_reg[chn].dma_int.reg;
 	msg.chn = chn;
@@ -1307,7 +1435,7 @@ int msi_irq_handle(int irq)
 
 	if (edma->chn_sw[chn].inout == TX) {
 		wcn_set_tx_complete_status(1);
-		n6pro_clear_bit(chn, &edma->cur_chn_status);
+		clear_bit(chn, &edma->cur_chn_status);
 		del_timer(&edma->edma_tx_timer);
 		if (irq % 2 == 0) {
 			dma_int.bit.rf_chn_tx_pop_int_clr = 1;
@@ -1355,7 +1483,7 @@ int msi_irq_handle(int irq)
 		enqueue(&(edma->isr_func.q), (unsigned char *)(&msg));
 		WCN_DBG(" callback not in irq\n");
 		set_wcnevent(&(edma->isr_func.q.event));
-		WCN_INFO("cb not irq=%ld, chn=%d\n", irq_flags, chn);
+		WCN_DBG("cb not irq=%ld, chn=%d\n", irq_flags, chn);
 		local_irq_restore(irq_flags);
 		return 0;
 	} else if (mchn_hw_cb_in_irq(chn) == -1) {
@@ -1367,7 +1495,7 @@ int msi_irq_handle(int irq)
 	WCN_DBG("callback in irq\n");
 	hisrfunc(&msg);
 
-	WCN_INFO("cb in irq=%ld, chn=%d\n", irq_flags, chn);
+	WCN_DBG("cb in irq=%ld, chn=%d\n", irq_flags, chn);
 	local_irq_restore(irq_flags);
 
 	return 0;
@@ -1683,7 +1811,7 @@ int edma_tp_count(int chn, void *head, void *tail, int num)
 			start_time = time;
 		bytecount += mbuf->len;
 		dt = time_sub_us(&start_time, &time);
-		if (dt >= 1000000) {
+		if (dt >= 5000000) {
 			WCN_INFO("edma-tp:%d/%d (byte/us)\n",
 				 bytecount, dt);
 			bytecount = 0;
@@ -1770,7 +1898,7 @@ int edma_dump_glb_reg(void)
 	WCN_INFO("[arb_sel_sts] = 0x%08x\n",  value);
 
 	if ((value > 0) && (value < 31))
-		n6pro_set_bit((value - 1), &edma->cur_chn_status);
+		set_bit((value - 1), &edma->cur_chn_status);
 	else if (value == 0xffffffff) {
 		if (pdev->rc_pd)
 			sprd_pcie_dump_rc_regs(pdev->rc_pd);
@@ -1814,7 +1942,6 @@ static void edma_tx_timer_expire(struct timer_list *t)
 		if (test_bit(i, &edma->cur_chn_status))
 			edma_dump_chn_reg(i);
 	}
-
 }
 
 void edma_del_tx_timer(void)

@@ -135,6 +135,11 @@ static enum wcn_hard_intf_type pcie_get_hwintf_type(void)
 	return HW_TYPE_PCIE;
 }
 
+static void pcie_debug_point_show(void)
+{
+	sprd_pcie_debug_point_show();
+}
+
 static struct sprdwcn_bus_ops pcie_bus_ops = {
 	.preinit = pcie_preinit,
 	.deinit = pcie_preexit,
@@ -159,6 +164,7 @@ static struct sprdwcn_bus_ops pcie_bus_ops = {
 	.rescan = pcie_rescan,
 	.remove_card = pcie_remove_card,
 	.reset = pcie_reset,
+	.debug_point_show = pcie_debug_point_show,
 };
 
 void module_bus_pcie_init(void)

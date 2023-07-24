@@ -33,6 +33,12 @@
 #include "../include/wcn_dbg.h"
 #include "../sdio/sdiohal.h"
 
+#ifdef pr_fmt
+#undef pr_fmt
+#endif
+
+#define pr_fmt(fmt) "WCN BASE: " fmt
+
 u32 wcn_print_level = WCN_DEBUG_OFF;
 
 static u32 g_dumpmem_switch =  1;

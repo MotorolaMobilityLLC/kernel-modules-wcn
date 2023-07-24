@@ -876,6 +876,11 @@ void sprd_pcie_remove_card(void *wcn_dev)
 		WCN_INFO("remove card end\n");
 }
 
+void sprd_pcie_debug_point_show(void)
+{
+	edma_debug_info_show();
+}
+
 extern void marlin_scan_finish(void);
 
 static int sprd_pcie_probe(struct pci_dev *pdev,
@@ -1049,21 +1054,24 @@ static int sprd_pcie_probe(struct pci_dev *pdev,
 	/* for log_dev_init */
 	mdbg_pt_ring_reg();
 	sprd_pcie_set_aspm_policy(AUTO, BUS_PM_ALL_ENABLE);
-	pci_read_config_dword(pdev, 0x0728, &val32);
+	pci_read_config_dword(pdev, PCI_DEBUG0_OFFSET, &val32);
 	WCN_INFO("EP link status 728=0x%x\n", val32);
-	pci_read_config_dword(pdev, 0x072c, &val32);
+	pci_read_config_dword(pdev, PCI_DEBUG1_OFFSET, &val32);
 	WCN_INFO("EP link status 72c=0x%x\n", val32);
 	/* calling rescan callback to inform download */
 	//if (scan_card_notify != NULL)
 	//	scan_card_notify();
 	if (priv->msi_en == 1) {
-		pci_read_config_dword(pdev->bus->self, 0x0828, &val32);
-		if (priv->irq_num == 32 && val32 != 0xffffffff) {
-			WCN_WARN("irq int_en status 828=0x%x\n", val32);
-			pci_write_config_dword(pdev->bus->self, 0x0828, MSI_IRQ_INT_EN_ALL);
+		pci_read_config_dword(pdev->bus->self, PCI_MSI_CTRL_INT_EN_OFFSET, &val32);
+		if (priv->irq_num == 32 && val32 != MSI_IRQ_INT_EN_ALL) {
+			WARN(true, "Force all MSI interrupts to be enabled");
+			pci_write_config_dword(pdev->bus->self,
+				PCI_MSI_CTRL_INT_EN_OFFSET, MSI_IRQ_INT_EN_ALL);
+			pci_read_config_dword(pdev->bus->self, PCI_MSI_CTRL_INT_EN_OFFSET, &val32);
 		}
-		WCN_INFO("irq int_en status 828=0x%x\n", val32);
+		WCN_INFO("MSI interrupts enable status 0x%x\n", val32);
 	}
+
 	marlin_scan_finish();
 	WCN_INFO("%s ok\n", __func__);
 	return 0;
