@@ -254,6 +254,7 @@ void sprd_pcie_debug_point_show(void);
 u32 sprd_pcie_read_reg32(struct wcn_pcie_info *priv, int offset);
 void sprd_pcie_write_reg32(struct wcn_pcie_info *priv, u32 reg_offset,
 			   u32 value);
+int sprd_pcie_fw_push_cancel(void);
 int wcn_get_edma_status(void);
 void wcn_set_tx_complete_status(int flag);
 int wcn_get_tx_complete_status(void);

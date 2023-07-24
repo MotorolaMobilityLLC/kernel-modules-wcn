@@ -43,7 +43,7 @@
 
 #define N 16
 
-static int (*scan_card_notify)(void);
+static void (*scan_card_notify)(void);
 static struct wcn_pcie_info *g_pcie_dev;
 
 void wcn_dump_ep_mems(struct wcn_pcie_info *priv)
@@ -760,13 +760,19 @@ int sprd_pcie_scan_card(void *wcn_dev)
 	sprd_pcie_configure_device(pdev);
 
 	if (wait_for_completion_timeout(&priv->scan_done,
-	    msecs_to_jiffies(5000)) == 0) {
-		WCN_ERR("wait scan card time out\n");
-		return -ENODEV;
-	}
+	    msecs_to_jiffies(5000)) == 0)
+		goto pcie_rescan_timeout;
+
 	WCN_INFO("scan end\n");
 
 	return 0;
+
+pcie_rescan_timeout:
+	WCN_ERR("Waiting for PCIe scan card timeout\n");
+	sprd_pcie_unconfigure_device(pdev);
+	priv->rc_pd = NULL;
+
+	return -ENODEV;
 }
 
 void sprd_pcie_register_scan_notify(void *func)
@@ -881,7 +887,15 @@ void sprd_pcie_debug_point_show(void)
 	edma_debug_info_show();
 }
 
-extern void marlin_scan_finish(void);
+int sprd_pcie_fw_push_cancel(void)
+{
+	int ret = 0;
+
+	ret = wcn_firmware_ready_close(BIT(0));
+	usleep_range(5000, 10000);
+
+	return ret;
+}
 
 static int sprd_pcie_probe(struct pci_dev *pdev,
 			   const struct pci_device_id *pci_id)
@@ -1058,9 +1072,6 @@ static int sprd_pcie_probe(struct pci_dev *pdev,
 	WCN_INFO("EP link status 728=0x%x\n", val32);
 	pci_read_config_dword(pdev, PCI_DEBUG1_OFFSET, &val32);
 	WCN_INFO("EP link status 72c=0x%x\n", val32);
-	/* calling rescan callback to inform download */
-	//if (scan_card_notify != NULL)
-	//	scan_card_notify();
 	if (priv->msi_en == 1) {
 		pci_read_config_dword(pdev->bus->self, PCI_MSI_CTRL_INT_EN_OFFSET, &val32);
 		if (priv->irq_num == 32 && val32 != MSI_IRQ_INT_EN_ALL) {
@@ -1072,8 +1083,11 @@ static int sprd_pcie_probe(struct pci_dev *pdev,
 		WCN_INFO("MSI interrupts enable status 0x%x\n", val32);
 	}
 
-	marlin_scan_finish();
 	WCN_INFO("%s ok\n", __func__);
+
+	if (scan_card_notify != NULL)
+		scan_card_notify();
+
 	return 0;
 
 err_out:

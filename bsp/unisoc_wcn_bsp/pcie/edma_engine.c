@@ -53,10 +53,10 @@ static inline s64 timespec_to_ns_64(const struct timespec64 *ts)
 }
 
 #define edma_print_mbuf_list(a, idx, s, m) \
-	WCN_INFO("[%2d]%s: CHN=%2d, HEAD:0x%x(0x%x), TAIL:0x%x(0x%x), num=%d, time=%llu.%llu%s", \
+	WCN_INFO("[%2d]%s: CHN=%2d, HEAD:0x%x(0x%x), TAIL:0x%x(0x%x), num=%d, time=%llu.%llu%s\n", \
 	idx, #a, edma->dbg.a##_list[idx].channel, edma->dbg.a##_list[idx].head, \
-	edma->dbg.a##_list[idx].head->phy, edma->dbg.a##_list[idx].tail, \
-	edma->dbg.a##_list[idx].tail->phy, edma->dbg.a##_list[idx].num, \
+	edma->dbg.a##_list[idx].head_phy, edma->dbg.a##_list[idx].tail, \
+	edma->dbg.a##_list[idx].tail_phy, edma->dbg.a##_list[idx].num, \
 	s, m, edma->dbg.a##_list_idx - 1 == idx ? "[LAST]" : "")
 
 void edma_debug_info_show(void)
@@ -135,6 +135,8 @@ static void __edma_debug_info_save_for_mbuf(int chn, struct mbuf_t *head,
 	dbg_mbuf->channel = chn;
 	dbg_mbuf->head = head;
 	dbg_mbuf->tail = tail;
+	dbg_mbuf->head_phy = head->phy;
+	dbg_mbuf->tail_phy = tail->phy;
 	dbg_mbuf->num = num;
 }
 
@@ -144,6 +146,9 @@ static void edma_debug_info_save_for_mbuf(enum edma_link_oper_type type,
 	struct edma_info *edma = edma_info();
 	int *idx = NULL;
 	struct edma_debug_mbuf *dbg_mbuf = NULL;
+	unsigned long flags;
+
+	spin_lock_irqsave(&edma->dbg.splock, flags);
 
 	switch (type) {
 	case EDMA_TX_PUSH:
@@ -163,14 +168,16 @@ static void edma_debug_info_save_for_mbuf(enum edma_link_oper_type type,
 		idx = &edma->dbg.rx_pop_list_idx;
 		break;
 	default:
-		WARN_ONCE(true, "%s: Unexpected type=%d\n", __func__, type);
-		break;
+		WCN_ERR("%s: Unexpected type=%d\n", __func__, type);
+		spin_unlock_irqrestore(&edma->dbg.splock, flags);
+		return;
 	}
 
-	if (idx != NULL)
-		*idx %= EDMA_MBUF_LINK_DEBUG_POINT_NUM;
+	if (idx != NULL && *idx >= EDMA_MBUF_LINK_DEBUG_POINT_NUM)
+		*idx = 0;
 
 	__edma_debug_info_save_for_mbuf(chn, head, tail, num, &dbg_mbuf[(*idx)++]);
+	spin_unlock_irqrestore(&edma->dbg.splock, flags);
 }
 
 void edma_print_mbuf_data(int channel, struct mbuf_t *head,
@@ -2032,6 +2039,7 @@ int edma_init(struct wcn_pcie_info *pcie_info)
 	edma->edma_pop_ws = wakeup_source_register(NULL, "wcn edma txrx callback");
 	mutex_init(&edma->mpool_lock);
 	spin_lock_init(&edma->tasklet_lock);
+	spin_lock_init(&edma->dbg.splock);
 
 	/* Init edma tx send timeout timer */
 	timer_setup(&edma->edma_tx_timer, edma_tx_timer_expire, 0);

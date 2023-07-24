@@ -372,6 +372,7 @@ struct edma_debug_control_block {
 struct edma_debug_mbuf {
 	int channel;
 	struct mbuf_t *head, *tail;
+	unsigned long head_phy, tail_phy;
 	int num;
 	u64 oper_time;
 };
@@ -389,6 +390,7 @@ enum edma_link_oper_type {
 struct edma_two_link_debug {
 	struct edma_debug_control_block dcb[EDMA_MSI_DEBUG_POINT_NUM];
 	int cur_index;
+	spinlock_t splock;
 
 	struct edma_debug_mbuf tx_push_list[EDMA_MBUF_LINK_DEBUG_POINT_NUM];
 	int tx_push_list_idx;
