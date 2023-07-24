@@ -1141,8 +1141,6 @@ static int sprd_ep_suspend(struct device *dev)
 	if (!pdev)
 		return 0;
 
-	sprd_pcie_set_aspm_policy(AUTO, BUS_PM_DISABLE);
-
 	pci_save_state(to_pci_dev(dev));
 	priv->saved_state = pci_store_saved_state(to_pci_dev(dev));
 
