@@ -240,6 +240,7 @@ static int sdio_suspend_resume_handle(int chn, int mode)
 	int ret;
 	struct sprd_vif *vif = NULL, *tmp_vif;
 	unsigned long time;
+	struct sprd_cmd *cmd = &priv->cmd;
 
 	sc2355_reset_cpu_prf_param(hif);
 	spin_lock_bh(&priv->list_lock);
@@ -273,7 +274,10 @@ static int sdio_suspend_resume_handle(int chn, int mode)
 		hif->suspend_mode = SPRD_PS_SUSPENDING;
 		hif->sleep_time = sprd_get_ktime();
 
+		mutex_lock(&cmd->cmd_lock);
 		priv->is_suspending = 1;
+		mutex_unlock(&cmd->cmd_lock);
+
 		ret = sprd_power_save(priv, vif, SPRD_SUSPEND_RESUME, 0);
 		if (ret == 0)
 			hif->suspend_mode = SPRD_PS_SUSPENDED;

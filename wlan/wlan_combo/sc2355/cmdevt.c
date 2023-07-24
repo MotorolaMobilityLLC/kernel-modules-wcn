@@ -532,12 +532,12 @@ static int cmdevt_lock_cmd(struct sprd_cmd *cmd, struct sprd_hif *hif)
 static void cmdevt_unlock_cmd(struct sprd_cmd *cmd, struct sprd_hif *hif)
 {
 
-	mutex_unlock(&cmd->cmd_lock);
-	atomic_dec(&cmd->refcnt);
 	if (hif->priv->is_suspending == 0)
 		__pm_relax(cmd->wake_lock);
 	if (hif->priv->is_suspending == 1)
 		hif->priv->is_suspending = 0;
+	mutex_unlock(&cmd->cmd_lock);
+	atomic_dec(&cmd->refcnt);
 }
 
 /* if erro, data is released in this function
