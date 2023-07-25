@@ -155,7 +155,7 @@ struct sipc_chn_info *wcn_sipc_channel_get(int index);
 void wcn_sipc_chn_set_status_all_false(void);
 
 void sipc_recvseq_debug_show(void);
-int sipc_recvseq_debug_store(u8 channel, int index);
+int sipc_recvseq_debug_store(u8 channel_index, int index);
 
 #ifdef WCN_SIPC_DBG
 #define WCN_HERE WCN_INFO("[%s] %d\n", __func__, __LINE__)
