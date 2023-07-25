@@ -227,16 +227,17 @@ int gnss_boot_wait(void)
 			}
 		}
 #endif
-		sprdwcn_bus_direct_read(gnss_bootsts_addr, buffer,
+
+		ret = sprdwcn_bus_direct_read(gnss_bootsts_addr, buffer,
 					GNSS_BOOTSTATUS_SIZE);
-		pr_err("boot read %d time,val=0x%x\n", i, *buffer);
-		if (*buffer != GNSS_BOOTSTATUS_MAGIC) {
-			msleep(20);
-			continue;
+		if((ret == 0) && (*buffer == GNSS_BOOTSTATUS_MAGIC))
+		{
+			pr_info("boot read success\n");
+			break;
 		}
-		ret = 0;
-		pr_info("boot read success\n");
-		break;
+
+		pr_err("boot read %d time,val=0x%x\n", i, *buffer);
+		msleep(20);
 	}
 	kfree(buffer);
 

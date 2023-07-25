@@ -174,7 +174,7 @@ static int mdbg_dump_data(unsigned int start_addr,
 						temp_buf, temp_len);
 			if (temp_len < 0) {
 				WCN_ERR("ringbuf data error\n");
-				return 0;
+				goto out;
 			}
 			temp_buf += temp_len;
 			trans_size -= temp_len;

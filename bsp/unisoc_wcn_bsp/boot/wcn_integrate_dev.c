@@ -1494,7 +1494,14 @@ int wcn_remove(struct platform_device *pdev)
 void wcn_shutdown(struct platform_device *pdev)
 {
 	struct wcn_device *wcn_dev = platform_get_drvdata(pdev);
-	u32 wcn_open_status = wcn_dev->wcn_open_status;
+	u32 wcn_open_status = 0;
+
+	if (!wcn_dev) {
+		WCN_ERR("dev is NULL!\n");
+		return;
+	}
+
+	wcn_open_status = wcn_dev->wcn_open_status;
 
 	pr_info("%s start, open_state=%d\n", __func__, wcn_open_status);
 	if (wcn_dev && wcn_dev_is_marlin(wcn_dev)) {
