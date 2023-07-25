@@ -19,6 +19,7 @@
 #define WCN_ASSERT_ONLY_DUMP         0
 #define WCN_ASSERT_ONLY_RESET        1
 #define WCN_ASSERT_BOTH_RESET_DUMP   2
+#define WCN_AT_RSP_RAW_FLAG          0xFFFFFFFF
 
 struct wcn_sysfs_info {
 	void *p;
@@ -34,6 +35,7 @@ struct wcn_sysfs_info {
 	char loglevel_buf[128];
 	size_t loglevel_len;
 	unsigned char loglevel;
+	enum wcn_source_type slpinfo_sys;
 };
 
 int notify_at_cmd_finish(void *buf, unsigned char len);
@@ -45,6 +47,7 @@ void wcn_firmware_init(void);
 int init_wcn_sysfs(void);
 void exit_wcn_sysfs(void);
 void wcn_send_atcmd_lock(void);
+int wcn_send_atcmd(void *cmd, size_t cmd_len, void *response, size_t *response_len);
 void wcn_send_atcmd_unlock(void);
 char *__wcn_get_sw_ver(void);
 

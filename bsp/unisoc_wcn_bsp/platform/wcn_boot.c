@@ -2319,6 +2319,7 @@ static void pre_gnss_download_firmware(struct work_struct *work)
 		else
 			pr_info("%s gnss wait boot end\n", __func__);
 	}
+	wcn_slpinfo_statistics(WCN_SOURCE_GNSS, true);
 	complete(&marlin_dev->gnss_download_done);
 }
 
@@ -2341,6 +2342,7 @@ static void pre_btwifi_download_sdio(struct work_struct *work)
 		wcn_rdc_debug_init();
 #endif
 		check_cp_ready();
+		wcn_slpinfo_statistics(WCN_SOURCE_BTWF, true);
 		complete(&marlin_dev->download_done);
 	}
 	/* Runtime PM is useless, mainly to enable sdio_func1 and rx irq */
@@ -2442,6 +2444,8 @@ static int chip_power_on(enum wcn_sub_sys subsys)
 {
 	struct wcn_match_data *g_match_config = get_wcn_match_config();
 
+	wcn_slpinfo_statistics(WCN_SOURCE_GNSS, false);
+	wcn_slpinfo_statistics(WCN_SOURCE_BTWF, false);
 	wcn_avdd12_parent_bound_chip(false);
 	marlin_avdd18_dcxo_enable(true);
 	marlin_clk_enable(true);
@@ -2633,6 +2637,7 @@ retry:
 		pr_err("write PD_GNSS_SS_AON_CFG4 err:%d\n", ret);
 		return ret;
 	}
+	wcn_slpinfo_statistics(WCN_SOURCE_GNSS, false);
 
 	return 0;
 }
@@ -3333,6 +3338,12 @@ int marlin_probe(struct platform_device *pdev)
 		goto error0;
 	}
 
+	err = wcn_misc_init();
+	if (err) {
+		pr_err("wcn_misc_init: %d\n", err);
+		goto op_exit;
+	}
+
 	wcn_chr_init();
 
 	/* init data for pre_gnss_download_firmware*/
@@ -3352,6 +3363,8 @@ int marlin_probe(struct platform_device *pdev)
 	pr_info("%s driver match successful v2!\n", __func__);
 
 	return 0;
+op_exit:
+	wcn_op_exit();
 error0:
 	wcn_gnss_dump_exit();
 error1:
@@ -3380,6 +3393,7 @@ int marlin_remove(struct platform_device *pdev)
 	cancel_work_sync(&marlin_dev->gnss_dl_wq);
 	cancel_delayed_work_sync(&marlin_dev->power_wq);
 	loopcheck_deinit();
+	wcn_misc_exit();
 	wcn_op_exit();
 	log_dev_exit();
 	proc_fs_exit();

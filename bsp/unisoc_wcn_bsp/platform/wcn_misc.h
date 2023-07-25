@@ -9,6 +9,7 @@
 #include <linux/types.h>
 #include <asm-generic/div64.h>
 #include "sprd_wcn_glb.h"
+#include <misc/wcn_bus.h>
 
 /* Hours offset for GM and China-BeiJing */
 #define WCN_BTWF_TIME_OFFSET (8)
@@ -61,6 +62,84 @@ struct wcn_tm {
 	long tm_year;    /* year */
 };
 
+#if IS_ENABLED(CONFIG_SPRD_POWER_DEBUG) || IS_ENABLED(CONFIG_SPRD_PDBG)
+enum intc_wakeup_irq {
+	WAKEUP_BY_EIC_LATCH_SDIO_AP_WAKE_PULSE, /* SD_CLK_DSlp_Handler */
+	WAKEUP_BY_AON_INTC_TOP_AON_INT_IRQ_REQ_BB_TS, /* top_aon_isr */
+	WAKEUP_BY_TB_SDIO_INTC_SRC_INT, /* Enable before deepsleep */
+	WAKEUP_BY_TB_TMR0_TMR0_INTC_INT, /* Enable before deepsleep */
+	WAKEUP_BY_TB_MAC_INTC_INT, /* Enable before deepsleep */
+	WAKEUP_BY_TB_FIQ_BT_MASKED_AUX_TMR, /* Enable before deepsleep */
+	WAKEUP_BY_TB_FM_INTC_SRC_INT, /* Enable before deepsleep */
+	WAKEUP_BY_BT_TIM, /* BT_TIM, PKD, PKA */
+	WAKEUP_BY_BT_ACCELERATOR, /* BT_ACCELERATOR, BT_MODEM */
+	WAKEUP_BY_OTHERS,
+	WAKEUP_BY_INVALID,
+};
+
+enum {
+	WCN_ACTIVE,
+	WCN_DEEPSLEEP,
+	WCN_POWER_OFF,
+};
+
+#define WCN_SLP_INFO_SYNC_LABEL "BTWFSYS"
+#define WAKEUP_SOURCE_IRQ_MAX WAKEUP_BY_INVALID
+
+/**
+ * struct subsys_sleep_info - sleep information structure from firmware(128 byte)
+ * @name: subsys name
+ * @last_wakeup_irq: The interrupt source for the last wakeup of the CP2
+ * @cur_slp_state: 0 - active or idle, 1 - allow SYS deepsleep
+ * @total_time: CP2 system power on duration(32K clock count)
+ * @total_slp_time: CP2 system deepsleep duration(32K clock count)
+ * @last_enter_time: The last time enter deepsleep(32K clock count)
+ * @last_exit_time: The last time exit deepsleep(32K clock count)
+ * @total_slp_cnt: Number of times entering deepsleep
+ * @top_wakeup_irq_cnt: The number of times an interrupt type wakeup the CP2 system,
+ *  which is not the actual interrupt number, but a type of interrupts, see intc_wakeup_irq
+ * @wakeup_by_idx: current array wakeup_by_intnum array index
+ * @check_irq_wakeup: CP2 exits deepsleep, preparing to save wakeup interrupt
+ * @wakeup_by_intnum: wakeup the interrupt logic number of the system
+ * @system_enter_time: CP2 system startup time(32K clock count)
+ */
+struct wcn_slpinfo_firmware {
+	char name[8];
+	uint8_t last_wakeup_irq;
+	uint8_t cur_slp_state;
+	uint64_t total_time;
+	uint64_t total_slp_time;
+	uint64_t last_enter_time;
+	uint64_t last_exit_time;
+
+	uint64_t total_slp_cnt;
+	uint32_t top_wakeup_irq_cnt[WAKEUP_SOURCE_IRQ_MAX];
+
+	union {
+		struct priv_irq_info {
+			uint8_t wakeup_by_idx;
+			uint8_t check_irq_wakeup;
+			uint16_t wakeup_by_intnum[10];
+			uint64_t system_enter_time;
+		} irq;
+		uint32_t reserve[8];
+	} priv_info;
+} __aligned(4);
+
+struct wcn_slpinfo_desc {
+	struct wcn_slpinfo_firmware gnss_general;
+	struct wcn_slpinfo_firmware btwf_general;
+	uint64_t btwf_reboot_cnt, gnss_reboot_cnt;
+};
+void wcn_slpinfo_statistics(enum wcn_source_type type, bool poweron);
+int wcn_slpinfo_get(enum wcn_source_type subsys, void *info);
+#else
+static inline void wcn_slpinfo_statistics(enum wcn_source_type type, bool poweron) {}
+static inline int wcn_slpinfo_get(enum wcn_source_type subsys, void *info) { return -1; }
+#endif
+
+int wcn_misc_init(void);
+void wcn_misc_exit(void);
 void mdbg_atcmd_owner_init(void);
 void mdbg_atcmd_owner_deinit(void);
 long int mdbg_send_atcmd(char *buf, size_t len, enum atcmd_owner owner);

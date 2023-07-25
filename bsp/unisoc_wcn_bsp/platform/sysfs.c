@@ -46,8 +46,7 @@ int notify_at_cmd_finish(void *buf, unsigned char len)
 	return 0;
 }
 
-static int wcn_send_atcmd(void *cmd, size_t cmd_len,
-			  void *response, size_t *response_len)
+int wcn_send_atcmd(void *cmd, size_t cmd_len, void *response, size_t *response_len)
 {
 	struct mbuf_t *head = NULL;
 	struct mbuf_t *tail = NULL;
@@ -160,6 +159,11 @@ static int wcn_send_atcmd(void *cmd, size_t cmd_len,
 		wcn_send_atcmd_unlock();
 		return 0;
 	}
+
+	if (*response_len == WCN_AT_RSP_RAW_FLAG)
+		memcpy(response, sysfs_info.p, sysfs_info.len);
+	else
+		scnprintf(response, (size_t)sysfs_info.len, "%s", (char *)sysfs_info.p);
 
 	*response_len = sysfs_info.len;
 	scnprintf(response, (size_t)sysfs_info.len, "%s",
@@ -783,128 +787,36 @@ static ssize_t pm_policy_store(struct device *dev, struct device_attribute *attr
 
 }
 static DEVICE_ATTR_WO(pm_policy);
-/*
- * ud710_3h10:/sys/devices/platform/sprd-marlin3 # ls
- * sleep_state driver driver_override fwlog hw_pg_ver modalias of_node power
- * subsystem uevent
- * char device: /sys/class/slog_wcn/slog_wcn0
- * misc device: /sys/class/misc/slog_gnss
- */
 
-#if 0
-int wcn_sysfs_init(struct marlin_device *mdev)
+static ssize_t slp_info_store(struct device *dev, struct device_attribute *attr,
+			const char *buf, size_t count)
 {
+	unsigned long res;
 	int ret;
 
-	/* Create sysfs file to control bt coex state */
-	ret = device_create_file(mdev->dev[0]->dev, &dev_attr_sleep_state);
-	if (ret < 0) {
-		WCN_ERR("failed to create sysfs file sleep_state\n");
-		goto out;
+	ret = kstrtoul(buf, 10, &res);
+	if (ret < 0 || res > WCN_SOURCE_GNSS) {
+		WCN_ERR("incorrect value written to slp_info(0-1)\n");
+		return -EINVAL;
 	}
 
-	/* Create sysfs file to get SW version */
-	ret = device_create_file(mdev->dev[0]->dev, &dev_attr_sw_ver);
-	if (ret < 0) {
-		WCN_ERR("failed to create sysfs file sw_ver\n");
-		goto out_sleep_state;
-	}
+	sysfs_info.slpinfo_sys = res;
 
-	/* Create sysfs file to get HW version(chipid) */
-	ret = device_create_file(mdev->dev[0]->dev, &dev_attr_hw_ver);
-	if (ret < 0) {
-		WCN_ERR("failed to create sysfs file hw_ver\n");
-		goto out_sw_ver;
-	}
-
-	/* Create sysfs file to get watchdog status */
-	ret = device_create_file(mdev->dev[0]->dev, &dev_attr_watchdog_state);
-	if (ret < 0) {
-		WCN_ERR("failed to create sysfs file watchdog_state\n");
-		goto out_hw_ver;
-	}
-
-	/* Create sysfs file to get/change armlog status */
-	ret = device_create_file(mdev->dev[0]->dev, &dev_attr_armlog_status);
-	if (ret < 0) {
-		WCN_ERR("failed to create sysfs file armlog_status\n");
-		goto out_watchdog_state;
-	}
-
-	/* Create sysfs file to get/set loglevel */
-	ret = device_create_file(mdev->dev[0]->dev, &dev_attr_loglevel);
-	if (ret < 0) {
-		WCN_ERR("failed to create sysfs file armlog_status\n");
-		goto out_armlog_status;
-	}
-
-	/*
-	 * Create sysfs file to get TARGET_BUILD_VARIANT=userdebug for ap
-	 * user: reset cp2
-	 * userdebug: dumpmem
-	 */
-	ret = device_create_file(mdev->dev[0]->dev, &dev_attr_reset_dump);
-	if (ret < 0) {
-		WCN_ERR("failed to create sysfs file userdebug\n");
-		goto out_loglevel;
-	}
-
-	/* Create sysfs file for the FW log */
-	ret = device_create_bin_file(mdev->dev[0]->dev, &fwlog_attr);
-	if (ret < 0) {
-		WCN_ERR("failed to create sysfs file fwlog\n");
-		goto out_reset_dump;
-	}
-
-	init_completion(&mdev->sysfs_info.cmd_completion);
-	mutex_init(&mdev->sysfs_info.mutex);
-
-	goto out;
-
-out_reset_dump:
-	device_remove_file(&mdev->dev[0]->dev, &dev_attr_reset_dump);
-
-out_loglevel:
-	device_remove_file(&mdev->dev[0]->dev, &dev_attr_loglevel);
-
-out_armlog_status:
-	device_remove_file(&mdev->dev[0]->dev, &dev_attr_armlog_status);
-
-out_watchdog_state:
-	device_remove_file(&mdev->dev[0]->dev, &dev_attr_watchdog_state);
-
-out_hw_ver:
-	device_remove_file(&mdev->dev[0]->dev, &dev_attr_hw_ver);
-
-out_sw_ver:
-	device_remove_file(&mdev->dev[0]->dev, &dev_attr_sw_ver);
-
-out_sleep_state:
-	device_remove_file(&mdev->dev[0]->dev, &dev_attr_sleep_state);
-
-out:
-	return ret;
+	return count;
 }
 
-void wcn_sysfs_free(struct marlin_device *mdev)
+static ssize_t slp_info_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
-	device_remove_bin_file(mdev->dev[0]->dev, &fwlog_attr);
+	ssize_t len = PAGE_SIZE;
 
-	device_remove_file(mdev->dev[0]->dev, &dev_attr_reset_dump);
+	if (wcn_slpinfo_get(sysfs_info.slpinfo_sys, NULL))
+		len = snprintf(buf, len, "Device busy\n");
+	else
+		len = snprintf(buf, len, "OK\n");
 
-	device_remove_file(mdev->dev[0]->dev, &dev_attr_loglevel);
-
-	device_remove_file(mdev->dev[0]->dev, &dev_attr_armlog_status);
-
-	device_remove_file(mdev->dev[0]->dev, &dev_attr_watchdog_state);
-
-	device_remove_file(mdev->dev[0]->dev, &dev_attr_hw_ver);
-
-	device_remove_file(mdev->dev[0]->dev, &dev_attr_sw_ver);
-
-	device_remove_file(mdev->dev[0]->dev, &dev_attr_sleep_state);
+	return len;
 }
-#endif
+static DEVICE_ATTR_RW(slp_info);
 
 static long wcn_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
 {
@@ -962,6 +874,7 @@ static struct attribute *wcn_attrs[] = {
 	&dev_attr_debugbus_show_trigger.attr,
 	&dev_attr_pm_qos_enable.attr,
 	&dev_attr_pm_policy.attr,
+	&dev_attr_slp_info.attr,
 	NULL,
 };
 

@@ -19,10 +19,23 @@
 #include "mdbg_type.h"
 #include "../include/wcn_dbg.h"
 #include "sprd_wcn.h"
+#if IS_ENABLED(CONFIG_SPRD_POWER_DEBUG) || IS_ENABLED(CONFIG_SPRD_PDBG)
+#include "sysfs.h"
+#include <linux/soc/sprd/sprd_pdbg.h>
+#endif
 
 static struct atcmd_fifo s_atcmd_owner;
 static struct wcn_tm tm;
 static unsigned long long s_marlin_bootup_time;
+
+#if IS_ENABLED(CONFIG_SPRD_POWER_DEBUG) || IS_ENABLED(CONFIG_SPRD_PDBG)
+struct wcn_slpinfo_desc g_slpinfo;
+
+static struct wcn_slpinfo_desc *wcn_get_slpinfo_data(void)
+{
+	return &g_slpinfo;
+}
+#endif
 
 void mdbg_atcmd_owner_init(void)
 {
@@ -413,3 +426,261 @@ enum cp2_chip_type wcn_get_cp2_type(void)
 	return type_unknow;
 }
 EXPORT_SYMBOL_GPL(wcn_get_cp2_type);
+
+#if IS_ENABLED(CONFIG_SPRD_POWER_DEBUG) || IS_ENABLED(CONFIG_SPRD_PDBG)
+static char *wcn_slpinfo_irq_type_to_str(enum wcn_source_type type, enum intc_wakeup_irq irq_type)
+{
+	char *irq_type_str_by_btwf[WAKEUP_BY_INVALID] = {
+		"BTWF_SDIO_128BIT_AP_WAKE_CP2",
+		"BTWF_TOP_AON",
+		"BTWF_SDIO_INT",
+		"BTWF_TMR0_TMR0_INTC",
+		"BTWF_WIFI_MAC_INTC",
+		"BTWF_BT_MASKED_AUX_TMR",
+		"BTWF_FM_INTC",
+		"BTWF_BT_TIM",
+		"BTWF_BT_ACCELERATOR",
+		"BTWF_OTHERS",
+	};
+
+	if (type == WCN_SOURCE_GNSS)
+		return "GNSS_WAKEUP_IRQ";
+
+	if (irq_type < WAKEUP_BY_EIC_LATCH_SDIO_AP_WAKE_PULSE || irq_type >= WAKEUP_BY_INVALID)
+		return "INVALID";
+
+	return irq_type_str_by_btwf[irq_type];
+}
+
+static uint64_t wcn_slpinfo_ns_to_clk32k(uint64_t ns)
+{
+	uint32_t remainder = 0;
+	uint32_t clk32k_union_per_ns = 30517;
+
+	/* 32K(32768HZ), count value = 30.517 us */
+	remainder = do_div(ns, clk32k_union_per_ns);
+	if (remainder * 2 > clk32k_union_per_ns)
+		ns++;
+
+	return ns;
+}
+
+static void wcn_slpinfo_derive(struct wcn_slpinfo_desc *slpinfo,
+		struct subsys_slp_info *sys_slpinfo, enum wcn_source_type type, bool is_ns)
+{
+	int irq_type_num = 0;
+	struct wcn_slpinfo_firmware *wcn_slpinfo = NULL;
+
+	if (type == WCN_SOURCE_BTWF) {
+		wcn_slpinfo = &slpinfo->btwf_general;
+		sys_slpinfo->boot_cnt = slpinfo->btwf_reboot_cnt;
+	} else if (type == WCN_SOURCE_GNSS) {
+		wcn_slpinfo = &slpinfo->gnss_general;
+		sys_slpinfo->boot_cnt = slpinfo->gnss_reboot_cnt;
+	} else
+		return;
+
+	sys_slpinfo->total_time =
+		is_ns ? wcn_slpinfo_ns_to_clk32k(wcn_slpinfo->total_time) :
+		wcn_slpinfo->total_time;
+	sys_slpinfo->total_slp_time = is_ns ?
+		wcn_slpinfo_ns_to_clk32k(wcn_slpinfo->total_slp_time) :
+		wcn_slpinfo->total_slp_time;
+	sys_slpinfo->last_enter_time = is_ns ?
+		wcn_slpinfo_ns_to_clk32k(wcn_slpinfo->last_enter_time) :
+		wcn_slpinfo->last_enter_time;
+	sys_slpinfo->last_exit_time = is_ns ?
+		wcn_slpinfo_ns_to_clk32k(wcn_slpinfo->last_exit_time) :
+		wcn_slpinfo->last_exit_time;
+	sys_slpinfo->total_slp_cnt = wcn_slpinfo->total_slp_cnt;
+	sys_slpinfo->cur_slp_state = wcn_slpinfo->cur_slp_state;
+	sys_slpinfo->last_ws = wcn_slpinfo->last_wakeup_irq;
+
+	irq_type_num = min(ARRAY_SIZE(sys_slpinfo->ws_cnt),
+			ARRAY_SIZE(wcn_slpinfo->top_wakeup_irq_cnt));
+	memcpy(sys_slpinfo->ws_cnt, wcn_slpinfo->top_wakeup_irq_cnt,
+			irq_type_num * sizeof(sys_slpinfo->ws_cnt[0]));
+}
+
+static void wcn_slpinfo_show(enum wcn_source_type type,
+	struct wcn_slpinfo_desc *slpinfo, size_t read_len, bool is_ns)
+{
+	int i = 0;
+	struct wcn_slpinfo_firmware *slp_infocp2 = NULL;
+
+	if (type == WCN_SOURCE_BTWF)
+		slp_infocp2 = &slpinfo->btwf_general;
+	else if (type == WCN_SOURCE_GNSS)
+		slp_infocp2 = &slpinfo->gnss_general;
+	else
+		return;
+
+	WCN_INFO("%s: SLP INFO (%lu-%lu)[time unit-%s]:\n", slp_infocp2->name,
+		sizeof(*slp_infocp2), read_len, is_ns ? "ns" : "32k count");
+	WCN_INFO("EXT[CP2 START TIME:%llu, REBOOT_CNT:%llu]\n",
+		slp_infocp2->priv_info.irq.system_enter_time,
+		type == WCN_SOURCE_BTWF ? slpinfo->btwf_reboot_cnt : slpinfo->gnss_reboot_cnt);
+	WCN_INFO("DURATION TIME[TOTAL :%llu, DEEPSLEEP:%llu, ACTIVE(work+idle):%llu]\n",
+		slp_infocp2->total_time, slp_infocp2->total_slp_time,
+		slp_infocp2->total_time - slp_infocp2->total_slp_time);
+	WCN_INFO("DEEPSLEEP[CUR_STATE:%u, COUNTER:%llu, ENTER:%llu, EXIT:%llu]\n",
+		slp_infocp2->cur_slp_state, slp_infocp2->total_slp_cnt,
+		slp_infocp2->last_enter_time, slp_infocp2->last_exit_time);
+	WCN_INFO("LAST WAKEUP BY IRQ:%u\n", slp_infocp2->last_wakeup_irq);
+	for (i = 0; i < ARRAY_SIZE(slp_infocp2->top_wakeup_irq_cnt); i++)
+		WCN_INFO("WAKEUP BY-%s:%u\n", wcn_slpinfo_irq_type_to_str(type, i),
+			slp_infocp2->top_wakeup_irq_cnt[i]);
+
+	WCN_INFO("WAKEUP IRQ:%u\n", slp_infocp2->priv_info.irq.wakeup_by_idx);
+	for (i = 0; i < ARRAY_SIZE(slp_infocp2->priv_info.irq.wakeup_by_intnum); i++)
+		WCN_INFO("WAKE IRQ List:%u", slp_infocp2->priv_info.irq.wakeup_by_intnum[i]);
+}
+
+static int wcn_slpinfo_get_for_btwf(struct subsys_slp_info *info)
+{
+	char at_cmd_getslpinfo[] = "at+debug=12\r";
+	size_t slp_info_len = WCN_AT_RSP_RAW_FLAG;
+	int ret = 0;
+	struct wcn_slpinfo_desc *slpinfo = wcn_get_slpinfo_data();
+	struct wcn_slpinfo_firmware *slp_infocp2 = &slpinfo->btwf_general;
+
+	memset(&slpinfo->btwf_general, 0, sizeof(slpinfo->btwf_general));
+	ret = wcn_send_atcmd(at_cmd_getslpinfo, strlen(at_cmd_getslpinfo),
+			(void *)slp_infocp2, &slp_info_len);
+	if (ret) {
+		if (!IS_ERR_OR_NULL(info))
+			memset(info, 0, sizeof(*info));
+		WCN_ERR("%s: BTFW is closed %d\n", __func__, ret);
+		return -ENODATA;
+	}
+
+	if (strncmp(slp_infocp2->name, WCN_SLP_INFO_SYNC_LABEL, sizeof(WCN_SLP_INFO_SYNC_LABEL))) {
+		WCN_WARN("%s: firmware cannot capture\n", __func__);
+		return -ENODATA;
+	}
+	slp_infocp2->name[ARRAY_SIZE(slp_infocp2->name) - 1] = 0;
+
+	print_hex_dump(KERN_INFO, "SLPINFO-", DUMP_PREFIX_OFFSET, 16, 4,
+			(void *)slp_infocp2, slp_info_len, true);
+	wcn_slpinfo_show(WCN_SOURCE_BTWF, slpinfo, slp_info_len, false);
+
+	if (!IS_ERR_OR_NULL(info))
+		wcn_slpinfo_derive(slpinfo, info, WCN_SOURCE_BTWF, false);
+
+	return 0;
+}
+
+static int wcn_slpinfo_get_for_gnss(struct subsys_slp_info *info)
+{
+	struct wcn_slpinfo_desc *slpinfo = wcn_get_slpinfo_data();
+
+	if (slpinfo->gnss_general.cur_slp_state == WCN_POWER_OFF) {
+		if (!IS_ERR_OR_NULL(info))
+			memset(info, 0, sizeof(*info));
+		WCN_ERR("%s: GNSS is closed[TOTALTIME:%llu,REBOOT_CNT=%llu]\n", __func__,
+		slpinfo->gnss_general.total_time, slpinfo->gnss_reboot_cnt);
+		return 0;
+	}
+
+	slpinfo->gnss_general.total_time = ktime_get_boottime_ns() -
+		slpinfo->gnss_general.priv_info.irq.system_enter_time;
+
+	wcn_slpinfo_show(WCN_SOURCE_GNSS, slpinfo, sizeof(slpinfo->gnss_general), true);
+	if (!IS_ERR_OR_NULL(info))
+		wcn_slpinfo_derive(slpinfo, info, WCN_SOURCE_GNSS, true);
+
+	return 0;
+}
+
+void wcn_slpinfo_statistics(enum wcn_source_type type, bool poweron)
+{
+	struct wcn_slpinfo_desc *slpinfo = wcn_get_slpinfo_data();
+
+	if (type == WCN_SOURCE_BTWF) {
+		if (!poweron)
+			memset(&slpinfo->btwf_general, 0, sizeof(slpinfo->btwf_general));
+		else
+			slpinfo->btwf_reboot_cnt++;
+	} else if (type == WCN_SOURCE_GNSS) {
+		/* Currently, GNSS only calculates the power up and down parameters on the AP */
+		if (!poweron) {
+			memset(&slpinfo->gnss_general, 0, sizeof(slpinfo->gnss_general));
+			slpinfo->gnss_general.priv_info.irq.system_enter_time = 0;
+			slpinfo->gnss_general.cur_slp_state = WCN_POWER_OFF;
+		} else {
+			memset(&slpinfo->gnss_general, 0, sizeof(slpinfo->gnss_general));
+			slpinfo->gnss_general.priv_info.irq.system_enter_time =
+				ktime_get_boottime_ns();
+			slpinfo->gnss_general.cur_slp_state = WCN_ACTIVE;
+			slpinfo->gnss_reboot_cnt++;
+		}
+	}
+
+}
+
+int wcn_slpinfo_get(enum wcn_source_type subsys, void *info)
+{
+	if (subsys == WCN_SOURCE_BTWF)
+		return wcn_slpinfo_get_for_btwf((struct subsys_slp_info *)info);
+	else if (subsys == WCN_SOURCE_GNSS)
+		return wcn_slpinfo_get_for_gnss((struct subsys_slp_info *)info);
+	else
+		return -EINVAL;
+}
+
+static int wcn_slpinfo_notifier_fn(struct notifier_block *nb,
+			unsigned long action, void *data)
+{
+	int ret = 0;
+	enum wcn_source_type src_type = WCN_SOURCE_BTWF;
+
+	if (IS_ERR_OR_NULL(data))
+		return -EINVAL;
+
+	if (action == PDBG_NB_SYS_WCN_BTWF_SLP_GET)
+		src_type = WCN_SOURCE_BTWF;
+	else if (action == PDBG_NB_SYS_WCN_GNSS_SLP_GET)
+		src_type = WCN_SOURCE_GNSS;
+	else {
+		WCN_WARN("%s: Unexpected commands\n", __func__);
+		return 0;
+	}
+
+	ret = wcn_slpinfo_get(src_type, data);
+	if (ret)
+		WCN_INFO("%s: %s sleep info request failed %d\n", __func__,
+			src_type == WCN_SOURCE_BTWF ? "BTWF" : "GNSS", ret);
+
+	return ret;
+}
+
+static struct notifier_block wcn_slpinfo_notifier = {
+	.notifier_call = wcn_slpinfo_notifier_fn,
+};
+#endif
+
+int wcn_misc_init(void)
+{
+	int ret = 0;
+#if IS_ENABLED(CONFIG_SPRD_POWER_DEBUG) || IS_ENABLED(CONFIG_SPRD_PDBG)
+	struct wcn_slpinfo_desc *slpinfo = wcn_get_slpinfo_data();
+
+	snprintf(slpinfo->gnss_general.name, ARRAY_SIZE(slpinfo->gnss_general.name), "GNSS");
+
+	ret = sprd_pdbg_notify_register(&wcn_slpinfo_notifier);
+	if (ret) {
+		WCN_ERR("%s: failed to register pdbg_notify\n", __func__, ret);
+		return 0;
+	}
+#endif
+	return ret;
+}
+
+void wcn_misc_exit(void)
+{
+#if IS_ENABLED(CONFIG_SPRD_POWER_DEBUG) || IS_ENABLED(CONFIG_SPRD_PDBG)
+	if (sprd_pdbg_notify_unregister(&wcn_slpinfo_notifier))
+		WCN_ERR("%s: failed to unregister pdbg_notify\n", __func__);
+#endif
+}
+
