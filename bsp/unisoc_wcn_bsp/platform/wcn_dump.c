@@ -776,7 +776,12 @@ static void write_core_reg_value(unsigned int reg_index, unsigned int value)
 		}
 	}
 
-	sprdwcn_bus_reg_read(a[2][0], &reg_val, 4);
+	ret = sprdwcn_bus_reg_read(a[2][0], &reg_val, 4);
+	if (ret < 0) {
+		WCN_ERR("%s  error:%d\n", __func__, ret);
+		return;
+	}
+
 	WCN_LOG("%s value: 0x%x, reg_value:0x%x\n", __func__, value, reg_val);
 
 	for (i = 0; i < 3; i++) {
@@ -835,7 +840,12 @@ static void read_core_reg(unsigned int value, unsigned int *p)
 		}
 	}
 
-	sprdwcn_bus_reg_read(a[2][0], &reg_val, 4);
+	ret = sprdwcn_bus_reg_read(a[2][0], &reg_val, 4);
+	if (ret < 0) {
+		WCN_ERR("%s read error:%d\n", __func__, ret);
+		return;
+	}
+
 	p[value] = reg_val;
 
 	WCN_LOG("%s ****R[%d]: 0x%x****\n", __func__, value, reg_val);

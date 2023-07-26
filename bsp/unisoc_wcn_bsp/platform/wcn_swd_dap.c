@@ -101,6 +101,7 @@ static void swd_ext_sel(bool enable)
 	unsigned char reg;
 	unsigned int ahb_ctl;
 	struct wcn_match_data *g_match_config = get_wcn_match_config();
+	int ret = 0;
 
 	if (g_match_config && g_match_config->unisoc_wcn_pcie) {
 		swd_ext_sel_pcie(enable);
@@ -112,9 +113,17 @@ static void swd_ext_sel(bool enable)
 
 	/* disable sec */
 	ahb_ctl = CM33_AHB_CTRL3_VALUE;
-	sprdwcn_bus_reg_write(CM33_AHB_CTRL3_ADDR, &ahb_ctl, 4);
+	ret = sprdwcn_bus_reg_write(CM33_AHB_CTRL3_ADDR, &ahb_ctl, 4);
+	if (ret < 0) {
+		WCN_ERR("%s write error\n", __func__);
+	}
+
 	ahb_ctl = 0;
-	sprdwcn_bus_reg_read(CM33_AHB_CTRL3_ADDR, &ahb_ctl, 4);
+	ret = sprdwcn_bus_reg_read(CM33_AHB_CTRL3_ADDR, &ahb_ctl, 4);
+	if (ret < 0) {
+		WCN_ERR("%s read error\n", __func__);
+	}
+
 	WCN_INFO("ahb_ctl value is:0x%x\n", ahb_ctl);
 
 	if (enable)

@@ -68,6 +68,7 @@ static int gnss_write_cali_data(void)
 {
 	unsigned int gnss_cali_addr, gnss_cali_data_size;
 	struct wcn_match_data *g_match_config = get_wcn_match_config();
+	int ret = 0;
 
 	if (g_match_config && g_match_config->unisoc_wcn_m3lite) {
 		gnss_cali_addr = M3L_GNSS_CALI_ADDRESS;
@@ -79,17 +80,18 @@ static int gnss_write_cali_data(void)
 	pr_info("%s flag %d\n", __func__,
 		gnss_cali_data.cali_done);
 	if (gnss_cali_data.cali_done) {
-		sprdwcn_bus_direct_write(gnss_cali_addr,
+		ret = sprdwcn_bus_direct_write(gnss_cali_addr,
 					 gnss_cali_data.cali_data,
 					 gnss_cali_data_size);
 	}
-	return 0;
+	return ret;
 }
 
 static int gnss_write_efuse_data(void)
 {
 	unsigned int gnss_efuse_addr;
 	struct wcn_match_data *g_match_config = get_wcn_match_config();
+	int ret = 0;
 
 	if (g_match_config && g_match_config->unisoc_wcn_m3lite)
 		gnss_efuse_addr = M3L_GNSS_EFUSE_ADDRESS;
@@ -98,11 +100,11 @@ static int gnss_write_efuse_data(void)
 
 	pr_info("%s flag %d\n", __func__, gnss_cali_data.cali_done);
 	if (gnss_cali_data.cali_done && (gnss_efuse_data != NULL))
-		sprdwcn_bus_direct_write(gnss_efuse_addr,
+		ret = sprdwcn_bus_direct_write(gnss_efuse_addr,
 					 gnss_efuse_data,
 					 GNSS_EFUSE_DATA_SIZE);
 
-	return 0;
+	return ret;
 }
 
 int gnss_write_data(void)
@@ -117,7 +119,7 @@ int gnss_write_data(void)
 
 static int gnss_backup_cali(void)
 {
-	int i = 15;
+	int i = 15, ret = 0;
 	int tempvalue = 0;
 	unsigned int gnss_cali_addr, gnss_cali_data_size;
 	struct wcn_match_data *g_match_config = get_wcn_match_config();
@@ -135,9 +137,13 @@ static int gnss_backup_cali(void)
 		pr_info("%s begin\n", __func__);
 		if (gnss_cali_data.cali_data != NULL) {
 			while (i--) {
-				sprdwcn_bus_direct_read(gnss_cali_addr,
-					gnss_cali_data.cali_data,
-					gnss_cali_data_size);
+				ret = sprdwcn_bus_direct_read(gnss_cali_addr,
+						gnss_cali_data.cali_data,
+						gnss_cali_data_size);
+				if (ret < 0) {
+					pr_err("%s error\n", __func__);
+				}
+
 				tempvalue = *(gnss_cali_data.cali_data);
 				pr_err("cali %d time, value is 0x%x\n",
 				       i, tempvalue);
@@ -171,9 +177,11 @@ static int gnss_backup_efuse(void)
 
 	/* efuse data is ok when cali done */
 	if (gnss_cali_data.cali_done && (gnss_efuse_data != NULL)) {
-		sprdwcn_bus_direct_read(gnss_efuse_addr, gnss_efuse_data,
+		ret = sprdwcn_bus_direct_read(gnss_efuse_addr, gnss_efuse_data,
 					GNSS_EFUSE_DATA_SIZE);
-		ret = 0;
+		if (ret < 0)
+			pr_err("%s read gnss_efuse_data error\n", __func__);
+
 		pr_info("%s 0x%x\n", __func__, *gnss_efuse_data);
 	} else
 		pr_err("%s no need back again\n", __func__);

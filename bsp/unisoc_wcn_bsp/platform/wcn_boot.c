@@ -1736,8 +1736,11 @@ void marlin_read_cali_data(void)
 	}
 
 	if ((marlin2_clk_wait_reg > 0) && (clk_wait_val > 0)) {
-		sprdwcn_bus_reg_read(marlin2_clk_wait_reg,
+		err = sprdwcn_bus_reg_read(marlin2_clk_wait_reg,
 					&cp_clk_wait_val, 4);
+		if (err < 0)
+			pr_err("marlin2 read clk_wait_reg error:%d\n", err);
+
 		pr_info("marlin2 cp_clk_wait_val is 0x%x\n", cp_clk_wait_val);
 		clk_wait_val = ((clk_wait_val & 0xFF00) >> 8);
 		cp_clk_wait_val =

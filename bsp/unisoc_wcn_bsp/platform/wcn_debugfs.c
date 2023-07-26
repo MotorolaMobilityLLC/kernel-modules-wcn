@@ -39,7 +39,7 @@ static ssize_t read_wcn_reg(struct file *file, char __user *user_buf,
 			     size_t count, loff_t *ppos)
 {
 	struct wcn_reg_ctl *reg_rd;
-	int i;
+	int i, ret = 0;
 
 	WCN_INFO(" __read_wcn_reg\n");
 
@@ -71,12 +71,16 @@ static ssize_t read_wcn_reg(struct file *file, char __user *user_buf,
 		/* rw_extended reg */
 		switch (reg_rd->len) {
 		case 1:
-			sprdwcn_bus_reg_read(reg_rd->addr,
+			ret = sprdwcn_bus_reg_read(reg_rd->addr,
 					     &reg_rd->value[0], 4);
+			if (ret < 0)
+				WCN_ERR("%s reg_read error\n", __func__);
 			break;
 		default:
-			sprdwcn_bus_direct_read(reg_rd->addr, reg_rd->value,
+			ret = sprdwcn_bus_direct_read(reg_rd->addr, reg_rd->value,
 						reg_rd->len * sizeof(int));
+			if (ret < 0)
+				WCN_ERR("%s direct_read error\n", __func__);
 			break;
 		}
 	}
@@ -96,7 +100,7 @@ static ssize_t write_wcn_reg(struct file *file, const char __user *user_buf,
 			      size_t count, loff_t *ppos)
 {
 	struct wcn_reg_ctl *reg_wr;
-	int i;
+	int i, ret = 0;
 
 	WCN_INFO("_write_wcn_reg\n");
 
@@ -127,12 +131,16 @@ static ssize_t write_wcn_reg(struct file *file, const char __user *user_buf,
 		/* rw_extended reg */
 		switch (reg_wr->len) {
 		case 1:
-			sprdwcn_bus_reg_write(reg_wr->addr,
+			ret = sprdwcn_bus_reg_write(reg_wr->addr,
 					      &reg_wr->value[0], 4);
+			if (ret < 0)
+				WCN_ERR("%s reg_write error\n", __func__);
 			break;
 		default:
-			sprdwcn_bus_direct_write(reg_wr->addr, reg_wr->value,
+			ret = sprdwcn_bus_direct_write(reg_wr->addr, reg_wr->value,
 						 reg_wr->len * sizeof(int));
+			if (ret < 0)
+				WCN_ERR("%s direct_write error\n", __func__);
 			break;
 		}
 	}

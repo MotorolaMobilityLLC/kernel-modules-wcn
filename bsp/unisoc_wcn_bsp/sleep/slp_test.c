@@ -15,6 +15,7 @@ static int test_cnt;
 static int sleep_test_thread(void *data)
 {
 	unsigned int ram_val = 0;
+	int ret = 0;
 
 	while (1) {
 		if (test_cnt)
@@ -25,7 +26,12 @@ static int sleep_test_thread(void *data)
 		slp_mgr_drv_sleep(DT_READ, FALSE);
 		slp_mgr_wakeup(DT_READ);
 
-		sprdwcn_bus_reg_read(get_cp_start_addr(), &ram_val, 0x4);
+		ret = sprdwcn_bus_reg_read(get_cp_start_addr(), &ram_val, 0x4);
+		if (ret < 0) {
+			WCN_ERR("%s  error\n", __func__);
+			return ret;
+		}
+
 		WCN_INFO("ram_val= 0x%x\n", ram_val);
 
 		msleep(5000);
