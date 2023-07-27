@@ -321,10 +321,9 @@ void sc2355_setup_wiphy(struct wiphy *wiphy, struct sprd_priv *priv)
 		wl_debug("\tIEEE802.11d supported\n");
 		wiphy->reg_notifier = sc2355_reg_notify;
 		wiphy->regulatory_flags |= REGULATORY_DISABLE_BEACON_HINTS;
-		if (priv->hif.hw_type == SPRD_HW_SC2355_SDIO) {
-			// ignore AP's countryIE when cfg80211_connect_result it
-			wiphy->regulatory_flags |= REGULATORY_COUNTRY_IE_IGNORE;
-		}
+
+		// ignore AP's countryIE when cfg80211_connect_result it
+		wiphy->regulatory_flags |= REGULATORY_COUNTRY_IE_IGNORE;
 	}
 
 	if (priv->fw_std & SPRD_STD_11E) {
