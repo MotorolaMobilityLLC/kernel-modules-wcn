@@ -373,9 +373,11 @@ static void gnss_power_on(bool enable)
 			dev_info(dev, "%s: unknown clk_type\n", __func__);
 
 		ret = start_marlin(gnss_common_ctl_dev.gnss_subsys);
-		if (ret != 0)
+		if (ret != 0) {
 			dev_err(dev, "%s start marlin failed ret=%d\n",
 				__func__, ret);
+			gnss_common_ctl_dev.gnss_status = GNSS_STATUS_POWEROFF;
+		}
 		else {
 			gnss_common_ctl_dev.gnss_status = GNSS_STATUS_POWERON;
 		}
@@ -392,9 +394,11 @@ static void gnss_power_on(bool enable)
 			dev_info(dev, "%s: unknown clk_type\n", __func__);
 
 		ret = stop_marlin(gnss_common_ctl_dev.gnss_subsys);
-		if (ret != 0)
+		if (ret != 0) {
 			dev_err(dev, "%s stop marlin failed ret=%d\n",
 				__func__, ret);
+			gnss_common_ctl_dev.gnss_status = GNSS_STATUS_POWERON;
+		}
 		else
 			gnss_common_ctl_dev.gnss_status = GNSS_STATUS_POWEROFF;
 	} else {
