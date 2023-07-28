@@ -394,7 +394,7 @@ int sprd_iface_report_assert_evt(struct sprd_priv *priv)
 		return -1;
 	}
 
-	reply = cfg80211_vendor_event_alloc(wiphy, &vif->wdev, strlen(data),
+	reply = cfg80211_vendor_event_alloc(wiphy, &vif->wdev, strlen(data) + 1,
 					    SPRD_VENDOR_EVENT_ASSERT_INDEX,
 					    GFP_KERNEL);
 	if (!reply) {
@@ -402,7 +402,7 @@ int sprd_iface_report_assert_evt(struct sprd_priv *priv)
 		return -ENOMEM;
 	}
 
-	if (nla_put(reply, SPRD_ATTR_ASSERT, strlen(data), data)) {
+	if (nla_put(reply, SPRD_ATTR_ASSERT, strlen(data) + 1, data)) {
 		netdev_info(vif->ndev, "nla put failed");
 		kfree_skb(reply);
 		return -1;
