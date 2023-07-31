@@ -17,32 +17,39 @@ void sdiohal_debug_point_show(void)
 	struct sdiohal_xmit_debug_point *txp = p_data->sdcb.tx_list_push;
 	struct sdiohal_xmit_debug_point *rxp = p_data->sdcb.rx_list_dispatch;
 	int i = 0;
+	u64 ns = 0, rem = 0;
 
 	pr_info("rx_irq_ns(%lld %lld), tx_sch_ns(%lld %lld).\n",
-		timespec64_to_ns(&p_data->tm_begin_irq), timespec64_to_ns(&p_data->tm_end_irq),
-		timespec64_to_ns(&p_data->tm_begin_sch), timespec64_to_ns(&p_data->tm_end_sch));
+		p_data->tm_begin_irq, p_data->tm_end_irq, p_data->tm_begin_sch, p_data->tm_end_sch);
 
-	pr_info("Last xmit_lock: Enter task(%s) caller: %ps, time=%llu\n",
-		p_data->sdcb.op_enter_comm, p_data->sdcb.op_enter_builtin_addr[0],
-		p_data->op_enter_ns);
-	pr_info("Last xmit_lock: Leave task(%s) caller: %ps, time=%llu\n",
-		p_data->sdcb.op_leave_comm, p_data->sdcb.op_leave_builtin_addr[0],
-		p_data->op_leave_ns);
+	ns = p_data->op_enter_ns;
+	rem = do_div(ns, NSEC_PER_SEC);
+	pr_info("Last xmit_lock: Enter task(%s) caller: %ps, time=%llu.%llu\n",
+		p_data->sdcb.op_enter_comm, p_data->sdcb.op_enter_builtin_addr[0], ns, rem);
+
+	ns = p_data->op_leave_ns;
+	rem = do_div(ns, NSEC_PER_SEC);
+	pr_info("Last xmit_lock: Leave task(%s) caller: %ps, time=%llu.%llu\n",
+		p_data->sdcb.op_leave_comm, p_data->sdcb.op_leave_builtin_addr[0], ns, rem);
 
 	if (p_data->op_enter_ns > p_data->op_leave_ns)
 		pr_info("WARNING: Task(%s) holds xmit_lock!!!", p_data->sdcb.op_enter_comm);
 
 	pr_info("SDIOHAL TX DEBUG POINT[%d]:\n", p_data->sdcb.tx_list_push_index - 1);
 	for (i = 0; i < SDIO_DEBUG_POINT_NUM; i++) {
-		pr_info("[%d]chn:%d, time=%llu, %p, %p, %d, %d%s", i, txp[i].channel,
-			txp[i].cur_time, txp[i].head, txp[i].tail, txp[i].num, txp[i].tx_driect,
+		ns = txp[i].cur_time;
+		rem = do_div(ns, NSEC_PER_SEC);
+		pr_info("[%d]chn:%d, time=%llu.%llu, %p, %p, %d, %d%s", i, txp[i].channel,
+			ns, rem, txp[i].head, txp[i].tail, txp[i].num, txp[i].tx_driect,
 			(i == p_data->sdcb.tx_list_push_index - 1) ? "[LAST]":"");
 	}
 
 	pr_info("SDIOHAL RX DEBUG POINT[%d]:\n", p_data->sdcb.rx_list_dispatch_index - 1);
 	for (i = 0; i < SDIO_DEBUG_POINT_NUM; i++) {
-		pr_info("[%d]chn:%d, time=%llu, %p, %p, %d, %d%s", i, rxp[i].channel,
-			rxp[i].cur_time, rxp[i].head, rxp[i].tail, rxp[i].num, rxp[i].tx_driect,
+		ns = rxp[i].cur_time;
+		rem = do_div(ns, NSEC_PER_SEC);
+		pr_info("[%d]chn:%d, time=%llu.%llu, %p, %p, %d, %d%s", i, rxp[i].channel,
+			ns, rem, rxp[i].head, rxp[i].tail, rxp[i].num, rxp[i].tx_driect,
 			(i == p_data->sdcb.rx_list_dispatch_index - 1) ? "[LAST]":"");
 	}
 }
@@ -1278,7 +1285,7 @@ int sdiohal_list_push(int channel, struct mbuf_t *head,
 			time_total_ns = 0;
 			times_count = 0;
 		}
-		ktime_get_real_ts64(&p_data->tm_begin_sch);
+		p_data->tm_begin_sch = ktime_get_boot_fast_ns();
 		sdiohal_tx_list_push_dp(channel, head, tail, num);
 		sdiohal_tx_up();
 	} else

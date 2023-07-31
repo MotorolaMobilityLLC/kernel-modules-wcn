@@ -224,7 +224,7 @@ int sdiohal_rx_thread(void *data)
 		if (p_data->exit_flag)
 			break;
 
-		ktime_get_real_ts64(&p_data->tm_end_irq);
+		p_data->tm_end_irq = ktime_get_boot_fast_ns();
 		sdiohal_pr_perf("rx sch time:%ld\n",
 				(long)(timespec64_to_ns(&p_data->tm_end_irq) -
 				timespec64_to_ns(&p_data->tm_begin_irq)));

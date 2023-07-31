@@ -833,7 +833,7 @@ static irqreturn_t sdiohal_irq_handler(int irq, void *para)
 	sdiohal_lock_rx_ws();
 	sdiohal_disable_rx_irq(irq);
 
-	ktime_get_real_ts64(&p_data->tm_begin_irq);
+	p_data->tm_begin_irq = ktime_get_boot_fast_ns();
 	sdiohal_rx_up();
 
 	return IRQ_HANDLED;

@@ -73,7 +73,7 @@ int sdiohal_tx_thread(void *data)
 			break;
 
 		tm_enter_tx_thread = local_clock();
-		ktime_get_real_ts64(&p_data->tm_end_sch);
+		p_data->tm_end_sch = ktime_get_boot_fast_ns();
 		sdiohal_pr_perf("tx sch time:%ld\n",
 				(long)(timespec_to_ns(&p_data->tm_end_sch) -
 				timespec_to_ns(&p_data->tm_begin_sch)));
