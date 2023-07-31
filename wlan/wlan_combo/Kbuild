@@ -25,6 +25,11 @@ endif
 # ccflags-y += -DCONFIG_SC2355_WLAN_RTT
 # ccflags-y += -DDRV_RESET_SELF
 
+# CONFIG_SPRD_DFS := y
+ifeq ($(CONFIG_SPRD_DFS),y)
+ccflags-y += -DENABLE_DFS
+endif
+
 ifeq ($(BSP_DTBO),ums9230-4h10-overlay)
 CONFIG_SPRD_CHR := y
 ccflags-y += -DENABLE_CHR
@@ -123,6 +128,8 @@ SC2355_PAMWIFI_WLAN := \
                 sc2355/pamwifi/pamwifi_core.o \
                 sc2355/pamwifi/r2p0/r2p0.o
 
+SC2355_DFS_WLAN := sc2355/dfs.o
+
 $(KO_MODULE_NAME)-y += \
 		$(SPRD_WLAN_COMMON) \
 		$(SC2332_WLAN) \
@@ -135,3 +142,5 @@ $(KO_MODULE_NAME)-y += \
 $(KO_MODULE_NAME)-$(CONFIG_SPRD_PAMWIFI) += $(SC2355_PAMWIFI_WLAN)
 
 $(KO_MODULE_NAME)-$(CONFIG_SPRD_CHR) += $(SPRD_WLAN_CHR)
+
+$(KO_MODULE_NAME)-$(CONFIG_SPRD_DFS) += $(SC2355_DFS_WLAN)

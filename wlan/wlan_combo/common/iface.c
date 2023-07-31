@@ -1822,6 +1822,10 @@ struct wireless_dev *sprd_add_iface(struct sprd_priv *priv, const char *name,
 	list_add_tail(&vif->vif_node, &priv->vif_list);
 	spin_unlock_bh(&priv->list_lock);
 
+#ifdef ENABLE_DFS
+	sprd_init_dfs_master(vif->priv, vif);
+#endif
+
 	return &vif->wdev;
 }
 
@@ -1832,6 +1836,9 @@ int sprd_del_iface(struct sprd_priv *priv, struct sprd_vif *vif)
 	else
 		iface_unregister_netdev(vif);
 
+#ifdef ENABLE_DFS
+	sprd_deinit_dfs_master(vif->priv, vif);
+#endif
 	return 0;
 }
 

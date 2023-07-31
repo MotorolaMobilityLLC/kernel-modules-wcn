@@ -115,6 +115,14 @@ struct sprd_vif {
 	u8 random_mac[ETH_ALEN];
 	bool has_rand_mac;
 	u8 wps_flag;
+#ifdef ENABLE_DFS
+	/* dfs master mode */
+	struct workqueue_struct *dfs_cac_workqueue;
+	struct delayed_work dfs_cac_work;
+	struct workqueue_struct *dfs_chan_sw_workqueue;
+	struct delayed_work dfs_chan_sw_work;
+	struct cfg80211_chan_def dfs_chandef;
+#endif
 	/* unused */
 	struct list_head scan_head_ptr;
 	struct kobject sprd_power_obj;

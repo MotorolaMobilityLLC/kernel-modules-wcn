@@ -12,6 +12,7 @@
 #include "qos.h"
 #include "scan.h"
 #include "txrx.h"
+#include "dfs.h"
 
 #define SPRD_MAX_PFN_LIST_COUNT	9
 
@@ -421,7 +422,10 @@ void sc2355_setup_wiphy(struct wiphy *wiphy, struct sprd_priv *priv)
                                       NL80211_EXT_FEATURE_OCE_PROBE_REQ_DEFERRAL_SUPPRESSION);
                 wiphy_ext_feature_set(wiphy,
                                       NL80211_EXT_FEATURE_OCE_PROBE_REQ_HIGH_TX_RATE);
-        }
+	}
+#ifdef ENABLE_DFS
+	wiphy->flags |= WIPHY_FLAG_HAS_CHANNEL_SWITCH;
+#endif
 }
 
 int sc2355_set_rekey(struct wiphy *wiphy, struct net_device *ndev,
@@ -523,6 +527,14 @@ struct sprd_chip_ops sc2355_chip_ops = {
 	.set_sniffer = sc2355_set_sniffer,
 #ifdef ENABLE_CHR
 	.set_chr = sc2355_set_chr,
+#endif
+#ifdef ENABLE_DFS
+	.init_dfs_master = sc2355_init_dfs_master,
+	.deinit_dfs_master = sc2355_deinit_dfs_master,
+	.start_radar_detection = sc2355_start_radar_detection,
+	.channel_switch = sc2355_channel_switch,
+	.abort_cac = sc2355_abort_cac,
+	.reset_beacon = sc2355_reset_beacon,
 #endif
 };
 

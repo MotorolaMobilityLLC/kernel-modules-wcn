@@ -163,6 +163,18 @@ struct sprd_chip_ops {
 #ifdef ENABLE_CHR
 	int (*set_chr)(struct sprd_chr *chr);
 #endif
+#ifdef ENABLE_DFS
+	int (*init_dfs_master)(struct sprd_vif *vif);
+	void (*deinit_dfs_master)(struct sprd_vif *vif);
+	int (*start_radar_detection)(struct sprd_vif *vif,
+				     struct cfg80211_chan_def *chandef,
+				     u32 cac_time_ms);
+	int (*channel_switch)(struct sprd_vif *vif,
+			      struct cfg80211_csa_settings *params);
+	void (*abort_cac)(struct sprd_vif *vif);
+	int (*reset_beacon)(struct sprd_priv *priv,
+			    struct sprd_vif *vif, const u8 *beacon, u16 len);
+#endif
 };
 
 static
@@ -912,6 +924,63 @@ static inline int sprd_set_chr(struct sprd_chr *chr)
 		return priv->chip.ops->set_chr(chr);
 
 	return 0;
+}
+#endif
+
+#ifdef ENABLE_DFS
+static inline int sprd_start_radar_detection(struct sprd_priv *priv,
+					     struct sprd_vif *vif,
+					     struct cfg80211_chan_def *chandef,
+					     u32 cac_time_ms)
+{
+	if (priv->chip.ops->start_radar_detection)
+		return priv->chip.ops->start_radar_detection(vif, chandef,
+							     cac_time_ms);
+
+	return 0;
+}
+
+static inline int sprd_channel_switch(struct sprd_priv *priv,
+				      struct sprd_vif *vif,
+				      struct cfg80211_csa_settings *params)
+{
+	if (priv->chip.ops->channel_switch)
+		return priv->chip.ops->channel_switch(vif, params);
+
+	return 0;
+}
+
+static inline void sprd_abort_cac(struct sprd_priv *priv,
+				  struct sprd_vif *vif)
+{
+	if (priv->chip.ops->abort_cac)
+		priv->chip.ops->abort_cac(vif);
+}
+
+static inline int sprd_reset_beacon(struct sprd_priv *priv,
+				    struct sprd_vif *vif,
+				    const u8 *beacon, u16 len)
+{
+	if (priv->chip.ops->reset_beacon)
+		return priv->chip.ops->reset_beacon(priv, vif, beacon, len);
+
+	return 0;
+}
+
+static inline int sprd_init_dfs_master(struct sprd_priv *priv,
+				       struct sprd_vif *vif)
+{
+	if (priv->chip.ops->init_dfs_master)
+		return priv->chip.ops->init_dfs_master(vif);
+
+	return 0;
+}
+
+static inline void sprd_deinit_dfs_master(struct sprd_priv *priv,
+					  struct sprd_vif *vif)
+{
+	if (priv->chip.ops->deinit_dfs_master)
+		priv->chip.ops->deinit_dfs_master(vif);
 }
 #endif
 

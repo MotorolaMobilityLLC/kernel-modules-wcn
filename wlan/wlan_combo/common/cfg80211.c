@@ -336,8 +336,8 @@ static int cfg80211_add_cipher_key(struct sprd_vif *vif, bool pairwise,
 	return ret;
 }
 
-static int cfg80211_set_beacon_ies(struct sprd_vif *vif,
-				   struct cfg80211_beacon_data *beacon)
+int sprd_cfg80211_set_beacon_ies(struct sprd_vif *vif,
+				 struct cfg80211_beacon_data *beacon)
 {
 	int ret = 0;
 
@@ -574,6 +574,11 @@ int sprd_cfg80211_start_ap(struct wiphy *wiphy, struct net_device *ndev,
 	u8 *data = NULL;
 	int ret;
 
+#ifdef ENABLE_DFS
+	if (settings->beacon_interval)
+		vif->priv->beacon_period = settings->beacon_interval;
+#endif
+
 	if (!settings->ssid) {
 		netdev_err(ndev, "%s invalid SSID!\n", __func__);
 		return -EINVAL;
@@ -581,7 +586,7 @@ int sprd_cfg80211_start_ap(struct wiphy *wiphy, struct net_device *ndev,
 
 	strncpy(vif->ssid, settings->ssid, settings->ssid_len);
 	vif->ssid_len = settings->ssid_len;
-	cfg80211_set_beacon_ies(vif, beacon);
+	sprd_cfg80211_set_beacon_ies(vif, beacon);
 
 	if (!beacon->head)
 		return -EINVAL;
@@ -628,6 +633,10 @@ int sprd_cfg80211_start_ap(struct wiphy *wiphy, struct net_device *ndev,
 	if (ret)
 		netdev_err(ndev, "%s failed to start AP!\n", __func__);
 
+#ifdef ENABLE_DFS
+	if (netif_queue_stopped(vif->ndev))
+		netif_wake_queue(vif->ndev);
+#endif
 	netif_carrier_on(ndev);
 
 	kfree(mgmt);
@@ -640,8 +649,19 @@ int sprd_cfg80211_change_beacon(struct wiphy *wiphy, struct net_device *ndev,
 	struct sprd_vif *vif = netdev_priv(ndev);
 
 	netdev_info(ndev, "%s\n", __func__);
+#ifdef ENABLE_DFS
+	/*send beacon tail ie if needed*/
+	if (beacon->tail_len)
+		sprd_reset_beacon(vif->priv, vif,
+				  beacon->tail, beacon->tail_len);
+	/*enable wifi traffic*/
+	if (!netif_carrier_ok(vif->ndev))
+		netif_carrier_on(vif->ndev);
+	if (netif_queue_stopped(vif->ndev))
+		netif_wake_queue(vif->ndev);
+#endif
 
-	return cfg80211_set_beacon_ies(vif, beacon);
+	return sprd_cfg80211_set_beacon_ies(vif, beacon);
 }
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
@@ -651,16 +671,17 @@ int sprd_cfg80211_stop_ap(struct wiphy *wiphy, struct net_device *ndev,
 int sprd_cfg80211_stop_ap(struct wiphy *wiphy, struct net_device *ndev)
 #endif
 {
-	struct sprd_priv *priv = wiphy_priv(wiphy);
-
-#ifdef ENABLE_N79
 	struct sprd_vif *vif = netdev_priv(ndev);
+#ifdef ENABLE_N79
 	struct sprd_hif *hif = &priv->hif;
 	hif->n79_info.mode_band[vif->mode] = 0;
 #endif
 
 	netdev_info(ndev, "%s\n", __func__);
-	sprd_fcc_reset_bo(priv);
+#ifdef ENABLE_DFS
+	sprd_abort_cac(vif->priv, vif);
+#endif
+	sprd_fcc_reset_bo(vif->priv);
 
 	return 0;
 }
@@ -1463,6 +1484,28 @@ int sprd_cfg80211_del_tx_ts(struct wiphy *wiphy, struct net_device *ndev,
 	return sprd_del_tx_ts(vif->priv, vif, tsid, peer);
 }
 
+#ifdef ENABLE_DFS
+int sprd_cfg80211_start_radar_detection(struct wiphy *wiphy,
+					struct net_device *ndev,
+					struct cfg80211_chan_def *chandef,
+					u32 cac_time_ms)
+{
+	struct sprd_vif *vif = netdev_priv(ndev);
+
+	netdev_info(ndev, "%s\n", __func__);
+	return sprd_start_radar_detection(vif->priv, vif, chandef, cac_time_ms);
+}
+
+int sprd_cfg80211_channel_switch(struct wiphy *wiphy, struct net_device *ndev,
+				 struct cfg80211_csa_settings *params)
+{
+	struct sprd_vif *vif = netdev_priv(ndev);
+
+	netdev_info(ndev, "%s\n", __func__);
+	return sprd_channel_switch(vif->priv, vif, params);
+}
+#endif
+
 int sprd_init_fw(struct sprd_vif *vif)
 {
 	struct sprd_priv *priv = vif->priv;
@@ -1631,6 +1674,10 @@ static struct cfg80211_ops sprd_cfg80211_ops = {
 	.del_tx_ts = sprd_cfg80211_del_tx_ts,
 	.tdls_channel_switch = sprd_cfg80211_tdls_chan_switch,
 	.tdls_cancel_channel_switch = sprd_cfg80211_tdls_cancel_chan_switch,
+#ifdef ENABLE_DFS
+	.start_radar_detection = sprd_cfg80211_start_radar_detection,
+	.channel_switch = sprd_cfg80211_channel_switch,
+#endif
 };
 
 void sprd_timer_scan_timeout(struct timer_list *t)

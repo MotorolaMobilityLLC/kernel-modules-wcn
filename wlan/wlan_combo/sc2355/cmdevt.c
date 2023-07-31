@@ -25,6 +25,9 @@
 #ifdef ENABLE_PAM_WIFI
 #include "pamwifi/pamwifi.h"
 #endif
+#ifdef ENABLE_DFS
+#include "dfs.h"
+#endif
 #define ASSERT_INFO_BUF_SIZE	100
 
 #define SEC1			1
@@ -175,6 +178,12 @@ static const char *cmdevt_cmd2str(u8 cmd)
 		return "CMD_DOWNLOAD_INI";
 	case CMD_PACKET_OFFLOAD:
 		return "CMD_PACKET_OFFLOAD";
+#ifdef ENABLE_DFS
+	case CMD_RADAR_DETECT:
+		return "CMD_RADAR_DETECT";
+	case CMD_RESET_BEACON:
+		return "CMD_RESET_BEACON";
+#endif
 	case CMD_HANG_RECEIVED:
 		return "CMD_HANG_RECEIVED";
 	case CMD_VOWIFI_DATA_PROTECT:
@@ -3558,6 +3567,11 @@ bool sc2355_do_delay_work(struct sprd_work *work)
 		sprd_hif_tx_flush(hif, vif);
 		sprd_close_fw(vif->priv, vif);
 		break;
+#ifdef ENABLE_DFS
+	case SPRD_WORK_DFS:
+		sc2355_send_dfs_cmd(vif, work->data, work->len);
+		break;
+#endif
 	case SPRD_PCIE_RX_ALLOC_BUF:
 		if (!vif) {
 			wl_err("%s vif is null!\n", __func__);
@@ -4435,6 +4449,11 @@ unsigned short sc2355_rx_evt_process(struct sprd_priv *priv, u8 *msg)
 	case EVT_BA:
 		cmdevt_report_ba_mgmt_evt(vif, data, len);
 		break;
+#ifdef ENABLE_DFS
+	case EVT_RADAR_DETECTED:
+		sc2355_dfs_handle_radar_detected(vif, data, len);
+		break;
+#endif
 #ifdef CONFIG_SC2355_WLAN_RTT
 	case EVT_RTT:
 		sc2355_rtt_event(vif, data, len);

@@ -23,6 +23,7 @@
 #define SPRD_WORK_BA_MGMT			6
 #define SPRD_WORK_ADDBA				7
 #define SPRD_WORK_DELBA				8
+#define SPRD_WORK_DFS				9
 #define SPRD_ASSERT				10
 #define SPRD_HANG_RECEIVED			11
 #define SPRD_POP_MBUF				12

@@ -412,5 +412,7 @@ void sprd_cancel_reset_work(struct sprd_priv *priv);
 int sprd_cfg80211_change_iface(struct wiphy *wiphy, struct net_device *ndev,
 			       enum nl80211_iftype type,
 			       struct vif_params *params);
+int sprd_cfg80211_set_beacon_ies(struct sprd_vif *vif,
+				 struct cfg80211_beacon_data *beacon);
 
 #endif
