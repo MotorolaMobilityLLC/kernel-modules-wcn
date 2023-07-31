@@ -142,7 +142,7 @@ static void pcie_debug_point_show(void)
 
 static int pcie_runtime_put(void)
 {
-	return sprd_pcie_fw_push_cancel();
+	return 0;
 }
 
 static struct sprdwcn_bus_ops pcie_bus_ops = {

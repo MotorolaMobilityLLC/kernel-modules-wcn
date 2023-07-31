@@ -780,6 +780,61 @@ void sprd_pcie_register_scan_notify(void *func)
 	scan_card_notify = func;
 }
 
+static void sprd_pcie_msi_interrupt_status(struct pci_dev *pdev, u32 res, char *show)
+{
+	u32 val32 = 0;
+	int ret = 0;
+
+	WCN_INFO("%s\n", show);
+	ret = pci_read_config_dword(pdev->bus->self, PCI_MSI_CTRL_INT_EN_OFFSET + res, &val32);
+	if (ret)
+		WCN_ERR("%s: failed to READ MSI_INT_EN %d\n", ret);
+	else
+		WCN_INFO("MSI interrupts enable: 0x%x=0x%x\n", PCI_MSI_CTRL_INT_EN_OFFSET + res, &val32);
+
+	ret = pci_read_config_dword(pdev->bus->self, PCI_MSI_CTRL_INT_MASK_OFFSET + res, &val32);
+	if (ret)
+		WCN_ERR("%s: failed to READ MSI_INT_MASK %d\n", ret);
+	else
+		WCN_INFO("MSI interrupts Mask: 0x%x=0x%x\n", PCI_MSI_CTRL_INT_MASK_OFFSET + res, &val32);
+
+	ret = pci_read_config_dword(pdev->bus->self, PCI_MSI_CTRL_INT_STATUS_OFFSET + res, &val32);
+	if (ret)
+		WCN_ERR("%s: failed to READ MSI_INT_STATUS %d\n", ret);
+	else
+		WCN_INFO("MSI interrupts status: 0x%x=0x%x\n", PCI_MSI_CTRL_INT_STATUS_OFFSET + res, &val32);
+
+}
+
+static int sprd_pcie_wait_for_msi_complete(struct pci_dev *pdev, u32 timeout_ms)
+{
+	u32 val32 = 0, res = PCI_MSI_CTRL_WCN_GROUP;
+	ktime_t time_end = ktime_add_ms(ktime_get(), timeout_ms);
+
+	/* We assume that the MSI interrupt of WCN os the first set of MSI interrupts of RC */
+	do {
+		if (pci_read_config_dword(pdev->bus->self, PCI_MSI_CTRL_INT_STATUS_OFFSET + res, &val32)) {
+			/* We can only assume that MSI processing is complete */
+			WARN_ON(true);
+			break;
+		}
+		if (val32)
+			printk_ratelimited(KERN_INFO "Wait for MSI complete(0x%x)...", val32);
+		else
+			break;
+
+		if (ktime_after(ktime_get(), time_end)) {
+			dump_stack();
+			sprd_pcie_msi_interrupt_status(pdev, res, "MSI is processing");
+			return -ETIMEDOUT;
+		}
+		usleep_range(1000, 1100);
+	} while(1);
+
+	WCN_INFO("MSI wait for completetion\n");
+	return 0;
+}
+
 static int disable_pcie_irq(void)
 {
 	struct wcn_pcie_info *priv = get_wcn_device_info();
@@ -800,6 +855,7 @@ static int disable_pcie_irq(void)
 		}
 
 		pci_disable_msi(priv->dev);
+		sprd_pcie_wait_for_msi_complete(priv->dev, 1 * MSEC_PER_SEC);
 	}
 
 	return 0;
@@ -873,6 +929,7 @@ void sprd_pcie_remove_card(void *wcn_dev)
 	if (!priv->dev)
 		WCN_ERR("%s: card exist!\n", __func__);
 
+	sprd_pcie_wait_for_msi_complete(priv->dev, 4 * MSEC_PER_SEC);
 	sprd_pcie_unconfigure_device(pdev);
 	priv->dev = NULL;
 	if (wait_for_completion_timeout(&priv->remove_done,
