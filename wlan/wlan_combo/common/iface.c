@@ -182,13 +182,14 @@ static int iface_host_delay_reset(void)
 {
 	struct sprd_priv *priv = iface_get_priv();
 	struct sprd_hif *hif;
-	struct sprd_cmd *cmd = &priv->cmd;
+	struct sprd_cmd *cmd;
 
 	if (!priv) {
 		wl_err("%s sprd_prv is NULL\n", __func__);
 		return NOTIFY_OK;
 	}
 
+	cmd = &priv->cmd;
 	hif = &priv->hif;
 	hif->cp_asserted = 1;
 	complete(&cmd->completed);
