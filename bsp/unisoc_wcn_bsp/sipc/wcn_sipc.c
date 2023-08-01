@@ -323,7 +323,6 @@ static void wcn_sipc_wakeup_tx(struct sipc_chn_info *sipc_chn)
 {
 	struct sipc_chn_info *tx_sipc_chn;
 
-	WCN_HERE_CHN(sipc_chn->index);
 	tx_sipc_chn = SIPC_CHN(sipc_chn->relate_index);
 	WCN_HERE_CHN(tx_sipc_chn->index);
 	complete(&tx_sipc_chn->callback_complete);
@@ -604,7 +603,6 @@ static int wcn_sipc_sblk_send(struct sipc_chn_info *sipc_chn,
 	u8 *addr = NULL;
 	struct sblock blk;
 
-	WCN_HERE_CHN(sipc_chn->index);
 	/* get a free sblock. */
 	ret = sblock_get(sipc_chn->dst, sipc_chn->chn, &blk, 0);
 	if (ret) {
@@ -612,7 +610,6 @@ static int wcn_sipc_sblk_send(struct sipc_chn_info *sipc_chn,
 			sipc_chn_tostr(sipc_chn->chn, 0), ret);
 		return -ENOMEM;
 	}
-	WCN_HERE_CHN(sipc_chn->index);
 	if (blk.length < len) {
 		WCN_ERR("[%s]:The size of sblock is so tiny!len:%d,blk.length:%d\n",
 			sipc_chn_tostr(sipc_chn->chn, 0), len, blk.length);
@@ -647,7 +644,6 @@ static void wcn_sipc_sblk_push_list_dequeue(struct sipc_chn_info *sipc_chn)
 	int free_blk_num = 0;
 	struct mbuf_t *mbuf = NULL;
 
-	WCN_HERE_CHN(sipc_chn->index);
 	mutex_lock(&sipc_chn->pushq_lock);
 	/* nothing to do */
 	if (!sipc_chn->push_queue.mbuf_num) {
@@ -682,7 +678,7 @@ static void wcn_sipc_sblk_push_list_dequeue(struct sipc_chn_info *sipc_chn)
 		WCN_HERE_CHN(sipc_chn->index);
 		wcn_sipc_record_mbuf_send_to_bus(sipc_chn->index, 1);
 		wcn_sipc_pop_list_enqueue(sipc_chn, mbuf, mbuf, 1);
-		WCN_HERE_CHN(sipc_chn->index);
+		WCN_DEBUG("[%s] %d channel index %d\n", __func__, __LINE__, sipc_chn->index);
 		WCN_DEBUG("mbuf %p\n", mbuf);
 		mbuf = mbuf->next;
 		sipc_chn->push_queue.mbuf_head = mbuf;
@@ -793,8 +789,9 @@ static void wcn_sipc_sblk_notifer(int event, void *data)
 
 	if (unlikely(!sipc_chn))
 		return;
-	WCN_INFO("%s  %d index:%d  event:%x",
-		  __func__, __LINE__, sipc_chn->index, event);
+	if (SIPC_WIFI_CMD_RX == sipc_chn->index)
+		WCN_INFO("%s  %d index:%d  event:%x",
+			  __func__, __LINE__, sipc_chn->index, event);
 	switch (event) {
 	case SBLOCK_NOTIFY_RECV:
 		wcn_sipc_sblk_recv(sipc_chn);
@@ -889,6 +886,7 @@ static enum wcn_hard_intf_type wcn_sipc_get_hwintf_type(void)
 int wcn_sipc_work_func(void *work)
 {
 	u8 chntype = 0;
+	u64 wait_comp_pt = 0, dur_comp_pt = 0;
 	struct sipc_chn_info *sipc_chn = (struct sipc_chn_info *)work;
 	struct sched_param param = {.sched_priority = 91};
 
@@ -899,11 +897,13 @@ RETRY:
 	if (SIPC_CHN_STATUS(sipc_chn->chn) == SIPC_CHANNEL_UNCREATED)
 		return -1;
 	reinit_completion(&sipc_chn->callback_complete);
-	WCN_HERE_CHN(sipc_chn->index);
+	wait_comp_pt = div_u64(ktime_get_boot_fast_ns(), 1000);
 	chntype = SIPC_TYPE(sipc_chn->index);
 	sipc_data_ops[chntype].sipc_push_list_dequeue(sipc_chn);
 	wait_for_completion(&sipc_chn->callback_complete);
-	WCN_HERE_CHN(sipc_chn->index);
+	dur_comp_pt = div_u64(ktime_get_boot_fast_ns(), 1000) - wait_comp_pt;
+	WCN_INFO("[%s] %d chn[%d] during compelte pt:%llu(us)\n", __func__, __LINE__,
+			sipc_chn->index, dur_comp_pt);
 	goto RETRY;
 
 	return 0;

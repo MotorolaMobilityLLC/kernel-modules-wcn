@@ -524,8 +524,8 @@ void gnss_write_efuse_data(void)
 
 static void wcn_parse_dt_regmap_judge(struct wcn_device *wcn_dev)
 {
-	int i = 0;
-
+	int i = 0, ret = 0, p = 0;
+	char needregmap[128] = {0};
 	wcn_dev->need_regmap[REGMAP_PMU_APB] = TRUE;
 	wcn_dev->need_regmap[REGMAP_ANLG_WRAP_WCN] = TRUE;
 	wcn_dev->need_sync_efuse = TRUE;
@@ -553,8 +553,11 @@ static void wcn_parse_dt_regmap_judge(struct wcn_device *wcn_dev)
 		wcn_dev->need_gpio = TRUE;
 		wcn_dev->need_dcxo1v8 = TRUE;
 	}
-	for (i = 0; i < REGMAP_TYPE_NR; i++)
-		WCN_INFO("need_regmap[%d] : %d\n", i, wcn_dev->need_regmap[i]);
+	for (i = 0; i < REGMAP_TYPE_NR; i++) {
+		ret = sprintf((needregmap + p), "0x%x ", wcn_dev->need_regmap[i]);
+		p = p + ret;
+	}
+	WCN_INFO("need_regmap[0-%d] : %s\n", REGMAP_TYPE_NR - 1, needregmap);
 }
 
 extern int wcn_get_dump_regs(struct device_node *np);

@@ -946,7 +946,7 @@ static void wcn_clean_marlin_ddr_flag(struct wcn_device *wcn_dev)
 
 static int wcn_wait_marlin_boot(struct wcn_device *wcn_dev)
 {
-	u32 magic_value = 0, wait_count = 0, range = USEC_PER_MSEC;
+	u32 magic_value = 0, temp_magic_value = 0, wait_count = 0, range = USEC_PER_MSEC;
 	phys_addr_t phy_addr;
 	u32 marlin_cp_init_ready_magic, interval = wcn_get_cp2_poll_interval_us();
 
@@ -970,8 +970,11 @@ static int wcn_wait_marlin_boot(struct wcn_device *wcn_dev)
 		}
 
 		usleep_range(interval, interval + range);
-		WCN_INFO("BTWF: magic_value=0x%x, wait_count=%d\n",
-			 magic_value, wait_count);
+		if (magic_value != temp_magic_value) {
+			temp_magic_value = magic_value;
+			WCN_INFO("BTWF: magic_value=0x%x, wait_count=%d\n",
+					magic_value, wait_count);
+		}
 
 		/*only ott cail data read form efuse and wait 0xf0f0f0f2*/
 		if (wcn_platform_chip_type() == WCN_PLATFORM_TYPE_QOGIRL6 &&
