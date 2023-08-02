@@ -18,13 +18,8 @@
 #include <linux/pci.h>
 #include "wcn_bus.h"
 #include <linux/time.h>
-
 #include <linux/version.h>
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 17, 15)
-#include "../../../../../../kernel6.1/drivers/pci/pci.h"
-#else
-#include "../../../../../../kernel5.15/kernel5.15/drivers/pci/pci.h"
-#endif
+#include <pci/pci.h>
 
 
 #define DRVER_NAME      "wcn_pcie"

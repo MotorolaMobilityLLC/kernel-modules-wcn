@@ -9,7 +9,7 @@
 #include <linux/types.h>
 #include <asm-generic/div64.h>
 #include "sprd_wcn_glb.h"
-#include <misc/wcn_bus.h>
+#include "wcn_bus.h"
 
 /* Hours offset for GM and China-BeiJing */
 #define WCN_BTWF_TIME_OFFSET (8)
