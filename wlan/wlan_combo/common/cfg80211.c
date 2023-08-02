@@ -258,10 +258,16 @@ static void sprd_do_reset_delay_work(struct work_struct *work)
 	struct sprd_hif *hif = &priv->hif;
 
 	mutex_lock(&hif->reset_lock);
-	if (hif->cp_asserted && hif->report_try++ < 5) {
+	/*
+	 * block_cmd_after_close = 1 indicate that the interface has been
+	 * closed，wpa_suppliant has processed the event.
+	 */
+	if (hif->cp_asserted && (hif->report_try++ < 5 &&
+	    atomic_read(&hif->block_cmd_after_close) == 0)) {
 		wl_info("Try to report assert a %d time \n", hif->report_try);
 		sprd_iface_report_assert_evt(priv);
-		schedule_delayed_work(&priv->reset_delay_work, msecs_to_jiffies(500));
+		schedule_delayed_work(&priv->reset_delay_work,
+				      msecs_to_jiffies(500));
 	}
 	mutex_unlock(&hif->reset_lock);
 }
@@ -436,10 +442,16 @@ int sprd_cfg80211_change_iface(struct wiphy *wiphy, struct net_device *ndev,
 
 	netdev_info(ndev, "%s type %d -> %d\n", __func__, old_type, type);
 
-	if (vif->mode == SPRD_MODE_NONE &&
+	/*
+	 * when cp2 assert, the cmd cannot be sent to cp2, wpa_supplicant
+	 * descirption failed to send cmd_close, will always call
+	 * cfg80211_change_iface
+	 */
+	if ((vif->mode == SPRD_MODE_NONE || hif->cp_asserted) &&
 	    ((old_type == NL80211_IFTYPE_STATION && type == NL80211_IFTYPE_AP) ||
 	    (old_type == NL80211_IFTYPE_AP && type == NL80211_IFTYPE_STATION))) {
-		netdev_err(ndev, "%s change iface but current mode 0!\n", __func__);
+		netdev_err(ndev, "%s hif->cp_assert is %d, vif->mode is %d!\n",
+			   __func__, hif->cp_asserted, vif->mode);
 		vif->wdev.iftype = type;
 		return 0;
 	}
