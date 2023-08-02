@@ -361,7 +361,7 @@ static struct nvm_name_table *hw_param_nvm_cf_table_match(struct nvm_cali_cmd *c
 	for (i = 0; i < len; i++) {
 		if (!sc2355_nvm_table[i].itm)
 			continue;
-		if (strcmp(sc2355_nvm_table[i].itm, cmd->itm))
+		if (strcasecmp(sc2355_nvm_table[i].itm, cmd->itm))
 			continue;
 		ptable = &sc2355_nvm_table[i];
 		break;
@@ -389,11 +389,11 @@ static int hw_param_nvm_buf_operate(char *pbuf, int file_len, void *p_data)
 
 				if (ptable) {
 					hw_param_nvm_set_cmd(ptable, cmd, p_data);
-					if (strcmp(ptable->itm, "rf_config") == 0) {
+					if (strcasecmp(ptable->itm, "rf_config") == 0) {
 						conf = (struct wifi_conf_t *)p_data;
 						conf->rf_config.rf_data_len = cmd->num;
 					}
-					if (strcmp(ptable->itm, "value") == 0) {
+					if (strcasecmp(ptable->itm, "value") == 0) {
 						spin_lock_bh(&adap_info.adap_lock);
 						adap_info.special_data_flag = cmd->par[4];
 						wl_all("%s special_data_flag: %d\n",
