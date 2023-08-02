@@ -1511,6 +1511,12 @@ err:
 void sipc_post_deinit(struct sprd_hif *hif)
 {
 	int chn = 0;
+	struct rx_mgmt *rx_mgmt = NULL;
+
+	rx_mgmt = (struct rx_mgmt *)hif->rx_mgmt;
+	if (rx_mgmt->addr_trans_head) {
+		sc2355_sipc_tx_addr_trans_free(hif);
+	}
 
 	for (chn = 0; chn < sc2355_hif.max_num; chn++)
 		sprdwcn_bus_chn_deinit(&sc2355_hif.mchn_ops[chn]);
