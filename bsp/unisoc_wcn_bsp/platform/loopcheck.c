@@ -207,6 +207,10 @@ static void loopcheck_work_queue(struct work_struct *work)
 		WCN_ERR("WCN module have not open\n");
 		return;
 	}
+	if (unlikely(sprdwcn_bus_get_carddump_status())) {
+		WCN_ERR("%s err, wcn in dump or reset\r\n", __func__);
+		return;
+	}
 
 	sprdwcn_rx_cnt_a = sprdwcn_bus_get_rx_total_cnt();
 	usleep_range_state(4000, 6000, TASK_UNINTERRUPTIBLE);
