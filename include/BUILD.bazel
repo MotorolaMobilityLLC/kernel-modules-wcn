@@ -1,7 +1,0 @@
-filegroup(
-    name = "unisoc-wcn-include",
-    srcs = glob([
-           "*",
-        ]),
-        visibility = ["//visibility:public"],
-)

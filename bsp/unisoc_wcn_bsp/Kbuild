@@ -9,7 +9,12 @@
 #
 
 KO_MODULE_NAME := unisoc_wcn_bsp
+
+ifeq ($(strip $(BSP_KERNEL_VERSION)),kernel5.15)
 KO_MODULE_PATH := $(src)
+else
+KO_MODULE_PATH := $(srctree)/$(src)
+endif
 
 ccflags-y += -I$(KO_MODULE_PATH)
 ccflags-y += -I$(KO_MODULE_PATH)/include
