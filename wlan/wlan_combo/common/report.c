@@ -97,13 +97,13 @@ void sprd_report_connection(struct sprd_vif *vif,
 	struct cfg80211_bss *bss = NULL;
 	struct cfg80211_bss *other_bss = NULL;
 	struct timespec64 ts;
-	const u8 *ssid_ie;
+	const u8 *ssid_ie, *tmp;
 	u16 band, capability, beacon_interval;
 	u32 freq;
 	u64 tsf;
 	u8 *ie;
 	size_t ielen;
-	int index = 0;
+	int index = 0, ie_channel_number = -1;
 	int hidden_ssid = 0;
 	struct cfg80211_roam_info roam_info;
 	u8 ssid_len = 0, ssid[IEEE80211_MAX_SSID_LEN + 1] = {0};
@@ -143,8 +143,6 @@ void sprd_report_connection(struct sprd_vif *vif,
 		}
 
 		mgmt = (struct ieee80211_mgmt *)conn_info->bea_ie;
-		netdev_info(vif->ndev, "%s update BSS %s\n", __func__,
-			    vif->ssid);
 		if (!mgmt) {
 			netdev_err(vif->ndev, "%s NULL frame!\n", __func__);
 			goto err;
@@ -166,6 +164,20 @@ void sprd_report_connection(struct sprd_vif *vif,
 				   __func__);
 			goto err;
 		}
+
+		/*
+		 * when cfg80211_get_bss_channel in cfg80211_inform_bss,
+		 * channel_number inside WLAN_EID_DS_PARAMS and WLAN_EID_HT_OPERATION
+		 * has the 1st and 2nd priority before ieee80211_channel *channel.
+		 */
+		tmp = cfg80211_find_ie(WLAN_EID_DS_PARAMS, ie, ielen);
+		if (tmp && tmp[1] == 1) {
+			ie_channel_number = tmp[2];
+		}
+		netdev_info(vif->ndev,
+		            "%s update BSS %s(%pM), chn %u, band %d, freq %u, ie_chn(%d).\n",
+		            __func__, vif->ssid, conn_info->bssid,
+		            conn_info->chan, band, freq, ie_channel_number);
 
 		ssid_ie = cfg80211_find_ie(WLAN_EID_SSID, ie, ielen);
 		if (ssid_ie) {
@@ -225,9 +237,11 @@ void sprd_report_connection(struct sprd_vif *vif,
 						     IEEE80211_BSS_TYPE_ESS,
 						     IEEE80211_PRIVACY_ANY);
 			if (other_bss && other_bss != bss) {
-				netdev_info(vif->ndev,
-					    "unlink bss(%pM) that only channel different\n",
-					    other_bss->bssid);
+				wl_info("unlink bss(%pM-%s) %u that only channel different, "
+				        "bss_freq %u.\n",
+				        other_bss->bssid, ssid,
+				        other_bss->channel ? other_bss->channel->center_freq : 0,
+				        bss->channel ? bss->channel->center_freq : 0);
 				cfg80211_unlink_bss(wiphy, other_bss);
 				cfg80211_put_bss(wiphy, other_bss);
 			} else
@@ -336,8 +350,9 @@ void sprd_report_disconnection(struct sprd_vif *vif, u16 reason_code)
 				       IEEE80211_PRIVACY_ANY);
 			if (bss) {
 				netdev_info(vif->ndev,
-					"unlink %pM due to passive disconnection\n",
-					bss->bssid);
+				            "unlink %pM %u due to passive disconnection\n",
+				            bss->bssid,
+				            bss->channel ? bss->channel->center_freq : 0);
 				cfg80211_unlink_bss(wiphy, bss);
 				cfg80211_put_bss(wiphy, bss);
 			} else
