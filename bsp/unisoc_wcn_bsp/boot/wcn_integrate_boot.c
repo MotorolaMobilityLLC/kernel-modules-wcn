@@ -975,24 +975,6 @@ static int wcn_wait_marlin_boot(struct wcn_device *wcn_dev)
 			WCN_INFO("BTWF: magic_value=0x%x, wait_count=%d\n",
 					magic_value, wait_count);
 		}
-
-		/*only ott cail data read form efuse and wait 0xf0f0f0f2*/
-		if (wcn_platform_chip_type() == WCN_PLATFORM_TYPE_QOGIRL6 &&
-			magic_value == UMW2631_MARLIN_CP2_INITIALIZE_CAIL_WAITING) {
-			usleep_range(interval*10, interval*10 + range);
-			wcn_read_data_from_phy_addr(phy_addr,
-							&magic_value, sizeof(u32));
-			/*wait for 100ms and set magic_value:0xf0f0f0f2*/
-			if (magic_value == UMW2631_MARLIN_CP2_INITIALIZE_CAIL_WAITING) {
-				magic_value = UMW2631_MARLIN_CP2_INITIALIZE_CAIL_DATA_DONE;
-				wcn_write_data_to_phy_addr(phy_addr,
-							&magic_value, sizeof(u32));
-				wcn_read_data_from_phy_addr(phy_addr,
-							&magic_value, sizeof(u32));
-				WCN_INFO("Skip cail data wait and set magic_value=0x%x!\n",
-					magic_value);
-			}
-		}
 	}
 
 	/* get CP ready flag failed */
