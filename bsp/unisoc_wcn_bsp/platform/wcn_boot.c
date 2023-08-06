@@ -2383,10 +2383,11 @@ static void power_state_notify_or_not(enum wcn_sub_sys subsys, int poweron)
 		set_fm_supe_freq(subsys, poweron, marlin_dev->power_state);
 	}
 
-	if ((test_bit(MARLIN_BLUETOOTH, &marlin_dev->power_state) +
+	if (((test_bit(MARLIN_BLUETOOTH, &marlin_dev->power_state) +
 		test_bit(MARLIN_FM, &marlin_dev->power_state) +
 		test_bit(MARLIN_WIFI, &marlin_dev->power_state) +
-		test_bit(MARLIN_MDBG, &marlin_dev->power_state)) == 1) {
+		test_bit(MARLIN_MDBG, &marlin_dev->power_state)) == 1) &&
+		(sprdwcn_bus_get_carddump_status() == 0)) {
 		pr_info("only one module open, need to notify loopcheck\n");
 		start_loopcheck();
 		marlin_dev->loopcheck_status_change = 1;
