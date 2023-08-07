@@ -448,8 +448,15 @@ int sc2355_mm_fill_buffer(struct sprd_hif *hif)
 	struct rx_mgmt *rx_mgmt =
 	    (struct rx_mgmt *)hif->rx_mgmt;
 	struct mem_mgmt *mm_entry = &rx_mgmt->mm_entry;
-	unsigned int num = 0, alloc_num = atomic_xchg(&mm_entry->alloc_num, 0);
+	unsigned int num = 0, alloc_num = 0;
 	unsigned char sprd_max_add_mh_buf_once;
+
+	if (unlikely(hif->exit) || unlikely(hif->cp_asserted)){
+		wl_err("%s hif->exit=%d, hif->cp_asserted=%d", __func__, hif->exit, hif->cp_asserted);
+		return -EINVAL;
+	}
+
+	alloc_num = atomic_xchg(&mm_entry->alloc_num, 0);
 
 	if (hif->hw_type == SPRD_HW_SC2355_PCIE)
 		sprd_max_add_mh_buf_once =

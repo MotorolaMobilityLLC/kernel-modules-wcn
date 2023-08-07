@@ -585,6 +585,8 @@ inline int sc2355_tx_addr_trans_sipc(struct sprd_hif *hif,
 			rx_mgmt->addr_trans_head = NULL;
 			rx_mgmt->addr_trans_tail = NULL;
 			rx_mgmt->addr_trans_num = 0;
+		} else if (ret < 0) {
+			usleep_range(100, 200);
 		}
 	}
 	wl_all("%s, trans rx buf, %d, cp2 buffer: %d\n", __func__, ret,
