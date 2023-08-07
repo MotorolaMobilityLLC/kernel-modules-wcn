@@ -258,10 +258,10 @@ void wcn_rfi_status_clear(void)
 
 enum wcn_aon_chip_id wcn_get_aon_chip_id(void)
 {
-	u32 aon_chip_id;
-	u32 version_id, manufacture_id;
-	u32 i;
-	struct regmap *regmap;
+	u32 aon_chip_id = 0;
+	u32 version_id = 0, manufacture_id = 0;
+	u32 i = 0;
+	struct regmap *regmap = NULL;
 
 	if (unlikely(!s_wcn_device.btwf_device))
 		return WCN_AON_CHIP_ID_INVALID;

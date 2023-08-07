@@ -1387,8 +1387,14 @@ static int marlin_parse_dt(struct platform_device *pdev)
 		pr_err("can't get wcn clock dts config: source\n");
 		return -1;
 	}
-	clk_set_parent(marlin_dev->clk_32k, marlin_dev->clk_parent);
-	clk_set_rate(marlin_dev->clk_32k, 32768);
+
+	ret = clk_set_parent(marlin_dev->clk_32k, marlin_dev->clk_parent);
+	if (ret)
+		pr_err("clk_set_parent err: %d\n", ret);
+
+	ret = clk_set_rate(marlin_dev->clk_32k, 32768);
+	if (ret)
+		pr_err("clk_set_rate err: %d\n", ret);
 
 	marlin_dev->clk_enable = devm_clk_get(&pdev->dev, "enable");
 	if (IS_ERR(marlin_dev->clk_enable)) {

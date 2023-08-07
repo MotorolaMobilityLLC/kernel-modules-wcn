@@ -401,6 +401,7 @@ static int mdbg_snap_shoot_iram_data(void *buf, u32 addr, u32 len)
 	if (cp_access_type) {
 		/* direct map */
 		phy_addr =  addr + WCN_AON_ADDR_OFFSET;
+		ptr = buf;
 		wcn_read_data_from_phy_addr(phy_addr, ptr, len);
 	} else {
 		/* aon funcdma tlb way */

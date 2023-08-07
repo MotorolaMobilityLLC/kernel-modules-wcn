@@ -135,8 +135,8 @@ static void __edma_debug_info_save_for_mbuf(int chn, struct mbuf_t *head,
 	dbg_mbuf->channel = chn;
 	dbg_mbuf->head = head;
 	dbg_mbuf->tail = tail;
-	dbg_mbuf->head_phy = head->phy;
-	dbg_mbuf->tail_phy = tail->phy;
+	dbg_mbuf->head_phy = head ? head->phy : ~0UL;
+	dbg_mbuf->tail_phy = tail ? tail->phy : ~0UL;
 	dbg_mbuf->num = num;
 }
 
@@ -2091,7 +2091,7 @@ int edma_deinit(void)
 	delete_queue(q);
 	/* TODO: need free mpool */
 	mpool_free();
-	memset(edma, 0x00, sizeof(edma_info));
+	memset(edma, 0x00, sizeof(*edma));
 	WCN_INFO("[-]%s\n", __func__);
 
 	return 0;
