@@ -572,6 +572,7 @@ struct edma_info *edma_info(void);
 int edma_dump_chn_reg(int chn);
 int edma_dump_glb_reg(void);
 int edma_hw_pause(void);
+void edma_clear_int_by_msi_status(u32 status);
 #else
 static inline struct edma_info *edma_info(void)
 {
@@ -591,6 +592,10 @@ static inline int edma_dump_glb_reg(void)
 static inline int edma_hw_pause(void)
 {
 	return -EINVAL;
+}
+static inline void edma_clear_int_by_msi_status(u32 status)
+{
+	return;
 }
 #endif
 

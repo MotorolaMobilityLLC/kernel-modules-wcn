@@ -32,7 +32,7 @@
 #include "wcn_txrx.h"
 #include "sprd_wcn.h"
 
-#define WAIT_AT_DONE_MAX_CNT 5
+#define WAIT_AT_DONE_MAX_CNT 50
 
 #define WCN_PCIE_PHY_DEBUG_R0		0x728
 #define LTSSM_STATE_MASK		0x3f
@@ -126,14 +126,21 @@ int wcn_get_edma_status(void)
 	return atomic_read(&priv->edma_ready);
 }
 
-int wcn_get_tx_complete_status(void)
+bool wcn_get_card_remove_status(void)
+{
+	struct wcn_pcie_info *priv = get_wcn_device_info();
+
+	return !!(atomic_read(&priv->xmit_cnt) >= BUS_REMOVE_CARD_VAL);
+}
+
+enum edma_tx_state wcn_get_tx_complete_status(void)
 {
 	struct wcn_pcie_info *priv = get_wcn_device_info();
 
 	return atomic_read(&priv->tx_complete);
 }
 
-void wcn_set_tx_complete_status(int flag)
+void wcn_set_tx_complete_status(enum edma_tx_state flag)
 {
 	struct wcn_pcie_info *priv = get_wcn_device_info();
 
@@ -788,28 +795,29 @@ static void sprd_pcie_msi_interrupt_status(struct pci_dev *pdev, u32 res, char *
 	WCN_INFO("%s\n", show);
 	ret = pci_read_config_dword(pdev->bus->self, PCI_MSI_CTRL_INT_EN_OFFSET + res, &val32);
 	if (ret)
-		WCN_ERR("%s: failed to READ MSI_INT_EN %d\n", ret);
+		WCN_ERR("%s: failed to READ MSI_INT_EN %d\n", __func__, ret);
 	else
-		WCN_INFO("MSI interrupts enable: 0x%x=0x%x\n", PCI_MSI_CTRL_INT_EN_OFFSET + res, &val32);
+		WCN_INFO("MSI interrupts enable: 0x%x=0x%x\n", PCI_MSI_CTRL_INT_EN_OFFSET + res, val32);
 
 	ret = pci_read_config_dword(pdev->bus->self, PCI_MSI_CTRL_INT_MASK_OFFSET + res, &val32);
 	if (ret)
-		WCN_ERR("%s: failed to READ MSI_INT_MASK %d\n", ret);
+		WCN_ERR("%s: failed to READ MSI_INT_MASK %d\n", __func__, ret);
 	else
-		WCN_INFO("MSI interrupts Mask: 0x%x=0x%x\n", PCI_MSI_CTRL_INT_MASK_OFFSET + res, &val32);
+		WCN_INFO("MSI interrupts Mask: 0x%x=0x%x\n", PCI_MSI_CTRL_INT_MASK_OFFSET + res, val32);
 
 	ret = pci_read_config_dword(pdev->bus->self, PCI_MSI_CTRL_INT_STATUS_OFFSET + res, &val32);
 	if (ret)
-		WCN_ERR("%s: failed to READ MSI_INT_STATUS %d\n", ret);
+		WCN_ERR("%s: failed to READ MSI_INT_STATUS %d\n", __func__, ret);
 	else
-		WCN_INFO("MSI interrupts status: 0x%x=0x%x\n", PCI_MSI_CTRL_INT_STATUS_OFFSET + res, &val32);
+		WCN_INFO("MSI interrupts status: 0x%x=0x%x\n", PCI_MSI_CTRL_INT_STATUS_OFFSET + res, val32);
 
 }
 
-static int sprd_pcie_wait_for_msi_complete(struct pci_dev *pdev, u32 timeout_ms)
+static int sprd_pcie_wait_for_msi_complete(struct pci_dev *pdev, u32 timeout_us,
+	u32 *msi_status, char *show)
 {
 	u32 val32 = 0, res = PCI_MSI_CTRL_WCN_GROUP;
-	ktime_t time_end = ktime_add_ms(ktime_get(), timeout_ms);
+	ktime_t time_end = ktime_add_us(ktime_get(), timeout_us);
 
 	/* We assume that the MSI interrupt of WCN os the first set of MSI interrupts of RC */
 	do {
@@ -818,19 +826,20 @@ static int sprd_pcie_wait_for_msi_complete(struct pci_dev *pdev, u32 timeout_ms)
 			WARN_ON(true);
 			break;
 		}
-		if (val32)
-			printk_ratelimited(KERN_INFO "Wait for MSI complete(0x%x)...", val32);
+		if (unlikely(val32))
+			printk_ratelimited(KERN_INFO "Wait for MSI complete(0x%x)[%s]...\n", val32, show);
 		else
 			break;
 
-		if (ktime_after(ktime_get(), time_end)) {
-			dump_stack();
+		if (!timeout_us || ktime_after(ktime_get(), time_end)) {
+			*msi_status = val32;
 			sprd_pcie_msi_interrupt_status(pdev, res, "MSI is processing");
 			return -ETIMEDOUT;
 		}
-		usleep_range(1000, 1100);
+		usleep_range(100, 200);
 	} while(1);
 
+	*msi_status = 0;
 	WCN_INFO("MSI wait for completetion\n");
 	return 0;
 }
@@ -839,6 +848,7 @@ static int disable_pcie_irq(void)
 {
 	struct wcn_pcie_info *priv = get_wcn_device_info();
 	int i;
+	u32 msi_status = 0;
 
 	if (priv->msix_en == 1) {
 		for (i = 0; i < priv->irq_num; i++) {
@@ -849,13 +859,19 @@ static int disable_pcie_irq(void)
 	}
 
 	if (priv->msi_en == 1) {
+		sprd_pcie_wait_for_msi_complete(priv->dev, 150 * USEC_PER_MSEC, &msi_status, "first");
 		for (i = 0; i < priv->irq_num; i++) {
 			if (!free_irq(priv->irq + i, (void *)priv))
 				return -1;
 		}
 
 		pci_disable_msi(priv->dev);
-		sprd_pcie_wait_for_msi_complete(priv->dev, 1 * MSEC_PER_SEC);
+		if (sprd_pcie_wait_for_msi_complete(priv->dev, 0, &msi_status, "once more") &&
+			msi_status) {
+			WCN_INFO("force clear of MSI interrupts status 0x%x\n", msi_status);
+			edma_clear_int_by_msi_status(msi_status);
+			sprd_pcie_wait_for_msi_complete(priv->dev, 50 * USEC_PER_MSEC, &msi_status, "dummy");
+		}
 	}
 
 	return 0;
@@ -878,16 +894,15 @@ void sprd_pcie_remove_card(void *wcn_dev)
 	struct platform_device *pdev;
 	struct device *dev;
 	struct marlin_device *marlin_dev = wcn_dev;
-	int wait_cnt = 0;
+	int wait_cnt = 0, tcs = 0;
 
 	/* prevent at+loopcheck send */
 	atomic_add(BUS_REMOVE_CARD_VAL, &priv->xmit_cnt);
-	/* prevent tx send */
-	atomic_set(&priv->edma_ready, 0x0);
-	/* if tx have send, waiting complete */
 
-	while (!atomic_read(&priv->tx_complete) &&
-	       (wait_cnt < WAIT_AT_DONE_MAX_CNT)) {
+	/* prevent tx send, if tx have send, waiting complete */
+	tcs = wcn_get_tx_complete_status();
+	while ((tcs == EDMA_TX_START || tcs == EDMA_TX_SENDING) &&
+		(wait_cnt < WAIT_AT_DONE_MAX_CNT)) {
 		usleep_range_state(100, 200, TASK_UNINTERRUPTIBLE);
 		wait_cnt++;
 		WCN_INFO("%s:wait cnt =%d\n", __func__, wait_cnt);
@@ -899,6 +914,7 @@ void sprd_pcie_remove_card(void *wcn_dev)
 	if (edma_hw_pause() < 0)
 		WCN_ERR("edma_hw_pause fail\n");
 	usleep_range(100,200);
+	atomic_set(&priv->edma_ready, 0x0);
 	/* rx: disable txrx irq */
 	if (disable_pcie_irq() < 0) {
 		WCN_ERR(" irq have free\n");
@@ -929,7 +945,6 @@ void sprd_pcie_remove_card(void *wcn_dev)
 	if (!priv->dev)
 		WCN_ERR("%s: card exist!\n", __func__);
 
-	sprd_pcie_wait_for_msi_complete(priv->dev, 4 * MSEC_PER_SEC);
 	sprd_pcie_unconfigure_device(pdev);
 	priv->dev = NULL;
 	if (wait_for_completion_timeout(&priv->remove_done,
@@ -1116,6 +1131,7 @@ static int sprd_pcie_probe(struct pci_dev *pdev,
 
 	edma_init(priv);
 	atomic_set(&priv->edma_ready, 0x1);
+	wcn_set_tx_complete_status(1);
 	mutex_init(&priv->pm_lock);
 
 	dbg_attach_bus(priv);

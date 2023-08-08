@@ -190,6 +190,13 @@ struct outbound_reg {
 	unsigned int upper_target_addr;
 } __packed;
 
+enum edma_tx_state {
+	EDMA_TX_START,
+	EDMA_TX_COMPLETE,
+	EDMA_TX_SENDING,
+	EDMA_TX_TIMEOUT,
+};
+
 int pcie_bar_write(struct wcn_pcie_info *priv, int bar, int offset, void *buf,
 		   int len);
 int pcie_bar_read(struct wcn_pcie_info *priv, int bar, int offset, void *buf,
@@ -255,8 +262,9 @@ void sprd_pcie_write_reg32(struct wcn_pcie_info *priv, u32 reg_offset,
 			   u32 value);
 int sprd_pcie_fw_push_cancel(void);
 int wcn_get_edma_status(void);
-void wcn_set_tx_complete_status(int flag);
-int wcn_get_tx_complete_status(void);
+bool wcn_get_card_remove_status(void);
+void wcn_set_tx_complete_status(enum edma_tx_state flag);
+enum edma_tx_state wcn_get_tx_complete_status(void);
 void wcn_dump_ep_regs(struct wcn_pcie_info *priv);
 
 int sprd_pcie_init(void);

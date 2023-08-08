@@ -227,7 +227,8 @@ int mchn_push_link(int chn, struct mbuf_t *head, struct mbuf_t *tail, int num)
 		return -1;
 	}
 
-	if (!wcn_get_edma_status() && (mchn->ops[chn]->inout == RX)) {
+	if ((!wcn_get_edma_status() || wcn_get_card_remove_status()) &&
+		(mchn->ops[chn]->inout == RX)) {
 		WCN_ERR("%s:edma not ready, chn=%d\n", __func__, chn);
 		return -1;
 	}
@@ -238,7 +239,7 @@ int mchn_push_link(int chn, struct mbuf_t *head, struct mbuf_t *tail, int num)
 	}
 
 	if (mchn->ops[chn]->inout == TX)
-		wcn_set_tx_complete_status(0);
+		wcn_set_tx_complete_status(EDMA_TX_START);
 
 	switch (mchn->ops[chn]->hif_type) {
 	case HW_TYPE_PCIE:
@@ -309,7 +310,7 @@ int mchn_init(struct mchn_ops_t *ops)
 	}
 
 	WCN_DBG("[+]%s(chn=%d)\n", __func__, ops->channel);
-	if (ops->hif_type != HW_TYPE_PCIE || !wcn_get_edma_status()) {
+	if (ops->hif_type != HW_TYPE_PCIE || !wcn_get_edma_status() || wcn_get_card_remove_status()) {
 		WCN_INFO("%s err, hif_type %d, chn=%d\n", __func__, ops->hif_type, ops->channel);
 		WARN_ON(1);
 

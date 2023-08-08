@@ -715,7 +715,7 @@ static int edma_hw_tx_req(int chn)
 	/* 1s timeout */
 	mod_timer(&edma->edma_tx_timer, jiffies +
 		  EDMA_TX_TIMER_INTERVAL_MS * HZ / 1000);
-	wcn_set_tx_complete_status(2);
+	wcn_set_tx_complete_status(EDMA_TX_SENDING);
 	edma->dma_chn_reg[chn].dma_tx_req.reg = 1;
 
 	set_bit(chn, &edma->cur_chn_status);
@@ -950,7 +950,7 @@ int edma_push_link(int chn, void *head, void *tail, int num)
 	} else
 		edma_rx_list_push_dp(chn, head, tail, num);
 
-	if (!wcn_get_edma_status()) {
+	if (!wcn_get_edma_status() || wcn_get_card_remove_status()) {
 		WCN_ERR("%s:don not push the data, card removed, chn=%d\n", __func__, chn);
 		return -1;
 	}
@@ -1441,7 +1441,7 @@ int msi_irq_handle(int irq)
 	//__pm_wakeup_event(edma->edma_pop_ws, jiffies_to_msecs(HZ / 2));
 
 	if (edma->chn_sw[chn].inout == TX) {
-		wcn_set_tx_complete_status(1);
+		wcn_set_tx_complete_status(EDMA_TX_COMPLETE);
 		clear_bit(chn, &edma->cur_chn_status);
 		del_timer(&edma->edma_tx_timer);
 		if (irq % 2 == 0) {
@@ -1545,7 +1545,7 @@ static void edma_tasklet(unsigned long data)
 	struct msg_q *q = &(edma->isr_func.q);
 
 	/*debug tasklet schedule when edma_tasklet_deinit*/
-	if (!wcn_get_edma_status())
+	if (!wcn_get_edma_status() || wcn_get_card_remove_status())
 		WCN_INFO("%s:card removed before tasklet deinit\n", __func__);
 
 	while (dequeue(q, (unsigned char *)(&msg), -1) == OK)
@@ -1940,9 +1940,13 @@ static void edma_tx_timer_expire(struct timer_list *t)
 	int i;
 
 	WCN_ERR("edma tx send timeout\n");
-	if (!wcn_get_edma_status())
+	if (!wcn_get_edma_status() || wcn_get_card_remove_status()) {
+		wcn_set_tx_complete_status(EDMA_TX_TIMEOUT);
+		WCN_WARN("PCIe status error\n");
 		return;
-	wcn_set_tx_complete_status(1);
+	}
+
+	wcn_set_tx_complete_status(EDMA_TX_COMPLETE);
 	if (edma_dump_glb_reg() < 0)
 		return;
 	for (i = 0; i < 16; i++) {
@@ -1956,6 +1960,40 @@ void edma_del_tx_timer(void)
 	struct edma_info *edma = edma_info();
 
 	del_timer(&edma->edma_tx_timer);
+}
+
+void edma_clear_int_by_msi_status(u32 status)
+{
+	u32 irq = 0, chn = 0, txrx_irq_type;
+	union dma_chn_int_reg dma_int;
+	struct edma_info *edma = edma_info();
+	unsigned long irq_flags;
+
+	if (!status) {
+		WCN_WARN("Missing unprocessed MSI interrupt\n");
+		return;
+	}
+
+	local_irq_save(irq_flags);
+	irq = fls(status);
+	chn = irq;
+	txrx_irq_type = do_div(chn, 2);
+	dma_int.reg = edma->dma_chn_reg[chn].dma_int.reg;
+
+	if (edma->chn_sw[chn].inout == TX) {
+		WCN_INFO("Clear[TX-%s] at chn%u\n", !txrx_irq_type ? "POP" : "COMPLETE", chn);
+		if (!txrx_irq_type)
+			dma_int.bit.rf_chn_tx_pop_int_clr = 1;
+		else
+			dma_int.bit.rf_chn_tx_complete_int_clr = 1;
+	} else {
+		WCN_INFO("Clear[RX-%s] at chn%u\n", !txrx_irq_type ? "POP" : "PUSH", chn);
+		if (!txrx_irq_type)
+			dma_int.bit.rf_chn_rx_pop_int_clr = 1;
+		else
+			dma_int.bit.rf_chn_rx_push_int_clr = 1;
+	}
+	local_irq_restore(irq_flags);
 }
 
 int edma_init(struct wcn_pcie_info *pcie_info)
