@@ -423,6 +423,12 @@ void sdiohal_exit(void);
 /* driect mode,reg access.etc */
 int sdiohal_dt_read(unsigned int addr, void *buf, unsigned int len);
 int sdiohal_dt_write(unsigned int addr, void *buf, unsigned int len);
+int sdiohal_dt_read_small_buf(unsigned int addr,
+		void *buf, unsigned int len,
+		void *temp_mem, unsigned int temp_mem_size);
+int sdiohal_dt_write_small_buf(unsigned int addr,
+		void *buf, unsigned int len,
+		void *temp_mem, unsigned int temp_mem_size);
 int sdiohal_aon_readb(unsigned int addr, unsigned char *val);
 int sdiohal_aon_writeb(unsigned int addr, unsigned char val);
 int sdiohal_writel(unsigned int system_addr, void *buf);

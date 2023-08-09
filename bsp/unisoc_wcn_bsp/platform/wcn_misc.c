@@ -204,6 +204,14 @@ unsigned long long marlin_bootup_time_get(void)
 	return s_marlin_bootup_time;
 }
 
+unsigned long long marlin_get_localtime(void)
+{
+        unsigned long long local_time;
+
+	local_time = local_clock();
+	return local_time;
+}
+
 #define WCN_VMAP_RETRY_CNT (20)
 static void *wcn_mem_ram_vmap(phys_addr_t start, size_t size,
 			      int noncached, unsigned int *count)

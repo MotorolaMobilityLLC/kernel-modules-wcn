@@ -32,6 +32,7 @@
 #include "../pcie/edma_engine.h"
 #include "../sleep/sdio_int.h"
 #include "../sleep/slp_mgr.h"
+#include "../sdio/sdiohal.h"
 #include "mem_pd_mgr.h"
 #include "wcn_op.h"
 #include "wcn_parn_parser.h"
@@ -110,6 +111,7 @@ static unsigned int reg_val;
 static unsigned int clk_wait_val;
 static unsigned int cp_clk_wait_val;
 static unsigned int marlin2_clk_wait_reg;
+static unsigned int write_buffer_size;
 
 #define USB_CARD_DETECT_WAIT_MS	30000
 #define CARD_DETECT_WAIT_MS	3000
@@ -684,8 +686,8 @@ judge_image:
 
 	len = 0;
 	while (len < img_size) {
-		trans_size = (img_size - len) > PACKET_SIZE ?
-				PACKET_SIZE : (img_size - len);
+		trans_size = (img_size - len) > write_buffer_size ?
+				write_buffer_size : (img_size - len);
 		memcpy(marlin_dev->write_buffer, buffer + len, trans_size);
 		err = sprdwcn_bus_direct_write(get_cp_start_addr() + len,
 			marlin_dev->write_buffer, trans_size);
@@ -694,7 +696,7 @@ judge_image:
 			vfree(temp);
 			return -1;
 		}
-		len += PACKET_SIZE;
+		len += write_buffer_size;
 	}
 	vfree(temp);
 	pr_info("%s finish and successful\n", __func__);
@@ -871,8 +873,8 @@ static int gnss_download_from_partition(void)
 write_gnss_img:
 	len = 0;
 	while (len < img_size) {
-		trans_size = (img_size - len) > PACKET_SIZE ?
-				PACKET_SIZE : (img_size - len);
+		trans_size = (img_size - len) > write_buffer_size ?
+				write_buffer_size : (img_size - len);
 		memcpy(marlin_dev->write_buffer, buffer + len, trans_size);
 		err = sprdwcn_bus_direct_write(get_gnss_cp_start_addr() + len,
 			marlin_dev->write_buffer, trans_size);
@@ -881,7 +883,7 @@ write_gnss_img:
 			vfree(temp);
 			return -1;
 		}
-		len += PACKET_SIZE;
+		len += write_buffer_size;
 	}
 	vfree(temp);
 	pr_info("%s gnss download firmware finish\n", __func__);
@@ -961,11 +963,11 @@ static int gnss_download_firmware(void)
 		tx_img_ptr = (char *)firmware->data;
 	}
 
-	count = (tx_img_size + PACKET_SIZE - 1) / PACKET_SIZE;
+	count = (tx_img_size + write_buffer_size - 1) / write_buffer_size;
 	len = 0;
 	for (i = 0; i < count; i++) {
-		trans_size = (tx_img_size - len) > PACKET_SIZE ?
-				PACKET_SIZE : (tx_img_size - len);
+		trans_size = (tx_img_size - len) > write_buffer_size ?
+				write_buffer_size : (tx_img_size - len);
 		memcpy(buf, tx_img_ptr + len, trans_size);
 		err = sprdwcn_bus_direct_write(get_gnss_cp_start_addr() + len, buf,
 				trans_size);
@@ -986,24 +988,55 @@ static int gnss_download_firmware(void)
 	return 0;
 }
 
+static int marlin_dt_write_firmware(void *tx_img_ptr, unsigned int tx_img_size)
+{
+	char *buf;
+	int err;
+	int i, len, count, trans_size;
+	struct wcn_match_data *g_match_config = get_wcn_match_config();
+
+	buf = marlin_dev->write_buffer;
+	if (g_match_config && g_match_config->unisoc_wcn_sdio) {
+		err = sdiohal_dt_write_small_buf(get_cp_start_addr(),
+					tx_img_ptr, tx_img_size,
+					buf, write_buffer_size);
+		if (err < 0)
+			return err;
+	} else {
+		count = (tx_img_size + write_buffer_size - 1) / write_buffer_size;
+		len = 0;
+
+		for (i = 0; i < count; i++) {
+			trans_size = (tx_img_size - len) > write_buffer_size ?
+					write_buffer_size : (tx_img_size - len);
+			memcpy(buf, tx_img_ptr + len, trans_size);
+			err = sprdwcn_bus_direct_write(get_cp_start_addr() + len,
+					buf, trans_size);
+			if (err < 0) {
+				return err;
+			}
+			len += trans_size;
+		}
+	}
+	return 0;
+}
+
 /* BT WIFI FM download */
 static int btwifi_download_firmware(void)
 {
 	const struct firmware *firmware;
-	char *buf;
 	int err;
-	int i, len, count, trans_size;
 	char *tx_img_ptr = NULL;
 	u32 sec_img_magic, tx_img_size;
 	struct sys_img_header *pimghdr = NULL;
+	unsigned long long time_begin, time_end, delt_time;
 
 	if (marlin_dev->is_btwf_in_sysfs) {
 		err = marlin_download_from_partition();
 		return err;
 	}
-
+	time_begin =  marlin_get_localtime();
 	pr_info("marlin %s from /system/etc/firmware/ start!\n", __func__);
-	buf = marlin_dev->write_buffer;
 
 #ifdef FIRMWARE_PARTITION_DEBUG_EN
 	err = request_firmware_direct(&firmware, "wcnmodem.bin", NULL);
@@ -1057,27 +1090,21 @@ static int btwifi_download_firmware(void)
 		tx_img_ptr = (char *)firmware->data;
 	}
 
-	count = (tx_img_size + PACKET_SIZE - 1) / PACKET_SIZE;
-	len = 0;
-
-	for (i = 0; i < count; i++) {
-		trans_size = (tx_img_size - len) > PACKET_SIZE ?
-				PACKET_SIZE : (tx_img_size - len);
-		memcpy(buf, tx_img_ptr + len, trans_size);
-		pr_info("download count=%d,len =%d,trans_size=%d\n", count,
-			 len, trans_size);
-		err = sprdwcn_bus_direct_write(get_cp_start_addr() + len,
-					       buf, trans_size);
-		if (err < 0) {
-			pr_err("marlin dt write %s error:%d\n", __func__, err);
-			release_firmware(firmware);
-			return err;
-		}
-		len += trans_size;
+	err = marlin_dt_write_firmware(tx_img_ptr, tx_img_size);
+	if (err < 0) {
+		pr_err("marlin dt write %s error:%d\n", __func__, err);
+		release_firmware(firmware);
+		return err;
 	}
 
 	release_firmware(firmware);
-	pr_info("marlin %s successfully!\n", __func__);
+	pr_info("marlin %s successfully!, download len: %d, write_buffer_size: %d\n",
+			__func__, tx_img_size, write_buffer_size);
+
+	time_end = marlin_get_localtime();
+	delt_time = time_end - time_begin;
+	pr_info("%s, begin time: %llu, end time: %llu, delt time: %llu\n", __func__,
+			time_begin, time_end, delt_time);
 
 	if (sec_img_magic == SEC_IMAGE_MAGIC && tx_img_ptr)
 		vfree(tx_img_ptr);
@@ -2533,12 +2560,14 @@ static int bus_scan_card(void)
 	unsigned int card_detect_wait_ms;
 	struct wcn_match_data *g_match_config = get_wcn_match_config();
 	int ret = 0;
+	unsigned long long time_begin, time_end, delt_time;
 
 	if (g_match_config && g_match_config->unisoc_wcn_usb)
 		card_detect_wait_ms = USB_CARD_DETECT_WAIT_MS;
 	else
 		card_detect_wait_ms = CARD_DETECT_WAIT_MS;
 
+	time_begin =  marlin_get_localtime();
 	init_completion(&marlin_dev->carddetect_done);
 	ret = sprdwcn_bus_rescan(marlin_dev);
 	if (!ret) {
@@ -2552,7 +2581,10 @@ static int bus_scan_card(void)
 		pr_err("wait bus rescan card time out\n");
 		ret = -ENODEV;
 	}
-
+	time_end = marlin_get_localtime();
+	delt_time = time_end - time_begin;
+	pr_info("%s, begin time: %llu, end time: %llu, delt time: %llu\n", __func__,
+			time_begin, time_end, delt_time);
 	return ret;
 }
 
@@ -3349,10 +3381,12 @@ int start_marlin(enum wcn_sub_sys subsys)
 {
 	struct wcn_match_data *g_match_config = get_wcn_match_config();
 	int ret = 0;
+	unsigned long long time_begin, time_end, delt_time;
 
 	if (g_match_config && g_match_config->unisoc_wcn_integrated)
 		return start_integ_marlin(subsys);
 
+	time_begin =  marlin_get_localtime();
 	pr_info("%s [%s]\n", __func__, strno(subsys));
 	if (unlikely(mutex_is_locked(&marlin_dev->power_lock)))
 		pr_info("%s wait for lock release\n", __func__);
@@ -3391,6 +3425,11 @@ int start_marlin(enum wcn_sub_sys subsys)
 
 	if (g_match_config && !g_match_config->unisoc_wcn_pcie)
 		ret = mem_pd_mgr(subsys, true);
+
+	time_end = marlin_get_localtime();
+	delt_time = time_end - time_begin;
+	pr_info("%s, begin time: %llu, end time: %llu, delt time: %llu\n", __func__,
+			time_begin, time_end, delt_time);
 
 	mutex_unlock(&marlin_dev->power_lock);
 	return ret;
@@ -3463,6 +3502,24 @@ static void marlin_power_wq(struct work_struct *work)
 	marlin_subsys_init();
 }
 
+static int alloc_write_buffer(struct platform_device *pdev)
+{
+	write_buffer_size = (64*1024);
+	marlin_dev->write_buffer = devm_kzalloc(&pdev->dev,
+						write_buffer_size, GFP_KERNEL);
+	if (marlin_dev->write_buffer == NULL) {
+		write_buffer_size = (32*1024);
+		pr_info("fail to alloc 64K write_buffer, try to alloc 32K\n");
+        	marlin_dev->write_buffer = devm_kzalloc(&pdev->dev,
+						write_buffer_size, GFP_KERNEL);
+		if (marlin_dev->write_buffer == NULL) {
+			devm_kfree(&pdev->dev, marlin_dev);
+			return -ENOMEM;
+		}
+	}
+	return 0;
+}
+
 int marlin_probe(struct platform_device *pdev)
 {
 	int err;
@@ -3474,10 +3531,7 @@ int marlin_probe(struct platform_device *pdev)
 	if (!marlin_dev)
 		return -ENOMEM;
 
-	marlin_dev->write_buffer = devm_kzalloc(&pdev->dev,
-						PACKET_SIZE, GFP_KERNEL);
-	if (marlin_dev->write_buffer == NULL) {
-		devm_kfree(&pdev->dev, marlin_dev);
+	if (alloc_write_buffer(pdev)) {
 		pr_err("%s write buffer low memory\n", __func__);
 		return -ENOMEM;
 	}
@@ -3641,6 +3695,7 @@ int marlin_remove(struct platform_device *pdev)
 	marlin_gpio_free(pdev);
 	mutex_destroy(&marlin_dev->power_lock);
 	devm_kfree(&pdev->dev, marlin_dev->write_buffer);
+	marlin_dev->write_buffer = NULL;
 	devm_kfree(&pdev->dev, marlin_dev);
 
 	pr_info("remove ok!\n");

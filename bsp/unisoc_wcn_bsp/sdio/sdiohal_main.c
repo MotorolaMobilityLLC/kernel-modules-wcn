@@ -735,6 +735,150 @@ int sdiohal_dt_read(unsigned int system_addr, void *buf,
 	return ret;
 }
 
+int sdiohal_dt_write_small_buf(unsigned int system_addr,
+		void *buf, unsigned int len,
+		void *temp_mem, unsigned int temp_mem_size)
+{
+	struct sdiohal_data_t *p_data = sdiohal_get_data();
+	unsigned int remainder, trans_len,
+			i = 0, count = 0,
+			end_len = 0, opt_len = 0;
+	int ret;
+	char *temp_addr;
+
+	temp_addr = temp_mem;
+	if (sdiohal_card_lock(p_data))
+		return -ENODEV;
+
+	sdiohal_resume_check();
+	sdiohal_cp_tx_wakeup(DT_WRITE);
+	sdiohal_op_enter();
+
+	ret = sdiohal_dt_set_addr(system_addr);
+	if (ret) {
+		sdiohal_op_leave();
+		sdiohal_cp_tx_sleep(DT_WRITE);
+		sdiohal_card_unlock(p_data);
+		return ret;
+	}
+
+	sdio_claim_host(p_data->sdio_func[FUNC_1]);
+	count = DIV_ROUND_UP(len, temp_mem_size);
+	end_len = len % temp_mem_size;
+	for (i = 0; i < count; i++) {
+		if (end_len && (i == count - 1))
+			opt_len = end_len;
+		else
+			opt_len = temp_mem_size;
+		remainder = opt_len;
+		memcpy(temp_mem, buf, opt_len);
+		while (remainder > 0) {
+			if (remainder >= p_data->sdio_func[FUNC_1]->cur_blksize)
+				trans_len = p_data->sdio_func[FUNC_1]->cur_blksize;
+			else
+				trans_len = min(remainder,
+						max_bytes(p_data->sdio_func[FUNC_1]));
+			ret = sdio_memcpy_toio(p_data->sdio_func[FUNC_1],
+					SDIOHAL_DT_MODE_ADDR, temp_mem, trans_len);
+			if (ret)
+				break;
+
+			remainder -= trans_len;
+			temp_mem += trans_len;
+		}
+		if (ret)
+			break;
+		temp_mem = temp_addr;
+		buf += opt_len;
+	}
+	sdio_release_host(p_data->sdio_func[FUNC_1]);
+
+	sdiohal_op_leave();
+	sdiohal_cp_tx_sleep(DT_WRITE);
+	pr_info("%s write finish %d, count: %d, packet_size: %d\n",
+			__func__, len, count, temp_mem_size);
+	if (ret != 0) {
+		pr_err("dt write fail ret:%d\n", ret);
+		sdiohal_dump_aon_reg();
+		sdiohal_abort();
+	}
+	sdiohal_card_unlock(p_data);
+
+	return ret;
+}
+
+int sdiohal_dt_read_small_buf(unsigned int system_addr,
+			void *buf, unsigned int len,
+			void *temp_mem, unsigned int temp_mem_size)
+{
+	struct sdiohal_data_t *p_data = sdiohal_get_data();
+	unsigned int remainder, trans_len,
+			i = 0, count = 0,
+			end_len = 0, opt_len = 0;
+	int ret;
+	char *temp_addr;
+
+	temp_addr = temp_mem;
+	if (sdiohal_card_lock(p_data))
+		return -ENODEV;
+
+	sdiohal_resume_check();
+	sdiohal_cp_rx_wakeup(DT_READ);
+	sdiohal_op_enter();
+
+	ret = sdiohal_dt_set_addr(system_addr);
+	if (ret) {
+		sdiohal_op_leave();
+		sdiohal_cp_rx_sleep(DT_READ);
+		sdiohal_card_unlock(p_data);
+		return ret;
+	}
+
+	sdio_claim_host(p_data->sdio_func[FUNC_1]);
+	count = DIV_ROUND_UP(len, temp_mem_size);
+	end_len = len % temp_mem_size;
+	for (i = 0; i < count; i++) {
+		if (end_len && (i == count - 1))
+			opt_len = end_len;
+		else
+			opt_len = temp_mem_size;
+		remainder = opt_len;
+		while (remainder > 0) {
+			if (remainder >= p_data->sdio_func[FUNC_1]->cur_blksize)
+				trans_len = p_data->sdio_func[FUNC_1]->cur_blksize;
+			else
+				trans_len = min(remainder,
+						max_bytes(p_data->sdio_func[FUNC_1]));
+			ret = sdio_memcpy_fromio(p_data->sdio_func[FUNC_1],
+					temp_mem, SDIOHAL_DT_MODE_ADDR, trans_len);
+			if (ret)
+				break;
+
+			remainder -= trans_len;
+			temp_mem += trans_len;
+		}
+		if (ret)
+			break;
+		temp_mem = temp_addr;
+		memcpy(buf, temp_mem, opt_len);
+		buf += opt_len;
+	}
+	sdio_release_host(p_data->sdio_func[FUNC_1]);
+
+	sdiohal_op_leave();
+	sdiohal_cp_rx_sleep(DT_READ);
+	pr_info("%s write finish %d, count: %d, packet_size: %d\n",
+			__func__, len, count, temp_mem_size);
+	if (ret != 0) {
+		pr_err("dt read fail ret:%d\n", ret);
+		sdiohal_dump_aon_reg();
+		sdiohal_abort();
+	}
+	sdiohal_card_unlock(p_data);
+
+	return ret;
+}
+
 int sdiohal_aon_readb(unsigned int addr, unsigned char *val)
 {
 	struct sdiohal_data_t *p_data = sdiohal_get_data();

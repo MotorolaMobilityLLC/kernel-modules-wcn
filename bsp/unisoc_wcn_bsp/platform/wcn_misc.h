@@ -156,6 +156,7 @@ long int wcn_ap_notify_btwf_time(void);
  */
 void marlin_bootup_time_update(void);
 unsigned long long marlin_bootup_time_get(void);
+unsigned long long marlin_get_localtime(void);
 char *wcn_get_kernel_time(void);
 
 int wcn_write_zero_to_phy_addr(phys_addr_t phy_addr, u32 size);
