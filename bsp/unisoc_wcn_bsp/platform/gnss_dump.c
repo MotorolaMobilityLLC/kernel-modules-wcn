@@ -70,9 +70,16 @@ static char gnss_pll_switch_flag = 1;/*0:switch fail, 1:switch suc*/
 extern struct wcn_device_manage s_wcn_device;
 
 static u32 cgm_gnss_clk_gate_en = 1;
+#define CGM_GNSS_MTX_GATE_EN 0x2
 void gnss_set_clk_gate_en(u32 flag)
 {
 	cgm_gnss_clk_gate_en = flag;
+}
+
+u32 gnss_get_clk_gate_en(void)
+{
+	GNSSDUMP_INFO("cgm_gnss_clk_gate_en=%x\n", cgm_gnss_clk_gate_en);
+	return cgm_gnss_clk_gate_en;
 }
 
 static void gnss_write_data_to_phy_addr(phys_addr_t phy_addr,
@@ -278,6 +285,8 @@ static int wcn_integrated_dump_data_generic(u32 addr, u32 len, u32 skip)
 static int gnss_integrated_dump_mem(void)
 {
 	int i, ret = 0;
+	int skip = 0;
+	uint gnss_sleep_flag = 0;
 
 	GNSSDUMP_INFO("gnss_dump_mem entry\n");
 	wcn_get_gnss_base_addr();
@@ -287,18 +296,27 @@ static int gnss_integrated_dump_mem(void)
 		/*gnss dont dump unless pll switch done*/
 		if (gnss_pll_switch_flag == 0)
 			return ret;
-		gnss_hold_cpu();
+		gnss_sleep_flag = (!(gnss_get_clk_gate_en()&CGM_GNSS_MTX_GATE_EN))
+			&& (gnss_sys_is_deepsleep_status(s_wcn_device.gnss_device));
+		if (!gnss_sleep_flag)
+			gnss_hold_cpu();
+		else
+			GNSSDUMP_INFO("%s : gnss only dump DDR/SIPC data!!!\n", __func__);
 	}
 	if (wcn_platform_chip_type() == WCN_PLATFORM_TYPE_SHARKL3)
 		gnss_hold_cpu();
 
 	for (i = 0; i < gnss_reg_cnt; i++) {
+		if (wcn_platform_chip_type() == WCN_PLATFORM_TYPE_QOGIRL6) {
+			if (gnss_sleep_flag && i == 2)
+					skip = 1;
+		}
 		if (gnss_reg[i].domain & CP)
 			wcn_integrated_dump_data_regmap(gnss_reg[i].addr + gnss_reg[i].offset,
-									 gnss_reg[i].len, 0);
+									 gnss_reg[i].len, skip);
 		else
 			wcn_integrated_dump_data_generic(gnss_reg[i].addr + gnss_reg[i].offset,
-									 gnss_reg[i].len, 0);
+									 gnss_reg[i].len, skip);
 	}
 
 	GNSSDUMP_INFO("%s finish\n", __func__);

@@ -87,4 +87,5 @@ extern struct wcn_dump_mem_reg gnss_reg[MAX_DUMP_REG];
 
 int gnss_dump_mem(char flag);
 void gnss_set_clk_gate_en(u32 flag);
+u32 gnss_get_clk_gate_en(void);
 #endif
