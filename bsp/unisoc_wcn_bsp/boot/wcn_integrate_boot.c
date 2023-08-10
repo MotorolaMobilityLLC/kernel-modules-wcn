@@ -142,6 +142,11 @@ void wcn_device_poweroff(void)
 	for (i = 0; i < WCN_MARLIN_ALL; i++)
 		stop_integrate_wcn_truely(i);
 
+	if (wcn_platform_chip_type() == WCN_PLATFORM_TYPE_SHARKL3) {
+		for (i = WCN_GNSS; i < WCN_GNSS_ALL; i++)
+                	stop_integrate_wcn_truely(i);
+	}
+
 	if (marlin_reset_func)
 		marlin_reset_func(marlin_callback_para);
 
