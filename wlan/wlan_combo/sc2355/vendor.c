@@ -7,10 +7,8 @@
 #include "common/common.h"
 #include "common/debug.h"
 #include "common/vendor.h"
-#ifdef ENABLE_N79
 #include "common/report.h"
 #include "scan.h"
-#endif
 #include "cmdevt.h"
 #include <linux/version.h>
 #include "rtt.h"
@@ -18,10 +16,8 @@
 #define SPRD_ACS_LTE_EVENT_INDEX	35
 #define SPRD_REINIT_ACS			0x35
 
-#ifdef ENABLE_N79
 #define SPRD_VENDOR_EVENT_N79_INDEX	36
 #define SPRD_VENDOR_EVENT_N79		0x1F4
-#endif
 
 #define MAX_CHANNELS			16
 #define MAX_BUCKETS			4
@@ -3952,12 +3948,10 @@ static const struct nl80211_vendor_cmd_info vendor_events[] = {
 		.vendor_id = OUI_SPREAD,
 		.subcmd = SPRD_EVENT_ASSERT
 	},
-#ifdef ENABLE_N79
 	[SPRD_VENDOR_EVENT_N79_INDEX] = {
 		.vendor_id = OUI_SPREAD,
 		.subcmd = SPRD_VENDOR_EVENT_N79
 	}
-#endif
 };
 
 /* buffer scan result in host driver when receive frame from cp2 */
@@ -4682,7 +4676,6 @@ out:
 	return ret;
 }
 
-#ifdef ENABLE_N79
 void vendor_n79_abort_scan(struct sprd_vif *vif)
 {
 	struct sprd_work *misc_work;
@@ -4741,10 +4734,12 @@ out_put_fail:
 void vendor_report_n79_event(struct sprd_hif *hif, struct sprd_vif *vif)
 {
 	struct sprd_priv *priv = hif->priv;
-	bool n79_flag = false;
+	bool n79_flag = sprd_hif_modemn79_is_enable(hif);
 	int softap_5g_band = 0;
+	struct sprd_wlan_dt_config *dt_configs = &vif->priv->dt_configs;
 
-	n79_flag = sprd_hif_modemn79_is_enable(hif);
+	if (!dt_configs->enable_n79)
+		return;
 
 	if (!n79_flag){
 		if (vif->mode == SPRD_MODE_AP)
@@ -4768,7 +4763,6 @@ void vendor_report_n79_event(struct sprd_hif *hif, struct sprd_vif *vif)
 
 	vendor_report_n79_status(vif, n79_flag);
 }
-#endif
 
 int sc2355_vendor_init(struct wiphy *wiphy)
 {

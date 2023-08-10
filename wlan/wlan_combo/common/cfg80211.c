@@ -684,10 +684,11 @@ int sprd_cfg80211_stop_ap(struct wiphy *wiphy, struct net_device *ndev)
 #endif
 {
 	struct sprd_vif *vif = netdev_priv(ndev);
-#ifdef ENABLE_N79
-	struct sprd_hif *hif = &priv->hif;
-	hif->n79_info.mode_band[vif->mode] = 0;
-#endif
+	struct sprd_hif *hif = &vif->priv->hif;
+	struct sprd_wlan_dt_config *dt_configs = &vif->priv->dt_configs;
+
+	if (dt_configs->enable_n79)
+		hif->n79_info.mode_band[vif->mode] = 0;
 
 	netdev_info(ndev, "%s\n", __func__);
 #ifdef ENABLE_DFS
@@ -872,12 +873,12 @@ int sprd_cfg80211_disconnect(struct wiphy *wiphy, struct net_device *ndev,
 {
 	struct sprd_vif *vif = netdev_priv(ndev);
 	enum sprd_sm_state old_state = vif->sm_state;
+	struct sprd_hif *hif = &vif->priv->hif;
+	struct sprd_wlan_dt_config *dt_configs = &vif->priv->dt_configs;
 	int ret;
 
-#ifdef ENABLE_N79
-	struct sprd_hif *hif = &vif->priv->hif;
-	hif->n79_info.mode_band[vif->mode] = 0;
-#endif
+	if (dt_configs->enable_n79)
+		hif->n79_info.mode_band[vif->mode] = 0;
 
 	netdev_info(ndev, "%s %s reason: %d\n", __func__, vif->ssid,
 		    reason_code);
@@ -901,11 +902,9 @@ int sprd_cfg80211_connect(struct wiphy *wiphy, struct net_device *ndev,
 	int is_wep = (sme->crypto.cipher_group == WLAN_CIPHER_SUITE_WEP40) ||
 	    (sme->crypto.cipher_group == WLAN_CIPHER_SUITE_WEP104);
 	int ret, i;
-
-#ifdef ENABLE_N79
-	struct sprd_hif *hif = &vif->priv->hif;
-	bool n79_flag = sprd_hif_modemn79_is_enable(hif);
-#endif
+	struct sprd_priv *priv = vif->priv;
+	bool n79_flag = sprd_hif_modemn79_is_enable(&priv->hif);
+	struct sprd_wlan_dt_config *dt_configs = &vif->priv->dt_configs;
 
 	/* workround for bug 795430 */
 	if (!(vif->state & VIF_STATE_OPEN)) {
@@ -941,8 +940,7 @@ int sprd_cfg80211_connect(struct wiphy *wiphy, struct net_device *ndev,
 		netdev_info(ndev, "No channel specified!\n");
 	}
 
-#ifdef ENABLE_N79
-	if (n79_flag && con.channel > SPRD_2G_CHAN_NR) {
+	if (dt_configs->enable_n79 && n79_flag && con.channel > SPRD_2G_CHAN_NR) {
 		cfg80211_connect_result(ndev, vif->bssid, NULL, 0, NULL, 0,
 					WLAN_REASON_QSTA_TIMEOUT, GFP_KERNEL);
 		netdev_info(ndev, "%s %s, can't connect 5g %s, n79 is enable!\n",
@@ -950,7 +948,6 @@ int sprd_cfg80211_connect(struct wiphy *wiphy, struct net_device *ndev,
 		ret = -EACCES;
 		goto err;
 	}
-#endif
 
 	/* Set WPS ie and SAE ie */
 	if (sme->ie_len > SPRD_MIN_IE_LEN) {

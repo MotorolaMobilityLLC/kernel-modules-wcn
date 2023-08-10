@@ -107,9 +107,8 @@ void sprd_report_connection(struct sprd_vif *vif,
 	int hidden_ssid = 0;
 	struct cfg80211_roam_info roam_info;
 	u8 ssid_len = 0, ssid[IEEE80211_MAX_SSID_LEN + 1] = {0};
-#ifdef ENABLE_N79
 	struct sprd_hif *hif = &vif->priv->hif;
-#endif
+	struct sprd_wlan_dt_config *dt_configs = &vif->priv->dt_configs;
 
 	if (vif->sm_state != SPRD_CONNECTING &&
 	    vif->sm_state != SPRD_CONNECTED) {
@@ -314,9 +313,10 @@ err:
 	memset(vif->bssid, 0, sizeof(vif->bssid));
 	memset(vif->ssid, 0, sizeof(vif->ssid));
 	vif->sm_state = SPRD_DISCONNECTED;
-#ifdef ENABLE_N79
-	hif->n79_info.mode_band[vif->mode] = 0;
-#endif
+
+	if (dt_configs->enable_n79)
+		hif->n79_info.mode_band[vif->mode] = 0;
+
 	if (bss)
 		cfg80211_put_bss(wiphy, bss);
 }
@@ -325,9 +325,8 @@ void sprd_report_disconnection(struct sprd_vif *vif, u16 reason_code)
 {
 	struct cfg80211_bss *bss;
 	struct wiphy *wiphy = vif->priv->wiphy;
-#ifdef ENABLE_N79
 	struct sprd_hif *hif = &vif->priv->hif;
-#endif
+	struct sprd_wlan_dt_config *dt_configs = &vif->priv->dt_configs;
 
 	if (vif->sm_state == SPRD_CONNECTING) {
 		cfg80211_connect_result(vif->ndev, vif->bssid, NULL, 0, NULL, 0,
@@ -371,9 +370,10 @@ void sprd_report_disconnection(struct sprd_vif *vif, u16 reason_code)
 
 	sprd_defrag_recover(vif->priv, vif);
 	sprd_fcc_reset_bo(vif->priv);
-#ifdef ENABLE_N79
-	hif->n79_info.mode_band[vif->mode] = 0;
-#endif
+
+	if (dt_configs->enable_n79)
+		hif->n79_info.mode_band[vif->mode] = 0;
+
 	vif->sm_state = SPRD_DISCONNECTED;
 	memset(vif->bssid, 0, sizeof(vif->bssid));
 	memset(vif->ssid, 0, sizeof(vif->ssid));

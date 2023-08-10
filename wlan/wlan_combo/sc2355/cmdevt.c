@@ -298,28 +298,33 @@ int cmdevt_report_ip_addr(struct sprd_vif *vif, u8 *data, u16 len)
 	return 0;
 }
 
-#ifdef ENABLE_N79
-int cmdevt_report_modem_info(struct sprd_hif *hif, u8 *data, u16 len)
+void cmdevt_report_modem_info(struct sprd_hif *hif, u8 *data, u16 len)
 {
 #define MODEM_INFO_LEN 8
 	u8 flag = *data;
+	struct sprd_wlan_dt_config *dt_configs = &hif->priv->dt_configs;
+
+	if (!dt_configs->enable_n79)
+		return;
 
 	if (len < MODEM_INFO_LEN) {
 		pr_err("%s error, event data is short, data len = %d\n", __func__, len);
-		return -EINVAL;
+		return;
 	}
 	pr_info("%s n79 flag = %d\n", __func__, flag);
 	atomic_set(&hif->n79_info.n79_flag, flag);
-	return 0;
 }
 
 void cmdevt_report_update_band_info(struct sprd_hif *hif, struct sprd_vif *vif, u8 *data)
 {
 	u8 channel = *data;
+	struct sprd_wlan_dt_config *dt_configs = &vif->priv->dt_configs;
+
+	if (!dt_configs->enable_n79)
+		return;
 	pr_info("%s mode: %d, channel: %d\n", __func__, vif->mode, channel);
 	hif->n79_info.mode_band[vif->mode] = (channel <= 14) ? NL80211_BAND_2GHZ : NL80211_BAND_5GHZ;
 }
-#endif
 
 static const char *cmdevt_evt2str(u8 evt)
 {
@@ -388,10 +393,8 @@ static const char *cmdevt_evt2str(u8 evt)
 	case EVT_PAMWIFI_UL_RESOURCE_EVENT:
 		return "EVT_PAMWIFI_UL_RESOURCE_EVENT";
 #endif
-#ifdef ENABLE_N79
 	case EVT_REPORT_MODEM_INFO:
 		return "EVT_REPORT_MODEM_INFO";
-#endif
 #ifdef ENABLE_CHR
 	case EVT_CHR:
 		return "EVT_CHR";
@@ -3218,9 +3221,8 @@ int sc2355_set_sniffer(struct net_device *ndev, void __user *data)
 	int ret = 0, skip, value;
 	unsigned int channel = 0;
 	u16 chns_5g[64] = {0x00};
-#ifdef ENABLE_N79
 	bool n79_flag = sprd_hif_modemn79_is_enable(&priv->hif);
-#endif
+	struct sprd_wlan_dt_config *dt_configs = &vif->priv->dt_configs;
 
 	if (!data)
 		return -EINVAL;
@@ -3289,12 +3291,10 @@ int sc2355_set_sniffer(struct net_device *ndev, void __user *data)
 			wl_debug("2.4G channel: %d\n", value);
 			channel |= (1 << (value - 1));
 		} else {
-#ifdef ENABLE_N79
-			if (n79_flag) {
+			if (dt_configs->enable_n79 && n79_flag) {
 				wl_info("%s n79 enable, cannot set 5G channel\n", __func__);
 				goto out;
 			}
-#endif
 			wl_debug("set 5G channel\n");
 			chns_5g[0] = value;
 		}
@@ -3624,11 +3624,9 @@ bool sc2355_do_delay_work(struct sprd_work *work)
 	case SPRD_WORK_ADAPTIVE:
 		sprd_wifi_adaptive_work(vif->priv, vif);
 		break;
-#ifdef ENABLE_N79
 	case SPRD_WORK_N79_ABORT_SCAN:
 		sc2355_abort_scan(vif->priv->wiphy, &vif->wdev);
 		break;
-#endif
 	default:
 		return false;
 	}
@@ -4486,20 +4484,16 @@ unsigned short sc2355_rx_evt_process(struct sprd_priv *priv, u8 *msg)
 		sc2355_report_acs_lte_event(vif);
 		break;
 	case EVT_FRESH_POWER_BO:
-#ifdef ENABLE_N79
 		cmdevt_report_update_band_info(hif, vif, data);
-#endif
 		sc2355_evt_pw_backoff(vif, data, len);
 		break;
 	case EVT_REPORT_IP_ADDR:
 		cmdevt_report_ip_addr(vif, data, len);
 		break;
-#ifdef ENABLE_N79
 	case EVT_REPORT_MODEM_INFO:
 		cmdevt_report_modem_info(hif, data, len);
 		vendor_report_n79_event(hif, vif);
 		break;
-#endif
 #ifdef ENABLE_CHR
 	case EVT_CHR:
 		if (!priv->chr->sock_flag) {

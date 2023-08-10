@@ -289,9 +289,8 @@ int sc2355_scan(struct wiphy *wiphy, struct cfg80211_scan_request *request)
 	u8 rand_addr[ETH_ALEN];
 	struct sprd_api_version_t *api = (&priv->sync_api)->api_array;
 	u8 fw_ver = 0;
-#ifdef ENABLE_N79
-	bool n79_flag = sprd_hif_modemn79_is_enable(&(priv->hif));
-#endif
+	bool n79_flag = sprd_hif_modemn79_is_enable(&priv->hif);
+	struct sprd_wlan_dt_config *dt_configs = &vif->priv->dt_configs;
 
 	netdev_info(vif->ndev, "%s n_channels %u\n", __func__,
 		    request->n_channels);
@@ -338,11 +337,7 @@ int sc2355_scan(struct wiphy *wiphy, struct cfg80211_scan_request *request)
 			break;
 
 		default:
-#ifdef ENABLE_N79
-			if (n_5g_chn >= ARRAY_SIZE(chns_5g) || n79_flag)
-#else
-			if (n_5g_chn >= ARRAY_SIZE(chns_5g))
-#endif
+			if (n_5g_chn >= ARRAY_SIZE(chns_5g) || (dt_configs->enable_n79 && n79_flag))
 				break;
 			chns_5g[n_5g_chn] = request->channels[i]->hw_value;
 			n_5g_chn++;
@@ -485,9 +480,8 @@ int sc2355_sched_scan_start(struct wiphy *wiphy, struct net_device *ndev,
 	struct cfg80211_match_set *match_ssid_tmp = NULL;
 	int ret = 0;
 	int i = 0, j = 0;
-#ifdef ENABLE_N79
-	bool n79_flag = sprd_hif_modemn79_is_enable(&(priv->hif));
-#endif
+	bool n79_flag = sprd_hif_modemn79_is_enable(&priv->hif);
+	struct sprd_wlan_dt_config *dt_configs = &vif->priv->dt_configs;
 
 	if (!ndev) {
 		netdev_err(ndev, "%s NULL ndev\n", __func__);
@@ -538,11 +532,7 @@ int sc2355_sched_scan_start(struct wiphy *wiphy, struct net_device *ndev,
 
 	for (i = 0, j = 0; i < request->n_channels; i++) {
 		u16 ch = cpu_to_le16(request->channels[i]->hw_value);
-#ifdef ENABLE_N79
-		if (ch == 0 || (n79_flag && ch > SPRD_2G_CHAN_NR)) {
-#else
-		if (ch == 0) {
-#endif
+		if (ch == 0 || (dt_configs->enable_n79 && n79_flag && ch > SPRD_2G_CHAN_NR)) {
 			netdev_info(ndev, "%s  unknown frequency %dMhz\n",
 				    __func__,
 				    request->channels[i]->center_freq);

@@ -8,6 +8,11 @@
 #include "wcn_bus.h"
 #include <linux/miscdevice.h>
 #include <net/ip.h>
+#include <linux/of_gpio.h>
+#include <linux/of_address.h>
+#include <linux/of_device.h>
+#include <linux/proc_fs.h>
+#include <linux/platform_device.h>
 
 #include "cfg80211.h"
 #include "chip_ops.h"
@@ -37,6 +42,29 @@ const char *dhcp_str_info[] = {
 	"DHCP ACK",
 	"DHCP NACK"
 };
+
+int sprd_wlan_parse_dt(struct sprd_priv *priv)
+{
+	struct platform_device *pdev = priv->hif.pdev;
+	struct sprd_wlan_dt_config *dt_configs = &priv->dt_configs;
+	int ret = 0;
+
+	if (!pdev) {
+		pr_err("%s pdev NULL.\n", __func__);
+		ret = -EINVAL;
+		goto exit;
+	}
+
+	if (of_property_read_bool(pdev->dev.of_node, "enable-n79"))
+		dt_configs->enable_n79 = true;
+	else
+		dt_configs->enable_n79 = false;
+
+	wl_info("%s n79_en %d.\n", __func__, dt_configs->enable_n79);
+
+exit:
+	return ret;
+}
 
 void sprd_put_vif(struct sprd_vif *vif)
 {
@@ -1957,6 +1985,7 @@ int sprd_iface_probe(struct platform_device *pdev,
 	hif->priv = priv;
 	hif->pdev = pdev;
 	hif->ops = hif_ops;
+	sprd_wlan_parse_dt(priv);
 
 	ret = sprd_hif_init(hif);
 	if (ret) {

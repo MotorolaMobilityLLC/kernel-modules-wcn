@@ -176,6 +176,10 @@ struct sprd_chip {
 	struct sprd_chip_ops *ops;
 };
 
+struct sprd_wlan_dt_config {
+	bool enable_n79;
+};
+
 struct sprd_priv {
 	struct wiphy *wiphy;
 	struct sprd_hif hif;
@@ -291,6 +295,9 @@ struct sprd_priv {
 	volatile bool probe_done;
 
 	struct apf_program_state *apf_state;
+
+	/*dt config */
+	struct sprd_wlan_dt_config dt_configs;
 
 #ifdef ENABLE_CHR
 	/* chr struct */
