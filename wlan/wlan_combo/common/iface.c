@@ -472,6 +472,24 @@ static int iface_close(struct net_device *ndev)
 	if (netif_carrier_ok(ndev))
 		netif_carrier_off(ndev);
 
+	/*
+	 * CR 2343348, 2352896
+	 * wdev->connected = true when iface_close comes,
+	 * call cfg80211_disconnected to clear wdev->connected
+	 */
+	if (vif->wdev.iftype == NL80211_IFTYPE_STATION ||
+		vif->wdev.iftype == NL80211_IFTYPE_P2P_CLIENT) {
+		if (vif->sm_state == SPRD_DISCONNECTING ||
+			vif->sm_state == SPRD_CONNECTING ||
+			vif->sm_state == SPRD_CONNECTED) {
+			wl_info("%s mode %d sm_state %d for sta or p2p gc.\n",
+			        __func__, vif->mode, vif->sm_state);
+			cfg80211_disconnected(vif->ndev, 0, NULL, 0,
+						  false, GFP_KERNEL);
+			vif->sm_state = SPRD_DISCONNECTED;
+		}
+	}
+
 	/* hif->power_cnt = 1 means there is only one mode and
 	 * stop_marlin will be called after closed.but it should
 	 * not send any command between close and start_marlin,
