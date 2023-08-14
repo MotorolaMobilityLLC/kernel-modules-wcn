@@ -522,7 +522,6 @@ struct sprd_chip_ops sc2355_chip_ops = {
 	.send_data = sc2355_send_data,
 	.needed_headroom = sc2355_needed_headroom,
 	.fc_add_share_credit = sc2355_fc_add_share_credit,
-	.defrag_recover = sc2355_defrag_recover,
 	.set_sniffer = sc2355_set_sniffer,
 #ifdef ENABLE_CHR
 	.set_chr = sc2355_set_chr,

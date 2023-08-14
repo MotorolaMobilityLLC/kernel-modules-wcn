@@ -18,6 +18,7 @@
 #include "qos.h"
 #include "cmdevt.h"
 #include "txrx.h"
+#include "defrag.h"
 #ifdef ENABLE_PAM_WIFI
 #include "pamwifi/pamwifi.h"
 #endif
@@ -1282,6 +1283,7 @@ void sc2355_pcie_event_sta_lut(struct sprd_vif *vif, u8 *data, u16 len)
 			hif->peer_entry[i].ba_tx_done_map = 0;
 			/*sc2355_tx_delba(hif, hif->peer_entry + i);*/
 		}
+		sc2355_defrag_recover(vif);
 		sc2355_peer_entry_delba(hif, i);
 		memset(&hif->peer_entry[i], 0x00,
 		       sizeof(struct sprd_peer_entry));

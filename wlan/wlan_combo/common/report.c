@@ -371,7 +371,6 @@ void sprd_report_disconnection(struct sprd_vif *vif, u16 reason_code)
 		return;
 	}
 
-	sprd_defrag_recover(vif->priv, vif);
 	sprd_fcc_reset_bo(vif->priv);
 
 	if (dt_configs->enable_n79)

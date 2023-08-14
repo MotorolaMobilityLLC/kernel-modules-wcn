@@ -270,11 +270,15 @@ void sc2355_defrag_recover(struct sprd_vif *vif)
 	lut_index = sc2355_find_lut_index(hif, vif);
 
 	list_for_each_entry_safe(node, pos_node, &defrag_entry->list, list) {
-		if ((lut_index == node->desc.sta_lut_index) &&
-		    (!skb_queue_empty(&node->skb_list))) {
-			skb_queue_purge(&node->skb_list);
-			wl_err("%s:defrag clear cache\n", __func__);
+		if (lut_index == node->desc.sta_lut_index) {
+			if (!skb_queue_empty(&node->skb_list)) {
+				skb_queue_purge(&node->skb_list);
+				wl_err("%s:defrag clear cache\n", __func__);
+			}
+			wl_err("%s:msdu len %d\n", __func__, node->msdu_len);
+			memset(&node->desc, 0, sizeof(node->desc));
+			node->msdu_len = 0;
+			node->last_frag_num = 0;
 		}
-		wl_err("%s:msdu len %d\n", __func__, node->msdu_len);
 	}
 }

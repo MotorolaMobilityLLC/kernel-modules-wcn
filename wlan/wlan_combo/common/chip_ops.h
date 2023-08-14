@@ -158,7 +158,6 @@ struct sprd_chip_ops {
 	int (*send_data_offset)(void);
 	int (*needed_headroom)(struct sprd_priv *priv);
 	void (*fc_add_share_credit)(struct sprd_vif *vif);
-	void (*defrag_recover)(struct sprd_vif *vif);
 	int (*set_sniffer)(struct net_device *ndev, void __user *data);
 #ifdef ENABLE_CHR
 	int (*set_chr)(struct sprd_chr *chr);
@@ -897,13 +896,6 @@ static inline void sprd_fc_add_share_credit(struct sprd_priv *priv,
 {
 	if (priv->chip.ops->fc_add_share_credit)
 		return priv->chip.ops->fc_add_share_credit(vif);
-}
-
-static inline void sprd_defrag_recover(struct sprd_priv *priv,
-				       struct sprd_vif *vif)
-{
-	if (priv->chip.ops->defrag_recover)
-		return priv->chip.ops->defrag_recover(vif);
 }
 
 static inline int sprd_set_sniffer(struct sprd_priv *priv,
