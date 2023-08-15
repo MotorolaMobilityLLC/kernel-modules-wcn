@@ -3465,13 +3465,14 @@ int stop_marlin(enum wcn_sub_sys subsys)
 		return stop_integ_marlin(subsys);
 
 	pr_info("%s [%s]\n", __func__, strno(subsys));
+	wcn_set_powerdown_flag(true);
 	if (unlikely(mutex_is_locked(&marlin_dev->power_lock)))
 		pr_info("%s wait for lock release\n", __func__);
-
 	mutex_lock(&marlin_dev->power_lock);
 	if (!marlin_get_power()) {
 		mutex_unlock(&marlin_dev->power_lock);
 		pr_info("%s no module opend\n", __func__);
+		wcn_set_powerdown_flag(false);
 		return 0;
 	}
 
@@ -3491,10 +3492,12 @@ int stop_marlin(enum wcn_sub_sys subsys)
 	ret = marlin_set_power(subsys, false);
 
 	mutex_unlock(&marlin_dev->power_lock);
+	wcn_set_powerdown_flag(false);
 	return ret;
 
 unlock:
 	mutex_unlock(&marlin_dev->power_lock);
+	wcn_set_powerdown_flag(false);
 	return -1;
 }
 EXPORT_SYMBOL_GPL(stop_marlin);

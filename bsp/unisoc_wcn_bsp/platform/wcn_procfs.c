@@ -45,6 +45,7 @@ static u32 g_dumpmem_switch =  1;
 static u32 g_loopcheck_switch;
 static u32 g_assert_cnt;
 struct wcn_pcie_info *pcie_dev;
+struct completion marlin_is_powerdown;
 
 struct mdbg_proc_entry {
 	char *name;
@@ -152,14 +153,26 @@ bool wcn_is_assert(void)
 }
 EXPORT_SYMBOL_GPL(wcn_is_assert);
 
+void wcn_set_powerdown_flag(bool flag)
+{
+	if (flag)
+		init_completion(&marlin_is_powerdown);
+	else
+		complete(&marlin_is_powerdown);
+	return;
+}
+EXPORT_SYMBOL_GPL(wcn_set_powerdown_flag);
+
 void __wcn_assert_interface(enum wcn_source_type type, char *str)
 {
 	int reset_prop = wcn_sysfs_get_reset_prop();
+	unsigned long timeleft = 0;
 	struct wcn_match_data *g_match_config = get_wcn_match_config();
 
 	WCN_INFO("wcn_assert_interface %d\n", reset_prop);
 	WCN_ERR("wcn_source_type:%d\n", type);
 	WCN_ERR("fw assert:%s\n", str);
+
 	if (g_dumpmem_switch == 0) {
 		WCN_ERR("dump disable!\n");
 		return;
@@ -177,8 +190,16 @@ void __wcn_assert_interface(enum wcn_source_type type, char *str)
 			WCN_ERR("fw assert hanppend after WCN Shutdown!!\n");
 			return;
 		}
+	} else {
+		if (!completion_done(&marlin_is_powerdown)) {
+			WCN_ERR("fw assert hanppend in WCN Powerdown!!\n");
+			timeleft = wait_for_completion_timeout(&marlin_is_powerdown, msecs_to_jiffies(1000));
+			if (!timeleft) {
+				WCN_ERR("WCN sitll in Powerdown!!\n");
+				return;
+			}
+		}
 	}
-
 	if (!mdbg_proc->assert_notify_flag) {
 		wcn_notify_fw_error(type, str);
 		mdbg_proc->assert_notify_flag = 1;

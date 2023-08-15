@@ -24,4 +24,5 @@ void loopcheck_ready_set(void);
 void mdbg_assert_interface(char *str);
 int wcn_chr_write(char *buf, size_t len);
 int wcn_chr_report_event(char *str, u32 index);
+void wcn_set_powerdown_flag(bool flag);
 #endif
