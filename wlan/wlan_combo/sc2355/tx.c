@@ -13,6 +13,7 @@
 #include "tx.h"
 #include "txrx.h"
 #include "cpu_performance.h"
+#include "wcn_bus.h"
 
 #define MAX_FW_TX_DSCR	(1024)
 
@@ -170,6 +171,9 @@ static int tx_cmd(struct sprd_hif *hif, struct sprd_msg_list *list)
 	u32 mstime;
 	const char *cmd_str;
 
+	struct sprd_priv *priv = hif->priv;
+	struct sprd_cmd *cmd = &priv->cmd;
+
 	tx_mgmt = (struct tx_mgmt *)hif->tx_mgmt;
 	while ((msg = sprd_peek_msg(list))) {
 		if (unlikely(hif->exit)) {
@@ -208,6 +212,13 @@ static int tx_cmd(struct sprd_hif *hif, struct sprd_msg_list *list)
 		if (ret && hif->hw_type == SPRD_HW_SC2355_SIPC) {
 			wl_err("%s, %d. tx cmd err : %d firstly\n", __func__, __LINE__, ret);
 			for (i = 0; i < 10; i++) {
+				if (sprdwcn_bus_get_carddump_status() || wcn_is_assert()) {
+					wl_err("%s, dump_status:%d, wcn_is_assert:%d\n", __func__,
+						sprdwcn_bus_get_carddump_status(), wcn_is_assert());
+					hif->cp_asserted = 1;
+					complete(&cmd->completed);
+					break;
+				}
 				msleep(50);
 				ret = sc2355_sipc_tx_cmd(hif, (unsigned char *)msg->tran_data,
 							msg->len);

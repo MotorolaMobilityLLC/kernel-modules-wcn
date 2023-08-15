@@ -153,6 +153,7 @@ static int iface_host_reset(void)
 {
 	struct sprd_priv *priv = iface_get_priv();
 	struct sprd_hif *hif;
+	struct sprd_cmd *cmd = NULL;
 
 	char *envp[3] = {
 		[0] = "SOURCE=unisocwl",
@@ -165,8 +166,10 @@ static int iface_host_reset(void)
 		return NOTIFY_OK;
 	}
 
+	cmd = &priv->cmd;
 	hif = &priv->hif;
 	hif->cp_asserted = 1;
+	complete(&cmd->completed);
 
 	if (hif->hw_type == SPRD_HW_SC2355_SIPC) {
 		kobject_uevent_env(&hif->pdev->dev.kobj, KOBJ_CHANGE, envp);
