@@ -1507,15 +1507,13 @@ static void wcn_soft_reset_release_btwf_cpu(u32 type)
 	}
 }
 
-void mdbg_hold_cpu(void)
+void mdbg_hold_cpu(u32 value)
 {
-	u32 value;
 	phys_addr_t init_addr;
 
 	wcn_soft_reset_release_btwf_cpu(WCN_BTWF_CPU_RESET);
 
 	/* set cache flag */
-	value = MDBG_CACHE_FLAG_VALUE;
 	init_addr = wcn_get_btwf_init_status_addr();
 	wcn_write_data_to_phy_addr(init_addr, (void *)&value, 4);
 

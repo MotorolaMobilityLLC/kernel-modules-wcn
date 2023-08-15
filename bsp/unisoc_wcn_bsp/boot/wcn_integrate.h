@@ -45,6 +45,7 @@
 #define REGMAP_UPDATE_BITS_ENABLE 0	/* It can't work well. */
 
 #define MDBG_CACHE_FLAG_VALUE	(0xcdcddcdc)
+#define MDBG_RESET_WFI_FLAG_VALUE (0x23574649) /* #WFI */
 
 #define PD_WCN_AUTO_SHUTDOWN_EN BIT(24)
 #define PD_WCN_FORCE_SHUTDOWN BIT(25)
@@ -238,7 +239,7 @@ void wcn_power_set_vddwifipa(u32 value);
 int wcn_marlin_power_enable_vddwifipa(bool enable);
 bool wcn_power_status_check(struct wcn_device *wcn_dev);
 u32 wcn_parse_platform_chip_id(struct wcn_device *wcn_dev);
-void mdbg_hold_cpu(void);
+void mdbg_hold_cpu(u32 value);
 void mdbg_cpu_reset(void);
 enum wcn_aon_chip_id wcn_get_aon_chip_id(void);
 const char *wcn_get_chip_name(void);

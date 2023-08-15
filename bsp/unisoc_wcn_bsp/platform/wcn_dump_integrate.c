@@ -315,7 +315,7 @@ static int btwf_dump_mem(enum wcn_source_type type)
 		return 0;
 	}
 
-	mdbg_hold_cpu();
+	mdbg_hold_cpu(MDBG_CACHE_FLAG_VALUE);
 	msleep(100);
 	mdbg_ring_reset(mdev_ring);
 	mdbg_atcmd_clean();
@@ -375,7 +375,7 @@ void mdbg_dump_mem_integ(enum wcn_source_type type)
 
 int dump_arm_reg_integ(void)
 {
-	mdbg_hold_cpu();
+	mdbg_hold_cpu(MDBG_CACHE_FLAG_VALUE);
 
 	return 0;
 }

@@ -927,7 +927,7 @@ static ssize_t mdbg_proc_write(struct file *filp,
 		}
 		if (strncmp(mdbg_proc->write_buf, "holdcp2cpu",
 			strlen("holdcp2cpu")) == 0) {
-			mdbg_hold_cpu();
+			mdbg_hold_cpu(MDBG_CACHE_FLAG_VALUE);
 			WCN_INFO("hold cp cpu\n");
 			return count;
 		}

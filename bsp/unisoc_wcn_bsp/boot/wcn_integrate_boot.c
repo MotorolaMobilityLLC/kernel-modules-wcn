@@ -2575,6 +2575,15 @@ int btwf_sys_wait_cp2_wfi(struct wcn_device *wcn_dev)
 	return cp2_deepsleep;
 }
 
+int btwf_try_reset_wfi(struct wcn_device *wcn_dev)
+{
+        int ret = 0;
+        mdbg_hold_cpu(MDBG_RESET_WFI_FLAG_VALUE);
+        if (btwf_sys_polling_deepsleep(wcn_dev) == false)
+                ret = -1;
+        return ret;
+}
+
 /* wait BTWF SYS enter deep sleep and then set it auto shutdown.
  * after this operate, BTWF SYS will enter shutdown mode.
  */
@@ -2607,8 +2616,12 @@ int btwf_sys_shutdown(struct wcn_device *wcn_dev)
 		      reg_val);
 
 	if (btwf_sys_polling_deepsleep(wcn_dev) == false) {
-		WCN_ERR("[-]%s btwf sys deep fail\n", __func__);
-		return -EBUSY;
+		WCN_WARN("[-]%s btwf sys deep fail, try reset and WFI\n", __func__);
+		wcn_dfs_poweroff_shutdown_clear(wcn_dev);
+		if (btwf_try_reset_wfi(wcn_dev)) {
+			WCN_WARN("%s BTWF deepsleep failed, try reset&WFI fail, Assert\n", __func__);
+			return -EBUSY;
+		}
 	}
 
 	if (btwf_sys_polling_powerdown(wcn_dev) == false) { /* shutdown fail */
@@ -3951,18 +3964,19 @@ int stop_integrate_wcn_module(u32 subsys)
 	}
 
 	WCN_INFO("%s,subsys=%d do stop\n", wcn_dev->name, subsys);
-	if (is_marlin)
-		wcn_set_loopcheck_state(false);
 
 	wcn_dfs_poweroff_state_clear(wcn_dev);
 
 	/* confirm the shutdown sys is at deep status */
 	if (is_marlin) {
+		wcn_set_loopcheck_state(false);
 		if (btwf_sys_polling_deepsleep(wcn_dev) == false) {
-			if (wcn_subsys_active_num() == 0) {
+			if (wcn_subsys_active_num() == 0)
 				goto force_poweroff;
-			}  else {
-				WCN_ERR("%s BTWF deepsleep failed, GNSS on, Assert\n", __func__);
+			WCN_WARN("%s BTWF deepsleep failed, try reset and WFI\n", __func__);
+			wcn_dfs_poweroff_shutdown_clear(wcn_dev);
+			if (btwf_try_reset_wfi(wcn_dev)) {
+				WCN_WARN("%s BTWF deepsleep failed, try reset&WFI fail, GNSS on, Assert\n", __func__);
 				wcn_dev->wcn_open_status |= subsys_bit;
 				mutex_unlock(&wcn_dev->power_lock);
 				return -BTWF_SYS_ABNORMAL;
