@@ -3,6 +3,8 @@
 * SPDX-License-Identifier: GPL-2.0-only
 */
 
+#include <linux/rtc.h>
+#include <linux/timekeeping.h>
 #include "acs.h"
 #include "cfg80211.h"
 #include "chip_ops.h"
@@ -905,6 +907,12 @@ int sprd_cfg80211_connect(struct wiphy *wiphy, struct net_device *ndev,
 	struct sprd_priv *priv = vif->priv;
 	bool n79_flag = sprd_hif_modemn79_is_enable(&priv->hif);
 	struct sprd_wlan_dt_config *dt_configs = &vif->priv->dt_configs;
+	struct timespec64 ts;
+	struct rtc_time tm;
+
+	ktime_get_real_ts64(&ts);
+	//ts.tv_sec -= sys_tz.tz_minuteswest * 60;
+	rtc_time64_to_tm(ts.tv_sec, &tm);
 
 	/* workround for bug 795430 */
 	if (!(vif->state & VIF_STATE_OPEN)) {
@@ -1058,8 +1066,6 @@ int sprd_cfg80211_connect(struct wiphy *wiphy, struct net_device *ndev,
 		}
 	}
 
-
-
 	/* Set BSSID */
 	if (sme->bssid) {
 		netdev_info(ndev, "bssid %pM\n", sme->bssid);
@@ -1108,12 +1114,17 @@ int sprd_cfg80211_connect(struct wiphy *wiphy, struct net_device *ndev,
 			goto err;
 		strncpy(vif->ssid, sme->ssid, sme->ssid_len);
 		vif->ssid_len = sme->ssid_len;
-		netdev_info(ndev, "%s %s\n", __func__, vif->ssid);
+		netdev_info(ndev, "%s %s old_state %d connected(%u) "
+                    "UTC %04d-%02d-%02d_%02d:%02d:%02d.%09ld (%d mins).\n",
+                    __func__, vif->ssid, old_state, vif->wdev.connected,
+                    tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
+                    tm.tm_hour, tm.tm_min, tm.tm_sec, ts.tv_nsec,
+                    sys_tz.tz_minuteswest);
 	}
 
 	return 0;
 err:
-	netdev_err(ndev, "%s failed\n", __func__);
+	netdev_err(ndev, "%s failed %d old_state %d.\n", __func__, ret, old_state);
 	vif->sm_state = old_state;
 	return ret;
 }

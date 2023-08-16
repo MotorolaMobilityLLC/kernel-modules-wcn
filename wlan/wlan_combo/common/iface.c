@@ -449,7 +449,7 @@ static int iface_open(struct net_device *ndev)
 	int ret;
 	int count = 0;
 
-	netdev_info(ndev, "%s\n", __func__);
+	netdev_info(ndev, "%s connected(%u)\n", __func__, vif->wdev.connected);
 
 	/*here we need to wait for 3s*/
 	while ((!vif->priv->probe_done) && (count < 1000)) {
@@ -492,7 +492,7 @@ static int iface_close(struct net_device *ndev)
 	struct sprd_vif *vif = netdev_priv(ndev);
 	struct sprd_hif *hif = &vif->priv->hif;
 
-	netdev_info(ndev, "%s\n", __func__);
+	netdev_info(ndev, "%s connected(%u)\n", __func__, vif->wdev.connected);
 
 	sprd_report_scan_done(vif, true);
 	sprd_report_sched_scan_done(vif, true);

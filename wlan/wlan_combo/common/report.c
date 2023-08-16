@@ -112,7 +112,9 @@ void sprd_report_connection(struct sprd_vif *vif,
 
 	if (vif->sm_state != SPRD_CONNECTING &&
 	    vif->sm_state != SPRD_CONNECTED) {
-		netdev_err(vif->ndev, "%s Unexpected event!\n", __func__);
+		netdev_err(vif->ndev, "%s Unexpected event! connected(%u).\n",
+		           __func__, vif->wdev.connected);
+
 		return;
 	}
 	if (status_code != SPRD_CONNECT_SUCCESS &&
@@ -249,7 +251,7 @@ void sprd_report_connection(struct sprd_vif *vif,
 	}
 done:
 	if (vif->sm_state == SPRD_CONNECTING &&
-	    status_code == SPRD_CONNECT_SUCCESS) {
+		status_code == SPRD_CONNECT_SUCCESS) {
 		cfg80211_connect_result(vif->ndev,
 					conn_info->bssid,
 					conn_info->req_ie,
@@ -364,7 +366,8 @@ void sprd_report_disconnection(struct sprd_vif *vif, u16 reason_code)
 			    "%s %s, active disconnection, reason_code %d\n", __func__,
 			    vif->ssid, reason_code);
 	} else {
-		netdev_err(vif->ndev, "%s Unexpected event!\n", __func__);
+		netdev_err(vif->ndev, "%s Unexpected event! connected(%u)\n",
+		           __func__, vif->wdev.connected);
 		return;
 	}
 

@@ -825,12 +825,12 @@ int sc2355_send_cmd_recv_rsp(struct sprd_priv *priv, struct sprd_msg *msg, u8 *r
 
 	ret = cmdevt_recv_rsp_timeout(priv, timeout);
 	if (ret != -1) {
+		hdr = (struct sprd_cmd_hdr *)cmd->data;
 #ifndef DRV_RESET_SELF
 		if (rbuf && rlen && *rlen) {
 #else
 		if (rbuf && rlen && *rlen && !hif->cp_asserted) {
 #endif
-			hdr = (struct sprd_cmd_hdr *)cmd->data;
 			plen = le16_to_cpu(hdr->plen) - sizeof(*hdr);
 			*rlen = min(*rlen, plen);
 			ctx_id = hdr->common.mode;
@@ -839,6 +839,18 @@ int sc2355_send_cmd_recv_rsp(struct sprd_priv *priv, struct sprd_msg *msg, u8 *r
 				ctx_id, cmd_id, cmd_str);
 			if (cmd_id == CMD_OPEN)
 				rbuf[0] = ctx_id;
+		}
+		/*
+		 * CR 2343348, 2352896
+		 * 2nd cfg80211_connect comes continously after 1st one,
+		 * and with NO disconnect between them.
+		 * From CP2: FT-AP rsp SPRD_CMD_STATUS_NOT_SUPPORT_ERROR for 2nd connect,
+		 * NON FT-AP will get EVT_CONNECT with connect_success/_fail.
+		 */
+		if (cmd_id == CMD_CONNECT &&
+			hif->hw_type == SPRD_HW_SC2355_SDIO &&
+			hdr->status == SPRD_CMD_STATUS_NOT_SUPPORT_ERROR) {
+			ret = -EOPNOTSUPP;
 		}
 	} else {
 		wl_err("cid %d [%s]rsp timeout, printk=%d\n",
