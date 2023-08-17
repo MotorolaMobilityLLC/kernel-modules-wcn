@@ -112,6 +112,7 @@ static unsigned int clk_wait_val;
 static unsigned int cp_clk_wait_val;
 static unsigned int marlin2_clk_wait_reg;
 static unsigned int write_buffer_size;
+static unsigned int gen1_bound_value;
 
 #define USB_CARD_DETECT_WAIT_MS	30000
 #define CARD_DETECT_WAIT_MS	3000
@@ -1204,17 +1205,38 @@ static int wcn_pmic_do_bound(struct wcn_pmic_config *pmic, bool bound)
 	return 0;
 }
 
+static int wcn_get_pmic_bound_value(struct wcn_pmic_config *pmic, u32 *bound_value)
+{
+	int ret;
+	u32 regvalue = 0;
+	u32 *chip;
+
+	if (!marlin_dev->syscon_pmic || !pmic->enable) {
+		*bound_value = 0;
+		pr_err("dts do not config pmic reg\n");
+		return -1;
+	}
+
+	chip = pmic->config;
+
+	ret = regmap_read(marlin_dev->syscon_pmic, chip[0], &regvalue);
+	*bound_value = regvalue & chip[1];
+	pr_info("%s reg_addr: 0x%x, reg_value: 0x%x, bound_value: %d\n",
+			pmic->name, chip[0], regvalue, *bound_value);
+	if (ret)
+		pr_err("%s bound:%d\n", pmic->name, ret);
+
+	return ret;
+}
+
 static inline int wcn_avdd12_parent_bound_chip(bool enable)
 {
-	if (is_ums9620) {
-		pr_info("is_boot_ufs=%d enable=%d", is_boot_ufs, enable);
-		if (!is_boot_ufs)
-			return wcn_pmic_do_bound(&marlin_dev->avdd12_parent_bound_chip, enable);
-
-		return 0;
-	} else {
+	if (gen1_bound_value) {
+		pr_info("ldo_sleep config gen1 bound chip_sleep, enable=%d", enable);
 		return wcn_pmic_do_bound(&marlin_dev->avdd12_parent_bound_chip, enable);
-	}
+	} else
+		pr_info("ldo_sleep config gen1 unbound chip_sleep, do not need to config");
+	return 0;
 }
 
 static inline int wcn_avdd12_bound_xtl(bool enable)
@@ -3566,6 +3588,7 @@ int marlin_probe(struct platform_device *pdev)
 	wcn_bus_init();
 	get_boot_device();
 	get_boot_board();
+	wcn_get_pmic_bound_value(&marlin_dev->avdd12_parent_bound_chip, &gen1_bound_value);
 	bus_ops = get_wcn_bus_ops();
 	bus_ops->start_wcn = start_marlin;
 	bus_ops->stop_wcn = stop_marlin;
