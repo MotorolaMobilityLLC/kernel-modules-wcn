@@ -26,16 +26,13 @@ ifeq ($(CONFIG_SPRD_DFS),y)
 ccflags-y += -DENABLE_DFS
 endif
 
-ifeq ($(BSP_DTBO),ums9230-4h10-overlay)
-CONFIG_SPRD_CHR := y
-ccflags-y += -DENABLE_CHR
-else ifeq ($(BSP_DTBO),ums9620-2h10-overlay)
-CONFIG_SPRD_CHR := y
-ccflags-y += -DENABLE_CHR
-else ifeq ($(BSP_DTBO),ums9230-1h10-overlay)
-CONFIG_SPRD_CHR := y
-ccflags-y += -DENABLE_CHR
-else ifeq ($(BSP_DTBO),ums9230-6h10-overlay)
+ENABLE_CHR_BOARD := \
+		 ums9230-1h10-overlay \
+                 ums9230-4h10-overlay \
+		 ums9230-6h10-overlay \
+                 ums9620-2h10-overlay \
+		 ums9621-1h10-overlay
+ifneq ($(findstring $(BSP_DTBO), $(ENABLE_CHR_BOARD)),)
 CONFIG_SPRD_CHR := y
 ccflags-y += -DENABLE_CHR
 endif
