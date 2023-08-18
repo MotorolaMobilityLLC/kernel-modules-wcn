@@ -290,7 +290,7 @@ int sc2355_scan(struct wiphy *wiphy, struct cfg80211_scan_request *request)
 	struct sprd_api_version_t *api = (&priv->sync_api)->api_array;
 	u8 fw_ver = 0;
 	bool n79_flag = sprd_hif_modemn79_is_enable(&priv->hif);
-	struct sprd_wlan_dt_config *dt_configs = &vif->priv->dt_configs;
+	struct sprd_wlan_dt_config *dt_configs = &priv->dt_configs;
 
 	netdev_info(vif->ndev, "%s n_channels %u\n", __func__,
 		    request->n_channels);
@@ -481,7 +481,7 @@ int sc2355_sched_scan_start(struct wiphy *wiphy, struct net_device *ndev,
 	int ret = 0;
 	int i = 0, j = 0;
 	bool n79_flag = sprd_hif_modemn79_is_enable(&priv->hif);
-	struct sprd_wlan_dt_config *dt_configs = &vif->priv->dt_configs;
+	struct sprd_wlan_dt_config *dt_configs = &priv->dt_configs;
 
 	if (!ndev) {
 		netdev_err(ndev, "%s NULL ndev\n", __func__);
