@@ -1307,8 +1307,11 @@ int sipc_recvseq_debug_store(u8 channel_index, int index)
 		sipc_recvseq_debug_count %= SIPC_RECVSEQ_DEBUG_MAX;
 		g_sipc_info.chn8_recvseq_info[sipc_recvseq_debug_count][index].cur_time = div_u64(ktime_get_boot_fast_ns(), 1000);
 		g_sipc_info.chn8_recvseq_info[sipc_recvseq_debug_count][index].seq_func = __builtin_return_address(0);
-		if (index == (SBLK_SEQ_NUM - 1))
-			sipc_recvseq_debug_count++;
+		if (index == (SBLK_SEQ_NUM - 1)) {
+			if ((g_sipc_info.chn8_recvseq_info[sipc_recvseq_debug_count][index].cur_time -
+				g_sipc_info.chn8_recvseq_info[sipc_recvseq_debug_count][SBLK_SEQ_INDEX1].cur_time) > 5000)
+				sipc_recvseq_debug_count++;
+		}
 	}
 	return 0;
 }
