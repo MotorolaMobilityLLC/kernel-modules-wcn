@@ -24,8 +24,13 @@ struct sprd_wlan_adap_param adap_info;
 static int npi_nl_send_generic(struct genl_info *info, u8 attr, u8 cmd,
 			       u32 len, u8 *data);
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0))
+static int npi_pre_doit(const struct genl_split_ops *ops,
+			struct sk_buff *skb, struct genl_info *info)
+#else
 static int npi_pre_doit(const struct genl_ops *ops,
 			struct sk_buff *skb, struct genl_info *info)
+#endif
 {
 	struct net_device *ndev = NULL;
 	struct sprd_vif *vif = NULL;
@@ -57,8 +62,13 @@ static int npi_pre_doit(const struct genl_ops *ops,
 	return 0;
 }
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0))
+static void npi_post_doit(const struct genl_split_ops *ops,
+			  struct sk_buff *skb, struct genl_info *info)
+#else
 static void npi_post_doit(const struct genl_ops *ops,
 			  struct sk_buff *skb, struct genl_info *info)
+#endif
 {
 	if (info->user_ptr[0])
 		dev_put(info->user_ptr[0]);
