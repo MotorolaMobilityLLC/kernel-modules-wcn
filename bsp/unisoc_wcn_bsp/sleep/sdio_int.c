@@ -73,9 +73,6 @@ bool sdio_wait_pub_int_done(void)
 			marlin_avdd18_dcxo_enable(false);
 		ret = wait_event_killable_timeout(sdio_int.pub_int_done,
 			atomic_read(&flag_pub_int_done), usecs_to_jiffies(3000 * 10));
-	
-		if (g_match_config && g_match_config->unisoc_wcn_m3lite && is_ums9620)
-			marlin_avdd18_dcxo_enable(false);
 
 		WCN_INFO("flag_pub_int_done(%s)-%d\n", ret == 0 ? "timeout" : "success",
 			atomic_read(&flag_pub_int_done));

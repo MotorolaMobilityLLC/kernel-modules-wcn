@@ -2571,10 +2571,6 @@ static void pre_btwifi_download_sdio(struct work_struct *work)
 	/* Runtime PM is useless, mainly to enable sdio_func1 and rx irq */
 	sprdwcn_bus_runtime_get();
 
-	if (g_match_config && !g_match_config->unisoc_wcn_pcie) {
-		pr_info("%s is not pcie\n", __func__);
-		wcn_firmware_init();
-	}
 }
 
 static int bus_scan_card(void)
@@ -2975,10 +2971,8 @@ static int marlin_set_power(enum wcn_sub_sys subsys, int val)
 			atomic_set(&marlin_dev->download_finish_flag, 1);
 			pr_info("then marlin download finished and run ok\n");
 
-			if (g_match_config && g_match_config->unisoc_wcn_pcie) {
-				pr_info("then start wcn_firmware_init\n");
-				wcn_firmware_init();
-			}
+			pr_info("then start wcn_firmware_init\n");
+			wcn_firmware_init();
 
 			set_wifipa_status(subsys, val);
 			if (unlikely(locked))
