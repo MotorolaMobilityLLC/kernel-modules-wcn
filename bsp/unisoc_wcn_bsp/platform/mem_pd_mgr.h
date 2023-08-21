@@ -35,6 +35,7 @@
 /* cp2 create thread status */
 #define THREAD_CREATE  1
 #define THREAD_DELETE  0
+#define TEMP_MEM_SIZE  (4*1024)
 
 struct mem_pd_debug_t {
 	unsigned int mem_pd_open_bt;
@@ -58,6 +59,7 @@ struct mem_pd_t {
 	char *bt_mem;
 	char *wifi_clear;
 	char *bt_clear;
+	char *temp_mem;
 	struct mem_pd_debug_t mem_pd_debug;
 	unsigned int cp_mem_all_off;
 };

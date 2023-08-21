@@ -29,10 +29,12 @@
 #include <linux/spinlock.h>
 
 #include "wcn_bus.h"
+#include "wcn_misc.h"
 #include "mem_pd_mgr.h"
 #include "../include/wcn_glb_reg.h"
 #include "../sleep/sdio_int.h"
 #include "../include/wcn_dbg.h"
+#include "../sdio/sdiohal.h"
 
 #ifdef pr_fmt
 #undef pr_fmt
@@ -60,6 +62,7 @@
 
 static struct mem_pd_t mem_pd;
 static struct mem_pd_meminfo_t mem_info_cp;
+bool flag_small_buf;
 
 /* return 0, no download ini; return 1, need download ini */
 unsigned int mem_pd_wifi_state(void)
@@ -376,21 +379,41 @@ static int mem_pd_pub_int_RegCb(void)
 static int sdio_read_mem_from_cp(void)
 {
 	int err = 0;
+	unsigned long long time_begin, time_end, delt_time;
 
-	WCN_INFO("%s  read wifi/bt mem bin\n", __func__);
-	err = sprdwcn_bus_direct_read(mem_info_cp.wifi_begin_addr,
+	WCN_INFO("%s  read wifi/bt mem bin, flag_small_buf: %d\n",
+			__func__, flag_small_buf);
+	time_begin =  marlin_get_localtime();
+	if (flag_small_buf)
+		err = sdiohal_dt_read_small_buf(mem_info_cp.wifi_begin_addr,
+				      mem_pd.wifi_mem, mem_info_cp.wifi_size,
+				      mem_pd.temp_mem, TEMP_MEM_SIZE);
+	else
+		err = sprdwcn_bus_direct_read(mem_info_cp.wifi_begin_addr,
 				      mem_pd.wifi_mem, mem_info_cp.wifi_size);
 	if (err < 0) {
-		pr_err("%s wifi save mem bin error:%d", __func__, err);
+		pr_err("------%s wifi save mem bin error:%d, wcn will assert------",
+				__func__, err);
 		return err;
 	}
-	err = sprdwcn_bus_direct_read(mem_info_cp.bt_begin_addr,
+	if (flag_small_buf)
+		err = sdiohal_dt_read_small_buf(mem_info_cp.bt_begin_addr,
+				      mem_pd.bt_mem, mem_info_cp.bt_size,
+				      mem_pd.temp_mem, TEMP_MEM_SIZE);
+	else
+		err = sprdwcn_bus_direct_read(mem_info_cp.bt_begin_addr,
 				      mem_pd.bt_mem, mem_info_cp.bt_size);
 	if (err < 0) {
-		pr_err("%s bt save mem bin error:%d", __func__, err);
+		pr_err("------%s bt save mem bin error:%d, wcn will assert------",
+				__func__, err);
 		return err;
 	}
 	WCN_INFO("%s save wifi/bt mem bin ok\n", __func__);
+
+	time_end = marlin_get_localtime();
+	delt_time = time_end - time_begin;
+	pr_info("%s, begin time: %llu, end time: %llu, delt time: %llu\n", __func__,
+			time_begin, time_end, delt_time);
 
 	return 0;
 }
@@ -398,6 +421,58 @@ static int sdio_ap_int_cp_save_cp_mem(void)
 {
 	sdio_ap_int_cp0(SAVE_CP_MEM);
 	WCN_INFO("%s, cp while(1) break\n", __func__);
+
+	return 0;
+}
+
+static int mem_pd_alloc_small_buf(void)
+{
+	mem_pd.wifi_mem = vmalloc(mem_info_cp.wifi_size);
+	if (!mem_pd.wifi_mem) {
+		WCN_INFO("mem pd wifi save buff vmalloc Failed.\n");
+		return MEM_PD_ERR;
+	}
+	mem_pd.bt_mem = vmalloc(mem_info_cp.bt_size);
+	if (!mem_pd.bt_mem) {
+		vfree(mem_pd.wifi_mem);
+		mem_pd.wifi_mem = NULL;
+		WCN_INFO("mem pd bt save buff vmalloc Failed.\n");
+		return MEM_PD_ERR;
+	}
+	mem_pd.wifi_clear = vmalloc(mem_info_cp.wifi_size);
+	if (!mem_pd.wifi_clear) {
+		vfree(mem_pd.wifi_mem);
+		mem_pd.wifi_mem = NULL;
+		vfree(mem_pd.bt_mem);
+		mem_pd.bt_mem = NULL;
+		WCN_INFO("mem pd clear buff vmalloc Failed.\n");
+		return MEM_PD_ERR;
+	}
+	mem_pd.bt_clear = vmalloc(mem_info_cp.bt_size);
+	if (!mem_pd.bt_clear) {
+		vfree(mem_pd.wifi_mem);
+		mem_pd.wifi_mem = NULL;
+		vfree(mem_pd.bt_mem);
+		mem_pd.bt_mem = NULL;
+		vfree(mem_pd.wifi_clear);
+		mem_pd.wifi_clear = NULL;
+		WCN_INFO("mem pd clear buff vmalloc Failed.\n");
+		return MEM_PD_ERR;
+	}
+	mem_pd.temp_mem = kmalloc(TEMP_MEM_SIZE, GFP_KERNEL);
+	if (!mem_pd.temp_mem) {
+		vfree(mem_pd.wifi_mem);
+		mem_pd.wifi_mem = NULL;
+		vfree(mem_pd.bt_mem);
+		mem_pd.bt_mem = NULL;
+		vfree(mem_pd.wifi_clear);
+		mem_pd.wifi_clear = NULL;
+		vfree(mem_pd.bt_clear);
+		mem_pd.bt_clear = NULL;
+		WCN_INFO("mem pd temp buff kmalloc Failed.\n");
+		return MEM_PD_ERR;
+	}
+	flag_small_buf = true;
 
 	return 0;
 }
@@ -459,20 +534,20 @@ static int mem_pd_read_add_from_cp(void)
 	mem_pd.wifi_mem = kmalloc(mem_info_cp.wifi_size, GFP_KERNEL);
 	if (!mem_pd.wifi_mem) {
 		WCN_INFO("mem pd wifi save buff malloc Failed.\n");
-		return MEM_PD_ERR;
+		goto alloc_small_buf;
 	}
 	mem_pd.bt_mem = kmalloc(mem_info_cp.bt_size, GFP_KERNEL);
 	if (!mem_pd.bt_mem) {
 		kfree(mem_pd.wifi_mem);
 		WCN_INFO("mem pd bt save buff malloc Failed.\n");
-		return MEM_PD_ERR;
+		goto alloc_small_buf;
 	}
 	mem_pd.wifi_clear = kmalloc(mem_info_cp.wifi_size, GFP_KERNEL);
 	if (!mem_pd.wifi_clear) {
 		kfree(mem_pd.wifi_mem);
 		kfree(mem_pd.bt_mem);
 		WCN_INFO("mem pd clear buff malloc Failed.\n");
-		return MEM_PD_ERR;
+		goto alloc_small_buf;
 	}
 	mem_pd.bt_clear = kmalloc(mem_info_cp.bt_size, GFP_KERNEL);
 	if (!mem_pd.bt_clear) {
@@ -480,8 +555,17 @@ static int mem_pd_read_add_from_cp(void)
 		kfree(mem_pd.bt_mem);
 		kfree(mem_pd.wifi_clear);
 		WCN_INFO("mem pd clear buff malloc Failed.\n");
-		return MEM_PD_ERR;
+		goto alloc_small_buf;
 	}
+
+	goto alloc_buf_finish;
+
+alloc_small_buf:
+	ret = mem_pd_alloc_small_buf();
+	if (ret < 0)
+		return ret;
+
+alloc_buf_finish:
 	memset(mem_pd.wifi_clear, 0x0, mem_info_cp.wifi_size);
 	memset(mem_pd.bt_clear, 0x0, mem_info_cp.bt_size);
 
@@ -541,7 +625,13 @@ int test_mem_clrear(enum wcn_sub_sys subsys)
 
 	switch (subsys) {
 	case MARLIN_WIFI:
-		err = sprdwcn_bus_direct_write(mem_info_cp.wifi_begin_addr,
+		if (flag_small_buf)
+			err = sdiohal_dt_write_small_buf(mem_info_cp.wifi_begin_addr,
+					       mem_pd.wifi_clear,
+					       mem_info_cp.wifi_size,
+					       mem_pd.temp_mem, TEMP_MEM_SIZE);
+		else
+			err = sprdwcn_bus_direct_write(mem_info_cp.wifi_begin_addr,
 					       mem_pd.wifi_clear,
 					       mem_info_cp.wifi_size);
 		if (err < 0) {
@@ -550,7 +640,13 @@ int test_mem_clrear(enum wcn_sub_sys subsys)
 		}
 	break;
 	case MARLIN_BLUETOOTH:
-		err = sprdwcn_bus_direct_write(mem_info_cp.bt_begin_addr,
+		if (flag_small_buf)
+			err = sdiohal_dt_write_small_buf(mem_info_cp.bt_begin_addr,
+					       mem_pd.bt_clear,
+					       mem_info_cp.bt_size,
+					       mem_pd.temp_mem, TEMP_MEM_SIZE);
+		else
+			err = sprdwcn_bus_direct_write(mem_info_cp.bt_begin_addr,
 					       mem_pd.bt_clear,
 					       mem_info_cp.bt_size);
 		if (err < 0) {
@@ -571,8 +667,10 @@ static int mem_pd_download_mem_bin(int subsys)
 	unsigned int addr = 0;
 	char *mem;
 	unsigned int len = 0;
+	unsigned long long time_begin, time_end, delt_time;
 
 	WCN_INFO("%s\n", __func__);
+	time_begin =  marlin_get_localtime();
 	switch (subsys) {
 	case MARLIN_WIFI:
 		addr = mem_info_cp.wifi_begin_addr;
@@ -589,11 +687,20 @@ static int mem_pd_download_mem_bin(int subsys)
 	default:
 		return MEM_PD_ERR;
 	}
-	err = sprdwcn_bus_direct_write(addr, mem, len);
+	if (flag_small_buf)
+		err = sdiohal_dt_write_small_buf(addr, mem, len,
+				mem_pd.temp_mem, TEMP_MEM_SIZE);
+	else
+		err = sprdwcn_bus_direct_write(addr, mem, len);
 	if (err < 0) {
-		pr_err("%s download mem bin error:%d", __func__, err);
+		pr_err("------%s download mem bin error:%d, wcn will assert------",
+				__func__, err);
 		return err;
 	}
+	time_end = marlin_get_localtime();
+	delt_time = time_end - time_begin;
+	pr_info("%s, begin time: %llu, end time: %llu, delt time: %llu\n", __func__,
+			time_begin, time_end, delt_time);
 
 	return 0;
 }
@@ -729,6 +836,7 @@ int mem_pd_init(void)
 	init_completion(&(mem_pd.bt_close_completion));
 	init_completion(&(mem_pd.save_bin_completion));
 	mem_pd_pub_int_RegCb();
+	flag_small_buf = false;
 	/* mem_pd.wifi_state = 0; */
 	/* mem_pd.bt_state = 0; */
 	/* mem_pd.cp_version = 0; */
@@ -747,14 +855,27 @@ int mem_pd_exit(void)
 	/* wake_cnt = 0; */
 	mutex_destroy(&(mem_pd.mem_pd_lock));
 	/* mutex_destroy(&(slp_mgr.wakeup_lock)); */
-	kfree(mem_pd.wifi_mem);
-	mem_pd.wifi_mem = NULL;
-	kfree(mem_pd.bt_mem);
-	mem_pd.bt_mem = NULL;
-	kfree(mem_pd.wifi_clear);
-	kfree(mem_pd.bt_clear);
-	mem_pd.wifi_clear = NULL;
-	mem_pd.bt_clear = NULL;
+	if (flag_small_buf) {
+		vfree(mem_pd.wifi_mem);
+		mem_pd.wifi_mem = NULL;
+		vfree(mem_pd.bt_mem);
+		mem_pd.bt_mem = NULL;
+		vfree(mem_pd.wifi_clear);
+		vfree(mem_pd.bt_clear);
+		mem_pd.wifi_clear = NULL;
+		mem_pd.bt_clear = NULL;
+		kfree(mem_pd.temp_mem);
+                mem_pd.temp_mem = NULL;
+	} else {
+		kfree(mem_pd.wifi_mem);
+		mem_pd.wifi_mem = NULL;
+		kfree(mem_pd.bt_mem);
+		mem_pd.bt_mem = NULL;
+		kfree(mem_pd.wifi_clear);
+		kfree(mem_pd.bt_clear);
+		mem_pd.wifi_clear = NULL;
+		mem_pd.bt_clear = NULL;
+	}
 	WCN_INFO("%s ok!\n", __func__);
 
 	return 0;
