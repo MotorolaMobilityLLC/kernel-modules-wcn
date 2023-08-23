@@ -41,8 +41,8 @@ int mbuf_link_alloc(int chn, struct mbuf_t **head, struct mbuf_t **tail,
 
 	WCN_DBG("pool=%p, chn=%d, free=%d\n", pool, chn, pool->free);
 	if (sprdwcn_bus_get_carddump_status()) {
-	WCN_ERR("%s err in dump status,chn=%d\n", __func__, chn);
-	return -1;
+		WCN_ERR("%s err in dump status,chn=%d\n", __func__, chn);
+		return -1;
 	}
 	spin_lock_irqsave(&(pool->lock), pool->irq_flags);
 	if ((*num <= 0) || (pool->free <= 0)) {
@@ -53,8 +53,10 @@ int mbuf_link_alloc(int chn, struct mbuf_t **head, struct mbuf_t **tail,
 		spin_unlock_irqrestore(&(pool->lock), pool->irq_flags);
 		return -1;
 	}
-	if (*num > pool->free)
+	if (*num > pool->free) {
+		WCN_INFO("%s chn=%d, num=%d, pool->free=%d\n", __func__, chn, *num, pool->free);
 		*num = pool->free;
+	}
 
 	for (i = 0, cur = head__ = pool->head; i < *num; i++) {
 

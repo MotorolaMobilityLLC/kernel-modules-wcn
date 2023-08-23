@@ -153,6 +153,29 @@ static void wcn_bus_change_state(struct wcn_pcie_info *bus,
 	bus->pci_status = state;
 }
 
+static bool sprd_pcie_check_linkup(void)
+{
+	u32 val, trycnt = 5;
+	struct wcn_pcie_info *priv = get_wcn_device_info();
+
+	do {
+		pci_read_config_dword(priv->dev, 0, &val);
+
+		if (val != 0xFFFFFFFF)
+			return true;
+
+		WCN_INFO("%s trycnt=%d\n", __func__, trycnt);
+
+		udelay(1);
+	}while(trycnt--);
+
+	WCN_ERR("%s error\n", __func__);
+	if (priv->rc_pd)
+		sprd_pcie_dump_rc_regs(priv->rc_pd);
+
+	return false;
+}
+
 static irqreturn_t sprd_pcie_msi_irq(int irq, void *arg)
 {
 	struct wcn_pcie_info *priv = arg;
@@ -425,7 +448,6 @@ int pcie_config_write(struct wcn_pcie_info *priv, int offset,
 			WCN_ERR("%s %d err\n", __func__, ret);
 			return ERROR;
 		}
-
 	}
 	return 0;
 }
@@ -537,6 +559,9 @@ int sprd_pcie_mem_write(unsigned int addr, void *buf, unsigned int len)
 	struct wcn_match_data *g_match_config = get_wcn_match_config();
 	unsigned int ep_inbound_align;
 
+	if (!sprd_pcie_check_linkup())
+		return -1;
+
 	if (g_match_config && g_match_config->unisoc_wcn_m3e)
 		ep_inbound_align = EP_INBOUND_ALIGN_M3E;
 	else
@@ -574,6 +599,9 @@ int sprd_pcie_mem_read(unsigned int addr, void *buf, unsigned int len)
 	char region;
 	struct wcn_match_data *g_match_config = get_wcn_match_config();
 	unsigned int ep_inbound_align;
+
+	if (!sprd_pcie_check_linkup())
+		return -1;
 
 	if (g_match_config && g_match_config->unisoc_wcn_m3e)
 		ep_inbound_align = EP_INBOUND_ALIGN_M3E;
@@ -722,7 +750,6 @@ static struct platform_device *to_pdev_from_ep_node(struct device_node *ep_node)
 /* when pcie is disconnected,reset it */
 void sprd_pcie_reset(void *wcn_dev)
 {
-	struct wcn_pcie_info *priv = get_wcn_device_info();
 	struct platform_device *pdev;
 	struct marlin_device *marlin_dev = wcn_dev;
 
@@ -733,7 +760,7 @@ void sprd_pcie_reset(void *wcn_dev)
 	}
 	WCN_INFO("%s enter\n", __func__);
 	/* check pcie link status, reset when disconnected */
-	if (pci_dev_is_disconnected(priv->dev)) {
+	if (!sprd_pcie_check_linkup()) {
 		WCN_ERR("pcie_dev is disconnected,reset\n");
 		sprd_pcie_unconfigure_device(pdev);
 		sprd_pcie_configure_device(pdev);

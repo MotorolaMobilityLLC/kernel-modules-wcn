@@ -917,7 +917,6 @@ int edma_push_link(int chn, void *head, void *tail, int num)
 {
 	int i, j, inout;
 	struct mbuf_t *mbuf;
-	struct cpdu_head *cpdu;
 	struct desc *last = NULL;
 	union dma_chn_cfg_reg dma_cfg;
 	struct edma_info *edma = edma_info();
@@ -965,7 +964,7 @@ int edma_push_link(int chn, void *head, void *tail, int num)
 	spin_lock_irqsave(edma->chn_sw[chn].dscr_ring.lock.irq_spinlock_p,
 			edma->chn_sw[chn].dscr_ring.lock.flag);
 
-	for (i = 0, j = 0, mbuf = head, cpdu = head; i < num; i++) {
+	for (i = 0, j = 0, mbuf = head; i < num; i++) {
 		dscr_zero(edma->chn_sw[chn].dscr_ring.tail);
 
 		dscr_link_mbuf(inout,
