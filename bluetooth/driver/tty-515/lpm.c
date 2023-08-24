@@ -16,8 +16,8 @@
 #include <linux/gpio.h>
 #include <linux/seq_file.h>
 #include <linux/version.h>
+#include <linux/device.h>
 #include <linux/pm_wakeup.h>
-#include <linux/version.h>
 #include "marlin_platform.h"
 #include <linux/export.h>
 #include "unisoc_bt_log.h"

@@ -8,18 +8,9 @@
 #   done in this Makefile
 #
 
-ifneq ($(strip $(BSP_KERNEL_VERSION)),kernel5.15)
-BSP_MODULES_OUT := ${COMMON_OUT_DIR}/unisoc_modules/kernel6.1/wcn/bluetooth/driver
-BSP_KERNEL_PATH := ${ROOT_DIR}/kernel6.1
-KO_MODULE_OUT := $(BSP_MODULES_OUT)
-export KO_MODULE_NAME := unisoc_wcn_bsp
-export KBUILD_EXTRA_SYMBOLS += ${COMMON_OUT_DIR}/unisoc_modules/kernel6.1/wcn/bsp/unisoc_wcn_bsp/Module.symvers
-else
 KO_MODULE_NAME := sprdbt_tty
 KO_MODULE_OUT := $(BSP_MODULES_OUT)/$(KO_MODULE_NAME)
 export KBUILD_EXTRA_SYMBOLS += $(BSP_MODULES_OUT)/unisoc_wcn_bsp/Module.symvers
-endif
-
 KO_MODULE_KBUILD := $(CURDIR)/Kbuild
 
 .PHONY: modules modules_install clean
