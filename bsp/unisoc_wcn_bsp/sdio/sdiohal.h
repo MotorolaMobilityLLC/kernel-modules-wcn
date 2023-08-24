@@ -222,11 +222,12 @@ enum {
 };
 
 #define SDIO_DEBUG_POINT_NUM 30
+#define SDIO_DEBUG_CMD_REQ_POINT_NUM 8
 struct sdiohal_debug_t {
 	struct sdiohal_xmit_debug_point tx_list_push[SDIO_DEBUG_POINT_NUM];
 
 	struct sdiohal_xmit_debug_point rx_list_dispatch[SDIO_DEBUG_POINT_NUM];
-	
+
 	int tx_list_push_index;
 	int rx_list_dispatch_index;
 	char op_enter_comm[TASK_COMM_LEN], op_leave_comm[TASK_COMM_LEN];
@@ -301,6 +302,14 @@ struct sdiohal_data_t {
 	unsigned int remain_pac_num;
 	unsigned long long rx_packer_cnt;
 	char *dtbs_buf;
+
+	/* for sdio cmd or req ( func
+	sdiohal_config_packer_chain --0 1
+	sdiohal_rx_thread --2 3
+	sdiohal_aon_readb --4 5
+	sdiohal_aon_writeb --6 7
+	)performance statistics */
+	u64 tm_sdio_cmd_req[SDIO_DEBUG_CMD_REQ_POINT_NUM];
 
 	/* for performance statistics */
 	u64 tm_begin_sch;

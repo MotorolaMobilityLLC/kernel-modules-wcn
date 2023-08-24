@@ -27,7 +27,6 @@ static struct sdiohal_data_t *sdiohal_data;
 unsigned long long tm_enter_tx_thread;
 unsigned long long tm_exit_tx_thread;
 
-
 struct sdiohal_data_t *sdiohal_get_data(void)
 {
 	return sdiohal_data;
@@ -301,7 +300,9 @@ static int sdiohal_config_packer_chain(struct sdiohal_list_t *data_list,
 
 	sdio_claim_host(sdio_func);
 	mmc_set_data_timeout(&mmc_dat, sdio_func->card);
+	p_data->tm_sdio_cmd_req[0] = ktime_get_boot_fast_ns();
 	mmc_wait_for_req(host, &mmc_req);
+	p_data->tm_sdio_cmd_req[1] = ktime_get_boot_fast_ns();
 	sdio_release_host(sdio_func);
 
 	err_ret = mmc_cmd.error ? mmc_cmd.error : mmc_dat.error;
@@ -891,7 +892,9 @@ int sdiohal_aon_readb(unsigned int addr, unsigned char *val)
 	sdiohal_resume_check();
 	sdiohal_op_enter();
 	sdio_claim_host(p_data->sdio_func[FUNC_0]);
+	p_data->tm_sdio_cmd_req[4] = ktime_get_boot_fast_ns();
 	reg_val = sdio_readb(p_data->sdio_func[FUNC_0], addr, &err);
+	p_data->tm_sdio_cmd_req[5] = ktime_get_boot_fast_ns();
 	if (val)
 		*val = reg_val;
 	sdio_release_host(p_data->sdio_func[FUNC_0]);
@@ -912,7 +915,9 @@ int sdiohal_aon_writeb(unsigned int addr, unsigned char val)
 	sdiohal_resume_check();
 	sdiohal_op_enter();
 	sdio_claim_host(p_data->sdio_func[FUNC_0]);
+	p_data->tm_sdio_cmd_req[6] = ktime_get_boot_fast_ns();
 	sdio_writeb(p_data->sdio_func[FUNC_0], val, addr, &err);
+	p_data->tm_sdio_cmd_req[7] = ktime_get_boot_fast_ns();
 	sdio_release_host(p_data->sdio_func[FUNC_0]);
 	sdiohal_op_leave();
 	sdiohal_card_unlock(p_data);

@@ -32,6 +32,16 @@ void sdiohal_debug_point_show(void)
 	pr_info("Last xmit_lock: Leave task(%s) caller: %ps, time=%llu.%llu\n",
 		p_data->sdcb.op_leave_comm, p_data->sdcb.op_leave_builtin_addr[0], ns, rem);
 
+         /* for sdio cmd or req ( func
+         sdiohal_config_packer_chain --0 1
+         sdiohal_rx_thread --2 3
+         sdiohal_aon_readb --4 5
+         sdiohal_aon_writeb --6 7
+         )performance statistics */
+	for (i = 0; i < 8; i++) {
+		pr_info("tm_sdio_cmd_req[%d], time=%llu", i, p_data->tm_sdio_cmd_req[i]);
+	}
+
 	if (p_data->op_enter_ns > p_data->op_leave_ns)
 		pr_info("WARNING: Task(%s) holds xmit_lock!!!", p_data->sdcb.op_enter_comm);
 
@@ -555,7 +565,6 @@ void sdiohal_sdma_leave(void)
 static void sdiohal_mutex_init(void)
 {
 	struct sdiohal_data_t *p_data = sdiohal_get_data();
-
 	p_data->op_enter_ns = 0;
 	p_data->op_leave_ns = 0;
 	p_data->op_expire_cnt = 0;

@@ -234,6 +234,7 @@ int sdiohal_rx_thread(void *data)
 
 read_again:
 		ktime_get_real_ts64(&tm_begin);
+		p_data->tm_sdio_cmd_req[2] = ktime_get_boot_fast_ns();
 
 		if (p_data->adma_rx_enable) {
 			/* read len is packet num */
@@ -252,6 +253,7 @@ read_again:
 				memset(p_data->dtbs_buf, 0x0,
 				       SDIOHAL_DTBS_BUF_SIZE);
 			ret = sdiohal_adma_pt_read(data_list);
+		        p_data->tm_sdio_cmd_req[3] = ktime_get_boot_fast_ns();
 			if (ret != 0) {
 				pr_err("adma read fail ret:%d\n", ret);
 				rx_dtbs = 0;
