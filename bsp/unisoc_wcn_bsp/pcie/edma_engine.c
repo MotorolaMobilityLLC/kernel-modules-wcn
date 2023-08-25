@@ -1785,6 +1785,9 @@ int edma_chn_init(int chn, int mode, int inout, int max_trans)
 	dma_cfg.reg = edma->dma_chn_reg[chn].dma_cfg.reg;
 	WCN_INFO("[-]%s\n", __func__);
 
+	if (chn == 6)
+		edma_dump_chn_reg(chn);
+
 	return 0;
 }
 
