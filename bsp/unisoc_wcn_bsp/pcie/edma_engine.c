@@ -1928,6 +1928,15 @@ int edma_dump_glb_reg(void)
 	value = sprd_pcie_read_reg32(pdev, DMA_PCIE_MSIX_VALUE(reg_base));
 	WCN_INFO("[msix_val   ] = 0x%08x\n",  value);
 
+	pci_read_config_dword(pdev->dev->bus->self, PCI_ERR_STATUS, &value);
+	WCN_INFO("RC [0xEE0]=0x%x\n", value);
+	pci_read_config_dword(pdev->dev->bus->self, PCI_ERR_INT_CTRL, &value);
+	WCN_INFO("RC [0xEE4]=0x%x\n", value);
+	pci_read_config_dword(pdev->dev->bus->self, PCI_FSM_TRACK1, &value);
+	WCN_INFO("RC [0xEF0]=0x%x\n", value);
+	pci_read_config_dword(pdev->dev->bus->self, PCI_FSM_TRACK2, &value);
+	WCN_INFO("RC [0xEF4]=0x%x\n", value);
+
 	if (pdev->rc_pd)
 		sprd_pcie_dump_rc_regs(pdev->rc_pd);
 	return 0;

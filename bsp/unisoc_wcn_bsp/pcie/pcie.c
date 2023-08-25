@@ -996,6 +996,26 @@ int sprd_pcie_fw_push_cancel(void)
 	return ret;
 }
 
+static int sprd_pcie_hw_debug(struct pci_dev *pdev)
+{
+	u32 val32;
+
+	pci_read_config_dword(pdev->bus->self, PCI_ERR_INT_CTRL, &val32);
+	val32 |= BIT(30);
+	pci_write_config_dword(pdev->bus->self, PCI_ERR_INT_CTRL, val32);
+	pci_read_config_dword(pdev->bus->self, PCI_ERR_INT_CTRL, &val32);
+	WCN_INFO("%s RC [0xEE0]=0x%x\n", __func__, val32);
+
+	pci_read_config_dword(pdev->bus->self, PCI_FSM_TRACK1, &val32);
+	val32 &= ~0x7F;
+	val32 |= 0x42;
+	pci_write_config_dword(pdev->bus->self, PCI_FSM_TRACK1, val32);
+	pci_read_config_dword(pdev->bus->self, PCI_FSM_TRACK1, &val32);
+	WCN_INFO("%s RC [0xEF0]=0x%x\n", __func__, val32);
+
+	return 0;
+}
+
 static int sprd_pcie_probe(struct pci_dev *pdev,
 			   const struct pci_device_id *pci_id)
 {
@@ -1167,6 +1187,7 @@ static int sprd_pcie_probe(struct pci_dev *pdev,
 	mdbg_fs_channel_init();
 	/* for log_dev_init */
 	mdbg_pt_ring_reg();
+	sprd_pcie_hw_debug(pdev);
 	sprd_pcie_set_aspm_policy(AUTO, BUS_PM_ALL_ENABLE);
 	pci_read_config_dword(pdev, PCI_DEBUG0_OFFSET, &val32);
 	WCN_INFO("EP link status 728=0x%x\n", val32);
