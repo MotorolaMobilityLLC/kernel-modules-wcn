@@ -21,6 +21,8 @@
 #include "wcn_debug_bus.h"
 #include "wcn_boot.h"
 #include "wcn_types.h"
+
+
 static bool from_ddr;
 extern int is_wcn_shutdown;
 
@@ -581,7 +583,7 @@ static ssize_t n79_mode_store(struct device *dev, struct device_attribute *attr,
 
 	WCN_INFO("%s: rf_reg n79_mode buf=%s\n", __func__, buf);
 	if ((g_match_config && (!g_match_config->unisoc_wcn_m3lite))
-	|| (!marlin_dev->n79_mode_support)) {
+	|| (g_match_config && (!marlin_dev->n79_mode_support))) {
 		WCN_INFO("g_match_config = %d, do not support n79\n",
 				g_match_config->unisoc_wcn_m3lite);
 		return -EINVAL;
@@ -622,7 +624,7 @@ static ssize_t rf_reg_show(struct device *dev,
 	struct wcn_match_data *g_match_config = get_wcn_match_config();
 
 	if ((g_match_config && (!g_match_config->unisoc_wcn_m3lite))
-	|| (!marlin_dev->n79_mode_support)) {
+	|| (g_match_config && (!marlin_dev->n79_mode_support))) {
 		WCN_INFO("g_match_config = %d, do not support n79\n",
 				g_match_config->unisoc_wcn_m3lite);
 		return 0;
@@ -634,10 +636,10 @@ static ssize_t rf_reg_show(struct device *dev,
 	for (i = 0; i < len / 2; i++) {
 		wifi_read_rf_reg(temp_lna_ldo_enable[i].reg_addr, &temp_val);
 
-		scnprintf(temp_buf, PAGE_SIZE, "%s%x%s%x\n",
+		scnprintf(temp_buf, 128, "%s%x%s%x\n",
 				"addr: 0x", temp_lna_ldo_enable[i].reg_addr,
 				", reg_val: 0x", temp_val);
-		strcat(buf, temp_buf);
+		strncat(buf, temp_buf, 128);
 	}
 	len = strlen(buf);
 	return len;
@@ -721,7 +723,7 @@ static ssize_t wcn_sysfs_store_atcmd(struct device *dev,
 	parse_cmd = strstr(buf, N79_ATCMD);
 	if (parse_cmd) {
 		if ((g_match_config && (!g_match_config->unisoc_wcn_m3lite))
-		|| (!marlin_dev->n79_mode_support)) {
+		|| (g_match_config && (!marlin_dev->n79_mode_support))) {
 			WCN_INFO("g_match_config = %d, do not support n79\n",
 					g_match_config->unisoc_wcn_m3lite);
 			return count;
@@ -925,8 +927,9 @@ static ssize_t slp_info_store(struct device *dev, struct device_attribute *attr,
 static ssize_t slp_info_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
 	ssize_t len = PAGE_SIZE;
+	char info[1024] = {0};
 
-	if (wcn_slpinfo_get(sysfs_info.slpinfo_sys, NULL))
+	if (wcn_slpinfo_get(sysfs_info.slpinfo_sys, &info))
 		len = snprintf(buf, len, "Device busy\n");
 	else
 		len = snprintf(buf, len, "OK\n");

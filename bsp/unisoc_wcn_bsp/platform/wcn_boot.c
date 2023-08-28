@@ -1026,7 +1026,7 @@ static int marlin_dt_write_firmware(void *tx_img_ptr, unsigned int tx_img_size)
 static int btwifi_download_firmware(void)
 {
 	const struct firmware *firmware;
-	int err;
+	int err = 0;
 	char *tx_img_ptr = NULL;
 	u32 sec_img_magic, tx_img_size;
 	struct sys_img_header *pimghdr = NULL;
@@ -1094,11 +1094,9 @@ static int btwifi_download_firmware(void)
 	err = marlin_dt_write_firmware(tx_img_ptr, tx_img_size);
 	if (err < 0) {
 		pr_err("marlin dt write %s error:%d\n", __func__, err);
-		release_firmware(firmware);
-		return err;
+		goto out;
 	}
 
-	release_firmware(firmware);
 	pr_info("marlin %s successfully!, download len: %d, write_buffer_size: %d\n",
 			__func__, tx_img_size, write_buffer_size);
 
@@ -1107,10 +1105,12 @@ static int btwifi_download_firmware(void)
 	pr_info("%s, begin time: %llu, end time: %llu, delt time: %llu\n", __func__,
 			time_begin, time_end, delt_time);
 
+out:
+	release_firmware(firmware);
 	if (sec_img_magic == SEC_IMAGE_MAGIC && tx_img_ptr)
 		vfree(tx_img_ptr);
 
-	return 0;
+	return err;
 }
 
 static int wcn_get_syscon_regmap(void)
@@ -3529,7 +3529,7 @@ static int alloc_write_buffer(struct platform_device *pdev)
         	marlin_dev->write_buffer = devm_kzalloc(&pdev->dev,
 						write_buffer_size, GFP_KERNEL);
 		if (marlin_dev->write_buffer == NULL) {
-			devm_kfree(&pdev->dev, marlin_dev);
+			pr_err("fail to alloc alloc 32K\n");
 			return -ENOMEM;
 		}
 	}
@@ -3549,6 +3549,8 @@ int marlin_probe(struct platform_device *pdev)
 
 	if (alloc_write_buffer(pdev)) {
 		pr_err("%s write buffer low memory\n", __func__);
+		devm_kfree(&pdev->dev, marlin_dev);
+		marlin_dev = NULL;
 		return -ENOMEM;
 	}
 
@@ -3679,6 +3681,7 @@ error4:
 	if (g_match_config && g_match_config->unisoc_wcn_slp)
 		slp_mgr_deinit();
 	devm_kfree(&pdev->dev, marlin_dev);
+	marlin_dev = NULL;
 	return err;
 }
 
