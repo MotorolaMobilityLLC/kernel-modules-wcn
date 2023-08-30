@@ -1680,11 +1680,11 @@ int marlin_avdd18_dcxo_enable(bool enable)
 			}
 		}
 
-		pr_info("avdd18_dcxo set 1v8\n");
 		regulator_set_voltage(marlin_dev->dcxo18, 1800000, 1800000);
+		pr_info("avdd18_dcxo set 1v8\n");
 		if (!marlin_dev->bound_dcxo18) {
-			pr_info("avdd18_dcxo power enable\n");
 			ret = regulator_enable(marlin_dev->dcxo18);
+			pr_info("avdd18_dcxo power enable\n");
 			if (ret)
 				pr_err("fail to enable avdd18_dcxo\n");
 		}

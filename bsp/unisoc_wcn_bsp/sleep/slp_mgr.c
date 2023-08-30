@@ -78,9 +78,9 @@ int slp_mgr_wakeup(enum slp_subsys subsys)
 			if (g_match_config && g_match_config->unisoc_wcn_m3lite &&
 						marlin_dev->btwf_wakeup_lock) {
 				if ((slp_sts != M3L_BTWF_WAKEUP_LOCK) && (cnt == 0)) {
+					WCN_INFO("cnt-%d, slp_subsys-%d,  slp_sts-0x%x\n",
+						cnt, subsys, slp_sts);
 					marlin_avdd18_dcxo_enable(true);
-					WCN_INFO("cnt-%d, subsys-%d\n",
-						cnt, subsys);
 					cnt++;
 				}
 			}
