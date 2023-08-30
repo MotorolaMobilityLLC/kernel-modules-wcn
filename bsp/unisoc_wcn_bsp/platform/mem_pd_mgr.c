@@ -806,6 +806,7 @@ out:
 mem_pd_err:
 		mutex_unlock(&(mem_pd.mem_pd_lock));
 		WCN_ERR("%s return error\n", __func__);
+		wcn_assert_interface(WCN_SOURCE_BTWF, "mem_pd error");
 
 		return -1;
 }
