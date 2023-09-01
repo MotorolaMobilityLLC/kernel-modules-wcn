@@ -10,8 +10,8 @@
 
 #include "tx.h"
 
-#define DISABLE_PD_THRESHOLD (25 * 0x100000)  //200Mbit/s  or 25Mbyte/s
-#define SET_UCLAMP_THRESHOLD (25 * 0x100000)  //200Mbit/s  or 25Mbyte/s
+#define DISABLE_PD_THRESHOLD (16 * 0x100000)  //128Mbit/s  or 16Mbyte/s
+#define SET_UCLAMP_THRESHOLD (16 * 0x100000)  //128Mbit/s  or 16Mbyte/s
 
 struct throughput_sta {
 	unsigned long tx_bytes;

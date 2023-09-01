@@ -39,7 +39,8 @@
 #define DUAL_VOWIFI_VIDEO_MARK  	0x08000000
 #define DUAL_VOWIFI_MASK_MARK		0x3C000000
 
-#define TX_MAX_POLLING	10
+#define TX_MAX_POLLING		15
+#define TX_POLLING_INTERVAL	10
 
 #define MAX_COLOR_BIT	4
 /* from hw_if */

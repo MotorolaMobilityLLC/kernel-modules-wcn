@@ -652,6 +652,7 @@ static void tx_work_queue(struct tx_mgmt *tx_mgmt)
 	unsigned long need_polling;
 	struct sprd_hif *hif;
 	enum sprd_mode mode = SPRD_MODE_NONE;
+	unsigned int polling_times = 0;
 	int send_num = 0;
 	struct sprd_priv *priv;
 	struct sprd_vif *vif = NULL, *tmp_vif;
@@ -659,6 +660,7 @@ static void tx_work_queue(struct tx_mgmt *tx_mgmt)
 	hif = tx_mgmt->hif;
 	priv = hif->priv;
 
+RETRY:
 	if (unlikely(hif->exit)) {
 		wl_err("%s no longer exsit, flush data, return!\n", __func__);
 		tx_flush_all_txlist(tx_mgmt);
@@ -773,9 +775,9 @@ static void tx_work_queue(struct tx_mgmt *tx_mgmt)
 		return;
 	}
 
-	if (need_polling) {
-		/* remove retry wait credit, goto tx_down */
-		usleep_range(10, 15);
+	if (need_polling && polling_times++ < TX_MAX_POLLING) {
+		udelay(TX_POLLING_INTERVAL);
+		goto RETRY;
 	}
 }
 
