@@ -277,7 +277,7 @@ static int do_wcn_firmware_sec_verify(struct firmware_verify_ctrl *verify_ctrl)
 	kbc_image_sptr->map_len = verify_ctrl->bin_length;
 
 	WCN_INFO("wcn_ca verify request cmd = %d, payload = %d, len = %ld\n",
-		verify_request->cmd, verify_request->payload[0], len);
+		(int)verify_request->cmd, (int)verify_request->payload[0], len);
 	rc = wcn_ca_tipc_write(verify_ctrl->ca_tipc_ctx,
 			verify_request, len);
 	if (rc != 0) {
