@@ -1344,9 +1344,9 @@ static int marlin_parse_dt(struct platform_device *pdev)
 	struct device_node *np = pdev->dev.of_node;
 	struct device_node *cmdline_node;
 	struct regmap *pmu_apb_gpr;
-	int ret, rc;
+	int ret, rc = -1;
 	char *buf, *parse_cmdline;
-	const char *cmd_line;
+	const char *cmd_line = NULL;
 	struct wcn_clock_info *clk;
 	struct resource res;
 
