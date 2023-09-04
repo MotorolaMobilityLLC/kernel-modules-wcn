@@ -149,17 +149,12 @@ static struct miscdevice wlan_misc_device = {
 };
 
 #ifndef DRV_RESET_SELF
-static int iface_host_reset(void)
+static int iface_host_reset(struct notifier_block *nb,
+		       unsigned long data, void *ptr)
 {
 	struct sprd_priv *priv = iface_get_priv();
 	struct sprd_hif *hif;
 	struct sprd_cmd *cmd = NULL;
-
-	char *envp[3] = {
-		[0] = "SOURCE=unisocwl",
-		[1] = "EVENT=FW_ERROR",
-		[2] = NULL,
-	};
 
 	if (!priv) {
 		wl_err("%s sprd_prv is NULL\n", __func__);
@@ -170,22 +165,16 @@ static int iface_host_reset(void)
 	hif = &priv->hif;
 	hif->cp_asserted = 1;
 	complete(&cmd->completed);
-
-	if (hif->hw_type == SPRD_HW_SC2355_SIPC) {
-		kobject_uevent_env(&hif->pdev->dev.kobj, KOBJ_CHANGE, envp);
-		wl_info("%s() dev_path: %s\n", __func__,
-			kobject_get_path(&hif->pdev->dev.kobj, GFP_KERNEL));
-	} else {
-		kobject_uevent_env(&wlan_misc_device.this_device->kobj, KOBJ_CHANGE, envp);
-		wl_info("%s() dev_path: %s\n", __func__,
-			kobject_get_path(&wlan_misc_device.this_device->kobj, GFP_KERNEL));
-	}
 	sprd_chip_force_exit((void *)&priv->chip);
+
+	wl_info("%s start process\n", __func__);
+	schedule_delayed_work(&priv->reset_delay_work, msecs_to_jiffies(0));
 
 	return NOTIFY_OK;
 }
 #else
-static int iface_host_reset(void)
+static int iface_host_reset(struct notifier_block *nb,
+		       unsigned long data, void *ptr)
 {
 	struct sprd_priv *priv = iface_get_priv();
 	struct sprd_hif *hif;
@@ -209,52 +198,8 @@ static int iface_host_reset(void)
 }
 #endif
 
-static int iface_host_delay_reset(void)
-{
-	struct sprd_priv *priv = iface_get_priv();
-	struct sprd_hif *hif;
-	struct sprd_cmd *cmd;
-
-	if (!priv) {
-		wl_err("%s sprd_prv is NULL\n", __func__);
-		return NOTIFY_OK;
-	}
-
-	cmd = &priv->cmd;
-	hif = &priv->hif;
-	hif->cp_asserted = 1;
-	complete(&cmd->completed);
-	sprd_chip_force_exit((void *)&priv->chip);
-
-	wl_info("%s start process\n", __func__);
-	schedule_delayed_work(&priv->reset_delay_work, msecs_to_jiffies(0));
-
-	return NOTIFY_OK;
-}
-
-static int iface_reset(struct notifier_block *nb,
-		       unsigned long data, void *ptr)
-{
-	struct sprd_priv *priv = iface_get_priv();
-	struct sprd_hif *hif;
-
-	if (!priv) {
-		wl_err("%s sprd_prv is NULL\n", __func__);
-		return NOTIFY_OK;
-	}
-
-	hif = &priv->hif;
-	if (hif->hw_type == SPRD_HW_SC2355_SDIO ||
-	    hif->hw_type == SPRD_HW_SC2332_SIPC) {
-		wl_info("%s use iface_host_delay_reset\n", __func__);
-		return iface_host_delay_reset();
-	}
-
-	return iface_host_reset();
-}
-
 static struct notifier_block iface_host_reset_cb = {
-	.notifier_call = iface_reset,
+	.notifier_call = iface_host_reset,
 };
 
 static void iface_stop_net(struct sprd_vif *vif)
@@ -1557,7 +1502,10 @@ static struct notifier_block iface_inet6addr_cb = {
 static int iface_notify_init(struct sprd_priv *priv)
 {
 	int ret = 0;
+	struct sprd_hif *hif;
 
+	hif = &priv->hif;
+	mutex_init(&hif->reset_lock);
 	atomic_notifier_chain_register(&wcn_reset_notifier_list,
 				       &iface_host_reset_cb);
 
@@ -1588,9 +1536,13 @@ static int iface_notify_init(struct sprd_priv *priv)
 
 static void iface_notify_deinit(struct sprd_priv *priv)
 {
+	struct sprd_hif *hif;
+
+	hif = &priv->hif;
 	misc_deregister(&wlan_misc_device);
 	atomic_notifier_chain_unregister(&wcn_reset_notifier_list,
 					 &iface_host_reset_cb);
+	mutex_destroy(&hif->reset_lock);
 	unregister_inetaddr_notifier(&iface_inetaddr_cb);
 	if (priv->fw_capa & SPRD_CAPA_NS_OFFLOAD)
 		unregister_inet6addr_notifier(&iface_inet6addr_cb);

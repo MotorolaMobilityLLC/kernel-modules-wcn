@@ -826,7 +826,6 @@ int sipc_init(struct sprd_hif *hif)
 	hif->cp_asserted = 0;
 	hif->exit = 0;
 	hif->remove_flag = 0;
-	mutex_init(&hif->reset_lock);
 
 	return 0;
 
@@ -865,7 +864,6 @@ void sipc_deinit(struct sprd_hif *hif)
 	sprd_deinit_msg(&hif->tx_list0);
 	sprd_deinit_msg(&hif->tx_list1);
 	sprd_deinit_msg(&hif->tx_list2);
-	mutex_destroy(&hif->reset_lock);
 
 	wl_debug("%s\t"
 		"net: stop %u, start %u\t"

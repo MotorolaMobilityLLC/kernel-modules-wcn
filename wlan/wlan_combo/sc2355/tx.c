@@ -1723,23 +1723,14 @@ int sc2355_reset(struct sprd_hif *hif)
 	}
 
 	/* need reset hif->cp_assert flag */
-	if (hif->hw_type == SPRD_HW_SC2355_SDIO) {
-		mutex_lock(&hif->reset_lock);
-		if (unlikely(hif->cp_asserted)) {
-			hif->cp_asserted = 0;
-			hif->report_try = 0;
-			wl_debug("%s reset hif->cp_asserted flag:%d "
-				 "and hif->report_try flag: %d!\n",
-				 __func__, hif->cp_asserted, hif->report_try);
-		}
-		mutex_unlock(&hif->reset_lock);
-	} else {
-		if (unlikely(hif->cp_asserted)) {
-			hif->cp_asserted = 0;
-			wl_debug("%s reset hif->cp_asserted flag:%d!\n", __func__,
-				 hif->cp_asserted);
-		}
+	mutex_lock(&hif->reset_lock);
+	if (unlikely(hif->cp_asserted)) {
+		hif->cp_asserted = 0;
+		hif->report_try = 0;
+		wl_debug("%s %d cp_asserted:%d report_try:%d!\n",
+			 __func__, __LINE__, hif->cp_asserted, hif->report_try);
 	}
+	mutex_unlock(&hif->reset_lock);
 
 	hif->fw_awake = 1;
 	hif->fw_power_down = 0;
