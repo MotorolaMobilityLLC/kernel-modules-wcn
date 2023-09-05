@@ -872,6 +872,7 @@ int sc2355_enable_gscan(struct sprd_priv *priv, struct sprd_vif *vif,
 {
 	struct sprd_msg *msg;
 	struct cmd_gscan_header *p;
+	u8 *pdata = NULL;
 
 	msg = get_cmdbuf(priv, vif, sizeof(*p) + sizeof(int), CMD_GSCAN);
 	if (!msg)
@@ -879,7 +880,9 @@ int sc2355_enable_gscan(struct sprd_priv *priv, struct sprd_vif *vif,
 	p = (struct cmd_gscan_header *)msg->data;
 	p->subcmd = SPRD_GSCAN_SUBCMD_ENABLE_GSCAN;
 	p->data_len = sizeof(int);
-	memcpy(p->data, data, p->data_len);
+	pdata = p->data;
+	memcpy(pdata, data, p->data_len);
+
 	return send_cmd_recv_rsp(priv, msg, r_buf, r_len);
 }
 
@@ -1400,10 +1403,11 @@ void sc2355_sipc_download_hw_param(struct sprd_priv *priv)
 static void cmdevt_set_tlv_elmt(u8 *addr, u16 type, u16 len, u8 *data)
 {
 	struct tlv_data *p = (struct tlv_data *)addr;
+	u8 *pdata = p->data;
 
 	p->type = type;
 	p->len = len;
-	memcpy(p->data, data, len);
+	memcpy(pdata, data, len);
 }
 
 int sc2355_get_fw_info(struct sprd_priv *priv)
@@ -2288,6 +2292,7 @@ int sc2355_send_tdls_cmd(struct sprd_vif *vif, const u8 *peer, int oper)
 {
 	struct sprd_work *misc_work;
 	struct sprd_tdls_work tdls;
+	u8 *data = NULL;
 
 	tdls.vif_ctx_id = vif->ctx_id;
 	if (peer)
@@ -2301,7 +2306,8 @@ int sc2355_send_tdls_cmd(struct sprd_vif *vif, const u8 *peer, int oper)
 	}
 	misc_work->vif = vif;
 	misc_work->id = SPRD_TDLS_CMD;
-	memcpy(misc_work->data, &tdls, sizeof(struct sprd_tdls_work));
+	data = misc_work->data;
+	memcpy(data, &tdls, sizeof(struct sprd_tdls_work));
 
 	sprd_queue_work(vif->priv, misc_work);
 	return 0;
@@ -2421,6 +2427,7 @@ int sc2355_start_tdls_channel_switch(struct sprd_priv *priv,
 	struct sprd_msg *msg;
 	struct cmd_tdls *p;
 	struct cmd_tdls_channel_switch chan_switch;
+	u8 *payload = NULL;
 
 	msg = get_cmdbuf(priv, vif, sizeof(*p) + sizeof(chan_switch), CMD_TDLS);
 	if (!msg)
@@ -2434,7 +2441,8 @@ int sc2355_start_tdls_channel_switch(struct sprd_priv *priv,
 	chan_switch.second_chan_offset = second_chan_offset;
 	chan_switch.band = band;
 	p->paylen = sizeof(chan_switch);
-	memcpy(p->payload, &chan_switch, p->paylen);
+	payload = p->payload;
+	memcpy(payload, &chan_switch, p->paylen);
 
 	return send_cmd_recv_rsp(priv, msg, NULL, NULL);
 }

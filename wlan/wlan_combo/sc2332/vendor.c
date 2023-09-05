@@ -1797,6 +1797,7 @@ static int vendor_softap_set_sae_para(struct sprd_vif *vif,
 	struct sae_entry *tmp;
 	struct sprd_msg *msg;
 	struct tlv_data *tlv;
+	u8 *peer_addr = NULL;
 
 	data = kzalloc(1024, GFP_KERNEL);
 	if (!data)
@@ -1848,8 +1849,9 @@ static int vendor_softap_set_sae_para(struct sprd_vif *vif,
 			tlv = (struct tlv_data *)pos;
 			tlv->type = VENDOR_SAE_PEER_ADDR - 1;
 			tlv->len = ETH_ALEN;
+			peer_addr = tlv->data;
 
-			memcpy(tlv->data, tmp->peer_addr, ETH_ALEN);
+			memcpy(peer_addr, tmp->peer_addr, ETH_ALEN);
 			pos += (header_len + ETH_ALEN);
 			data_len += (header_len + ETH_ALEN);
 		}

@@ -212,6 +212,7 @@ int pcie_skb_to_tx_buf(struct sprd_hif *dev,
 	struct sk_buff *skb = msg_pos->skb;
 	unsigned long dma_addr = 0;
 	struct sprd_buf_node *node = NULL;
+	u8 *buf = NULL;
 
 	node = pcie_alloc_tx_buf();
 	if (unlikely(node == NULL) || unlikely(node->buf == NULL)) {
@@ -231,7 +232,9 @@ int pcie_skb_to_tx_buf(struct sprd_hif *dev,
 
 	memcpy(node->buf, skb->data, skb->len);
 	dma_addr = virt_to_phys(node->buf) | SPRD_MH_ADDRESS_BIT;
-	memcpy(node->buf, &dma_addr, MSDU_DSCR_RSVD);
+	buf = node->buf;
+	memcpy(buf, &dma_addr, MSDU_DSCR_RSVD);
+
 	dev_kfree_skb(msg_pos->skb);
 	msg_pos->skb = NULL;
 	msg_pos->node = node;

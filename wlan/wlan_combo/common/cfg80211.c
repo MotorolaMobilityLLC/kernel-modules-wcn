@@ -711,6 +711,7 @@ int sprd_p2p_go_del_station(struct sprd_priv *priv, struct sprd_vif *vif,
 				  const u8 *mac_addr, u16 reason_code)
 {
 	struct sprd_work *misc_work = NULL;
+	struct sprd_del_station *data = NULL;
 
 	misc_work = sprd_alloc_work(ETH_ALEN + sizeof(u16));
 	if (!misc_work) {
@@ -719,9 +720,10 @@ int sprd_p2p_go_del_station(struct sprd_priv *priv, struct sprd_vif *vif,
 	}
 	misc_work->vif = vif;
 	misc_work->id = SPRD_P2P_GO_DEL_STATION;
+	data = (struct sprd_del_station *)misc_work->data;
 
-	memcpy(misc_work->data, mac_addr, ETH_ALEN);
-	memcpy(misc_work->data + ETH_ALEN, &reason_code, sizeof(u16));
+	memcpy(data->mac, mac_addr, ETH_ALEN);
+	data->reason_code = reason_code;
 
 	sprd_queue_work(vif->priv, misc_work);
 	return 0;

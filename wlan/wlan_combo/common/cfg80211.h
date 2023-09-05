@@ -283,6 +283,11 @@ struct sprd_ieee80211_regdomain {
 	struct sprd_reg_rule reg_rules[];
 };
 
+struct sprd_del_station {
+	u8 mac[ETH_ALEN];
+	u16 reason_code;
+} __packed;
+
 static inline __le32 sprd_convert_wpa_version(u32 version)
 {
 	u32 ret;

@@ -2245,6 +2245,7 @@ void sc2355_tx_addba(struct sprd_hif *hif,
 	struct host_addba_param addba;
 	struct sprd_work *misc_work;
 	struct sprd_vif *vif;
+	u8 *work_data = NULL;
 
 	vif = sc2355_ctxid_to_vif(hif->priv, peer_entry->ctx_id);
 	if (!vif)
@@ -2268,7 +2269,8 @@ void sc2355_tx_addba(struct sprd_hif *hif,
 	misc_work->vif = vif;
 	misc_work->id = SPRD_WORK_ADDBA;
 	misc_work->hw_type = hif->hw_type;
-	memcpy(misc_work->data, &addba, sizeof(struct host_addba_param));
+	work_data = misc_work->data;
+	memcpy(work_data, &addba, sizeof(struct host_addba_param));
 
 	sprd_queue_work(vif->priv, misc_work);
 	sprd_put_vif(vif);
@@ -2281,6 +2283,7 @@ void sc2355_tx_delba(struct sprd_hif *hif,
 	struct host_delba_param delba;
 	struct sprd_work *misc_work;
 	struct sprd_vif *vif;
+	u8 *work_data = NULL;
 
 	vif = sc2355_ctxid_to_vif(hif->priv, peer_entry->ctx_id);
 	if (!vif)
@@ -2303,7 +2306,9 @@ void sc2355_tx_delba(struct sprd_hif *hif,
 	misc_work->vif = vif;
 	misc_work->id = SPRD_WORK_DELBA;
 	misc_work->hw_type = hif->hw_type;
-	memcpy(misc_work->data, &delba, sizeof(struct host_delba_param));
+	work_data = misc_work->data;
+	memcpy(work_data, &delba, sizeof(struct host_delba_param));
+
 	clear_bit(qos_index_2_tid(ac_index), &peer_entry->ba_tx_done_map);
 
 	sprd_queue_work(vif->priv, misc_work);

@@ -980,6 +980,7 @@ int sc2355_pcie_add_topop_list(int chn, struct mbuf_t *head,
 	struct sprd_hif *hif = sc2355_pcie_get_hif();
 	struct sprd_work *misc_work;
 	struct pop_work pop_work;
+	u8 *data = NULL;
 
 	pop_work.chn = chn;
 	pop_work.head = (void *)head;
@@ -994,7 +995,8 @@ int sc2355_pcie_add_topop_list(int chn, struct mbuf_t *head,
 	misc_work->vif = NULL;
 	misc_work->id = SPRD_POP_MBUF;
 	misc_work->hw_type = SPRD_HW_SC2355_PCIE;
-	memcpy(misc_work->data, &pop_work, sizeof(struct pop_work));
+	data = misc_work->data;
+	memcpy(data, &pop_work, sizeof(struct pop_work));
 
 	sprd_queue_work(hif->priv, misc_work);
 	return 0;

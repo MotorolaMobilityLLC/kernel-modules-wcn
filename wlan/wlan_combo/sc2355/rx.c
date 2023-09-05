@@ -316,6 +316,7 @@ sc2355_rx_mh_addr_process(struct rx_mgmt *rx_mgmt, void *data,
 	    (struct sprd_common_hdr *)(data + hif->hif_offset);
 	struct sprd_work *misc_work = NULL;
 	static unsigned long time;
+	u8 *work_data = NULL;
 
 	wl_all("%s: rx_data_addr=0x%lx\n", __func__, (unsigned long)data);
 
@@ -340,7 +341,8 @@ sc2355_rx_mh_addr_process(struct rx_mgmt *rx_mgmt, void *data,
 
 		if (misc_work) {
 			misc_work->id = SPRD_PCIE_TX_FREE_BUF;
-			memcpy(misc_work->data, &data, sizeof(void *));
+			work_data = misc_work->data;
+			memcpy(work_data, &data, sizeof(void *));
 			misc_work->len = buffer_type;
 			misc_work->hw_type = hif->hw_type;
 

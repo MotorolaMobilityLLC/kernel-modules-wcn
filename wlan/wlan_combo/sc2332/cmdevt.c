@@ -665,6 +665,7 @@ int sc2332_enable_gscan(struct sprd_priv *priv, struct sprd_vif *vif,
 {
 	struct sprd_msg *msg;
 	struct cmd_gscan_header *p;
+	u8 *pdata = NULL;
 
 	msg = get_cmdbuf(priv, vif, sizeof(*p) + sizeof(int), CMD_GSCAN);
 	if (!msg)
@@ -673,7 +674,9 @@ int sc2332_enable_gscan(struct sprd_priv *priv, struct sprd_vif *vif,
 	    (msg->skb->data + sizeof(struct sprd_cmd_hdr));
 	p->subcmd = SPRD_GSCAN_SUBCMD_ENABLE_GSCAN;
 	p->data_len = sizeof(int);
-	memcpy(p->data, data, p->data_len);
+	pdata = p->data;
+	memcpy(pdata, data, p->data_len);
+
 	return send_cmd_recv_rsp(priv, msg, r_buf, r_len);
 }
 
@@ -1485,6 +1488,7 @@ int sc2332_start_tdls_channel_switch(struct sprd_priv *priv,
 	struct sprd_msg *msg;
 	struct cmd_tdls *p;
 	struct cmd_tdls_channel_switch chan_switch;
+	u8 *payload = NULL;
 
 	msg = get_cmdbuf(priv, vif, sizeof(*p) + sizeof(chan_switch), CMD_TDLS);
 	if (!msg)
@@ -1498,7 +1502,8 @@ int sc2332_start_tdls_channel_switch(struct sprd_priv *priv,
 	chan_switch.second_chan_offset = second_chan_offset;
 	chan_switch.band = band;
 	p->paylen = sizeof(chan_switch);
-	memcpy(p->payload, &chan_switch, p->paylen);
+	payload = p->payload;
+	memcpy(payload, &chan_switch, p->paylen);
 
 	return send_cmd_recv_rsp(priv, msg, NULL, NULL);
 }

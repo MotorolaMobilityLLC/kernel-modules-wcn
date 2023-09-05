@@ -8,10 +8,18 @@
 #include "cmd.h"
 #include "common.h"
 
+#if (KERNEL_VERSION(6, 5, 0) <= LINUX_VERSION_CODE)
+int sprd_cfg80211_tdls_mgmt(struct wiphy *wiphy, struct net_device *ndev,
+			    const u8 *peer, int link_id,
+			    u8 action_code, u8 dialog_token, u16 status_code,
+			    u32 peer_capability, bool initiator,
+			    const u8 *buf, size_t len)
+#else
 int sprd_cfg80211_tdls_mgmt(struct wiphy *wiphy, struct net_device *ndev,
 			    const u8 *peer, u8 action_code, u8 dialog_token,
 			    u16 status_code, u32 peer_capability,
 			    bool initiator, const u8 *buf, size_t len)
+#endif
 {
 	struct sprd_vif *vif = netdev_priv(ndev);
 	struct sk_buff *tdls_skb;
