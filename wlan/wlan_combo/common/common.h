@@ -100,6 +100,7 @@ struct sprd_api_version_t {
 	unsigned char cmd_id;
 	unsigned char drv_version;
 	unsigned char fw_version;
+	char *name;
 };
 
 /* struct used for priv to store all info */

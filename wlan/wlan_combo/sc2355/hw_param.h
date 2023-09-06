@@ -194,6 +194,7 @@ struct wifi_conf_t {
 	struct rf_config_t rf_config;
 	struct wifi_config_param_t wifi_param;
 };
+extern struct sprd_api_version_t api_array[];
 
 int sc2355_get_nvm_table(struct sprd_priv *priv, struct wifi_conf_t *p);
 
