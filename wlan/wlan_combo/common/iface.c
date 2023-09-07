@@ -269,74 +269,22 @@ static void iface_stop_net(struct sprd_vif *vif)
 	spin_unlock_bh(&priv->list_lock);
 }
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 1, 0))
-static void iface_set_dev_addr(struct sprd_vif *vif, u8 *pending_addr,
-			       const u8 *addr)
-{
-	enum nl80211_iftype type = vif->wdev.iftype;
-	struct sprd_priv *priv = vif->priv;
-	u8 mac[ETH_ALEN] = { 0 };
-
-	if (!addr) {
-		return;
-	} else if (priv && (strncmp(vif->name, "wlan0", 5) == 0) &&
-				is_valid_ether_addr(priv->default_mac)) {
-		dev_addr_set(vif->ndev, priv->default_mac);
-	} else if (priv && (strncmp(vif->name, "wlan1", 5) == 0) &&
-				is_valid_ether_addr(priv->default_mac_sta_second)) {
-		dev_addr_set(vif->ndev, priv->default_mac_sta_second);
-	} else {
-		eth_random_addr(mac);
-		netdev_warn(vif->ndev, "%s Warning: use random MAC address\n",
-				__func__);
-		/* initialize MAC addr with specific OUI */
-		mac[0] = 0x40;
-		mac[1] = 0x45;
-		mac[2] = 0xda;
-		dev_addr_set(vif->ndev, mac);
-	}
-
-	if (!priv) {
-		netdev_err(vif->ndev, "%s get pirv failed\n", __func__);
-		return;
-	}
-	switch (type) {
-	case NL80211_IFTYPE_STATION:
-	case NL80211_IFTYPE_AP:
-		if (strncmp(vif->name, "wlan1", 5) == 0)
-			ether_addr_copy(priv->default_mac_sta_second, addr);
-		else
-			ether_addr_copy(priv->default_mac, addr);
-		break;
-	case NL80211_IFTYPE_P2P_CLIENT:
-		fallthrough;
-	case NL80211_IFTYPE_P2P_GO:
-		mac[4] ^= 0x80;
-		fallthrough;
-	case NL80211_IFTYPE_P2P_DEVICE:
-		mac[0] ^= 0x02;
-		dev_addr_set(vif->ndev, mac);
-		break;
-	default:
-		break;
-	}
-}
-#endif
-
 static void iface_set_mac_addr(struct sprd_vif *vif, u8 *pending_addr,
 			       u8 *addr)
 {
 	enum nl80211_iftype type = vif->wdev.iftype;
 	struct sprd_priv *priv = vif->priv;
 
-	if (!addr) {
+	if (!addr)
 		return;
-	} else if (priv && (strncmp(vif->name, "wlan0", 5) == 0) &&
-				is_valid_ether_addr(priv->default_mac)) {
+
+	if (!priv) {
+		netdev_err(vif->ndev, "%s get pirv failed\n", __func__);
+		return;
+	}
+
+	if (is_valid_ether_addr(priv->default_mac)) {
 		ether_addr_copy(addr, priv->default_mac);
-	} else if (priv && (strncmp(vif->name, "wlan1", 5) == 0) &&
-				is_valid_ether_addr(priv->default_mac_sta_second)) {
-		ether_addr_copy(addr, priv->default_mac_sta_second);
 	} else {
 		eth_random_addr(addr);
 		netdev_warn(vif->ndev, "%s Warning: use random MAC address\n",
@@ -347,17 +295,11 @@ static void iface_set_mac_addr(struct sprd_vif *vif, u8 *pending_addr,
 		addr[2] = 0xda;
 	}
 
-	if (!priv) {
-		netdev_err(vif->ndev, "%s get pirv failed\n", __func__);
-		return;
-	}
 	switch (type) {
 	case NL80211_IFTYPE_STATION:
 	case NL80211_IFTYPE_AP:
-		if (strncmp(vif->name, "wlan1", 5) == 0)
-			ether_addr_copy(priv->default_mac_sta_second, addr);
-		else
-			ether_addr_copy(priv->default_mac, addr);
+		if (strncmp(vif->name, "wlan0", 5))
+			addr[5] ^= 0x70;
 		break;
 	case NL80211_IFTYPE_P2P_CLIENT:
 		fallthrough;
@@ -1389,7 +1331,6 @@ static int iface_set_mac(struct net_device *dev, void *addr)
 {
 	struct sprd_vif *vif = netdev_priv(dev);
 	struct sockaddr *sa = (struct sockaddr *)addr;
-	struct sprd_hif *hif = &vif->priv->hif;
 	int ret;
 
 	if (!dev) {
@@ -1397,71 +1338,42 @@ static int iface_set_mac(struct net_device *dev, void *addr)
 		return -EINVAL;
 	}
 
-	netdev_info(dev, "%s() receive mac: %pM\n", __func__, sa->sa_data);
+	netdev_info(dev, "%s() receive mac: %pM, vif-> mac : %pM\n",
+		    __func__, sa->sa_data, vif->mac);
 	if (is_multicast_ether_addr(sa->sa_data)) {
 		netdev_err(dev, "invalid, it is multicast addr: %pM\n",
 			   sa->sa_data);
 		return -EINVAL;
 	}
 
-	if (vif->wdev.iftype == NL80211_IFTYPE_STATION) {
-		if (!is_zero_ether_addr(sa->sa_data)) {
-			vif->has_rand_mac = true;
-			memcpy(vif->random_mac, sa->sa_data, ETH_ALEN);
-			dev_addr_set(dev, sa->sa_data);
-			if (atomic_read(&hif->power_cnt) != 0) {
-				netdev_info(dev, "set random mac to cp2 : %pM\n", vif->random_mac);
-				ret = sprd_set_random_mac(vif->priv, vif,
-						  SPRD_CONNECT_RANDOM_ADDR,
-						  vif->random_mac);
-				if (ret) {
-					netdev_err(dev, "%s set station random mac error\n", __func__);
-					return -EFAULT;
-				}
-			}
-		} else {
-			vif->has_rand_mac = false;
+	if (!is_zero_ether_addr(sa->sa_data)) {
+		if (ether_addr_equal(vif->mac, sa->sa_data)) {
 			netdev_info(dev,
-				    "need clear random mac for sta/softap\n");
+				    "equal to vif mac, no need set to cp\n");
 			memset(vif->random_mac, 0, ETH_ALEN);
-			dev_addr_set(dev, vif->mac);
-		}
-	}
-
-	if (vif->wdev.iftype == NL80211_IFTYPE_P2P_GO ||
-	    vif->wdev.iftype == NL80211_IFTYPE_P2P_CLIENT) {
-		if (!is_zero_ether_addr(sa->sa_data)) {
-			netdev_info(dev, "%s vif-> mac : %pM\n", __func__,
-				    vif->mac);
-			if (ether_addr_equal(vif->mac, sa->sa_data)) {
-				netdev_info(dev,
-					    "equal to vif mac, no need set to cp\n");
-				memset(vif->random_mac, 0, ETH_ALEN);
-				dev_addr_set(dev, vif->mac);
-				vif->has_rand_mac = false;
-				return 0;
-			}
-
-			netdev_info(dev, "set go/gc random mac addr\n");
 			dev_addr_set(dev, sa->sa_data);
-			vif->has_rand_mac = true;
-			memcpy(vif->random_mac, sa->sa_data, ETH_ALEN);
-
+			vif->has_rand_mac = false;
+			return 0;
+		}
+		vif->has_rand_mac = true;
+		memcpy(vif->random_mac, sa->sa_data, ETH_ALEN);
+		dev_addr_set(dev, sa->sa_data);
+		if (vif->state & VIF_STATE_OPEN) {
+			netdev_info(dev, "set random mac to cp2\n");
 			ret = sprd_set_random_mac(vif->priv, vif,
 						  SPRD_CONNECT_RANDOM_ADDR,
-						  sa->sa_data);
+						  vif->random_mac);
 			if (ret) {
-				netdev_err(dev, "%s set p2p mac error\n",
+				netdev_err(dev, "%s set station/gc random mac error\n",
 					   __func__);
 				return -EFAULT;
 			}
-		} else {
-			netdev_info(dev, "%s clear mac for go/gc mode\n",
-				    __func__);
-			vif->has_rand_mac = false;
-			memset(vif->random_mac, 0, ETH_ALEN);
-			dev_addr_set(dev, vif->mac);
 		}
+	} else {
+		vif->has_rand_mac = false;
+		netdev_info(dev, "need clear random mac\n");
+		memset(vif->random_mac, 0, ETH_ALEN);
+		dev_addr_set(dev, vif->mac);
 	}
 
 	/* return success to pass vts test */
@@ -1809,12 +1721,8 @@ static struct sprd_vif *iface_register_netdev(struct sprd_priv *priv,
 	ndev->features |= priv->hif.feature;
 	SET_NETDEV_DEV(ndev, wlan_misc_device.this_device);
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 1, 0))
-	iface_set_dev_addr(vif, addr, ndev->dev_addr);
-#else
-	iface_set_mac_addr(vif, addr, ndev->dev_addr);
-#endif
-	memcpy(vif->mac, ndev->dev_addr, ETH_ALEN);
+	iface_set_mac_addr(vif, addr, vif->mac);
+	dev_addr_set(ndev, vif->mac);
 
 	/* register new Ethernet interface */
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))

@@ -221,7 +221,6 @@ struct sprd_priv {
 	struct sprd_llstat_radio pre_radio;
 	/* default MAC addr */
 	unsigned char default_mac[ETH_ALEN];
-	unsigned char default_mac_sta_second[ETH_ALEN];
 
 	/* delayed work */
 	spinlock_t work_lock;
