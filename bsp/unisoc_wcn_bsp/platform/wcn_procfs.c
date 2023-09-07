@@ -45,7 +45,6 @@ static u32 g_dumpmem_switch =  1;
 static u32 g_loopcheck_switch;
 static u32 g_assert_cnt;
 struct wcn_pcie_info *pcie_dev;
-struct completion marlin_is_powerdown;
 
 struct mdbg_proc_entry {
 	char *name;
@@ -80,6 +79,7 @@ struct mdbg_proc_t {
 	int fail_count;
 	int assert_notify_flag;
 	bool loopcheck_flag;
+	bool marlin_powerdown_flag;
 
 	/*see device_lock*/
 	struct async_assert_t async_assert;
@@ -155,10 +155,7 @@ EXPORT_SYMBOL_GPL(wcn_is_assert);
 
 void wcn_set_powerdown_flag(bool flag)
 {
-	if (flag)
-		init_completion(&marlin_is_powerdown);
-	else
-		complete(&marlin_is_powerdown);
+	mdbg_proc->marlin_powerdown_flag = flag;
 	return;
 }
 EXPORT_SYMBOL_GPL(wcn_set_powerdown_flag);
@@ -166,7 +163,6 @@ EXPORT_SYMBOL_GPL(wcn_set_powerdown_flag);
 void __wcn_assert_interface(enum wcn_source_type type, char *str)
 {
 	int reset_prop = wcn_sysfs_get_reset_prop();
-	unsigned long timeleft = 0;
 	struct wcn_match_data *g_match_config = get_wcn_match_config();
 
 	WCN_INFO("wcn_assert_interface %d\n", reset_prop);
@@ -191,15 +187,12 @@ void __wcn_assert_interface(enum wcn_source_type type, char *str)
 			return;
 		}
 	} else {
-		if (!completion_done(&marlin_is_powerdown)) {
+		if (mdbg_proc->marlin_powerdown_flag) {
 			WCN_ERR("fw assert hanppend in WCN Powerdown!!\n");
-			timeleft = wait_for_completion_timeout(&marlin_is_powerdown, msecs_to_jiffies(1000));
-			if (!timeleft) {
-				WCN_ERR("WCN sitll in Powerdown!!\n");
-				return;
-			}
+			return;
 		}
 	}
+
 	if (!mdbg_proc->assert_notify_flag) {
 		wcn_notify_fw_error(type, str);
 		mdbg_proc->assert_notify_flag = 1;

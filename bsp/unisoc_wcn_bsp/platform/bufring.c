@@ -249,7 +249,7 @@ int mdbg_ring_write(struct mdbg_ring_t *ring, void *buf, unsigned int len)
 	 */
 	if (((mdbg_ring_free_space(ring) - 1) < len)
 		&& (mdbg_dev->open_count != 0)) {
-		WCN_ERR("log buf is full, Discard the package=%d\n", len);
+		WCN_WARN("log buf is full, Discard the package=%d\n", len);
 		wake_up_log_wait();
 		return len;
 	}
