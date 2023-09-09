@@ -15,6 +15,7 @@
 #include "common/msg.h"
 #include "common/report.h"
 #include "common/tdls.h"
+#include "common/npi.h"
 #include "hw_param.h"
 #include "hw_sipc_param.h"
 #include "qos.h"
@@ -4107,6 +4108,34 @@ static int cmdevt_report_acs_done_evt(struct sprd_vif *vif, u8 *data, u16 len)
 	return 0;
 }
 
+int sc2355_evt_pw_5gband_backoff(struct sprd_vif *vif, u8 *data, u16 len)
+{
+	struct sprd_work *misc_work;
+	u8 channel, value;
+
+	if (!len) {
+		netdev_err(vif->ndev, "%s event data len=0\n", __func__);
+		return -EINVAL;
+	}
+
+	channel = *data;
+	value = sprd_pw_backoff_band2value(channel);
+
+	if (!value)
+		return -1;
+	misc_work = sprd_alloc_work(1);
+	if (!misc_work) {
+		wl_err("%s out of memory\n", __func__);
+		return -1;
+	}
+	misc_work->vif = vif;
+	misc_work->id = SPRD_WORK_5G_PW_BACKOFF;
+	memcpy(misc_work->data, &value, 1);
+	wl_info("%s channel %d, vlaue  %d\n", __func__, channel, value);
+	sprd_queue_work(vif->priv, misc_work);
+	return 0;
+}
+
 static int sc2355_evt_pw_backoff(struct sprd_vif *vif, u8 *data, u16 len)
 {
 	struct sprd_work *misc_work;
@@ -4284,6 +4313,8 @@ unsigned short sc2355_rx_evt_process(struct sprd_priv *priv, u8 *msg)
 		break;
 	case EVT_FRESH_POWER_BO:
 		cmdevt_report_update_band_info(hif, vif, data);
+		if (hif->hw_type == SPRD_HW_SC2355_SIPC)
+			sc2355_evt_pw_5gband_backoff(vif, data, len);
 		sc2355_evt_pw_backoff(vif, data, len);
 		break;
 	case EVT_REPORT_IP_ADDR:

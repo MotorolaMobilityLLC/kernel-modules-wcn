@@ -4,6 +4,7 @@
 */
 
 #include "common/common.h"
+#include "common/npi.h"
 #include "cmdevt.h"
 
 static struct sprd_fcc_priv fcc_info;
@@ -150,4 +151,64 @@ void sc2355_fcc_init(void)
 {
 	fcc_info.flag = false;
 	mutex_init(&fcc_info.lock);
+}
+
+u8 sprd_pw_backoff_band2value(u8 channel)
+{
+	u8 value = 0;
+
+	if (!channel)
+		return value;
+	mutex_lock(&g_set_5g_sar_info.lock);
+	g_set_5g_sar_info.channel = channel;
+	switch (channel) {
+	case 30 ... 50:
+		value = g_set_5g_sar_info.value[0];
+		break;
+	case 51 ... 70:
+		value = g_set_5g_sar_info.value[1];
+		break;
+	case 71 ... 145:
+		value = g_set_5g_sar_info.value[2];
+		break;
+	case 146 ... 170:
+		value = g_set_5g_sar_info.value[3];
+		break;
+	default:
+		value = g_set_5g_sar_info.value[4];
+		break;
+	}
+	mutex_unlock(&g_set_5g_sar_info.lock);
+	return value;
+
+}
+
+void sprd_5g_sar_info_init(void)
+{
+	mutex_init(&g_set_5g_sar_info.lock);
+	g_set_5g_sar_info.channel = 0;
+	memset(g_set_5g_sar_info.value, 0x00, 5);
+}
+
+void sprd_5g_sar_info_reset(void)
+{
+	mutex_lock(&g_set_5g_sar_info.lock);
+	g_set_5g_sar_info.channel = 0;
+	mutex_unlock(&g_set_5g_sar_info.lock);
+}
+void sprd_5g_sar_info_set(unsigned char *data)
+{
+	mutex_lock(&g_set_5g_sar_info.lock);
+	if (data == NULL)
+		memset(g_set_5g_sar_info.value, 0x00, 5);
+	else
+		memcpy(g_set_5g_sar_info.value, data, 5);
+	wl_info("%s band sar: %d, %d, %d, %d, %d\n", __func__,
+			g_set_5g_sar_info.value[0],
+			g_set_5g_sar_info.value[1],
+			g_set_5g_sar_info.value[2],
+			g_set_5g_sar_info.value[3],
+			g_set_5g_sar_info.value[4]);
+
+	mutex_unlock(&g_set_5g_sar_info.lock);
 }

@@ -123,6 +123,7 @@ static void cfg80211_do_work(struct work_struct *work)
 	struct sprd_reg_mgmt *reg_mgmt = NULL;
 	struct sprd_vif *vif = NULL;
 	struct sprd_priv *priv = container_of(work, struct sprd_priv, work);
+	u8 value;
 
 	while (1) {
 		spin_lock_bh(&priv->work_lock);
@@ -166,6 +167,10 @@ static void cfg80211_do_work(struct work_struct *work)
 			break;
 		case SPRD_WORK_NOTIFY_IP:
 			sprd_notify_ip(priv, vif, SPRD_IPV6, sprd_work->data);
+			break;
+		case SPRD_WORK_5G_PW_BACKOFF:
+			value = *(sprd_work->data);
+			sprd_set_sar(vif->priv, vif, SPRD_SET_SAR_RELATIVE, value);
 			break;
 		default:
 			if (sprd_do_delay_work(priv, sprd_work) == false) {
@@ -697,6 +702,9 @@ int sprd_cfg80211_stop_ap(struct wiphy *wiphy, struct net_device *ndev)
 	sprd_abort_cac(vif->priv, vif);
 #endif
 	sprd_fcc_reset_bo(vif->priv);
+
+	if (hif->hw_type == SPRD_HW_SC2355_SIPC)
+		sprd_5g_sar_info_reset();
 
 	return 0;
 }

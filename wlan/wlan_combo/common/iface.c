@@ -1773,6 +1773,7 @@ static int iface_core_init(struct device *dev, struct sprd_priv *priv)
 {
 	struct wiphy *wiphy = priv->wiphy;
 	struct wireless_dev *wdev;
+	struct sprd_hif *hif;
 	int ret;
 
 	sprd_tcp_ack_init(priv);
@@ -1797,6 +1798,10 @@ static int iface_core_init(struct device *dev, struct sprd_priv *priv)
 	sprd_init_npi();
 
 	sprd_fcc_init(priv);
+
+	hif = &priv->hif;
+	if (hif->hw_type == SPRD_HW_SC2355_SIPC)
+		sprd_5g_sar_info_init();
 
 	sprd_qos_enable(priv, 1);
 

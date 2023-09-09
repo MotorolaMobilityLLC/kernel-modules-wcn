@@ -15,6 +15,7 @@
 #define SPRD_NPI_CMD_SET_CCA_PARAM        (198)
 #define SPRD_NPI_CMD_SET_RANDOM_MAC       (199)
 #define SPRD_NPI_CMD_SET_COUNTRY          (200)
+#define SPRD_NPI_CMD_5GPW_BACKOFF         (201)
 /*
 #define SPRD_NPI_CMD_START                (0)
 #define SPRD_NPI_CMD_SET_WLAN_CAP         (40)
@@ -90,9 +91,22 @@ struct sprd_wlan_adap_param {
 	spinlock_t adap_lock;
 };
 
+extern struct set_5g_sar_info g_set_5g_sar_info;
+struct set_5g_sar_info {
+	struct mutex lock;
+	u8 channel;
+	u8 value[5];
+};
+
 void sprd_init_npi(void);
 void sprd_deinit_npi(void);
 void sprd_evt_adaptive(struct sprd_vif *vif);
 void sprd_wifi_adaptive_work(struct sprd_priv *priv, struct sprd_vif *vif);
+void sprd_5g_sar_info_init(void);
+void sprd_5g_sar_info_reset(void);
+void sprd_5g_sar_info_set(unsigned char *data);
+u8 sprd_pw_backoff_band2value(u8 channel);
+void sprd_npi_cmd_set_cca_param(struct sprd_vif *vif, u8 *s_buf,
+			 u16 s_len, u8 *r_buf, u16 r_len);
 
 #endif
