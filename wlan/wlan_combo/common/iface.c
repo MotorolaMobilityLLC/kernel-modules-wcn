@@ -1292,7 +1292,8 @@ static int iface_set_mac(struct net_device *dev, void *addr)
 	}
 
 	if (!is_zero_ether_addr(sa->sa_data)) {
-		if (ether_addr_equal(vif->mac, sa->sa_data)) {
+		if ((ether_addr_equal(vif->mac, sa->sa_data)) &&
+		    (vif->wdev.iftype != NL80211_IFTYPE_STATION)) {
 			netdev_info(dev,
 				    "equal to vif mac, no need set to cp\n");
 			memset(vif->random_mac, 0, ETH_ALEN);
