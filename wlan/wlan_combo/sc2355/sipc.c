@@ -970,6 +970,7 @@ static inline int sprd_tx_free_txc_msg(struct tx_mgmt *tx_msg,
 				       lockflag_txc);
 		return -1;
 	}
+	atomic_sub(1, &tx_msg->xmit_msg_list.free_num);
 	list_del(&msg_buf->list);
 	spin_unlock_irqrestore(&tx_msg->xmit_msg_list.free_lock, lockflag_txc);
 
@@ -1062,6 +1063,7 @@ int sc2355_tx_free_sipc_data(unsigned char *data)
 		if (!sprd_tx_free_txc_msg(tx_mgmt, msg))
 			last_msg = msg;
 	}
+	sc2355_tx_up(tx_mgmt);
 
 #if defined(MORE_DEBUG)
 	sipc_get_tx_avg_time(hif, tx_start_time);

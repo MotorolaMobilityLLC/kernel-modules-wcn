@@ -336,7 +336,7 @@ sc2355_rx_mh_addr_process(struct rx_mgmt *rx_mgmt, void *data,
 
 		time = jiffies;
 
-		sc2355_tx_free_data_num(hif, (unsigned char *)data);
+		//sc2355_tx_free_data_num(hif, (unsigned char *)data);
 		misc_work = sprd_alloc_work(sizeof(void *));
 
 		if (misc_work) {
