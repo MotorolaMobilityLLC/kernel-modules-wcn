@@ -197,7 +197,7 @@ int mdbg_ring_read(struct mdbg_ring_t *ring, void *buf, int len)
 	}
 	total_len += read_len;
 	wcn_pr_daterate(12, 1, total_len,
-			": %s totallen:%u read:%d wp:%p rp:%p",
+			": %s totallen:%u read:%d wp:0x%px rp:0x%px",
 			__func__, total_len, read_len,
 			ring->wp, ring->rp);
 	WCN_LOG("<-----[read end] read len =%d.\n", read_len);

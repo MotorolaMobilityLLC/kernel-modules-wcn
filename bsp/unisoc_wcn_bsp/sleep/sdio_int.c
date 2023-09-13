@@ -292,11 +292,6 @@ int sdio_pub_int_init(int irq)
 	sdio_int.pub_int_clr0 = REG_PUB_INT_CLR0;
 	sdio_int.pub_int_sts0 = REG_PUB_INT_STS0;
 
-	sdio_int.pub_int_wakelock =
-		kmalloc(sizeof(struct wakeup_source), GFP_KERNEL);
-	if (!(sdio_int.pub_int_wakelock))
-		return -ENOMEM;
-
 	atomic_set(&flag_pub_int_done, 1);
 	sdio_int.pub_int_wakelock = wakeup_source_create("pub_int_wakelock");
 	wakeup_source_add(sdio_int.pub_int_wakelock);
@@ -328,7 +323,6 @@ int sdio_pub_int_deinit(void)
 	free_irq(sdio_int.pub_int_num, NULL);
 	wakeup_source_remove(sdio_int.pub_int_wakelock);
 	wakeup_source_destroy(sdio_int.pub_int_wakelock);
-	kfree(sdio_int.pub_int_wakelock);
 
 	WCN_INFO("%s ok!\n", __func__);
 

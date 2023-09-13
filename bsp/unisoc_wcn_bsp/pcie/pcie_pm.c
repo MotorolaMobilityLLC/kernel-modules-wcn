@@ -155,7 +155,7 @@ static void sprdwcn_pcie_aspm_configure_common_clock(struct pci_dev *child)
 	bool consistent = true;
 
 	pcie_capability_read_word(child, PCI_EXP_LNKSTA, &reg16);
-	WCN_INFO("EP(0x%x): PCI_EXP_LNKSTA=0x%x\n", pci_pcie_cap(parent) + PCI_EXP_LNKSTA, reg16);
+	WCN_INFO("EP(0x%x): PCI_EXP_LNKSTA=0x%x\n", pci_pcie_cap(child) + PCI_EXP_LNKSTA, reg16);
 	if (!(reg16 & PCI_EXP_LNKSTA_SLC))
 		same_clock = 0;
 

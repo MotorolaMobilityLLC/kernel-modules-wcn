@@ -441,7 +441,6 @@ struct edma_info {
 	struct wakeup_source *edma_push_ws;
 	struct wakeup_source *edma_pop_ws;
 	struct timer_list edma_tx_timer;
-	unsigned long cur_chn_status;
 	struct mutex mpool_lock;
 	spinlock_t tasklet_lock;
 	struct edma_two_link_debug dbg;

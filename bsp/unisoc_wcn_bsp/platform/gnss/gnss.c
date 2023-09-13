@@ -221,7 +221,9 @@ int gnss_boot_wait(void)
 	}
 	while (i--) {
 #ifdef BUILD_WCN_PCIE
-	/* if wcn reset will unconfig pcie,when it happend,visit or use pcie can cause bus-busy */
+		/*if wcn reset will unconfig pcie,when it happened,
+		 *visit or use pcie can cause bus-busy
+		 */
 		if (g_match_config && g_match_config->unisoc_wcn_pcie) {
 			if (!wcn_get_edma_status() || wcn_get_card_remove_status()) {
 				pr_err("%s:card removed.stop boot gnss", __func__);
@@ -238,11 +240,18 @@ int gnss_boot_wait(void)
 
 		ret = sprdwcn_bus_direct_read(gnss_bootsts_addr, buffer,
 					GNSS_BOOTSTATUS_SIZE);
-		if((ret == 0) && (*buffer == GNSS_BOOTSTATUS_MAGIC))
-		{
+		if ((ret == 0) && (*buffer == GNSS_BOOTSTATUS_MAGIC)) {
 			pr_info("boot read success\n");
 			break;
 		}
+
+#ifdef BUILD_WCN_PCIE
+		/*if pcie bus error, no need to try again*/
+		if (ret < 0 && g_match_config->unisoc_wcn_pcie) {
+			pr_err("boot read fail, pcie bus maybe error\n");
+			break;
+		}
+#endif
 
 		pr_err("boot read %d time,val=0x%x\n", i, *buffer);
 		msleep(20);
