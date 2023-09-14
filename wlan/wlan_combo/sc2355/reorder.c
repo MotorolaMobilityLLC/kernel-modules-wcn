@@ -482,9 +482,10 @@ static struct rx_ba_node
 			ba_node = ba_entry->current_ba_node;
 		} else {
 			struct hlist_head *head = &ba_entry->hlist[tid];
+			struct hlist_node *node = NULL;
 
 			if (!hlist_empty(head)) {
-				hlist_for_each_entry(ba_node, head, hlist) {
+				hlist_for_each_entry_safe(ba_node, node, head, hlist) {
 					if (sta_lut_index ==
 					    ba_node->sta_lut_index) {
 						ba_entry->current_ba_node =
@@ -607,10 +608,8 @@ static void reorder_wlan_bar_event(struct rx_ba_entry *ba_entry,
 			reorder_mod_timer(ba_node);
 		}
 
-		wl_info("%s:(active:%d, tid:%d)\n",
-			__func__, ba_node->active, ba_node->tid);
-		wl_info("%s:(win_size:%d, win_start:%d, win_tail:%d)\n",
-			__func__, ba_node_desc->win_size,
+		wl_info("%s lut_idx-tid %u-%u (win size:%d start:%d tail:%d)\n",
+			__func__, ba_node->sta_lut_index, ba_node->tid, ba_node_desc->win_size,
 			ba_node_desc->win_start, ba_node_desc->win_tail);
 	} else {
 		wl_err
@@ -742,7 +741,8 @@ static void reorder_ba_timeout(struct timer_list *t)
 					       ba_entry);
 	unsigned short pos_seqno = 0;
 
-	wl_info("enter %s\n", __func__);
+	wl_info("enter %s lut_idx-tid %u-%u active %u\n", __func__,
+		ba_node->sta_lut_index, ba_node->tid, ba_node->active);
 	sprd_debug_cnt_inc(REORDER_TIMEOUT_CNT);
 	spin_lock_bh(&ba_node->ba_node_lock);
 	if (ba_node->active && ba_node_desc->buff_cnt &&
@@ -885,7 +885,8 @@ void sc2355_wlan_ba_session_event(struct sprd_hif *hif, unsigned char *data,
 		return;
 	}
 
-	wl_info("%s ba_event type : %d\n", __func__, type);
+	wl_info("%s ba_event type: %d, lut_index-tid: %u-%u.\n", __func__, type,
+		ba_event->sta_lut_index, ba_event->tid);
 	switch (type) {
 	case SPRD_ADDBA_REQ_EVENT:
 		ret = reorder_wlan_addba_event(ba_entry, ba_event);
@@ -965,9 +966,9 @@ void sc2355_peer_entry_delba(struct sprd_hif *hif, unsigned char lut_index)
 	for (tid = 0; tid < NUM_TIDS; tid++) {
 		ba_node = reorder_find_ba_node(ba_entry, lut_index, tid);
 		if (ba_node) {
-			wl_info("%s: del ba lut_index: %d, tid %d\n",
-				__func__, lut_index, tid);
 			del_timer_sync(&ba_node->reorder_timer);
+			wl_info("%s: del ba lut_index: %d, tid %d, active %u.\n",
+				__func__, lut_index, tid, ba_node->active);
 			spin_lock_bh(&ba_node->ba_node_lock);
 			if (ba_node->active) {
 				ba_node_desc = ba_node->rx_ba;
