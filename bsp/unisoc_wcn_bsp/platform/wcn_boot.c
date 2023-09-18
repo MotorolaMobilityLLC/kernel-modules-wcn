@@ -2847,6 +2847,22 @@ retry:
 		goto retry;
 	}
 
+	ret = sprdwcn_bus_reg_read(CGM_GNSS_APB_CFG, &temp, 4);
+	if (ret < 0) {
+		pr_err("%s read CGM_GNSS_APB_CFG error:%d\n", __func__, ret);
+		return ret;
+	}
+	pr_info("%s R_CGM_GNSS_APB_CFG:0x%x\n", __func__, temp);
+	if (temp & CGM_GNSS_APB_SEL) {
+		pr_info("GNSS clock switching abnormal!\n");
+		temp = temp & (~(CGM_GNSS_APB_SEL));
+		ret = sprdwcn_bus_reg_write(CGM_GNSS_APB_CFG, &temp, 4);
+		if (ret < 0) {
+			pr_err("write CGM_GNSS_FAKE_CFG err:%d\n", ret);
+			return ret;
+		}
+	}
+
 	ret = sprdwcn_bus_reg_read(PD_GNSS_SS_AON_CFG4, &temp, 4);
 	if (ret < 0) {
 		pr_err("read PD_GNSS_SS_AON_CFG4 err:%d\n", ret);
