@@ -35,6 +35,7 @@
 #define SPRD_CIPHER_AP_CCMP		(6)
 #define SPRD_CIPHER_WAPI		(7)
 #define SPRD_CIPHER_AES_CMAC		(8)
+#define SPRD_CIPHER_GCMP_256		(9)
 /* cipher suite */
 #define WLAN_CIPHER_SUITE_PMK		(0x000FACFF)
 #define WLAN_CIPHER_SUITE_DPP		(0x506F9A02)
@@ -49,17 +50,18 @@
 #endif
 
 
-#define SPRD_AKM_SUITE_NONE		(0)
-#define SPRD_AKM_SUITE_8021X		(1)
-#define SPRD_AKM_SUITE_PSK		(2)
-#define SPRD_AKM_SUITE_FT_8021X		(3)
-#define SPRD_AKM_SUITE_FT_PSK		(4)
-#define SPRD_AKM_SUITE_WAPI_PSK		(4)
-#define SPRD_AKM_SUITE_8021X_SHA256	(5)
-#define SPRD_AKM_SUITE_PSK_SHA256	(6)
-#define SPRD_AKM_SUITE_SAE		(8)
-#define SPRD_AKM_SUITE_WAPI_CERT	(12)
-#define SPRD_AKM_SUITE_OWE		(18)
+#define SPRD_AKM_SUITE_NONE			(0)
+#define SPRD_AKM_SUITE_8021X			(1)
+#define SPRD_AKM_SUITE_PSK			(2)
+#define SPRD_AKM_SUITE_FT_8021X			(3)
+#define SPRD_AKM_SUITE_FT_PSK			(4)
+#define SPRD_AKM_SUITE_WAPI_PSK			(4)
+#define SPRD_AKM_SUITE_8021X_SHA256		(5)
+#define SPRD_AKM_SUITE_PSK_SHA256		(6)
+#define SPRD_AKM_SUITE_SAE			(8)
+#define SPRD_AKM_SUITE_WAPI_CERT		(12)
+#define SPRD_AKM_SUITE_OWE			(18)
+#define SPRD_AKM_SUITE_8021X_SUITE_B_192	(12)
 
 #define WLAN_REASON_DEAUTH_LEAVING	(3)
 
@@ -126,6 +128,10 @@ static const u32 sprd_cipher_suites[] = {
 	/* required by ieee802.11w */
 	WLAN_CIPHER_SUITE_AES_CMAC,
 	WLAN_CIPHER_SUITE_PMK,
+#ifdef SUPPORT_WPA3_ENTERPRICE
+	/* required by wpa3 enterprise */
+	WLAN_CIPHER_SUITE_GCMP_256,
+#endif
 };
 
 /* Supported mgmt frame types to be advertised to cfg80211 */
@@ -348,6 +354,11 @@ static inline u8 sprd_parse_akm(u32 akm)
 	case WLAN_AKM_SUITE_SAE:
 		ret = SPRD_AKM_SUITE_SAE;
 		break;
+#ifdef SUPPORT_WPA3_ENTERPRISE
+	case WLAN_AKM_SUITE_8021X_SUITE_B_192:
+		ret = SPRD_AKM_SUITE_8021X_SUITE_B_192;
+		break;
+#endif
 	default:
 		ret = SPRD_AKM_SUITE_NONE;
 		break;
@@ -379,6 +390,11 @@ static inline u8 sprd_parse_cipher(u32 cipher)
 	case WLAN_CIPHER_SUITE_AES_CMAC:
 		ret = SPRD_CIPHER_AES_CMAC;
 		break;
+#ifdef SUPPORT_WAP3_ENTERPRISE
+	case WLAN_CIPHER_SUITE_GCMP_256:
+		ret = SPRD_CIPHER_GCMP_256;
+		break;
+#endif
 	default:
 		ret = SPRD_CIPHER_NONE;
 		break;
