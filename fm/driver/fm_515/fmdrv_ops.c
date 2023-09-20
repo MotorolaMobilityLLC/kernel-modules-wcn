@@ -352,14 +352,6 @@ int fm_open(struct inode *inode, struct file *filep) {
     powerup_parm.err = 0;
     powerup_parm.freq = 875;
 
-    if (PCIE) {
-    pr_info("fm chn init in bus\n");
-    sprdwcn_bus_chn_init(&fm_pcie_tx_ops);
-    sprdwcn_bus_chn_init(&fm_pcie_rx_ops);
-    fm_dma_buf_alloc(FM_PCIE_RX_CHANNEL, FM_RX_DMA_SIZE, FM_RX_MAX_NUM);
-    }
-    
-
     ret = fm_powerup(&powerup_parm);
     if (fmdev->fm_invalid == 1) {
         if (ret != 0) {
