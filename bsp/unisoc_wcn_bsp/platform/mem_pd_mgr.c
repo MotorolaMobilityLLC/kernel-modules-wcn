@@ -35,6 +35,7 @@
 #include "../sleep/sdio_int.h"
 #include "../include/wcn_dbg.h"
 #include "../sdio/sdiohal.h"
+#include "wcn_procfs.h"
 
 #ifdef pr_fmt
 #undef pr_fmt
@@ -806,6 +807,7 @@ out:
 mem_pd_err:
 		mutex_unlock(&(mem_pd.mem_pd_lock));
 		WCN_ERR("%s return error\n", __func__);
+		wcn_set_powerdown_flag(2);
 		wcn_assert_interface(WCN_SOURCE_BTWF, "mem_pd error");
 
 		return -1;

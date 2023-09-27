@@ -79,7 +79,7 @@ struct mdbg_proc_t {
 	int fail_count;
 	int assert_notify_flag;
 	bool loopcheck_flag;
-	bool marlin_powerdown_flag;
+	u8 marlin_powerdown_flag;
 
 	/*see device_lock*/
 	struct async_assert_t async_assert;
@@ -154,12 +154,36 @@ bool wcn_is_assert(void)
 }
 EXPORT_SYMBOL_GPL(wcn_is_assert);
 
-void wcn_set_powerdown_flag(bool flag)
+void wcn_set_powerdown_flag(u8 flag)
 {
 	mdbg_proc->marlin_powerdown_flag = flag;
 	return;
 }
 EXPORT_SYMBOL_GPL(wcn_set_powerdown_flag);
+
+int wcn_dump_or_not(void)
+{
+	u8 module_on_cnt = 0, powerdown_flag = 0;
+	unsigned long state = 0, temp_state = 0;
+
+	powerdown_flag = mdbg_proc->marlin_powerdown_flag;
+	if (powerdown_flag == 3)
+		usleep_range(15, 20);
+
+	state = marlin_get_power();
+	temp_state = state;
+	while (state) {
+		state &= state - 1;
+		module_on_cnt++;
+	}
+	WCN_INFO("%s module on cnt: %d, power state: 0x%lx, powerdown_flag: %d\n",
+			__func__, module_on_cnt, temp_state, powerdown_flag);
+	if (((powerdown_flag == 1) && (module_on_cnt == 1))
+	|| ((powerdown_flag == 3) && (module_on_cnt == 0)))
+		return -1;
+
+	return 0;
+}
 
 void __wcn_assert_interface(enum wcn_source_type type, char *str)
 {
@@ -188,7 +212,7 @@ void __wcn_assert_interface(enum wcn_source_type type, char *str)
 			return;
 		}
 	} else {
-		if (mdbg_proc->marlin_powerdown_flag) {
+		if (wcn_dump_or_not()) {
 			WCN_ERR("fw assert hanppend in WCN Powerdown!!\n");
 			return;
 		}

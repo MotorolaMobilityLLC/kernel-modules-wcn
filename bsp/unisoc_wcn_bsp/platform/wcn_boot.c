@@ -3172,6 +3172,7 @@ static int marlin_set_power(enum wcn_sub_sys subsys, int val)
 		}
 
 		set_wifipa_status(subsys, val);
+		wcn_set_powerdown_flag(3);
 		clear_bit(subsys, &marlin_dev->power_state);
 		if ((marlin_dev->power_state != 0) && (!flag_reset)) {
 			pr_info("can not power off, other module is on\n");
@@ -3484,9 +3485,9 @@ int stop_marlin(enum wcn_sub_sys subsys)
 	if (unlikely(mutex_is_locked(&marlin_dev->power_lock)))
 		pr_info("%s wait for lock release\n", __func__);
 	mutex_lock(&marlin_dev->power_lock);
-	wcn_set_powerdown_flag(true);
+	wcn_set_powerdown_flag(1);
 	if (!marlin_get_power()) {
-		wcn_set_powerdown_flag(false);
+		wcn_set_powerdown_flag(0);
 		mutex_unlock(&marlin_dev->power_lock);
 		pr_info("%s no module opend\n", __func__);
 		return 0;
@@ -3507,12 +3508,12 @@ int stop_marlin(enum wcn_sub_sys subsys)
 
 	ret = marlin_set_power(subsys, false);
 
-	wcn_set_powerdown_flag(false);
+	wcn_set_powerdown_flag(0);
 	mutex_unlock(&marlin_dev->power_lock);
 	return ret;
 
 unlock:
-	wcn_set_powerdown_flag(false);
+	wcn_set_powerdown_flag(0);
 	mutex_unlock(&marlin_dev->power_lock);
 	return -1;
 }
