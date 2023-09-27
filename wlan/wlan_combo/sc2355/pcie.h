@@ -53,6 +53,11 @@ struct pcie_addr_buffer {
 	unsigned char pcie_addr[][5];
 } __packed;
 
+struct pcie_rx_mbuf {
+	struct list_head list;
+	void *buf;
+};
+
 static inline void pcie_free_msg_content(struct sprd_msg *msg)
 {
 	if (msg->node)

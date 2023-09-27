@@ -33,6 +33,8 @@
 		.max_pending = pending, .pop_link = pop, .push_link = push, \
 		.tx_complete = complete, .power_notify = suspend }
 
+struct list_head pcie_rx_mbuf_list;
+
 #if defined(MORE_DEBUG)
 static void pcie_dump_stats(struct sprd_hif *hif)
 {
@@ -279,6 +281,38 @@ pcie_list_cut_to_free_list(struct list_head *tx_list_head,
 	return ret;
 }
 
+static int pcie_queue_mbuf(void *buf)
+{
+	struct pcie_rx_mbuf *rx_mbuf = NULL;
+	int ret = 0;
+
+	rx_mbuf = kzalloc(sizeof(*rx_mbuf), GFP_KERNEL);
+	if (rx_mbuf) {
+		INIT_LIST_HEAD(&rx_mbuf->list);
+		rx_mbuf->buf = buf;
+		list_add_tail(&rx_mbuf->list, &pcie_rx_mbuf_list);
+	} else {
+		pr_err("%s failed to alloc rx_mbuf!\n", __func__);
+		ret = -ENOMEM;
+	}
+
+	return ret;
+}
+
+static void pcie_dequeue_mbuf(void *buf)
+{
+	struct pcie_rx_mbuf *rx_mbuf = NULL, *rx_mbuf_pos = NULL;
+
+	list_for_each_entry_safe(rx_mbuf, rx_mbuf_pos, &pcie_rx_mbuf_list, list) {
+		if (rx_mbuf->buf == buf) {
+			list_del(&rx_mbuf->list);
+			kfree(rx_mbuf);
+			rx_mbuf = NULL;
+			break;
+		}
+	}
+}
+
 static int pcie_rx_fill_mbuf(struct mbuf_t *head, struct mbuf_t *tail, int num,
 			     int len)
 {
@@ -306,12 +340,19 @@ static int pcie_rx_fill_mbuf(struct mbuf_t *head, struct mbuf_t *tail, int num,
 			break;
 		}
 
+		ret = pcie_queue_mbuf(pos->buf);
+		if (ret) {
+			pr_err("%s failed to pcie_queue_mbuf!\n", __func__);
+			break;
+		}
+
 		pos = pos->next;
 	}
 
 	if (ret) {
 		pos = head;
 		while (count--) {
+			pcie_dequeue_mbuf(pos->buf);
 			sc2355_free_data(pos->buf, SPRD_DEFRAG_MEM);
 			pos = pos->next;
 		}
@@ -365,6 +406,7 @@ static int pcie_rx_handle(int chn, struct mbuf_t *head,
 			break;
 		}
 
+		pcie_dequeue_mbuf(pos->buf);
 		sc2355_mm_phys_to_virt(&hif->pdev->dev, pos->phy,
 				       pos->len, DMA_FROM_DEVICE,
 				       false);
@@ -1624,6 +1666,7 @@ int pcie_post_init(struct sprd_hif *hif)
 
 		hif->fw_awake = 1;
 		hif->fw_power_down = 0;
+		INIT_LIST_HEAD(&pcie_rx_mbuf_list);
 	}
 
 	return 0;
@@ -1641,9 +1684,17 @@ err:
 void pcie_post_deinit(struct sprd_hif *hif)
 {
 	int chn = 0;
+	struct pcie_rx_mbuf *rx_mbuf = NULL, *rx_mbuf_pos = NULL;
 
 	for (chn = 0; chn < sc2355_hif.max_num; chn++)
 		sprdwcn_bus_chn_deinit(&sc2355_hif.mchn_ops[chn]);
+
+	list_for_each_entry_safe(rx_mbuf, rx_mbuf_pos, &pcie_rx_mbuf_list, list) {
+		sc2355_free_data(rx_mbuf->buf, SPRD_DEFRAG_MEM);
+		list_del(&rx_mbuf->list);
+		kfree(rx_mbuf);
+		rx_mbuf = NULL;
+	}
 	sc2355_hif.hif = NULL;
 	sc2355_hif.max_num = 0;
 
