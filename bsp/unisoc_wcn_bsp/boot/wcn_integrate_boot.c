@@ -17,6 +17,7 @@
 #include "wcn_ca_trusty.h"
 #include "../sipc/wcn_sipc.h"
 #include "wcn_debug_bus.h"
+#include <misc/wcn_integrate_platform.h>
 #define GNSS_CALI_DONE_FLAG (0x1314520)
 
 static struct mutex marlin_lock;
@@ -640,14 +641,20 @@ static int wcn_download_image(struct wcn_device *wcn_dev)
 	if (is_marlin)
 		strncpy(firmware_file_name, WCN_BTWF_FILENAME,
 			sizeof(firmware_file_name));
-	strcat(firmware_file_name, ".bin");
+
+  	if (copy_devices_for_wifi())
+        {
+		strcat(firmware_file_name, ".bin");
+        }else{
+          	strcat(firmware_file_name, "_58.bin");
+        }
 	if (!is_marlin) {
 		strcpy(firmware_file_path, gnss_firmware_path);
 		strcat(firmware_file_path, firmware_file_name);
 		WCN_INFO("gnss firmware path:%s\n", firmware_file_path);
 	}
 
-	WCN_INFO("loading image [%s] from firmware subsystem ...\n",
+	WCN_INFO("modules loading image [%s] from firmware subsystem ...\n",
 		 firmware_file_name);
 	err = request_firmware(&firmware, firmware_file_name, NULL);
 	if (err < 0) {
