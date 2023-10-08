@@ -933,6 +933,21 @@ static int wcn_parse_dt(struct platform_device *pdev,
 			}
 			WCN_INFO("get merlion rst gpio\n");
 		}
+		if (!wcn_devm->gpio_58) {
+                       wcn_devm->gpio_58 = gpiod_get(&pdev->dev,"wifi-bin", GPIOD_IN);
+                       if (IS_ERR(wcn_devm->gpio_58)) {
+                               WCN_ERR("get gpio 58 error!\n");
+                               wcn_devm->gpio_58_value.value = false;
+                       } else {
+                         	ret = gpiod_get_value(wcn_devm->gpio_58);
+                         	WCN_INFO("get gpio 58 value = %d\n", ret);
+                               if (ret)
+                                       wcn_devm->gpio_58_value.value = true;
+                               else
+                                       wcn_devm->gpio_58_value.value = false;
+                       }
+                       WCN_INFO("get gpio 58\n");
+               }
 		if (!wcn_devm->clk_26m_type_sel) {
 			wcn_devm->clk_26m_type_sel =
 				gpiod_get(&pdev->dev,
@@ -1147,6 +1162,16 @@ static int wcn_parse_dt(struct platform_device *pdev,
 
 	return 0;
 }
+
+bool copy_devices_for_wifi(void) {
+       struct wcn_device_manage *wcn_devm = &s_wcn_device;
+
+       if (wcn_devm->gpio_58_value.value)
+               return true;
+       else
+               return false;
+}
+EXPORT_SYMBOL_GPL(copy_devices_for_wifi);
 
 static int wcn_platform_open(struct inode *inode, struct file *filp)
 {
