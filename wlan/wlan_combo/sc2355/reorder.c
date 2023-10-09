@@ -35,12 +35,13 @@ reorder_set_ba_node_desc(struct rx_ba_node_desc *ba_node_desc,
 	ba_node_desc->win_limit = SEQNO_ADD(ba_node_desc->win_start,
 					    (ba_node_desc->win_size - 1));
 	ba_node_desc->win_tail = SEQNO_SUB(ba_node_desc->win_start, 1);
+
+	wl_info("%s:(win_start:%d size:%d tail:%d idx_msk:%d) old_idx_msk:%u\n",
+		__func__, ba_node_desc->win_start, ba_node_desc->win_size,
+		ba_node_desc->win_tail, index_mask, ba_node_desc->index_mask);
+
 	ba_node_desc->index_mask = index_mask;
 	ba_node_desc->buff_cnt = 0;
-
-	wl_info("%s:(win_start:%d, win_size:%d, win_tail:%d, index_mask:%d)\n",
-		__func__, ba_node_desc->win_start, ba_node_desc->win_size,
-		ba_node_desc->win_tail, ba_node_desc->index_mask);
 }
 
 static inline void reorder_set_ba_pkt_desc(struct rx_ba_pkt_desc *ba_pkt_desc,

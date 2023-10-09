@@ -481,7 +481,7 @@ struct cmd_set_channel {
 
 struct cmd_5g_chn {
 	u16 n_5g_chn;
-	u16 chns[0];
+	u16 chns[];
 };
 
 /* CMD_SCAN */
@@ -489,7 +489,7 @@ struct cmd_scan {
 	__le32 channels;	/* One bit for one channel */
 	__le32 reserved;
 	u16 ssid_len;
-	u8 ssid[0];
+	u8 ssid[];
 } __packed;
 
 /* CMD_SCHED_SCAN */

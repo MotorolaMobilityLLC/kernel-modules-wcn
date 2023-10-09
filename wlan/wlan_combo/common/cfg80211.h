@@ -247,7 +247,7 @@ enum sprd_acl_mode {
 
 struct sprd_scan_ssid {
 	u8 len;
-	u8 ssid[0];
+	u8 ssid[];
 } __packed;
 
 struct sprd_sched_scan {
