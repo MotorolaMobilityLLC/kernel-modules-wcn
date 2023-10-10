@@ -54,7 +54,7 @@ struct sipc_addr_buffer {
 
 static inline void sipc_free_msg_content(struct sprd_msg *msg)
 {
-	struct sprd_hif *hif = sc2355_sipc_get_hif();
+	struct sprd_hif *hif = sc2355_get_hif();
 	if (msg->skb)
 		dev_kfree_skb(msg->skb);
 	if (msg->sipc_node)

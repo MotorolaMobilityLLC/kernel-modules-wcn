@@ -30,14 +30,6 @@
 .rx_threshold = threshold, .timeout = time, .pop_link = pop,\
 .push_link = push, .tx_complete = complete, .power_notify = suspend }
 
-struct sc2355_hif {
-	unsigned int max_num;
-	void *hif;
-	struct mchn_ops_t *mchn_ops;
-};
-
-static struct sc2355_hif sc2355_hif;
-
 #if defined(MORE_DEBUG)
 static void sdio_dump_stats(struct sprd_hif *hif)
 {
@@ -417,11 +409,6 @@ static int fc_test_shared_num(struct tx_mgmt *tx_mgmt)
 		}
 	}
 	return shared_flow_num;
-}
-
-struct sprd_hif *sc2355_get_hif(void)
-{
-	return (struct sprd_hif *)sc2355_hif.hif;
 }
 
 void sc2355_set_coex_bt_on_off(u8 action)

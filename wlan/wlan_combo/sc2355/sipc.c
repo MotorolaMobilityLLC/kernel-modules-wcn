@@ -38,14 +38,6 @@
 		.max_pending = pending, .pop_link = pop, .push_link = push, \
 		.tx_complete = complete, .power_notify = suspend }
 
-struct sc2355_hif {
-	unsigned int max_num;
-	void *hif;
-	struct mchn_ops_t *mchn_ops;
-};
-
-static struct sc2355_hif sc2355_hif;
-
 #if defined(MORE_DEBUG)
 static void sipc_dump_stats(struct sprd_hif *hif)
 {
@@ -198,7 +190,7 @@ sprdwl_list_cut_to_send_list(struct list_head *head_entry,
 			     struct list_head *tail_entry,
 			     int count)
 {
-	struct sprd_hif *hif = sc2355_sipc_get_hif();
+	struct sprd_hif *hif = sc2355_get_hif();
 	struct tx_mgmt *tx_msg = (struct tx_mgmt *)hif->tx_mgmt;
 	struct list_head list_tmp;
 	struct list_head *head;
@@ -218,7 +210,7 @@ sprdwl_list_cut_to_free_list(struct list_head *tx_list_head,
 		struct list_head *tx_list, struct list_head *tail_entry,
 		int tx_count)
 {
-	struct sprd_hif *hif = sc2355_sipc_get_hif();
+	struct sprd_hif *hif = sc2355_get_hif();
 	struct tx_mgmt *tx_msg = (struct tx_mgmt *)hif->tx_mgmt;
 	int ret = 0;
 	struct list_head tx_list_tmp;
@@ -243,7 +235,7 @@ sipc_list_cut_to_free_list(struct list_head *tx_list_head,
 			   struct list_head *tx_list,
 			   struct list_head *tail_entry, int tx_count)
 {
-	struct sprd_hif *hif = sc2355_sipc_get_hif();
+	struct sprd_hif *hif = sc2355_get_hif();
 	struct tx_mgmt *tx_mgmt = (struct tx_mgmt *)hif->tx_mgmt;
 	struct sprd_work *misc_work = NULL;
 	int ret = 0;
@@ -341,7 +333,7 @@ static int sipc_rx_common_push(int chn, struct mbuf_t **head,
 static int sipc_rx_handle(int chn, struct mbuf_t *head,
 			  struct mbuf_t *tail, int num)
 {
-	struct sprd_hif *hif = sc2355_sipc_get_hif();
+	struct sprd_hif *hif = sc2355_get_hif();
 	struct rx_mgmt *rx_mgmt = (struct rx_mgmt *)hif->rx_mgmt;
 	struct sprd_msg *msg = NULL;
 	int buf_num = 0, ret = 0;
@@ -395,7 +387,7 @@ static int sipc_rx_handle(int chn, struct mbuf_t *head,
 static int sipc_data_rx_handle(int chn, struct mbuf_t *head,
 			       struct mbuf_t *tail, int num)
 {
-	struct sprd_hif *hif = sc2355_sipc_get_hif();
+	struct sprd_hif *hif = sc2355_get_hif();
 	struct rx_mgmt *rx_mgmt = (struct rx_mgmt *)hif->rx_mgmt;
 	struct sprd_msg *msg = NULL;
 
@@ -441,7 +433,7 @@ static int sipc_rx_data_push(int chn, struct mbuf_t **head,
  */
 static int sipc_suspend_resume_handle(int chn, int mode)
 {
-	struct sprd_hif *hif = sc2355_sipc_get_hif();
+	struct sprd_hif *hif = sc2355_get_hif();
 	struct sprd_priv *priv = hif->priv;
 	struct tx_mgmt *tx_mgmt = (struct tx_mgmt *)hif->tx_mgmt;
 	int ret;
@@ -522,14 +514,9 @@ struct mchn_ops_t sc2355_sipc_hif_ops[] = {
                         NULL, NULL, NULL),
 };
 
-struct sprd_hif *sc2355_sipc_get_hif(void)
-{
-	return (struct sprd_hif *)sc2355_hif.hif;
-}
-
 void sc2355_sipc_set_coex_bt_on_off(u8 action)
 {
-	struct sprd_hif *hif = sc2355_sipc_get_hif();
+	struct sprd_hif *hif = sc2355_get_hif();
 
 	hif->coex_bt_on = action;
 }
@@ -864,7 +851,7 @@ void sc2355_sipc_handle_pop_list(void *data)
 	struct mbuf_t *mbuf_pos = NULL;
 	struct pop_work *pop = (struct pop_work *)data;
 	struct tx_mgmt *tx_mgmt;
-	struct sprd_hif *hif = sc2355_sipc_get_hif();
+	struct sprd_hif *hif = sc2355_get_hif();
 	struct list_head tmp_list;
 	struct sprd_msg *msg_head, *msg_tail;
 
@@ -895,7 +882,7 @@ void sc2355_sipc_handle_pop_list(void *data)
 int sc2355_sipc_add_topop_list(int chn, struct mbuf_t *head,
 			  struct mbuf_t *tail, int num)
 {
-	struct sprd_hif *hif = sc2355_sipc_get_hif();
+	struct sprd_hif *hif = sc2355_get_hif();
 	struct sprd_work *misc_work;
 	struct pop_work pop_work;
 	u8 *work_data = NULL;
@@ -993,7 +980,7 @@ static inline int sprd_tx_free_txc_msg(struct tx_mgmt *tx_msg,
 int sc2355_tx_free_sipc_data(unsigned char *data)
 {
 	int i;
-	struct sprd_hif *hif = sc2355_sipc_get_hif();
+	struct sprd_hif *hif = sc2355_get_hif();
 	struct tx_mgmt *tx_mgmt = (struct tx_mgmt *)hif->tx_mgmt;
 	void *data_addr_ptr;
 	unsigned long sipc_addr;
@@ -1077,7 +1064,7 @@ int sc2355_sipc_tx_cmd_pop_list(int channel, struct mbuf_t *head,
 {
 	int count = 0;
 	struct mbuf_t *pos = NULL;
-	struct sprd_hif *hif = sc2355_sipc_get_hif();
+	struct sprd_hif *hif = sc2355_get_hif();
 	struct tx_mgmt *tx_mgmt;
 	struct sprd_msg *pos_buf, *temp_buf;
 
@@ -1155,7 +1142,7 @@ void sc2355_sipc_event_sta_lut(struct sprd_vif *vif, u8 *data, u16 len)
 	}
 	hif = &vif->priv->hif;
 	sta_lut = (struct evt_sta_lut_ind *)data;
-	if (hif != sc2355_sipc_get_hif()) {
+	if (hif != sc2355_get_hif()) {
 		wl_err("%s, wrong hif!\n", __func__);
 		return;
 	}

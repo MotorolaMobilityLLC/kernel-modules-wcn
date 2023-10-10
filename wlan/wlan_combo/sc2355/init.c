@@ -62,6 +62,8 @@ static struct ieee80211_supported_band sc2355_band_5ghz = {
 	.vht_cap.vht_mcs.tx_highest = 0,
 };
 
+struct sc2355_hif sc2355_hif;
+
 static void sc2355_ht_cap_update(struct ieee80211_sta_ht_cap *ht_info,
 				 struct sprd_priv *priv)
 {
