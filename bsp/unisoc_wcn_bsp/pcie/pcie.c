@@ -155,23 +155,17 @@ static void wcn_bus_change_state(struct wcn_pcie_info *bus,
 
 static bool sprd_pcie_check_linkup(void)
 {
-	u32 val, trycnt = 5;
+	u32 val, trycnt = 1;
 	struct wcn_pcie_info *priv = get_wcn_device_info();
+
+	if (pci_dev_is_disconnected(priv->dev))
+		return false;
 
 	do {
 		pci_read_config_dword(priv->dev, 0, &val);
-
 		if (val != 0xFFFFFFFF)
 			return true;
-
-		WCN_INFO("%s trycnt=%d\n", __func__, trycnt);
-
-		udelay(1);
 	}while(trycnt--);
-
-	WCN_ERR("%s error\n", __func__);
-	if (priv->rc_pd)
-		sprd_pcie_dump_rc_regs(priv->rc_pd);
 
 	return false;
 }
@@ -760,12 +754,20 @@ void sprd_pcie_reset(void *wcn_dev)
 	}
 	WCN_INFO("%s enter\n", __func__);
 	/* check pcie link status, reset when disconnected */
+
 	if (!sprd_pcie_check_linkup()) {
 		WCN_ERR("pcie_dev is disconnected,reset\n");
-		sprd_pcie_unconfigure_device(pdev);
-		sprd_pcie_configure_device(pdev);
+
+		if (unlikely(mutex_is_locked(&marlin_dev->power_lock)))
+			WCN_INFO("%s wait for lock release\n", __func__);
+
+		mutex_lock(&marlin_dev->power_lock);
+		sprd_pcie_remove_card(wcn_dev);
+		sprd_pcie_scan_card(wcn_dev);
+		mutex_unlock(&marlin_dev->power_lock);
 		return;
 	}
+
 	WCN_INFO("EP link status ok,do not reset\n");
 }
 
@@ -1239,7 +1241,6 @@ static void sprd_pcie_remove(struct pci_dev *pdev)
 	}
 	complete(&priv->remove_done);
 	pci_release_regions(pdev);
-	//kfree(priv);
 	pci_set_drvdata(pdev, NULL);
 	pci_disable_device(pdev);
 

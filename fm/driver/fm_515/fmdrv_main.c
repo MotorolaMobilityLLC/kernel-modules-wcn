@@ -93,6 +93,8 @@
 			"0x%02X completion signal from RX tasklet"
 bool read_flag;
 struct fmdrv_ops *fmdev;
+struct mchn_ops_t fm_pcie_tx_ops;
+struct mchn_ops_t fm_pcie_rx_ops;
 static struct fm_rds_data *g_rds_data_string;
 extern struct platform_device *g_fm_pdev;
 
@@ -1294,17 +1296,22 @@ int fm_powerup(struct fm_tune_parm *p) {
     fmdev-> power_status ++;
     fmdev-> fm_pd = 0;
 
-
     if (start_marlin(MARLIN_FM)) {
         dev_unisoc_fm_err(fm_miscdev,"marlin3 chip %s failed\n", __func__);
         return -ENODEV;
     }
+	if (PCIE) {
+		pr_info("fm chn init in bus\n");
+		sprdwcn_bus_chn_init(&fm_pcie_tx_ops);
+		sprdwcn_bus_chn_init(&fm_pcie_rx_ops);
+		fm_dma_buf_alloc(FM_PCIE_RX_CHANNEL, FM_RX_DMA_SIZE, FM_RX_MAX_NUM);
+	}
     parm.freq = 875;
     parm.freq *= 10;
     dev_unisoc_fm_info(fm_miscdev,"fm ioctl power up freq= %d\n", parm.freq);
-    if(!SIPC1) {
-        get_fm_config_param(&fm_data);
-    }
+
+	if (!SIPC1)
+		get_fm_config_param(&fm_data);
     payload[0] = parm.freq;
     memcpy(&payload[1],&fm_data,sizeof(struct fm_config_t));
     ret = fm_write_cmd(FM_POWERUP_CMD, payload, sizeof(payload), NULL, NULL);

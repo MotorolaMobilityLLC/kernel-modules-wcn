@@ -896,7 +896,7 @@ static int gnss_download_firmware(void)
 {
 	const struct firmware *firmware;
 	char *buf;
-	int err;
+	int err = 0;
 	int i, len, count, trans_size;
 	char *tx_img_ptr = NULL;
 	u32 sec_img_magic, tx_img_size;
@@ -974,19 +974,19 @@ static int gnss_download_firmware(void)
 				trans_size);
 		if (err < 0) {
 			pr_err("gnss dt write %s error:%d\n", __func__, err);
-			release_firmware(firmware);
-
-			return err;
+			goto out;
 		}
 		len += trans_size;
 	}
-	release_firmware(firmware);
+
 	pr_info("%s successfully through request_firmware!\n", __func__);
 
+out:
+	release_firmware(firmware);
 	if (sec_img_magic == SEC_IMAGE_MAGIC && tx_img_ptr)
 		vfree(tx_img_ptr);
 
-	return 0;
+	return err;
 }
 
 static int marlin_dt_write_firmware(void *tx_img_ptr, unsigned int tx_img_size)
@@ -2845,6 +2845,22 @@ retry:
 	if ((temp & 0x3) && (i < 3)) {
 		pr_err("FAKE_CFG:0x%x, GNSS select clk err\n", temp);
 		goto retry;
+	}
+
+	ret = sprdwcn_bus_reg_read(CGM_GNSS_APB_CFG, &temp, 4);
+	if (ret < 0) {
+		pr_err("%s read CGM_GNSS_APB_CFG error:%d\n", __func__, ret);
+		return ret;
+	}
+	pr_info("%s R_CGM_GNSS_APB_CFG:0x%x\n", __func__, temp);
+	if (temp & CGM_GNSS_APB_SEL) {
+		pr_info("GNSS clock switching abnormal!\n");
+		temp = temp & (~(CGM_GNSS_APB_SEL));
+		ret = sprdwcn_bus_reg_write(CGM_GNSS_APB_CFG, &temp, 4);
+		if (ret < 0) {
+			pr_err("write CGM_GNSS_FAKE_CFG err:%d\n", ret);
+			return ret;
+		}
 	}
 
 	ret = sprdwcn_bus_reg_read(PD_GNSS_SS_AON_CFG4, &temp, 4);

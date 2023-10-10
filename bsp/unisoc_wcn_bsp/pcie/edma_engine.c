@@ -718,8 +718,6 @@ static int edma_hw_tx_req(int chn)
 	wcn_set_tx_complete_status(EDMA_TX_SENDING);
 	edma->dma_chn_reg[chn].dma_tx_req.reg = 1;
 
-	set_bit(chn, &edma->cur_chn_status);
-
 	return 0;
 }
 
@@ -1441,7 +1439,6 @@ int msi_irq_handle(int irq)
 
 	if (edma->chn_sw[chn].inout == TX) {
 		wcn_set_tx_complete_status(EDMA_TX_COMPLETE);
-		clear_bit(chn, &edma->cur_chn_status);
 		del_timer(&edma->edma_tx_timer);
 		if (irq % 2 == 0) {
 			dma_int.bit.rf_chn_tx_pop_int_clr = 1;
@@ -1785,8 +1782,6 @@ int edma_chn_init(int chn, int mode, int inout, int max_trans)
 	dma_cfg.reg = edma->dma_chn_reg[chn].dma_cfg.reg;
 	WCN_INFO("[-]%s\n", __func__);
 
-	if (chn == 6)
-		edma_dump_chn_reg(chn);
 
 	return 0;
 }
@@ -1878,7 +1873,6 @@ int edma_dump_glb_reg(void)
 {
 	struct wcn_pcie_info *pdev;
 	u32 value;
-	struct edma_info *edma = edma_info();
 	int reg_base;
 	struct wcn_match_data *g_match_config = get_wcn_match_config();
 
@@ -1906,14 +1900,6 @@ int edma_dump_glb_reg(void)
 	value = sprd_pcie_read_reg32(pdev, DMA_ARB_SEL_STATUS(reg_base));
 	WCN_INFO("[arb_sel_sts] = 0x%08x\n",  value);
 
-	if ((value > 0) && (value < 31))
-		set_bit((value - 1), &edma->cur_chn_status);
-	else if (value == 0xffffffff) {
-		if (pdev->rc_pd)
-			sprd_pcie_dump_rc_regs(pdev->rc_pd);
-		return -1;
-	}
-	WCN_INFO("[arb_sel_sts] = 0x%08x\n",  value);
 	value = sprd_pcie_read_reg32(pdev, DMA_CHN_ARPROT(reg_base));
 	WCN_INFO("[arport     ] = 0x%08x\n",  value);
 	value = sprd_pcie_read_reg32(pdev, DMA_CHN_AWPROT(reg_base));
@@ -1960,10 +1946,8 @@ static void edma_tx_timer_expire(struct timer_list *t)
 	wcn_set_tx_complete_status(EDMA_TX_COMPLETE);
 	if (edma_dump_glb_reg() < 0)
 		return;
-	for (i = 0; i < 16; i++) {
-		if (test_bit(i, &edma->cur_chn_status))
-			edma_dump_chn_reg(i);
-	}
+	for (i = 0; i < 16; i++)
+		edma_dump_chn_reg(i);
 }
 
 void edma_del_tx_timer(void)
