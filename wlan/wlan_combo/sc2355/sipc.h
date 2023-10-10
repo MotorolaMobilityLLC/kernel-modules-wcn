@@ -49,7 +49,7 @@ struct sipc_addr_buffer {
 	} buffer_ctrl;
 	unsigned short number;
 	unsigned short rsvd;
-	unsigned char sipc_addr[0][5];
+	unsigned char sipc_addr[][5];
 } __packed;
 
 static inline void sipc_free_msg_content(struct sprd_msg *msg)

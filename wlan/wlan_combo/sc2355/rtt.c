@@ -116,7 +116,7 @@ struct rtt_per_dest_res {
 	/* actual received ftm per burst */
 	u8 actual_ftm_per_burst;
 	u8 reserved0[7];
-	struct rtt_responder_res responder_ftm_res[0];
+	struct rtt_responder_res responder_ftm_res[];
 } __packed;
 
 struct rtt_dest_info {
@@ -140,13 +140,13 @@ struct rtt_session_start {
 	u8 aoa_type;
 	__le16 num_of_dest;
 	u8 reserved[4];
-	struct rtt_dest_info dest_info[0];
+	struct rtt_dest_info dest_info[];
 } __packed;
 
 struct cmd_rtt {
 	u8 sub_cmd;
 	__le16 len;
-	u8 data[0];
+	u8 data[];
 } __packed;
 
 static const struct

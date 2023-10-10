@@ -426,7 +426,7 @@ struct cmd_add_key {
 	u8 keyseq[16];
 	u8 cypher_type;
 	u8 key_len;
-	u8 value[0];
+	u8 value[];
 } __packed;
 
 struct cmd_del_key {
@@ -449,13 +449,13 @@ struct cmd_set_rekey {
 struct cmd_set_ie {
 	u8 type;
 	__le16 len;
-	u8 data[0];
+	u8 data[];
 } __packed;
 
 /* CMD_START_AP */
 struct cmd_start_ap {
 	__le16 len;
-	u8 value[0];
+	u8 value[];
 } __packed;
 
 /* CMD_DEL_STATION */
@@ -569,7 +569,7 @@ struct cmd_mgmt_tx {
 	__le32 wait;		/* wait time */
 	__le64 cookie;		/* cookie */
 	__le16 len;		/* mac length */
-	u8 value[0];		/* mac */
+	u8 value[];		/* mac */
 } __packed;
 
 /* CMD_REGISTER_FRAME */
@@ -587,7 +587,7 @@ struct cmd_cqm_rssi {
 struct cmd_roam_offload_data {
 	u8 type;
 	u8 len;
-	u8 value[0];
+	u8 value[];
 } __packed;
 
 struct cmd_tdls {
@@ -596,13 +596,13 @@ struct cmd_tdls {
 	u8 initiator;
 	u8 rsvd;
 	u8 paylen;
-	u8 payload[0];
+	u8 payload[];
 } __packed;
 
 struct cmd_blacklist {
 	u8 sub_type;
 	u8 num;
-	u8 mac[0];
+	u8 mac[];
 } __packed;
 
 struct cmd_tdls_channel_switch {
@@ -614,7 +614,7 @@ struct cmd_tdls_channel_switch {
 struct cmd_set_mac_addr {
 	u8 sub_type;
 	u8 num;
-	u8 mac[0];
+	u8 mac[];
 } __packed;
 
 struct cmd_rsp_state_code {
@@ -709,7 +709,7 @@ struct evt_mgmt_frame {
 	u8 reserved;
 	u8 bssid[ETH_ALEN];	/* roaming frame */
 	__le16 len;
-	u8 data[0];
+	u8 data[];
 } __packed;
 
 /* EVT_SCAN_COMP */
@@ -728,7 +728,7 @@ struct evt_mgmt_tx_status {
 	__le64 cookie;		/* cookie */
 	u8 ack;			/* status */
 	__le16 len;		/* frame len */
-	u8 buf[0];		/* mgmt frame */
+	u8 buf[];		/* mgmt frame */
 } __packed;
 
 /* EVT_NEW_STATION  */
@@ -736,7 +736,7 @@ struct evt_new_station {
 	u8 is_connect;
 	u8 mac[ETH_ALEN];
 	__le16 ie_len;
-	u8 ie[0];
+	u8 ie[];
 } __packed;
 
 /* EVT_MIC_FAIL */
@@ -760,7 +760,7 @@ struct evt_tdls {
 struct cmd_gscan_header {
 	u16 subcmd;
 	u16 data_len;
-	u8 data[0];
+	u8 data[];
 } __packed;
 
 struct llc_hdr {
@@ -863,7 +863,7 @@ struct sprd_priv;
 struct tlv_data {
 	u16 type;
 	u16 len;
-	u8 data[0];
+	u8 data[];
 } __packed;
 
 struct ap_version_tlv_elmt {
@@ -908,12 +908,12 @@ struct cmd_packet_offload {
 	u8 enable;
 	u32 period;
 	u16 len;
-	u8 data[0];
+	u8 data[];
 } __packed;
 
 struct sae_param {
 	u16 request_type;
-	u8 data[0];
+	u8 data[];
 } __packed;
 
 /* externed link layer status struct */
@@ -925,7 +925,7 @@ struct cmd_extended_llstate {
 	u8 type;
 	u8 subtype;
 	u16 len;
-	u8 data[0];
+	u8 data[];
 } __packed;
 
 struct cmd_sniffer_para {

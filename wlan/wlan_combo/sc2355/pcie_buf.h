@@ -33,7 +33,7 @@ struct sprd_buf_node {
 		struct sprd_buf_node *next;
 		void *addr;
 	};
-	u8 buf[0];
+	u8 buf[];
 } __packed;
 
 #define PCIE_BUF_BLOCK_TYPE               (1)

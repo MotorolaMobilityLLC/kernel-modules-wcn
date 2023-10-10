@@ -478,7 +478,7 @@ struct rtt_session_request {
 	u64 session_cookie;
 	u32 n_peers;
 	/* keep last, variable size according to n_peers */
-	struct rtt_meas_peer_info peers[0];
+	struct rtt_meas_peer_info peers[];
 };
 
 /* single measurement for a peer */
@@ -500,7 +500,7 @@ struct rtt_peer_meas_res {
 	u8 lcr_length;
 	u32 n_meas;
 	/* keep last, variable size according to n_meas */
-	struct rtt_peer_meas meas[0];
+	struct rtt_peer_meas meas[];
 };
 
 /* RTT Capabilities
