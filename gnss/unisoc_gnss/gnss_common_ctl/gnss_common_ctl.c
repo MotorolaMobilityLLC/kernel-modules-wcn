@@ -731,25 +731,6 @@ bool gnss_delay_ctl(void)
 }
 EXPORT_SYMBOL_GPL(gnss_delay_ctl);
 
-static struct attribute *gnss_common_ctl_attrs[] = {
-	&dev_attr_gnss_power_enable.attr,
-	&dev_attr_gnss_dump.attr,
-	&dev_attr_gnss_status.attr,
-	&dev_attr_gnss_subsys.attr,
-	&dev_attr_gnss_clktype.attr,
-	&dev_attr_gnss_pmic_chipid.attr,
-	&dev_attr_gnss_regr.attr,
-	&dev_attr_gnss_regaddr.attr,
-	&dev_attr_gnss_regspaddr.attr,
-	&dev_attr_gnss_regw.attr,
-	NULL,
-};
-
-static struct attribute_group gnss_common_ctl_group = {
-	.name = NULL,
-	.attrs = gnss_common_ctl_attrs,
-};
-
 static struct miscdevice gnss_common_ctl_miscdev = {
 	.minor = MISC_DYNAMIC_MINOR,
 	.name = "gnss_common_ctl",
@@ -774,6 +755,53 @@ static int gnss_reset(struct notifier_block *this, unsigned long ev, void *ptr)
 
 static struct notifier_block gnss_reset_block = {
 	.notifier_call = gnss_reset,
+};
+
+static ssize_t gnss_debug_store(struct device *dev,
+				  struct device_attribute *attr,
+				  const char *buf, size_t count)
+{
+	unsigned long set_value;
+	ssize_t ret = count;
+	char *envp[3] = {
+				[0] = "SOURCE=unisocgnss",
+				[1] = "EVENT=GNSS_ERROR",
+				[2] = NULL,
+	};
+	if (kstrtoul(buf, GNSS_MAX_STRING_LEN, &set_value)) {
+		dev_err(dev, "%s Maybe store string is too long\n", __func__);
+		return -EINVAL;
+	}
+	dev_info(dev, "%s set_value[%lu]\n", __func__, set_value);
+	if (set_value == 1) {
+		kobject_uevent_env(&gnss_common_ctl_miscdev.this_device->kobj, KOBJ_CHANGE, envp);
+	} else {
+		ret = -EINVAL;
+		dev_info(dev, "%s unknown control\n", __func__);
+	}
+
+	return ret;
+}
+static DEVICE_ATTR_WO(gnss_debug);
+
+static struct attribute *gnss_common_ctl_attrs[] = {
+	&dev_attr_gnss_power_enable.attr,
+	&dev_attr_gnss_dump.attr,
+	&dev_attr_gnss_status.attr,
+	&dev_attr_gnss_subsys.attr,
+	&dev_attr_gnss_clktype.attr,
+	&dev_attr_gnss_pmic_chipid.attr,
+	&dev_attr_gnss_regr.attr,
+	&dev_attr_gnss_regaddr.attr,
+	&dev_attr_gnss_regspaddr.attr,
+	&dev_attr_gnss_regw.attr,
+	&dev_attr_gnss_debug.attr,
+	NULL,
+};
+
+static struct attribute_group gnss_common_ctl_group = {
+	.name = NULL,
+	.attrs = gnss_common_ctl_attrs,
 };
 
 static int gnss_common_ctl_probe(struct platform_device *pdev)
