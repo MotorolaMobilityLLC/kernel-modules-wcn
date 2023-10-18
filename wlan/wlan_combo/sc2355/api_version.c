@@ -375,6 +375,11 @@ struct sprd_api_version_t api_array[] = {
 		.drv_version = 1,
 		.name = "CMD_SET_SNIFFER",
 	},
+	[88]{
+		/*ID:88*/
+		.cmd_id = CMD_RESVERED_FOR_FILTER,
+		.name = "CMD_RESVERED_FOR_FILTER",
+	},
 	[89]{
 		/*ID:89*/
 		.cmd_id = CMD_EXTENDED_LLSTAT,
@@ -440,6 +445,10 @@ struct sprd_api_version_t api_array[] = {
 		.drv_version = 1,
 		.name = "EVT_RSSI_MONITOR",
 	},
+	[144]{	/*ID:0x90*/
+		.cmd_id = EVT_COEX_BT_ON_OFF,
+		.name = "EVT_COEX_BT_ON_OFF",
+	},
 	[160]{	/*ID:0xa0*/
 		.cmd_id = EVT_NEW_STATION,
 		.drv_version = 1,
@@ -449,6 +458,10 @@ struct sprd_api_version_t api_array[] = {
 		.cmd_id = EVT_RADAR_DETECTED,
 		.drv_version = 1,
 		.name = "EVT_RADAR_DETECTED",
+	},
+	[162]{	/*ID:0xa2*/
+		.cmd_id = EVT_FRESH_POWER_BO,
+		.name = "EVT_FRESH_POWER_BO",
 	},
 	[176]{	/*ID:0xb0*/
 		.cmd_id = EVT_CQM,
@@ -469,6 +482,14 @@ struct sprd_api_version_t api_array[] = {
 		.cmd_id = EVT_SDIO_FLOWCON,
 		.drv_version = 1,
 		.name = "EVT_SDIO_FLOWCON",
+	},
+	[192]{	/*ID:0xc0*/
+		.cmd_id = EVT_REPORT_IP_ADDR,
+		.name = "EVT_REPORT_IP_ADDR",
+	},
+	[193]{	/*ID:0xc1*/
+		.cmd_id = EVT_REPORT_MODEM_INFO,
+		.name = "EVT_REPORT_MODEM_INFO",
 	},
 	[224]{	/*ID:0xe0*/
 		.cmd_id = EVT_SDIO_SEQ_NUM,

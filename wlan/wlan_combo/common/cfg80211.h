@@ -128,9 +128,10 @@ static const u32 sprd_cipher_suites[] = {
 	/* required by ieee802.11w */
 	WLAN_CIPHER_SUITE_AES_CMAC,
 	WLAN_CIPHER_SUITE_PMK,
-#ifdef SUPPORT_WPA3_ENTERPRICE
+#ifdef SUPPORT_WPA3_ENTERPRISE
 	/* required by wpa3 enterprise */
 	WLAN_CIPHER_SUITE_GCMP_256,
+	WLAN_CIPHER_SUITE_BIP_GMAC_256,
 #endif
 };
 
@@ -390,7 +391,7 @@ static inline u8 sprd_parse_cipher(u32 cipher)
 	case WLAN_CIPHER_SUITE_AES_CMAC:
 		ret = SPRD_CIPHER_AES_CMAC;
 		break;
-#ifdef SUPPORT_WAP3_ENTERPRISE
+#ifdef SUPPORT_WPA3_ENTERPRISE
 	case WLAN_CIPHER_SUITE_GCMP_256:
 		ret = SPRD_CIPHER_GCMP_256;
 		break;
