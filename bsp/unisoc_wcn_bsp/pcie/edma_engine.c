@@ -1934,6 +1934,7 @@ int edma_dump_glb_reg(void)
 static void edma_tx_timer_expire(struct timer_list *t)
 {
 	struct edma_info *edma = from_timer(edma, t, edma_tx_timer);
+	struct wcn_pcie_info *pdev = edma->pcie_info;
 	int i;
 
 	WCN_ERR("edma tx send timeout\n");
@@ -1944,6 +1945,14 @@ static void edma_tx_timer_expire(struct timer_list *t)
 	}
 
 	wcn_set_tx_complete_status(EDMA_TX_COMPLETE);
+
+	if (!sprd_pcie_check_linkup()) {
+		WCN_INFO("%s: PCIe disconnect, don't access EP\n", __func__);
+		if (pdev->rc_pd)
+			sprd_pcie_dump_rc_regs(pdev->rc_pd);
+		return;
+	}
+
 	if (edma_dump_glb_reg() < 0)
 		return;
 	for (i = 0; i < 16; i++)

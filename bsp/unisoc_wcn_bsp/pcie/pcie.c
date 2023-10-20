@@ -153,7 +153,7 @@ static void wcn_bus_change_state(struct wcn_pcie_info *bus,
 	bus->pci_status = state;
 }
 
-static bool sprd_pcie_check_linkup(void)
+bool sprd_pcie_check_linkup(void)
 {
 	u32 val, trycnt = 1;
 	struct wcn_pcie_info *priv = get_wcn_device_info();

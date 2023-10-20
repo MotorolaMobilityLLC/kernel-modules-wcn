@@ -216,6 +216,7 @@ int sprd_pcie_mem_write(unsigned int addr, void *buf, unsigned int len);
 int sprd_pcie_mem_read(unsigned int addr, void *buf, unsigned int len);
 int sprd_pcie_update_bits(unsigned int reg, unsigned int mask,
 			  unsigned int val);
+bool sprd_pcie_check_linkup(void);
 
 #ifdef BUILD_WCN_PCIE
 char *pcie_bar_vmem(struct wcn_pcie_info *priv, int bar);
