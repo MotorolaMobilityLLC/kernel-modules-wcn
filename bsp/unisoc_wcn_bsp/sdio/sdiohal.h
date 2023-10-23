@@ -222,7 +222,7 @@ enum {
 };
 
 #define SDIO_DEBUG_POINT_NUM 30
-#define SDIO_DEBUG_CMD_REQ_POINT_NUM 8
+#define SDIO_DEBUG_CMD_REQ_POINT_NUM 9
 struct sdiohal_debug_t {
 	struct sdiohal_xmit_debug_point tx_list_push[SDIO_DEBUG_POINT_NUM];
 

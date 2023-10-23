@@ -38,9 +38,8 @@ void sdiohal_debug_point_show(void)
          sdiohal_aon_readb --4 5
          sdiohal_aon_writeb --6 7
          )performance statistics */
-	for (i = 0; i < 8; i++) {
+	for (i = 0; i < SDIO_DEBUG_CMD_REQ_POINT_NUM; i++)
 		pr_info("tm_sdio_cmd_req[%d], time=%llu", i, p_data->tm_sdio_cmd_req[i]);
-	}
 
 	if (p_data->op_enter_ns > p_data->op_leave_ns)
 		pr_info("WARNING: Task(%s) holds xmit_lock!!!", p_data->sdcb.op_enter_comm);
