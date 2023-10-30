@@ -2583,11 +2583,18 @@ int btwf_sys_wait_cp2_wfi(struct wcn_device *wcn_dev)
 
 int btwf_try_reset_wfi(struct wcn_device *wcn_dev)
 {
-        int ret = 0;
-        mdbg_hold_cpu(MDBG_RESET_WFI_FLAG_VALUE);
-        if (btwf_sys_polling_deepsleep(wcn_dev) == false)
-                ret = -1;
-        return ret;
+	phys_addr_t init_addr;
+	int ret = 0;
+	u32 value = MDBG_CACHE_FLAG_VALUE;
+
+	init_addr = wcn_get_btwf_init_status_addr();
+	wcn_write_data_to_phy_addr(init_addr, (void *)&value, 4);
+	btwf_sys_poweron(wcn_dev);
+
+	if (btwf_sys_polling_deepsleep(wcn_dev) == false)
+		ret = -1;
+
+	return ret;
 }
 
 /* wait BTWF SYS enter deep sleep and then set it auto shutdown.
