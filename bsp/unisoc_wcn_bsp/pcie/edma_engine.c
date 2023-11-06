@@ -1950,6 +1950,8 @@ static void edma_tx_timer_expire(struct timer_list *t)
 		WCN_INFO("%s: PCIe disconnect, don't access EP\n", __func__);
 		if (pdev->rc_pd)
 			sprd_pcie_dump_rc_regs(pdev->rc_pd);
+
+		wcn_assert_interface(WCN_SOURCE_BTWF, "BTWF sys PCIe link error!");
 		return;
 	}
 

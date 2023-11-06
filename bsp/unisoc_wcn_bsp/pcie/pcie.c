@@ -155,19 +155,23 @@ static void wcn_bus_change_state(struct wcn_pcie_info *bus,
 
 bool sprd_pcie_check_linkup(void)
 {
-	u32 val, trycnt = 1;
+	u32 val;
 	struct wcn_pcie_info *priv = get_wcn_device_info();
 
 	if (pci_dev_is_disconnected(priv->dev))
 		return false;
 
-	do {
-		pci_read_config_dword(priv->dev, 0, &val);
-		if (val != 0xFFFFFFFF)
-			return true;
-	}while(trycnt--);
+	/*PCIe link error, read vendor id will return 0xffffffff*/
+	pci_read_config_dword(priv->dev, 0, &val);
+	if (val == 0xFFFFFFFF)
+		return false;
 
-	return false;
+	/*PCIe linkdown occur, but ltssm is L0, read vendor id is ok, but command happen reset*/
+	pci_read_config_dword(priv->dev, 4, &val);
+	if (val == 0xFFFFFFFF || (val & 0x6) == 0)
+		return false;
+
+	return true;
 }
 
 static irqreturn_t sprd_pcie_msi_irq(int irq, void *arg)
