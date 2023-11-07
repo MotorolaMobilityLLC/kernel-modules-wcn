@@ -286,7 +286,7 @@ static int pcie_queue_mbuf(void *buf)
 	struct pcie_rx_mbuf *rx_mbuf = NULL;
 	int ret = 0;
 
-	rx_mbuf = kzalloc(sizeof(*rx_mbuf), GFP_KERNEL);
+	rx_mbuf = kzalloc(sizeof(*rx_mbuf), GFP_ATOMIC);
 	if (rx_mbuf) {
 		INIT_LIST_HEAD(&rx_mbuf->list);
 		rx_mbuf->buf = buf;
