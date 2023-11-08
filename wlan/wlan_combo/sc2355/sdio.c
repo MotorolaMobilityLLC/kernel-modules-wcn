@@ -1172,6 +1172,14 @@ void sc2355_sdio_deinit(struct sprd_hif *hif)
 
 void sdio_post_deinit(struct sprd_hif *hif)
 {
+	struct tx_mgmt *tx_mgmt = (struct tx_mgmt *)hif->tx_mgmt;
+
+	wl_info("reinit hang(%d) thermal(%d) suspend(%d) status to default\n",
+		tx_mgmt->hang_recovery_status, tx_mgmt->thermal_status,
+		hif->suspend_mode);
+	tx_mgmt->hang_recovery_status = HANG_RECOVERY_END;
+	tx_mgmt->thermal_status = THERMAL_TX_RESUME;
+	hif->suspend_mode = SPRD_PS_RESUMED;
 	sc2355_reset_cpu_prf_param(hif);
 
 }

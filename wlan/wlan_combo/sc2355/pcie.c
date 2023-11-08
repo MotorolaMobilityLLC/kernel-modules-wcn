@@ -1685,7 +1685,9 @@ void pcie_post_deinit(struct sprd_hif *hif)
 {
 	int chn = 0;
 	struct pcie_rx_mbuf *rx_mbuf = NULL, *rx_mbuf_pos = NULL;
+	struct tx_mgmt *tx_mgmt = NULL;
 
+	tx_mgmt = (struct tx_mgmt *)hif->tx_mgmt;
 	for (chn = 0; chn < sc2355_hif.max_num; chn++)
 		sprdwcn_bus_chn_deinit(&sc2355_hif.mchn_ops[chn]);
 
@@ -1697,6 +1699,13 @@ void pcie_post_deinit(struct sprd_hif *hif)
 	}
 	sc2355_hif.hif = NULL;
 	sc2355_hif.max_num = 0;
+
+	wl_info("reinit hang(%d) thermal(%d) suspend(%d) status to default\n",
+		tx_mgmt->hang_recovery_status, tx_mgmt->thermal_status,
+		hif->suspend_mode);
+	tx_mgmt->hang_recovery_status = HANG_RECOVERY_END;
+	tx_mgmt->thermal_status = THERMAL_TX_RESUME;
+	hif->suspend_mode = SPRD_PS_RESUMED;
 
 }
 void pcie_deinit(struct sprd_hif *hif)

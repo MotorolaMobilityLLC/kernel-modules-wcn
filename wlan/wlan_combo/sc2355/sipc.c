@@ -1507,8 +1507,10 @@ void sipc_post_deinit(struct sprd_hif *hif)
 {
 	int chn = 0;
 	struct rx_mgmt *rx_mgmt = NULL;
+	struct tx_mgmt *tx_mgmt = NULL;
 
 	rx_mgmt = (struct rx_mgmt *)hif->rx_mgmt;
+	tx_mgmt = (struct tx_mgmt *)hif->tx_mgmt;
 	if (rx_mgmt->addr_trans_head) {
 		sc2355_sipc_tx_addr_trans_free(hif);
 	}
@@ -1517,8 +1519,14 @@ void sipc_post_deinit(struct sprd_hif *hif)
 		sprdwcn_bus_chn_deinit(&sc2355_hif.mchn_ops[chn]);
 	sc2355_hif.hif = NULL;
 	sc2355_hif.max_num = 0;
-
+	wl_info("reinit hang(%d) thermal(%d) suspend(%d) status to default\n",
+		tx_mgmt->hang_recovery_status, tx_mgmt->thermal_status,
+		hif->suspend_mode);
+	tx_mgmt->hang_recovery_status = HANG_RECOVERY_END;
+	tx_mgmt->thermal_status = THERMAL_TX_RESUME;
+	hif->suspend_mode = SPRD_PS_RESUMED;
 }
+
 void sc2355_sipc_deinit(struct sprd_hif *hif)
 {
 	sc2355_tx_deinit(hif);

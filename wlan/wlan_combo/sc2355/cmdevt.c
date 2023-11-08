@@ -552,6 +552,7 @@ int sc2355_send_cmd_recv_rsp(struct sprd_priv *priv, struct sprd_msg *msg, u8 *r
 	const char *cmd_str = NULL;
 
 	hif = &priv->hif;
+	tx_mgmt = (struct tx_mgmt *)hif->tx_mgmt;
 	if (hif->cp_asserted == 1) {
 		wl_err("%s CP2 assert\n", __func__);
 		ret = -EIO;
@@ -595,7 +596,9 @@ int sc2355_send_cmd_recv_rsp(struct sprd_priv *priv, struct sprd_msg *msg, u8 *r
 		cmdevt_unlock_cmd(cmd, hif);
 		return -1;
 	}
-
+	if (cmd_id == CMD_HANG_RECEIVED &&
+			tx_mgmt->hang_recovery_status == HANG_RECOVERY_BEGIN)
+		tx_mgmt->hang_recovery_status = HANG_RECOVERY_ACKED;
 	/*
 	 * console_loglevel > 4 will cause cmd resp timeout easily,
 	 * so adjust timeout to 5 seconds when loglevel > 4.
@@ -640,7 +643,6 @@ int sc2355_send_cmd_recv_rsp(struct sprd_priv *priv, struct sprd_msg *msg, u8 *r
 			cmdevt_unlock_cmd(cmd, hif);
 			return ret;
 		}
-		tx_mgmt = (struct tx_mgmt *)hif->tx_mgmt;
 		if (!hif->cp_asserted &&
 		    tx_mgmt->hang_recovery_status == HANG_RECOVERY_END &&
 		    !hif->exit)
@@ -3231,13 +3233,10 @@ static int cmdevt_send_ba_mgmt(struct sprd_priv *priv, struct sprd_vif *vif,
 static int cmdevt_send_hang_received_cmd(struct sprd_priv *priv, struct sprd_vif *vif)
 {
 	struct sprd_msg *msg;
-	struct sprd_hif *hif = &priv->hif;
-	struct tx_mgmt *tx_mgmt = (struct tx_mgmt *)hif->tx_mgmt;
 
 	msg = get_cmdbuf(priv, vif, 0, CMD_HANG_RECEIVED);
 	if (!msg)
 		return -ENOMEM;
-	tx_mgmt->hang_recovery_status = HANG_RECOVERY_ACKED;
 	return send_cmd_recv_rsp(priv, msg, NULL, NULL);
 }
 
