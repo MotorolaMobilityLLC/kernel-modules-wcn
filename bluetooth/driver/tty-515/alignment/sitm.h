@@ -9,6 +9,7 @@
 
 #include <linux/types.h>
 #include <linux/kfifo.h>
+#include <linux/version.h>
 
 #define PREAMBLE_BUFFER_SIZE 5
 #define PACKET_TYPE_TO_INDEX(type) ((type) - 1)
@@ -61,8 +62,11 @@ struct packet_receive_data_t {
 typedef int (*frame_complete_cb)(uint8_t *data, size_t len);
 typedef int (*data_ready_cb)(uint8_t *data, uint32_t len);
 
-
+#if (KERNEL_VERSION(6, 0, 0) <= LINUX_VERSION_CODE)
+ssize_t sitm_write(const uint8_t *buf, size_t count, frame_complete_cb frame_complete);
+#else
 int sitm_write(const uint8_t *buf, int count, frame_complete_cb frame_complete);
+#endif
 int sitm_ini(void);
 int sitm_cleanup(void);
 #endif

@@ -1301,30 +1301,50 @@ static  int pcie_data_transmit(uint8_t *data, size_t count)
     return mtty_pcie_write(NULL, data, count);
 }
 
+#if (KERNEL_VERSION(6, 0, 0) <= LINUX_VERSION_CODE)
+static ssize_t mtty_sipc_write_plus(struct tty_struct *tty,
+		const unsigned char *buf, size_t count)
+#else
 static int mtty_sipc_write_plus(struct tty_struct *tty,
-        const unsigned char *buf, int count)
+		const unsigned char *buf, int count)
+#endif
 {
     dev_unisoc_bt_dbg(ttyBT_dev,
                         "mtty_sipc_write_plus\n");
     return sitm_write(buf, count, sipc_data_transmit);
 }
 
+#if (KERNEL_VERSION(6, 0, 0) <= LINUX_VERSION_CODE)
+static ssize_t mtty_sdio_write_plus(struct tty_struct *tty,
+		const unsigned char *buf, size_t count)
+#else
 static int mtty_sdio_write_plus(struct tty_struct *tty,
-        const unsigned char *buf, int count)
+		const unsigned char *buf, int count)
+#endif
 {
     dev_unisoc_bt_dbg(ttyBT_dev,
                         "mtty_sdio_write_plus\n");
     return sitm_write(buf, count, sdio_data_transmit);
 }
 
+#if (KERNEL_VERSION(6, 0, 0) <= LINUX_VERSION_CODE)
+static ssize_t mtty_pcie_write_plus(struct tty_struct *tty,
+		const unsigned char *buf, size_t count)
+#else
 static int mtty_pcie_write_plus(struct tty_struct *tty,
-        const unsigned char *buf, int count)
+		const unsigned char *buf, int count)
+#endif
 {
     return sitm_write(buf, count, pcie_data_transmit);
 }
 
+#if (KERNEL_VERSION(6, 0, 0) <= LINUX_VERSION_CODE)
+static ssize_t mtty_sipc2_write_plus(struct tty_struct *tty,
+		const unsigned char *buf, size_t count)
+#else
 static int mtty_sipc2_write_plus(struct tty_struct *tty,
-        const unsigned char *buf, int count)
+		const unsigned char *buf, int count)
+#endif
 {
     dev_unisoc_bt_dbg(ttyBT_dev,
                         "mtty_sipc2_write_plus\n");

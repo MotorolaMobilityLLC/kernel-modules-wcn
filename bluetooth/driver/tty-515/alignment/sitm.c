@@ -168,9 +168,13 @@ void parse_frame(data_ready_cb data_ready, frame_complete_cb frame_complete)
 	}
 }
 
+#if (KERNEL_VERSION(6, 0, 0) <= LINUX_VERSION_CODE)
+ssize_t sitm_write(const uint8_t *buf, size_t count, frame_complete_cb frame_complete)
+#else
 int sitm_write(const uint8_t *buf, int count, frame_complete_cb frame_complete)
+#endif
 {
-	int ret;
+	ssize_t ret;
 
 	if (!rd) {
 		dev_unisoc_bt_err(ttyBT_dev,
