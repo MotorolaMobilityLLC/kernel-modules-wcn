@@ -12,6 +12,7 @@
 
 KO_MODULE_NAME := sprd_wlan_combo
 KO_MODULE_OUT := $(BSP_MODULES_OUT)/$(KO_MODULE_NAME)
+export KBUILD_EXTRA_SYMBOLS += $(BSP_MODULES_OUT)/unisoc_wcn_bsp/Module.symvers
 
 KO_MODULE_KBUILD := $(CURDIR)/Kbuild
 
