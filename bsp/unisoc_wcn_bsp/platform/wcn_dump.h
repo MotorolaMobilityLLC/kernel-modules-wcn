@@ -41,7 +41,7 @@ struct wcn_dump_head_info {
 	/* used to check if dump is full */
 	__le32 file_size;
 	u8 reserv[8];
-	struct wcn_dump_section_info section[0];
+	struct wcn_dump_section_info section[];
 } __packed;
 
 #define MAX_DUMP_REG	0x30
