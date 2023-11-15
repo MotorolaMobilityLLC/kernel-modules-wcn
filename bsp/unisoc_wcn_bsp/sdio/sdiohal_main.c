@@ -1197,6 +1197,7 @@ fail_to_suspend:
 	}
 	atomic_set(&p_data->flag_suspending, 1);
 	atomic_set(&p_data->flag_resume, 1);
+	wake_up_all(&p_data->resume_waitq);
 
 power_notify:
 	for (chn = chn - 1; chn >= 0; chn--) {
