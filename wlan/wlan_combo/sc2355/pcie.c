@@ -84,6 +84,22 @@ static void pcie_get_tx_avg_time(struct sprd_hif *hif,
 }
 #endif
 
+void sc2355_pcie_dump_addr(struct sprd_hif *hif)
+{
+	unsigned long lockflag_txc = 0;
+	struct tx_mgmt *tx_mgmt = NULL;
+	struct sprd_msg *pos_msg = NULL;
+
+	tx_mgmt = (struct tx_mgmt *)hif->tx_mgmt;
+
+	spin_lock_irqsave(&tx_mgmt->xmit_msg_list.free_lock, lockflag_txc);
+	list_for_each_entry(pos_msg, &tx_mgmt->xmit_msg_list.to_free_list, list) {
+		wl_err("%s: pos_msg %p, pcie_addr=0x%lx\n",
+				__func__, pos_msg, pos_msg->pcie_addr);
+	}
+	spin_unlock_irqrestore(&tx_mgmt->xmit_msg_list.free_lock, lockflag_txc);
+}
+
 unsigned long pcie_mbufalloc;
 unsigned long pcie_mbufpop;
 static int pcie_tx_one(struct sprd_hif *hif, unsigned char *data,
@@ -1093,8 +1109,8 @@ static inline int sprd_tx_free_txc_msg(struct tx_mgmt *tx_msg,
 	}
 
 	if (found != 1) {
-		wl_err("%s: msg_buf %p not in to free list\n",
-			__func__, msg_buf);
+		wl_err("%s: msg_buf %p not in to free list, pcie_addr=0x%lx\n",
+			__func__, msg_buf, msg_buf->pcie_addr);
 		spin_unlock_irqrestore(&tx_msg->xmit_msg_list.free_lock,
 				       lockflag_txc);
 		return -1;
@@ -1530,6 +1546,8 @@ int sc2355_pcie_fc_get_send_num(struct sprd_hif *hif,
 				  pcie_get_tx_buf_num() :
 				  get_max_fw_tx_dscr();
 
+	tx_buf_max -= PCIE_TX_BUF_PROTECT_NUM; //workround cp2 invalid pcie address
+
 	if (data_num <= 0 || mode == SPRD_MODE_NONE)
 		return 0;
 
@@ -1562,6 +1580,8 @@ int sc2355_pcie_fc_test_send_num(struct sprd_hif *hif,
 				  pcie_get_tx_buf_num() ?
 				  pcie_get_tx_buf_num() :
 				  get_max_fw_tx_dscr();
+
+	tx_buf_max -= PCIE_TX_BUF_PROTECT_NUM; //workround cp2 invalid pcie address
 
 	if (data_num <= 0 || mode == SPRD_MODE_NONE)
 		return 0;

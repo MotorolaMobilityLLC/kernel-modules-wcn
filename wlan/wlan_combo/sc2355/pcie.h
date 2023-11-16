@@ -69,5 +69,6 @@ void sc2355_tx_free_pcie_data_num(struct sprd_hif *hif, unsigned char *data);
 int sc2355_tx_free_pcie_data(unsigned char *data);
 int sc2355_tx_addr_trans_pcie(struct sprd_hif *hif,
 			      unsigned char *data, int len, bool send_now);
+void sc2355_pcie_dump_addr(struct sprd_hif *hif);
 
 #endif /* __PCIE_H__ */

@@ -39,6 +39,7 @@ struct sprd_buf_node {
 #define PCIE_BUF_BLOCK_TYPE               (1)
 #define PCIE_BUF_SINGLE_TYPE              (0)
 #define PCIE_TX_BUF_MAX_NUM               (1024)
+#define PCIE_TX_BUF_PROTECT_NUM           (4)
 struct sprd_buf_mm {
 	struct sprd_buf_node *head;
 	struct sprd_buf_node *tail;

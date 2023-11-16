@@ -442,6 +442,9 @@ int sc2355_assert_cmd(struct sprd_priv *priv, u8 cmd_id,
 
 		mdbg_assert_interface(buf);
 
+		if (hif->hw_type == SPRD_HW_SC2355_PCIE)
+			sc2355_pcie_dump_addr(hif);
+
 		return 1;
 	} else {
 		return -1;
