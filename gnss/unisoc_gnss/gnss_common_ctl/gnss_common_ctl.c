@@ -27,11 +27,7 @@
 #include <linux/notifier.h>
 #include <linux/version.h>
 #include "wcn_bus.h"
-
-#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 17, 15)
 #include <linux/platform_data/sprd_ump96xx_tsensor.h>
-#endif
-
 #include "gnss_common.h"
 
 #define GNSS_DATA_BASE_TYPE_H  16
@@ -100,13 +96,6 @@ static int isQogirl6(void)
 
 	return iRet;
 }
-
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 17, 15)
-int gnss_tsen_control(struct regmap *regmap, unsigned int base, bool en)
-{
-	return 0;
-}
-#endif
 
 static void pmic_sc27xx_tsen_enable(struct regmap *regmap,
 					unsigned int base, int type)
