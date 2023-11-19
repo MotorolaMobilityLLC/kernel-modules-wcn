@@ -123,21 +123,22 @@ void wcn_dump_process(enum wcn_source_type type)
 		WCN_ERR("dump_cnt: %d, not dump again!\n", dump_cnt);
 		return;
 	}
+	dump_cnt++;
 
 	WCN_INFO("%s dumpmem begin\n", __func__);
 	sprdwcn_bus_set_carddump_status(true);
 
 	if (g_match_config && g_match_config->unisoc_wcn_pcie) {
-	/* check pcie link status, reset if disconnected, or do nothing */
-		wcn_reset_pcie();
-	}
-
-	if (g_match_config && g_match_config->unisoc_wcn_pcie) {
+		/* check pcie link status, reset if disconnected, or do nothing */
+		//wcn_reset_pcie();
+		if (!sprd_pcie_check_linkup()) {
+			WCN_INFO("%s dumpmem stop, PCIe link error\n", __func__);
+			return;
+		}
 		edma_hw_pause();
 		dump_arm_reg();
 	}
 
-	dump_cnt++;
 	if (g_match_config && g_match_config->unisoc_wcn_m3lite)
 		sdiohal_dump_aon_reg();
 	if (g_match_config && g_match_config->unisoc_wcn_integrated)

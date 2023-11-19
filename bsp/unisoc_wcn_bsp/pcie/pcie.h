@@ -216,13 +216,13 @@ int sprd_pcie_mem_write(unsigned int addr, void *buf, unsigned int len);
 int sprd_pcie_mem_read(unsigned int addr, void *buf, unsigned int len);
 int sprd_pcie_update_bits(unsigned int reg, unsigned int mask,
 			  unsigned int val);
-bool sprd_pcie_check_linkup(void);
 
 #ifdef BUILD_WCN_PCIE
 char *pcie_bar_vmem(struct wcn_pcie_info *priv, int bar);
 int dmalloc(struct wcn_pcie_info *priv, struct dma_buf *dm, int size);
 int dmfree(struct wcn_pcie_info *priv, struct dma_buf *dm);
 struct wcn_pcie_info *get_wcn_device_info(void);
+bool sprd_pcie_check_linkup(void);
 #else
 static inline char *pcie_bar_vmem(struct wcn_pcie_info *priv, int bar)
 {
@@ -242,6 +242,10 @@ static inline int dmfree(struct wcn_pcie_info *priv, struct dma_buf *dm)
 static inline struct wcn_pcie_info *get_wcn_device_info(void)
 {
 	return NULL;
+}
+static inline bool sprd_pcie_check_linkup(void)
+{
+	return false;
 }
 #endif
 
