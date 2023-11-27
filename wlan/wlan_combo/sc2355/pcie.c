@@ -1444,7 +1444,8 @@ void sc2355_pcie_handle_tx_return(struct sprd_hif *hif,
 		usleep_range(100, 200);
 		return;
 	} else {
-		wl_info("%s,%d,debug: %d\n", __func__, __LINE__, atomic_read(&list->ref));
+		printk_ratelimited("%s,%d,debug: %d\n", __func__,
+			__LINE__, atomic_read(&list->ref));
 	}
 }
 
@@ -1560,7 +1561,7 @@ int sc2355_pcie_fc_get_send_num(struct sprd_hif *hif,
 	}
 
 	if ((free_num + data_num) >= tx_buf_max) {
-		wl_info("%s, free_num=%d, data_num=%d\n", __func__,
+		printk_ratelimited("%s, free_num=%d, data_num=%d\n", __func__,
 				   free_num, data_num);
 		return (tx_buf_max - free_num);
 	} else {
@@ -1595,7 +1596,7 @@ int sc2355_pcie_fc_test_send_num(struct sprd_hif *hif,
 	}
 
 	if ((free_num + data_num) >= tx_buf_max) {
-		wl_err("%s,%d free_num=%d, data_num=%d\n",
+		printk_ratelimited("%s,%d free_num=%d, data_num=%d\n",
 				   __func__, __LINE__, free_num, data_num);
 		return (tx_buf_max - free_num);
 	} else {
