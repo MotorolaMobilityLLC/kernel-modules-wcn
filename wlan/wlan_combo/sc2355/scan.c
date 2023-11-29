@@ -187,7 +187,7 @@ static void scan_acs_result(struct sprd_vif *vif, u16 chan,
 static void sc2355_cancel_scan(struct sprd_vif *vif)
 {
 	struct sprd_priv *priv = vif->priv;
-	struct cfg80211_scan_info info;
+	struct cfg80211_scan_info info = { 0 };
 	struct sprd_api_version_t *api = (&priv->sync_api)->api_array;
 	u8 fw_ver = 0;
 
@@ -244,7 +244,7 @@ static void sc2355_cancel_sched_scan(struct sprd_vif *vif)
 void sc2355_scan_timeout(struct timer_list *t)
 {
 	struct sprd_priv *priv = from_timer(priv, t, scan_timer);
-	struct cfg80211_scan_info info;
+	struct cfg80211_scan_info info = { 0 };
 	struct sprd_api_version_t *api = (&priv->sync_api)->api_array;
 	u8 fw_ver = 0;
 

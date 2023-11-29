@@ -140,7 +140,7 @@ void sc2332_report_scan_result(struct sprd_vif *vif, u16 chan, s16 rssi,
 void sc2332_scan_timeout(struct timer_list *t)
 {
 	struct sprd_priv *priv = from_timer(priv, t, scan_timer);
-	struct cfg80211_scan_info info;
+	struct cfg80211_scan_info info = { 0 };
 
 	wl_info("%s\n", __func__);
 
