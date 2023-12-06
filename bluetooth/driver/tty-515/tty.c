@@ -1039,22 +1039,24 @@ static void mtty_close(struct tty_struct *tty, struct file *filp)
         return;
     }
 
-    atomic_set(&mtty->state, MTTY_STATE_CLOSE);
-    sitm_cleanup();
-    dev_unisoc_bt_info(ttyBT_dev,
-                        "mtty_close device success !\n");
+	mutex_lock(&mtty->rw_mutex);
+	atomic_set(&mtty->state, MTTY_STATE_CLOSE);
+	sitm_cleanup();
+	ret = stop_marlin(MARLIN_BLUETOOTH);
+	mutex_unlock(&mtty->rw_mutex);
+	dev_unisoc_bt_info(ttyBT_dev,
+						"close device success !\n");
 
-    ret = stop_marlin(MARLIN_BLUETOOTH);
-    dev_unisoc_bt_info(ttyBT_dev,
-                        "mtty_close power off state ret = %d!\n",
-                        ret);
+	dev_unisoc_bt_info(ttyBT_dev,
+						"power off state ret = %d!\n",
+						ret);
 }
 
 //pcie_close
 static void mtty_pcie_close(struct tty_struct *tty, struct file *filp)
 {
     struct mtty_device *mtty = NULL;
-    int ret = 0;
+	int ret = -1;
     mtty_dma_buf_free(BT_PCIE_RX_MAX_NUM);
     if (tty == NULL) {
         pr_err("mtty close input tty is NULL!\n");
@@ -1066,12 +1068,14 @@ static void mtty_pcie_close(struct tty_struct *tty, struct file *filp)
         return;
     }
 
+	mutex_lock(&mtty->stat_mutex);
     atomic_set(&mtty->state, MTTY_STATE_CLOSE);
     sprdwcn_bus_chn_deinit(&bt_pcie_rx_ops);
     sprdwcn_bus_chn_deinit(&bt_pcie_tx_ops0);
     sitm_cleanup();
     ret = stop_marlin(MARLIN_BLUETOOTH);
-    pr_info("mtty_close power off state ret = %d!\n", ret);
+	mutex_unlock(&mtty->stat_mutex);
+	pr_info("power off state ret = %d!\n", ret);
 }
 
 /*******************write function***************/
@@ -1331,9 +1335,34 @@ static int mtty_sipc_write_plus(struct tty_struct *tty,
 		const unsigned char *buf, int count)
 #endif
 {
-    dev_unisoc_bt_dbg(ttyBT_dev,
-                        "mtty_sipc_write_plus\n");
-    return sitm_write(buf, count, sipc_data_transmit);
+	int ret = -1;
+	struct mtty_device *mtty = NULL;
+
+	if (tty == NULL) {
+		dev_unisoc_bt_err(ttyBT_dev,
+							"stty closed, tty is NULL!\n");
+		return count;
+	}
+	mtty = (struct mtty_device *) tty->driver_data;
+
+	if (mtty == NULL) {
+		dev_unisoc_bt_err(ttyBT_dev,
+							"stty closed, stty is NULL!\n");
+		return count;
+	}
+
+	mutex_lock(&mtty->rw_mutex);
+	if (atomic_read(&mtty->state) == MTTY_STATE_CLOSE) {
+		dev_unisoc_bt_err(ttyBT_dev,
+							"stty status isn't open, status:%d\n",
+							atomic_read(&mtty->state));
+		mutex_unlock(&mtty->rw_mutex);
+		return count;
+	}
+
+	ret = sitm_write(buf, count, sipc_data_transmit);
+	mutex_unlock(&mtty->rw_mutex);
+	return ret;
 }
 
 #if (KERNEL_VERSION(6, 0, 0) <= LINUX_VERSION_CODE)
@@ -1344,9 +1373,34 @@ static int mtty_sdio_write_plus(struct tty_struct *tty,
 		const unsigned char *buf, int count)
 #endif
 {
-    dev_unisoc_bt_dbg(ttyBT_dev,
-                        "mtty_sdio_write_plus\n");
-    return sitm_write(buf, count, sdio_data_transmit);
+	int ret = -1;
+	struct mtty_device *mtty = NULL;
+
+	if (tty == NULL) {
+		dev_unisoc_bt_err(ttyBT_dev,
+							"stty closed, tty is NULL!\n");
+		return count;
+	}
+	mtty = (struct mtty_device *) tty->driver_data;
+
+	if (mtty == NULL) {
+		dev_unisoc_bt_err(ttyBT_dev,
+							"stty closed, stty is NULL!\n");
+		return count;
+	}
+
+	mutex_lock(&mtty->rw_mutex);
+	if (atomic_read(&mtty->state) == MTTY_STATE_CLOSE) {
+		dev_unisoc_bt_err(ttyBT_dev,
+							"stty status isn't open, status:%d\n",
+							atomic_read(&mtty->state));
+		mutex_unlock(&mtty->rw_mutex);
+		return count;
+	}
+
+	ret = sitm_write(buf, count, sdio_data_transmit);
+	mutex_unlock(&mtty->rw_mutex);
+	return ret;
 }
 
 #if (KERNEL_VERSION(6, 0, 0) <= LINUX_VERSION_CODE)
@@ -1357,7 +1411,34 @@ static int mtty_pcie_write_plus(struct tty_struct *tty,
 		const unsigned char *buf, int count)
 #endif
 {
-    return sitm_write(buf, count, pcie_data_transmit);
+	int ret = 0;
+	struct mtty_device *mtty = NULL;
+
+	if (tty == NULL) {
+		dev_unisoc_bt_err(ttyBT_dev,
+							"mtty close input tty is NULL!\n");
+		return count;
+	}
+
+	mtty = (struct mtty_device *) tty->driver_data;
+	if (mtty == NULL) {
+		dev_unisoc_bt_err(ttyBT_dev,
+							"mtty close tty is NULL!\n");
+		return count;
+	}
+
+	mutex_lock(&mtty->stat_mutex);
+	if (atomic_read(&mtty->state) == MTTY_STATE_CLOSE) {
+		dev_unisoc_bt_err(ttyBT_dev,
+							"mtty status isn't open, status:%d\n",
+							atomic_read(&mtty->state));
+		mutex_unlock(&mtty->stat_mutex);
+		return count;
+	}
+
+	ret = sitm_write(buf, count, pcie_data_transmit);
+	mutex_unlock(&mtty->stat_mutex);
+	return ret;
 }
 
 #if (KERNEL_VERSION(6, 0, 0) <= LINUX_VERSION_CODE)
@@ -1368,9 +1449,34 @@ static int mtty_sipc2_write_plus(struct tty_struct *tty,
 		const unsigned char *buf, int count)
 #endif
 {
-    dev_unisoc_bt_dbg(ttyBT_dev,
-                        "mtty_sipc2_write_plus\n");
-    return sitm_write(buf, count, sipc2_data_transmit);
+	int ret = -1;
+	struct mtty_device *mtty = NULL;
+
+	if (tty == NULL) {
+		dev_unisoc_bt_err(ttyBT_dev,
+							"stty closed, tty is NULL!\n");
+		return count;
+	}
+	mtty = (struct mtty_device *) tty->driver_data;
+
+	if (mtty == NULL) {
+		dev_unisoc_bt_err(ttyBT_dev,
+							"stty closed, stty is NULL!\n");
+		return count;
+	}
+
+	mutex_lock(&mtty->rw_mutex);
+	if (atomic_read(&mtty->state) == MTTY_STATE_CLOSE) {
+		dev_unisoc_bt_err(ttyBT_dev,
+							"stty status isn't open, status:%d\n",
+							atomic_read(&mtty->state));
+		mutex_unlock(&mtty->rw_mutex);
+		return count;
+	}
+
+	ret = sitm_write(buf, count, sipc2_data_transmit);
+	mutex_unlock(&mtty->rw_mutex);
+	return ret;
 }
 
 
