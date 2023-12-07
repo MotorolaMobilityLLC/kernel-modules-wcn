@@ -209,7 +209,6 @@ int wcn_get_module_status_changed(void);
 void wcn_set_module_status_changed(bool status);
 int marlin_reset_register_notify(void *callback_func, void *para);
 int marlin_reset_unregister_notify(void);
-bool copy_devices_for_wifi(void);
 void wcn_set_module_state(bool status);
 void wcn_set_loopcheck_state(bool status);
 void wcn_set_apcp_sync_addr(struct wcn_device *wcn_dev);

@@ -201,11 +201,6 @@ struct integ_wcn_clock_info {
 	int gpio;
 };
 
-struct integ_gpio_58_value {
-       bool value;
-       int gpio;
-};
-
 enum flag_emmc_or_ufs {
 	ufs = 0,
 	emmc = 1
@@ -316,8 +311,6 @@ struct wcn_device_manage {
 	struct gpio_desc *merlion_chip_en;
 	struct gpio_desc *merlion_reset;
 	struct gpio_desc *clk_26m_type_sel;
-	struct gpio_desc *gpio_58;
-        struct integ_gpio_58_value gpio_58_value;
 	struct integ_wcn_clock_info clk_xtal_26m;
 	/* debug */
 	bool boot_manually;
