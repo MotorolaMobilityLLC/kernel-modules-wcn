@@ -153,7 +153,7 @@ void sc2355_fcc_init(void)
 	mutex_init(&fcc_info.lock);
 }
 
-u8 sprd_pw_backoff_band2value(u8 channel)
+u8 sc2355_pw_backoff_band2value(u8 channel)
 {
 	u8 value = 0;
 
@@ -183,20 +183,20 @@ u8 sprd_pw_backoff_band2value(u8 channel)
 
 }
 
-void sprd_5g_sar_info_init(void)
+void sc2355_init_5g_sar_info(void)
 {
 	mutex_init(&g_set_5g_sar_info.lock);
 	g_set_5g_sar_info.channel = 0;
 	memset(g_set_5g_sar_info.value, 0x00, 5);
 }
 
-void sprd_5g_sar_info_reset(void)
+void sc2355_reset_5g_sar_info(void)
 {
 	mutex_lock(&g_set_5g_sar_info.lock);
 	g_set_5g_sar_info.channel = 0;
 	mutex_unlock(&g_set_5g_sar_info.lock);
 }
-void sprd_5g_sar_info_set(unsigned char *data)
+void sc2355_set_5g_sar_info(unsigned char *data)
 {
 	mutex_lock(&g_set_5g_sar_info.lock);
 	if (data == NULL)

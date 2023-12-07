@@ -374,8 +374,7 @@ void sprd_report_disconnection(struct sprd_vif *vif, u16 reason_code)
 
 	sprd_fcc_reset_bo(vif->priv);
 
-	if (hif->hw_type == SPRD_HW_SC2355_SIPC)
-		sprd_5g_sar_info_reset();
+	sprd_5g_sar_info_reset(vif->priv);
 
 	if (dt_configs->enable_n79)
 		hif->n79_info.mode_band[vif->mode] = 0;

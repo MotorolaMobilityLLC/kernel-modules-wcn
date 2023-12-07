@@ -154,8 +154,8 @@ static int npi_nl_handler(struct sk_buff *skb_2, struct genl_info *info)
 			goto out;
 
 		value = s_buf + sizeof(struct sprd_npi_cmd_hdr);
-		sprd_5g_sar_info_set(value);
-		sar_value = sprd_pw_backoff_band2value(g_set_5g_sar_info.channel);
+		sprd_5g_sar_info_set(priv, value);
+		sar_value = sprd_pw_backoff_band2value(priv, g_set_5g_sar_info.channel);
 		if (sar_value) {
 			ret = sprd_set_sar(vif->priv, vif, SPRD_SET_SAR_RELATIVE, sar_value);
 			if (ret)

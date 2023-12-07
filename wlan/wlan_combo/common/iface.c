@@ -1800,8 +1800,7 @@ static int iface_core_init(struct device *dev, struct sprd_priv *priv)
 	sprd_init_npi();
 
 	hif = &priv->hif;
-	if (hif->hw_type == SPRD_HW_SC2355_SIPC)
-		sprd_5g_sar_info_init();
+	sprd_5g_sar_info_init(priv);
 
 	sprd_qos_enable(priv, 1);
 
