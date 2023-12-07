@@ -509,6 +509,10 @@ void sdiohal_dump_aon_reg(void)
 		print_hex_dump(KERN_INFO, "WCN BTWF SUBSYS",
 			DUMP_PREFIX_OFFSET, 16, 16, btwf_db, 256, 0);
 	}
+
+	if (sdiohal_get_carddump_status())
+		goto end;
+
 	/*
 	 * check hready_status, if bt hung the bus, reset it.
 	 * BIT(2):bt2 hready out
@@ -529,7 +533,7 @@ void sdiohal_dump_aon_reg(void)
 				 CP_BUS_HREADY + i, reg_buf[i]);
 		}
 	}
-
+end:
 	pr_info("sdio dump_aon_reg end\n\n");
 }
 EXPORT_SYMBOL_GPL(sdiohal_dump_aon_reg);
