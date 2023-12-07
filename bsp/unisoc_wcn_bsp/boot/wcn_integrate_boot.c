@@ -639,18 +639,12 @@ static int wcn_download_image(struct wcn_device *wcn_dev)
 		}
 	}
 
-	if (is_marlin){
+	if (is_marlin)
 		strncpy(firmware_file_name, WCN_BTWF_FILENAME,
 			sizeof(firmware_file_name));
-  	if (copy_devices_for_wifi())
-        {
-		strcat(firmware_file_name, ".bin");
-        }else{
-          	strcat(firmware_file_name, "_58.bin");
-        }
-	}else {
-                strcat(firmware_file_name,".bin");
-        }
+
+	strcat(firmware_file_name, ".bin");
+
 	if (!is_marlin) {
 		strcpy(firmware_file_path, gnss_firmware_path);
 		strcat(firmware_file_path, firmware_file_name);
