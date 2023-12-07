@@ -1577,6 +1577,7 @@ int sdiohal_init(void)
 	p_data->flag_init = true;
 	/* card not ready */
 	atomic_set(&p_data->xmit_cnt, SDIOHAL_REMOVE_CARD_VAL);
+	spin_lock_init(&p_data->debug_spinlock);
 #if 0
 #ifdef CONFIG_DEBUG_FS
 	sdiohal_debug_init();

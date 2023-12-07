@@ -80,6 +80,7 @@ void sdiohal_debug_point_store(int type, int channel, int num, struct mbuf_t *he
 	struct sdiohal_data_t *p_data = sdiohal_get_data();
 	int *index = NULL;
 	struct sdiohal_xmit_debug_point *point = NULL;
+	unsigned long flags;
 
 	WARN(type <= TX_LIST_PUSH && channel >= SDIO_CHN_TX_NUM,
 			"debug point check(1) %d,%d\n", type, channel);
@@ -87,6 +88,8 @@ void sdiohal_debug_point_store(int type, int channel, int num, struct mbuf_t *he
 			"debug point check(2) %d,%d\n", type, channel);
 	WARN((channel >= SDIO_CHN_TX_NUM) && tx_direct,
 			"debug point check(3) %d,%d\n", type, channel);
+
+	spin_lock_irqsave(&p_data->debug_spinlock, flags);
 
 	switch (type) {
 	case TX_LIST_PUSH:
@@ -98,14 +101,16 @@ void sdiohal_debug_point_store(int type, int channel, int num, struct mbuf_t *he
 		index = &p_data->sdcb.rx_list_dispatch_index;
 		break;
 	default:
-		pr_err("unexpected!\n");
-		break;
+		pr_err("unexpected! type:%d\n", type);
+		spin_unlock_irqrestore(&p_data->debug_spinlock, flags);
+		return;
 	};
 
 	if (index != NULL && *index >= SDIO_DEBUG_POINT_NUM)
 		*index = 0;
 
 	__sdiohal_debug_point_store(channel, num, head, tail, &point[(*index)++], tx_direct);
+	spin_unlock_irqrestore(&p_data->debug_spinlock, flags);
 }
 
 void sdiohal_print_list_data(struct sdiohal_list_t *data_list,

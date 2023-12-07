@@ -327,6 +327,7 @@ struct sdiohal_data_t {
 	wait_queue_head_t resume_waitq;
 	/*SDIO debug control block*/
 	struct sdiohal_debug_t sdcb;
+	spinlock_t debug_spinlock;
 };
 
 struct sdiohal_data_t *sdiohal_get_data(void);
