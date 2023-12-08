@@ -30,6 +30,7 @@ struct wcn_sysfs_info {
 	/* 0:dumpmem; 1:reset */
 	atomic_t is_reset;
 	atomic_t is_n79_mode;
+	atomic_t is_deepsleep_wr;
 	char sw_ver_buf[128];
 	size_t sw_ver_len;
 	unsigned char armlog_status;

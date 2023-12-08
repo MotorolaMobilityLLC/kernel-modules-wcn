@@ -1110,10 +1110,45 @@ static void wcn_sipc_module_deinit(void)
 	WCN_INFO("sipc module deinit success\n");
 }
 
+struct  sblk_reset_argument sblk_argu[SIPC_CHN_NUM] = {0};
+int sblk_argu_cnt;
+
+static void wcn_sblk_reset_argument(void)
+{
+	int i;
+	struct sipc_chn_info *sipc_chn;
+
+	if (sblk_argu_cnt) {
+		WCN_INFO("[+]%s\n", __func__);
+		for (i = 0; i < sblk_argu_cnt; i++) {
+			sipc_chn = SIPC_CHN(sblk_argu[i].index);
+			WCN_INFO("before reset index %d tbnum[%d] tbsz[%d] rbnum[%d] rbsz[%d]\n",
+				sblk_argu[i].index,
+				sipc_chn->sblk.txblocknum,
+				sipc_chn->sblk.txblocksize,
+				sipc_chn->sblk.rxblocknum,
+				sipc_chn->sblk.rxblocksize);
+			sipc_chn->sblk.txblocknum = sblk_argu[i].txblocknum;
+			sipc_chn->sblk.txblocksize = sblk_argu[i].txblocksize;
+			sipc_chn->sblk.rxblocknum = sblk_argu[i].rxblocknum;
+			sipc_chn->sblk.rxblocksize = sblk_argu[i].rxblocksize;
+			WCN_INFO("after reset index %d tbnum[%d] tbsz[%d] rbnum[%d] rbsz[%d]\n",
+				sblk_argu[i].index,
+				sipc_chn->sblk.txblocknum,
+				sipc_chn->sblk.txblocksize,
+				sipc_chn->sblk.rxblocknum,
+				sipc_chn->sblk.rxblocksize);
+		}
+		WCN_INFO("[-]%s\n", __func__);
+	}
+}
+
 static int wcn_sipc_parse_dt(void)
 {
 	int ret;
 	struct device_node *np;
+	struct device_node *sipc_sblk_argu;
+	struct property *prop;
 
 	np = of_find_node_by_name(NULL, "cpwcn-btwf");
 	if (!np) {
@@ -1129,6 +1164,21 @@ static int wcn_sipc_parse_dt(void)
 		WCN_ERR("wcn-sipc-ver parse fail!\n");
 	WCN_INFO("wcn-sipc-ver:%d\n", g_sipc_info.sipc_wcn_version);
 
+	sipc_sblk_argu = of_find_node_by_name(np, "wcn-sblk-reset-bus-chn");
+	if (IS_ERR_OR_NULL(sipc_sblk_argu) || sblk_argu_cnt) {
+		WCN_INFO("[-]%s done!\n", __func__);
+		return ret;
+	}
+
+	for_each_property_of_node(sipc_sblk_argu, prop) {
+		if (strncmp(prop->name, "sprd", strlen("sprd")) != 0)
+			continue;
+		of_property_read_u32_array(sipc_sblk_argu, prop->name,
+			&sblk_argu[sblk_argu_cnt].index, 5);
+		sblk_argu_cnt++;
+	}
+
+	wcn_sblk_reset_argument();
 	return ret;
 }
 

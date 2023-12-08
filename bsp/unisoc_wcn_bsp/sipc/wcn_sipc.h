@@ -65,6 +65,14 @@ enum wcn_sblk_recvseq_index {
 	SBLK_SEQ_NUM
 };
 
+struct  sblk_reset_argument {
+	u32	index;
+	u32	txblocknum;
+	u32	txblocksize;
+	u32	rxblocknum;
+	u32	rxblocksize;
+};
+
 struct sblk_debug_info_t {
 	u64 dbg_pt[DBG_PT_NUM];
 	u32 pt_idx;

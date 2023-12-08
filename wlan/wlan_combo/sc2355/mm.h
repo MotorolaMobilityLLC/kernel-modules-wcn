@@ -42,14 +42,14 @@
 struct addr_trans_value {
 	unsigned char type;
 	unsigned char num;
-	unsigned char address[0][5];
+	unsigned char address[][5];
 } __packed;
 
 struct addr_trans {
 	unsigned int timestamp;
 	unsigned short seq_num;
 	unsigned char tlv_num;
-	struct addr_trans_value value[0];
+	struct addr_trans_value value[];
 } __packed;
 
 struct mem_mgmt {

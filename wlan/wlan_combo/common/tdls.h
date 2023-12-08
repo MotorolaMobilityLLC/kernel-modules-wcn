@@ -44,7 +44,7 @@ struct cmd_tdls_mgmt {
 		} __packed discover_resp;
 	} u;
 	__le32 len;
-	u8 frame[0];
+	u8 frame[];
 } __packed;
 
 struct tdls_update_peer_infor {

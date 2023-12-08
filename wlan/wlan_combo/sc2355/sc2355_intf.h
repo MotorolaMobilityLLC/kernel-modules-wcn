@@ -36,6 +36,19 @@
 #define CLEAR_ADDR(data, len)		memset((data - len), 0x0, len)
 #define HIGHER_DDR_PRIORITY	0xAA
 
+struct sc2355_hif {
+	unsigned int max_num;
+	void *hif;
+	struct mchn_ops_t *mchn_ops;
+};
+
+extern struct sc2355_hif sc2355_hif;
+
+static inline struct sprd_hif *sc2355_get_hif(void)
+{
+	return (struct sprd_hif *)sc2355_hif.hif;
+}
+
 unsigned short sc2355_get_data_csum(void *entry, void *data);
 unsigned short sc2355_pcie_get_data_csum(void *entry, void *data);
 unsigned short sc2355_sipc_get_data_csum(void *entry, void *data);
@@ -99,9 +112,6 @@ enum sprd_hif_type get_hwintf_type(void);
 void sc2355_tx_addr_trans_free(struct sprd_hif *hif);
 void sc2355_pcie_tx_addr_trans_free(struct sprd_hif *hif);
 void sc2355_sipc_tx_addr_trans_free(struct sprd_hif *hif);
-struct sprd_hif *sc2355_get_hif(void);
-struct sprd_hif *sc2355_sipc_get_hif(void);
-struct sprd_hif *sc2355_pcie_get_hif(void);
 void sc2355_rx_work_queue(struct work_struct *work);
 void sc2355_pcie_rx_work_queue(struct work_struct *work);
 void sc2355_sipc_rx_work_queue(struct work_struct *work);

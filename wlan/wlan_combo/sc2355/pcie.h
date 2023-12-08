@@ -50,7 +50,7 @@ struct pcie_addr_buffer {
 	} buffer_ctrl;
 	unsigned short number;
 	unsigned short rsvd;
-	unsigned char pcie_addr[0][5];
+	unsigned char pcie_addr[][5];
 } __packed;
 
 static inline void pcie_free_msg_content(struct sprd_msg *msg)

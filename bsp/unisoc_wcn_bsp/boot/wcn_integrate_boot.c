@@ -17,7 +17,7 @@
 #include "wcn_ca_trusty.h"
 #include "../sipc/wcn_sipc.h"
 #include "wcn_debug_bus.h"
-#include <misc/wcn_integrate_platform.h>
+#include "wcn_boot.h"
 #define GNSS_CALI_DONE_FLAG (0x1314520)
 
 static struct mutex marlin_lock;
@@ -642,16 +642,14 @@ static int wcn_download_image(struct wcn_device *wcn_dev)
 	if (is_marlin)
 		strncpy(firmware_file_name, WCN_BTWF_FILENAME,
 			sizeof(firmware_file_name));
-
 	strcat(firmware_file_name, ".bin");
-
 	if (!is_marlin) {
 		strcpy(firmware_file_path, gnss_firmware_path);
 		strcat(firmware_file_path, firmware_file_name);
 		WCN_INFO("gnss firmware path:%s\n", firmware_file_path);
 	}
 
-	WCN_INFO("modules loading image [%s] from firmware subsystem ...\n",
+	WCN_INFO("loading image [%s] from firmware subsystem ...\n",
 		 firmware_file_name);
 	err = request_firmware(&firmware, firmware_file_name, NULL);
 	if (err < 0) {
@@ -2625,12 +2623,8 @@ int btwf_sys_shutdown(struct wcn_device *wcn_dev)
 		      reg_val);
 
 	if (btwf_sys_polling_deepsleep(wcn_dev) == false) {
-		WCN_WARN("[-]%s btwf sys deep fail, try reset and WFI\n", __func__);
-		wcn_dfs_poweroff_shutdown_clear(wcn_dev);
-		if (btwf_try_reset_wfi(wcn_dev)) {
-			WCN_WARN("%s BTWF deepsleep failed, try reset&WFI fail, Assert\n", __func__);
-			return -EBUSY;
-		}
+		WCN_WARN("[-]%s btwf sys deep fail\n", __func__);
+		return -EFAULT;
 	}
 
 	if (btwf_sys_polling_powerdown(wcn_dev) == false) { /* shutdown fail */
@@ -3913,6 +3907,25 @@ int btwf_force_shutdown_aontop(struct wcn_device *wcn_dev)
 	return 0;
 }
 
+/*
+ * For BTWF SYS deepsleep fail WorkRound,
+ * soft reset WCN SYS and notify GNSS
+ */
+int reset_prop_btwf_deepsleep;
+void integ_workround_for_deepsleep(void)
+{
+	WCN_INFO("BTWF sys deepsleep failed, soft reset\n");
+	if (s_wcn_device.gnss_device &&
+		s_wcn_device.gnss_device->power_state) {
+		WCN_INFO("GNSS open! set reset status\n");
+		atomic_set(&sysfs_info.is_deepsleep_wr, 1);
+		reset_prop_btwf_deepsleep = wcn_sysfs_get_reset_prop();
+		/*set reset status when notifer gps*/
+		atomic_set(&sysfs_info.is_reset, WCN_ASSERT_ONLY_RESET);
+	}
+	wcn_reset_cp2();
+}
+
 int btwf_clear_force_shutdown_aontop(struct wcn_device *wcn_dev)
 {
 	u32 reg_val = 0;
@@ -3952,6 +3965,15 @@ int stop_integrate_wcn_module(u32 subsys)
 	}
 
 	wcn_show_dev_status("before stop");
+	is_marlin = wcn_dev_is_marlin(wcn_dev);
+
+	if (atomic_read(&sysfs_info.is_deepsleep_wr) && (!is_marlin)) {
+		atomic_set(&sysfs_info.is_deepsleep_wr, 0);
+		WCN_INFO("BTWF sys deepsleep failed, soft reset done!\n");
+		/*restore reset\dump status after notifer gps*/
+		atomic_set(&sysfs_info.is_reset, reset_prop_btwf_deepsleep);
+	}
+
 	if (unlikely(!(subsys_bit & wcn_dev->wcn_open_status))) {
 		/* It wants to stop not opened device */
 		WCN_ERR("%s not opend, err: subsys = %d\n",
@@ -3959,8 +3981,6 @@ int stop_integrate_wcn_module(u32 subsys)
 		/* WARNING: Return 0 by GNSS */
 		return wcn_dev_is_marlin(wcn_dev) ? -EINVAL : 0;
 	}
-
-	is_marlin = wcn_dev_is_marlin(wcn_dev);
 
 	mutex_lock(&wcn_dev->power_lock);
 	wcn_dev->wcn_open_status &= ~subsys_bit;
@@ -3982,14 +4002,11 @@ int stop_integrate_wcn_module(u32 subsys)
 		if (btwf_sys_polling_deepsleep(wcn_dev) == false) {
 			if (wcn_subsys_active_num() == 0)
 				goto force_poweroff;
-			WCN_WARN("%s BTWF deepsleep failed, try reset and WFI\n", __func__);
+			WCN_WARN("%s BTWF deepsleep failed, GNSS on!\n", __func__);
 			wcn_dfs_poweroff_shutdown_clear(wcn_dev);
-			if (btwf_try_reset_wfi(wcn_dev)) {
-				WCN_WARN("%s BTWF deepsleep failed, try reset&WFI fail, GNSS on, Assert\n", __func__);
-				wcn_dev->wcn_open_status |= subsys_bit;
-				mutex_unlock(&wcn_dev->power_lock);
-				return -BTWF_SYS_ABNORMAL;
-			}
+			wcn_dev->wcn_open_status |= subsys_bit;
+			mutex_unlock(&wcn_dev->power_lock);
+			return -BTWF_SYS_DEEPSLEEP_ABNORMAL;
 		}
 	} else {
 		if (gnss_sys_polling_deepsleep(wcn_dev) == false) {
@@ -4029,11 +4046,15 @@ int stop_integrate_wcn_module(u32 subsys)
 			if (wcn_subsys_active_num() == 0) {
 				goto force_poweroff;
 			}  else {
-				WCN_ERR("%s BTWF deepsleep failed, GNSS on, Assert\n", __func__);
+				WCN_ERR("%s BTWF shutdown failed, GNSS on, Assert\n", __func__);
 				wcn_dev->wcn_open_status |= subsys_bit;
 				mutex_unlock(&wcn_dev->power_lock);
 				return -BTWF_SYS_ABNORMAL;
 			}
+		} else if (ret == -EFAULT) {
+			wcn_dev->wcn_open_status |= subsys_bit;
+			mutex_unlock(&wcn_dev->power_lock);
+			return -BTWF_SYS_DEEPSLEEP_ABNORMAL;
 		} else if (ret) {
 			WCN_ERR("[-]%s:btwf_sys_shutdown fail", __func__);
 			wcn_dev->wcn_open_status |= subsys_bit;
@@ -4173,6 +4194,9 @@ int stop_integrate_wcn(u32 subsys)
 		} else if (ret == -GNSS_SYS_ABNORMAL) {
 			wcn_assert_interface(WCN_SOURCE_GNSS, "GNSS sys deepsleep/shutdown failed");
 			/* WARNING: Return 0 by GNSS */
+			return 0;
+		} else if (ret == -BTWF_SYS_DEEPSLEEP_ABNORMAL) {
+			integ_workround_for_deepsleep();
 			return 0;
 		}
 	}

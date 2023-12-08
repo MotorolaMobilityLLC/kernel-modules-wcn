@@ -464,8 +464,14 @@ static void mtty_rx_work_queue(struct work_struct *work)
             dev_unisoc_bt_err(ttyBT_dev,
                               "mtty over load cut channel: %d\n",
                               rx->channel);
-            kfree(rx->head->buf);
-            kfree(rx);
+		if (rx->head->buf != NULL) {
+			kfree(rx->head->buf);
+			rx->head->buf = NULL;
+		}
+		if (rx != NULL) {
+			kfree(rx);
+			rx = NULL;
+		}
 
         } while (1);
     } else {
@@ -581,6 +587,18 @@ static int mtty_sipc2_rx_cb(int chn, struct mbuf_t *head, struct mbuf_t *tail, i
             return -ENOMEM;
         }
 
+	if (atomic_read(&mtty_dev->state) == MTTY_STATE_CLOSE) {
+		dev_unisoc_bt_err(ttyBT_dev,
+							"%s mtty bt is closed abnormally\n",
+							__func__);
+		sprdwcn_bus_push_list(chn, head, tail, num);
+		if (rx != NULL) {
+			kfree(rx);
+			rx = NULL;
+		}
+		return -1;
+	}
+
         rx->head = head;
         rx->tail = tail;
         rx->channel = chn;
@@ -590,7 +608,10 @@ static int mtty_sipc2_rx_cb(int chn, struct mbuf_t *head, struct mbuf_t *tail, i
         if (rx->head->buf == NULL) {
             dev_unisoc_bt_err(ttyBT_dev,
                                 "mtty low memory!\n");
-            kfree(rx);
+	if (rx != NULL) {
+		kfree(rx);
+		rx = NULL;
+	}
             sprdwcn_bus_push_list(chn, head, tail, num);
             return -ENOMEM;
         }

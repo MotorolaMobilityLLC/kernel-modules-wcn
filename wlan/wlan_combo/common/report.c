@@ -289,10 +289,10 @@ done:
 	if (!(sprd_chip_sync_wmm_param(vif->priv, conn_info)))
 		wl_err("%s: failed to synchronize wmm parameter", __func__);
 
-	if (!netif_carrier_ok(vif->ndev)) {
+	if (!netif_carrier_ok(vif->ndev))
 		netif_carrier_on(vif->ndev);
-		netif_wake_queue(vif->ndev);
-	}
+
+	netif_wake_queue(vif->ndev);
 
 	vif->sm_state = SPRD_CONNECTED;
 	memcpy(vif->bssid, conn_info->bssid, sizeof(vif->bssid));

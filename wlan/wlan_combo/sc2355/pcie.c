@@ -33,14 +33,6 @@
 		.max_pending = pending, .pop_link = pop, .push_link = push, \
 		.tx_complete = complete, .power_notify = suspend }
 
-struct sc2355_hif {
-	unsigned int max_num;
-	void *hif;
-	struct mchn_ops_t *mchn_ops;
-};
-
-static struct sc2355_hif sc2355_hif;
-
 #if defined(MORE_DEBUG)
 static void pcie_dump_stats(struct sprd_hif *hif)
 {
@@ -211,7 +203,7 @@ sprdwl_list_cut_to_send_list(struct list_head *head_entry,
 			     struct list_head *tail_entry,
 			     int count)
 {
-	struct sprd_hif *hif = sc2355_pcie_get_hif();
+	struct sprd_hif *hif = sc2355_get_hif();
 	struct tx_mgmt *tx_msg = (struct tx_mgmt *)hif->tx_mgmt;
 	struct list_head list_tmp;
 	struct list_head *head;
@@ -231,7 +223,7 @@ sprdwl_list_cut_to_free_list(struct list_head *tx_list_head,
 		struct list_head *tx_list, struct list_head *tail_entry,
 		int tx_count)
 {
-	struct sprd_hif *hif = sc2355_pcie_get_hif();
+	struct sprd_hif *hif = sc2355_get_hif();
 	struct tx_mgmt *tx_msg = (struct tx_mgmt *)hif->tx_mgmt;
 	int ret = 0;
 	struct list_head tx_list_tmp;
@@ -256,7 +248,7 @@ pcie_list_cut_to_free_list(struct list_head *tx_list_head,
 			   struct list_head *tx_list,
 			   struct list_head *tail_entry, int tx_count)
 {
-	struct sprd_hif *hif = sc2355_pcie_get_hif();
+	struct sprd_hif *hif = sc2355_get_hif();
 	struct tx_mgmt *tx_mgmt = (struct tx_mgmt *)hif->tx_mgmt;
 	struct sprd_work *misc_work = NULL;
 	int ret = 0;
@@ -290,7 +282,7 @@ pcie_list_cut_to_free_list(struct list_head *tx_list_head,
 static int pcie_rx_fill_mbuf(struct mbuf_t *head, struct mbuf_t *tail, int num,
 			     int len)
 {
-	struct sprd_hif *hif = sc2355_pcie_get_hif();
+	struct sprd_hif *hif = sc2355_get_hif();
 	int ret = 0, count = 0;
 	struct mbuf_t *pos = NULL;
 
@@ -358,7 +350,7 @@ static int pcie_rx_common_push(int chn, struct mbuf_t **head,
 static int pcie_rx_handle(int chn, struct mbuf_t *head,
 			  struct mbuf_t *tail, int num)
 {
-	struct sprd_hif *hif = sc2355_pcie_get_hif();
+	struct sprd_hif *hif = sc2355_get_hif();
 	struct rx_mgmt *rx_mgmt = (struct rx_mgmt *)hif->rx_mgmt;
 	struct sprd_msg *msg = NULL;
 	int buf_num = 0, len = 0, ret = 0;
@@ -423,7 +415,7 @@ static int pcie_rx_handle(int chn, struct mbuf_t *head,
 static int pcie_data_rx_handle(int chn, struct mbuf_t *head,
 			       struct mbuf_t *tail, int num)
 {
-	struct sprd_hif *hif = sc2355_pcie_get_hif();
+	struct sprd_hif *hif = sc2355_get_hif();
 	struct rx_mgmt *rx_mgmt = (struct rx_mgmt *)hif->rx_mgmt;
 	struct sprd_msg *msg = NULL;
 
@@ -469,7 +461,7 @@ static int pcie_rx_data_push(int chn, struct mbuf_t **head,
  */
 static int pcie_suspend_resume_handle(int chn, int mode)
 {
-	struct sprd_hif *hif = sc2355_pcie_get_hif();
+	struct sprd_hif *hif = sc2355_get_hif();
 	struct sprd_priv *priv = hif->priv;
 	struct tx_mgmt *tx_mgmt = (struct tx_mgmt *)hif->tx_mgmt;
 	int ret;
@@ -573,17 +565,12 @@ struct mchn_ops_t sc2355_pcie_hif_ops[] = {
 			NULL, NULL, NULL),
 };
 
-struct sprd_hif *sc2355_pcie_get_hif(void)
-{
-	return (struct sprd_hif *)sc2355_hif.hif;
-}
-
 #define INTF_IS_PCIE \
-	(sc2355_pcie_get_hif()->hw_type == SPRD_HW_SC2355_PCIE)
+	(sc2355_get_hif()->hw_type == SPRD_HW_SC2355_PCIE)
 
 void sc2355_pcie_set_coex_bt_on_off(u8 action)
 {
-	struct sprd_hif *hif = sc2355_pcie_get_hif();
+	struct sprd_hif *hif = sc2355_get_hif();
 
 	hif->coex_bt_on = action;
 }
@@ -945,7 +932,7 @@ void sc2355_pcie_handle_pop_list(void *data)
 	struct mbuf_t *mbuf_pos = NULL;
 	struct pop_work *pop = (struct pop_work *)data;
 	struct tx_mgmt *tx_mgmt;
-	struct sprd_hif *hif = sc2355_pcie_get_hif();
+	struct sprd_hif *hif = sc2355_get_hif();
 	struct list_head tmp_list;
 	struct sprd_msg *msg_head, *msg_tail;
 
@@ -977,7 +964,7 @@ void sc2355_pcie_handle_pop_list(void *data)
 int sc2355_pcie_add_topop_list(int chn, struct mbuf_t *head,
 			  struct mbuf_t *tail, int num)
 {
-	struct sprd_hif *hif = sc2355_pcie_get_hif();
+	struct sprd_hif *hif = sc2355_get_hif();
 	struct sprd_work *misc_work;
 	struct pop_work pop_work;
 	u8 *data = NULL;
@@ -1010,7 +997,7 @@ int sc2355_pcie_tx_data_pop_list(int channel, struct mbuf_t *head,
 #if defined(MORE_DEBUG)
 	struct sprd_msg *msg_head;
 #endif
-	struct sprd_hif *hif = sc2355_pcie_get_hif();
+	struct sprd_hif *hif = sc2355_get_hif();
 
 	wl_all("%s channel: %d, head: %p, tail: %p num: %d\n",
 		__func__, channel, head, tail, num);
@@ -1092,7 +1079,7 @@ static inline int sprd_tx_free_txc_msg(struct tx_mgmt *tx_msg,
 int sc2355_tx_free_pcie_data(unsigned char *data)
 {
 	int i;
-	struct sprd_hif *hif = sc2355_pcie_get_hif();
+	struct sprd_hif *hif = sc2355_get_hif();
 	struct tx_mgmt *tx_mgmt = (struct tx_mgmt *)hif->tx_mgmt;
 	void *data_addr_ptr;
 	unsigned long pcie_addr;
@@ -1169,7 +1156,7 @@ int sc2355_pcie_tx_cmd_pop_list(int channel, struct mbuf_t *head,
 {
 	int count = 0;
 	struct mbuf_t *pos = NULL;
-	struct sprd_hif *hif = sc2355_pcie_get_hif();
+	struct sprd_hif *hif = sc2355_get_hif();
 	struct tx_mgmt *tx_mgmt;
 	struct sprd_msg *pos_buf, *temp_buf;
 
@@ -1266,7 +1253,7 @@ void sc2355_pcie_event_sta_lut(struct sprd_vif *vif, u8 *data, u16 len)
 	}
 	hif = &vif->priv->hif;
 	sta_lut = (struct evt_sta_lut_ind *)data;
-	if (hif != sc2355_pcie_get_hif()) {
+	if (hif != sc2355_get_hif()) {
 		wl_err("%s, wrong hif!\n", __func__);
 		return;
 	}
@@ -1654,11 +1641,20 @@ err:
 void pcie_post_deinit(struct sprd_hif *hif)
 {
 	int chn = 0;
+	struct tx_mgmt *tx_mgmt = NULL;
 
+	tx_mgmt = (struct tx_mgmt *)hif->tx_mgmt;
 	for (chn = 0; chn < sc2355_hif.max_num; chn++)
 		sprdwcn_bus_chn_deinit(&sc2355_hif.mchn_ops[chn]);
 	sc2355_hif.hif = NULL;
 	sc2355_hif.max_num = 0;
+
+	wl_info("reinit hang(%d) thermal(%d) suspend(%d) status to default\n",
+		tx_mgmt->hang_recovery_status, tx_mgmt->thermal_status,
+		hif->suspend_mode);
+	tx_mgmt->hang_recovery_status = HANG_RECOVERY_END;
+	tx_mgmt->thermal_status = THERMAL_TX_RESUME;
+	hif->suspend_mode = SPRD_PS_RESUMED;
 
 }
 void pcie_deinit(struct sprd_hif *hif)

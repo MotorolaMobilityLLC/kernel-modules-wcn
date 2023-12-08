@@ -552,29 +552,25 @@ static void reorder_wlan_filter_event(struct rx_ba_entry *ba_entry,
 	}
 }
 
-static void reorder_wlan_delba_event(struct rx_ba_entry *ba_entry,
-				     struct evt_ba *ba_event)
+static void reorder_del_ba_node(struct rx_ba_entry *ba_entry,
+				u8 sta_lut_index, u8 tid, bool del_lut)
 {
 	struct rx_ba_node *ba_node = NULL;
 	struct rx_ba_node_desc *ba_node_desc = NULL;
 
-	ba_node = reorder_find_ba_node(ba_entry,
-				       ba_event->sta_lut_index, ba_event->tid);
-	if (!ba_node) {
-		wl_err("%s: NOT FOUND sta_lut_index: %d, tid: %d\n",
-		       __func__, ba_event->sta_lut_index, ba_event->tid);
+	ba_node = reorder_find_ba_node(ba_entry, sta_lut_index, tid);
+	if (!ba_node)
 		return;
-	}
 
+	wl_info("%s lut_idx-tid %u-%u\n", __func__, sta_lut_index, tid);
 	del_timer_sync(&ba_node->reorder_timer);
 	spin_lock_bh(&ba_node->ba_node_lock);
-	if (ba_node->active) {
-		ba_node_desc = ba_node->rx_ba;
-		ba_node->active = 0;
-		ba_node->timeout_cnt = 0;
+	ba_node_desc = ba_node->rx_ba;
+	ba_node->active = 0;
+	ba_node->timeout_cnt = 0;
+	if (!del_lut)
 		reorder_between_seqlo_seqhi(ba_entry, ba_node_desc);
-		reorder_flush_buffer(ba_node_desc);
-	}
+	reorder_flush_buffer(ba_node_desc);
 	hlist_del(&ba_node->hlist);
 	spin_unlock_bh(&ba_node->ba_node_lock);
 
@@ -582,6 +578,14 @@ static void reorder_wlan_delba_event(struct rx_ba_entry *ba_entry,
 	kfree(ba_node);
 	ba_node = NULL;
 	ba_entry->current_ba_node = NULL;
+
+}
+
+static void reorder_wlan_delba_event(struct rx_ba_entry *ba_entry,
+				     struct evt_ba *ba_event)
+{
+	reorder_del_ba_node(ba_entry, ba_event->sta_lut_index,
+			    ba_event->tid, false);
 }
 
 static void reorder_wlan_bar_event(struct rx_ba_entry *ba_entry,
@@ -684,6 +688,13 @@ static int reorder_wlan_addba_event(struct rx_ba_entry *ba_entry,
 	unsigned int index_size = reorder_get_index_size(2 * win_size);
 
 	ba_node = reorder_find_ba_node(ba_entry, sta_lut_index, tid);
+	if (ba_node && ba_node->rx_ba->index_mask + 1 != index_size) {
+		wl_info("%s : index_size %d -> %d\n", __func__,
+			ba_node->rx_ba->index_mask + 1, index_size);
+		reorder_del_ba_node(ba_entry, sta_lut_index, tid, false);
+		ba_node = NULL;
+	}
+
 	if (!ba_node) {
 		ba_node = reorder_create_ba_node(ba_entry, sta_lut_index,
 						 tid, index_size);
@@ -957,32 +968,11 @@ void sc2355_reorder_deinit(struct rx_ba_entry *ba_entry)
 void sc2355_peer_entry_delba(struct sprd_hif *hif, unsigned char lut_index)
 {
 	int tid = 0;
-	struct rx_ba_node *ba_node = NULL;
-	struct rx_ba_node_desc *ba_node_desc = NULL;
 	struct rx_mgmt *rx_mgmt = (struct rx_mgmt *)hif->rx_mgmt;
 	struct rx_ba_entry *ba_entry = &rx_mgmt->ba_entry;
 
 	wl_debug("enter %s\n", __func__);
 	for (tid = 0; tid < NUM_TIDS; tid++) {
-		ba_node = reorder_find_ba_node(ba_entry, lut_index, tid);
-		if (ba_node) {
-			del_timer_sync(&ba_node->reorder_timer);
-			wl_info("%s: del ba lut_index: %d, tid %d, active %u.\n",
-				__func__, lut_index, tid, ba_node->active);
-			spin_lock_bh(&ba_node->ba_node_lock);
-			if (ba_node->active) {
-				ba_node_desc = ba_node->rx_ba;
-				ba_node->active = 0;
-				ba_node->timeout_cnt = 0;
-				reorder_flush_buffer(ba_node_desc);
-			}
-			hlist_del(&ba_node->hlist);
-			spin_unlock_bh(&ba_node->ba_node_lock);
-
-			kfree(ba_node->rx_ba);
-			kfree(ba_node);
-			ba_node = NULL;
-			ba_entry->current_ba_node = NULL;
-		}
+		reorder_del_ba_node(ba_entry, lut_index, tid, true);
 	}
 }

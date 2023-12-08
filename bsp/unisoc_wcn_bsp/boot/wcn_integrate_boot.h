@@ -24,8 +24,9 @@ struct reg_wcn_aon_ahb_reserved2 {
 	u32 priority : 2;
 	u32 reserved : 30;
 };
+extern struct wcn_sysfs_info sysfs_info;
 #define BTWF_SYS_ABNORMAL 0x0deadbad
-
+#define BTWF_SYS_DEEPSLEEP_ABNORMAL 0x2deadbad
 #define GNSS_SYS_ABNORMAL 0x1deadbad
 
 #ifndef BTWF_SW_DEEP_SLEEP_MAGIC

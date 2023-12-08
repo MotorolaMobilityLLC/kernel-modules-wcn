@@ -837,7 +837,7 @@ irqreturn_t pamwifi_irq_handle(int irq, void *dev)
 
 struct sprd_vif *find_ul_vif(struct sk_buff *skb)
 {
-	struct sprd_hif *intf = sc2355_pcie_get_hif();
+	struct sprd_hif *intf = sc2355_get_hif();
 	struct net_device *net;
 	int i, j;
 
@@ -1032,7 +1032,7 @@ static struct notifier_block wifi_recv_skb = {
 };
 static void dl_flowctrl_handler(int flowctrl)
 {
-	struct sprd_hif *intf = sc2355_pcie_get_hif();
+	struct sprd_hif *intf = sc2355_get_hif();
 	int i;
 
 	pw_info("dl_flowctrl_handler intf 0x%llx, flowctrl %d\n", intf, flowctrl);

@@ -1711,6 +1711,7 @@ int sc2355_reset(struct sprd_hif *hif)
 	/* when cp2 hang and reset, clear hang_recovery_status */
 	wl_debug("%s set hang recovery status to END, %d\n", __func__, __LINE__);
 	tx_mgmt->hang_recovery_status = HANG_RECOVERY_END;
+	tx_mgmt->thermal_status = THERMAL_TX_RESUME;
 
 	/* bug 1985177, initial suspend mode, set to SPRD_PS_RESUMED */
 	wl_debug("%s set suspend_mode to RESUMED, %d\n", __func__, __LINE__);
