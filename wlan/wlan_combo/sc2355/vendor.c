@@ -3311,9 +3311,24 @@ static int vendor_apf_req_send_recv(struct sprd_vif *vif,
 }
 
 static void sc2355_apf_init(struct sprd_priv *priv) {
+	bool apf_supported = false;
+	u8 apf_cmd_id = 0;
+
 	if (priv->hif.hw_type == SPRD_HW_SC2355_SIPC) {
+		apf_cmd_id = CMD_PACKET_FILTER;
+		apf_supported = true;
+	}
+
+	if (priv->hif.hw_type == SPRD_HW_SC2355_SDIO &&
+		priv->extend_feature & SPRD_EXTEND_FEATURE_APF) {
+		wl_info("APF ext_feature 0x%x.\n", priv->extend_feature);
+		apf_cmd_id = CMD_APF;
+		apf_supported = true;
+	}
+
+	if (apf_supported) {
 		if (!apf_init(priv)) {
-			priv->apf_state->apf_cmd_id = CMD_PACKET_FILTER;
+			priv->apf_state->apf_cmd_id = apf_cmd_id;
 			priv->apf_state->apf_req_send_rcv = vendor_apf_req_send_recv;
 		}
 	}
@@ -3350,7 +3365,9 @@ exit:
 }
 
 static void sc2355_apf_deinit(struct sprd_priv *priv) {
-	if (priv->hif.hw_type == SPRD_HW_SC2355_SIPC) {
+	if (priv->hif.hw_type == SPRD_HW_SC2355_SIPC ||
+		(priv->hif.hw_type == SPRD_HW_SC2355_SDIO &&
+		priv->extend_feature & SPRD_EXTEND_FEATURE_APF)) {
 		apf_deinit(priv);
 	}
 }

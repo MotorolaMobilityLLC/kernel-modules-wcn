@@ -400,6 +400,12 @@ struct sprd_api_version_t api_array[] = {
 		.name = "CMD_SET_CHR",
 	},
 #endif
+	[92]{
+		/*ID:92*/
+		.cmd_id = CMD_APF,
+		.drv_version = 1,
+		.name = "CMD_APF",
+	},
 	[128]{	/*ID:0x80*/
 		.cmd_id = EVT_CONNECT,
 		.drv_version = 1,

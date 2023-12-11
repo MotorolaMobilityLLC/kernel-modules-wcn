@@ -92,6 +92,7 @@
 #define SPRD_EXTEND_FEATURE_OCE	   BIT(4)
 #define SPRD_EXTEND_FEATURE_LLSTATE	   BIT(5)
 #define SPRD_EXTEND_SOATAP_WPA3	   BIT(6)
+#define SPRD_EXTEND_FEATURE_APF	   BIT(7)
 
 #define SPRD_SET_SAR	0x10
 
@@ -283,12 +284,14 @@ enum CMD_LIST {
 	CMD_SET_SNIFFER = 87,
 	CMD_RESVERED_FOR_FILTER = 88,
 	CMD_EXTENDED_LLSTAT = 89,
-	CMD_PACKET_FILTER = 90,
+	CMD_PACKET_FILTER = 90, /* apf on marlin3 sipc */
 
 #ifdef ENABLE_CHR
 	/* set the chr module */
 	CMD_SET_CHR = 91,
 #endif
+	CMD_APF = 92, /* apf on marlin3LE sdio */
+
 	CMD_MAX
 };
 
