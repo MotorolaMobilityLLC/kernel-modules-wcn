@@ -1778,6 +1778,7 @@ static int iface_core_init(struct device *dev, struct sprd_priv *priv)
 	int ret;
 
 	sprd_tcp_ack_init(priv);
+	sprd_fcc_init(priv);
 	sprd_setup_wiphy(wiphy, priv);
 	sprd_vendor_init(priv, wiphy);
 	set_wiphy_dev(wiphy, dev);
@@ -1797,8 +1798,6 @@ static int iface_core_init(struct device *dev, struct sprd_priv *priv)
 	}
 
 	sprd_init_npi();
-
-	sprd_fcc_init(priv);
 
 	hif = &priv->hif;
 	if (hif->hw_type == SPRD_HW_SC2355_SIPC)
