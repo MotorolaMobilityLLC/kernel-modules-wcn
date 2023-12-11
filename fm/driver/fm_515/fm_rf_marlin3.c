@@ -125,7 +125,7 @@ static void get_cmd_par(const u8 *str, struct nvm_cali_cmd *cmd)
 	int i, j, bufType, cType, flag;
 	char tmp[128];
 	char c;
-	long val;
+	long val = 0;
 
 	bufType = -1;
 	cType = 0;
