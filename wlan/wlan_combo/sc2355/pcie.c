@@ -1186,6 +1186,10 @@ int sc2355_tx_free_pcie_data(unsigned char *data)
 					   false);
 		msg = NULL;
 		RESTORE_ADDR(msg, data_addr_ptr, sizeof(msg));
+		if (msg == NULL) {
+			wl_info("%s: msg null!\n", __func__);
+			continue;
+		}
 
 		if (last_msg == msg) {
 			wl_info("%s: same msg buf: %lx, %lx\n", __func__,
