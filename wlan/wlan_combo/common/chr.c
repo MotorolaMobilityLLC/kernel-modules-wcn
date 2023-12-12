@@ -25,7 +25,7 @@ static int sprd_chr_sock_sendmsg(struct sprd_chr *chr, u8 *data)
 	wl_debug("CHR: ready to sendmsg: %s\n", data);
 	ret = kernel_sendmsg(chr->chr_sock, &send_msg, &send_vec, 1, CHR_BUF_SIZE);
 	if (ret < 0) {
-		wl_err("%s, CHR: sendmsg failed, release socket");
+		wl_err("%s, CHR: sendmsg failed, release socket\n", __func__);
 		if (chr->chr_sock)
 			sock_release(chr->chr_sock);
 		return -EINVAL;
@@ -249,7 +249,7 @@ static int sprd_chr_client_thread(void *params)
 {
 	int ret, sbuf_len, buf_pos;
 	struct sockaddr_in s_addr;
-	char recv_buf[CHR_BUF_SIZE] = {0};
+	char *recv_buf;
 	int connect_limit = 0;
 	struct msghdr recv_msg = {0};
 	struct kvec recv_vec = {0};
@@ -260,6 +260,12 @@ static int sprd_chr_client_thread(void *params)
 
 	chr = (struct sprd_chr *)params;
 	priv = chr->priv;
+	recv_buf = kmalloc(CHR_BUF_SIZE, GFP_KERNEL);
+	if (!recv_buf) {
+		wl_err("%s, CHR: recv_buf malloc failed\n", __func__);
+		chr->chr_client_thread = NULL;
+		return -ENOMEM;
+	}
 /*
  * After receiving disable_chr each time,it's necessary
  * to establish a new connection with the upper.
@@ -270,6 +276,8 @@ retry:
 	if (ret < 0) {
 		wl_err("CHR: sock_client create failed %d\n", ret);
 		chr->chr_client_thread = NULL;
+		kfree(recv_buf);
+		recv_buf = NULL;
 		return -EINVAL;
 	}
 
@@ -306,7 +314,7 @@ retry:
  */
 	while (!kthread_should_stop() && chr->sock_flag != 2) {
 		buf_pos = 0;
-		memset(recv_buf, 0, sizeof(recv_buf));
+		memset(recv_buf, 0, CHR_BUF_SIZE);
 		memset(&recv_msg, 0, sizeof(recv_msg));
 		ret = kernel_recvmsg(sock, &recv_msg, &recv_vec, 1, CHR_BUF_SIZE, 0);
 
@@ -317,7 +325,7 @@ retry:
 		* cyclically, affecting the use of "kernel.log".
 		* So go to "exit".
 		*/
-		if (unlikely(ret <= 0 || strlen(recv_buf) == 0)) {
+		if (unlikely(ret <= 0 || recv_buf[0] == 0)) {
 			wl_err("%s, CHR: kernel_recvmsg faild, go to exit", __func__);
 			goto exit;
 		}
@@ -363,6 +371,8 @@ exit:
 	chr->chr_sock = NULL;
 	sock_release(sock);
 	sock = NULL;
+	kfree(recv_buf);
+	recv_buf = NULL;
 	complete(&chr->thread_completed);
 	wl_debug("%s, CHR: exit client_thread\n", __func__);
 
