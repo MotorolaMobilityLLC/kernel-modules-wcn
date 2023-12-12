@@ -1280,6 +1280,8 @@ int fm_powerup(struct fm_tune_parm *p) {
     int ret = -1;
     struct fm_config_t fm_data;
 
+	memset(&fm_data, 0, sizeof(struct fm_config_t));
+
     if (SIPC1 || SIPC2) {
         uint32_t anten = fmdev->pdata->lna_gpio;
         uint32_t ana_switch = fmdev->pdata->ana_inner;
