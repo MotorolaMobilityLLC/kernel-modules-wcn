@@ -353,7 +353,12 @@ void sprd_deinit_npi(void)
 		wl_err("genl_unregister_family error:%d\n", ret);
 }
 
-static void sprd_npi_set_cca_param(struct sprd_priv *priv, struct sprd_vif *vif)
+/* flag
+ * SPRD_NPI_CMD_SET_FLAG_ADAP: set adaptive function
+ * SPRD_NPI_CMD_SET_FLAG_ACS: set acs enable
+ */
+void sprd_npi_set_cca_param(struct sprd_priv *priv, struct sprd_vif *vif,
+			    enum sprd_npi_cmd_set_cca_flag flag)
 {
 	struct sprd_npi_cmd_hdr *hdr = NULL;
 	unsigned short s_len = 0, r_len = SPRD_NPI_RECV_BUF_LEN;
@@ -368,26 +373,34 @@ static void sprd_npi_set_cca_param(struct sprd_priv *priv, struct sprd_vif *vif)
 
 	p = s_buf + sizeof(struct sprd_npi_cmd_hdr);
 
-	spin_lock_bh(&adap_info.adap_lock);
-	tmp_flag = adap_info.wifi_adaptive_flag;
+	if (flag == SPRD_NPI_CMD_SET_FLAG_ADAP) {
+		spin_lock_bh(&adap_info.adap_lock);
+		tmp_flag = adap_info.wifi_adaptive_flag;
 
-	/*
-	 * wifi_adaptive_flag
-	 * BIT(4): iwnpi control
-	 * BIT(0): adaptive value, enable/disable
-	 */
-	if (tmp_flag & BIT(4)) {
-		if (!(tmp_flag & BIT(0))) {
-			adap_info.special_data_flag = SPRD_NPI_DATA_SPECIAL;
-			adap_info.wifi_adaptive_flag = SPRD_NPI_CE_DISABLE;
-		} else {
-			adap_info.special_data_flag = SPRD_NPI_NORMAL_ALL;
+		/* wifi_adaptive_flag
+		 * BIT(4): iwnpi control
+		 * BIT(0): adaptive value, enable/disable
+		 */
+		if (tmp_flag & BIT(4)) {
+			if (!(tmp_flag & BIT(0))) {
+				adap_info.special_data_flag = SPRD_NPI_DATA_SPECIAL;
+				adap_info.wifi_adaptive_flag = SPRD_NPI_CE_DISABLE;
+			} else {
+				adap_info.special_data_flag = SPRD_NPI_NORMAL_ALL;
+			}
 		}
+		wl_debug("%s wifi_adaptive_flag: 0x%x, special_data_flag: %d\n",
+			 __func__, adap_info.wifi_adaptive_flag,
+			 adap_info.special_data_flag);
+		spin_unlock_bh(&adap_info.adap_lock);
+	} else if (flag == SPRD_NPI_CMD_SET_FLAG_ACS) {
+		spin_lock_bh(&adap_info.adap_lock);
+		tmp_flag = adap_info.wifi_adaptive_flag;
+		spin_unlock_bh(&adap_info.adap_lock);
+	} else {
+		wl_err("%s err flag %d\n", __func__, flag);
+		goto err;
 	}
-	wl_debug("%s wifi_adaptive_flag: 0x%x, special_data_flag: %d\n",
-		__func__, adap_info.wifi_adaptive_flag,
-		adap_info.special_data_flag);
-	spin_unlock_bh(&adap_info.adap_lock);
 
 	if (tmp_flag & BIT(4)) {
 		hdr = (struct sprd_npi_cmd_hdr *)s_buf;
@@ -397,7 +410,12 @@ static void sprd_npi_set_cca_param(struct sprd_priv *priv, struct sprd_vif *vif)
 		s_len = sizeof(struct sprd_npi_cmd_hdr) + hdr->len;
 
 		*p++ = SPRD_NPI_CCA_CE;
-		*p = tmp_flag & BIT(0);
+		if (flag == SPRD_NPI_CMD_SET_FLAG_ADAP)
+			*p = tmp_flag & BIT(0);
+		else if ((flag == SPRD_NPI_CMD_SET_FLAG_ACS) && (tmp_flag & BIT(0)))
+			*p = SPRD_NPI_ACS_ENABLE;
+		else
+			goto err;
 
 		snprintf(dbgstr, sizeof(dbgstr), "[iwnpi][SEND][%d]:", s_len);
 		wl_debug("%s type is %d, subtype %d\n", dbgstr, hdr->type, hdr->subtype);
@@ -407,6 +425,7 @@ static void sprd_npi_set_cca_param(struct sprd_priv *priv, struct sprd_vif *vif)
 		wl_debug("%s type is %d, subtype %d\n", dbgstr, hdr->type, hdr->subtype);
 	}
 
+err:
 	kfree(r_buf);
 	r_buf = NULL;
 	return;
@@ -430,5 +449,5 @@ void sprd_evt_adaptive(struct sprd_vif *vif)
 
 void sprd_wifi_adaptive_work(struct sprd_priv *priv, struct sprd_vif *vif)
 {
-	sprd_npi_set_cca_param(priv, vif);
+	sprd_npi_set_cca_param(priv, vif, SPRD_NPI_CMD_SET_FLAG_ADAP);
 }

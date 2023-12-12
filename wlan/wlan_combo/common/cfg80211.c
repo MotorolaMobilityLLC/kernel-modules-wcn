@@ -1076,6 +1076,10 @@ int sprd_cfg80211_connect(struct wiphy *wiphy, struct net_device *ndev,
 		}
 	}
 
+	/* workround for bug 2242556/2262885, enable ACS before connect CMD */
+	if (priv->hif.hw_type == SPRD_HW_SC2355_SDIO)
+		sprd_npi_set_cca_param(priv, vif, SPRD_NPI_CMD_SET_FLAG_ACS);
+
 	/* Set BSSID */
 	if (sme->bssid) {
 		netdev_info(ndev, "bssid %pM\n", sme->bssid);

@@ -75,6 +75,7 @@ enum sprd_npi_cca_type {
 enum sprd_npi_ce_subtype {
 	SPRD_NPI_CE_DISABLE,
 	SPRD_NPI_CE_ENABLE,
+	SPRD_NPI_ACS_ENABLE,
 	SPRD_NPI_CE_MAX,
 };
 
@@ -83,6 +84,12 @@ enum sprd_npi_data_flag {
 	SPRD_NPI_NORMAL_UNENCRYP,
 	SPRD_NPI_NORMAL_ALL,
 	SPRD_NPI_DATA_FLAG_MAX,
+};
+
+enum sprd_npi_cmd_set_cca_flag {
+	SPRD_NPI_CMD_SET_FLAG_ADAP = 1,
+	SPRD_NPI_CMD_SET_FLAG_ACS,
+	SPRD_NPI_CMD_SET_FLAG_MAX,
 };
 
 struct sprd_wlan_adap_param {
@@ -100,6 +107,8 @@ struct set_5g_sar_info {
 
 void sprd_init_npi(void);
 void sprd_deinit_npi(void);
+void sprd_npi_set_cca_param(struct sprd_priv *priv, struct sprd_vif *vif,
+			    enum sprd_npi_cmd_set_cca_flag flag);
 void sprd_evt_adaptive(struct sprd_vif *vif);
 void sprd_wifi_adaptive_work(struct sprd_priv *priv, struct sprd_vif *vif);
 void sprd_5g_sar_info_init(void);
