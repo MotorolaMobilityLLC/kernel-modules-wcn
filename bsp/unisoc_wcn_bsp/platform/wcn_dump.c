@@ -449,37 +449,37 @@ static int cp_dcache_clean_invalid_all(void)
 }
 
 /* select UMW2652 aon_apb_dap DAP(Debug Access Port) */
-static void dap_sel_btwf_lite(void)
+static void btwf_dap_sel_lite(void)
 {
 	int ret;
 	unsigned int reg_val = 0;
 
-	ret = sprdwcn_bus_reg_read(M3L_DAP_CTRL, &reg_val, 4);
+	ret = sprdwcn_bus_reg_read(M3L_BTWF_DAP_CTRL, &reg_val, 4);
 	if (ret < 0) {
 		WCN_ERR("%s read DJTAG_DAP_SEL error:%d\n", __func__, ret);
-		WCN_INFO("dt fail,start reset pin!\n");
+		WCN_INFO("read DJTAG_DAP_SEL fail,start reset pin!\n");
 		ret = marlin_reset_reg();
 		if (ret < 0) {
-			WCN_ERR("dt fail,reset pin fail!\n");
+			WCN_ERR("marlin_reset_reg fail,reset pin fail!\n");
 			return;
 		}
-		ret = sprdwcn_bus_reg_read(M3L_DAP_CTRL, &reg_val, 4);
+		ret = sprdwcn_bus_reg_read(M3L_BTWF_DAP_CTRL, &reg_val, 4);
 		if (ret < 0) {
-			WCN_ERR("after reset,dt read still fail!\n");
+			WCN_ERR("after reset,read DJTAG_DAP_SEL still fail!\n");
 			return;
 		}
 	}
 	WCN_LOG("%s DJTAG_DAP_SEL:0x%x\n", __func__, reg_val);
 
-	reg_val |= M3L_CM4_DAP_SEL_BTWF_LITE;
-	ret = sprdwcn_bus_reg_write(M3L_DAP_CTRL, &reg_val, 4);
+	reg_val |= M3L_CM4_DAP_SEL_BTWF;
+	ret = sprdwcn_bus_reg_write(M3L_BTWF_DAP_CTRL, &reg_val, 4);
 	if (ret < 0) {
 		WCN_ERR("%s write DJTAG_DAP_SEL error:%d\n", __func__, ret);
 		return;
 	}
 	WCN_LOG("%s DJTAG_DAP_SEL:0x%x\n", __func__, reg_val);
 
-	ret = sprdwcn_bus_reg_read(M3L_DAP_CTRL, &reg_val, 4);
+	ret = sprdwcn_bus_reg_read(M3L_BTWF_DAP_CTRL, &reg_val, 4);
 	if (ret < 0) {
 		WCN_ERR("%s read2 DJTAG_DAP_SEL error:%d\n", __func__, ret);
 		return;
@@ -487,42 +487,28 @@ static void dap_sel_btwf_lite(void)
 	WCN_LOG("%s 2:DJTAG_DAP_SEL:0x%x\n", __func__, reg_val);
 }
 
-/* select UMW2652 aon_apb_dap DAP(Debug Access Port) */
-void dap_sel_default_lite(void)
-{
-	int ret;
-	unsigned int reg_val;
-
-	reg_val = 0;
-	ret = sprdwcn_bus_reg_write(M3L_DAP_CTRL, &reg_val, 4);
-	if (ret < 0) {
-		WCN_ERR("%s write DJTAG_DAP_SEL error:%d\n", __func__, ret);
-		return;
-	}
-}
-
 /* enable UMW2652 aon_apb_dap_en */
-static void apb_eb_lite(void)
+static void btwf_apb_eb_lite(void)
 {
 	int ret;
 	unsigned int reg_val = 0;
 
-	ret = sprdwcn_bus_reg_read(M3L_APB_ENB1, &reg_val, 4);
+	ret = sprdwcn_bus_reg_read(M3L_BTWF_APB_EB1, &reg_val, 4);
 	if (ret < 0) {
 		WCN_ERR("%s read APB_EB error:%d\n", __func__, ret);
 		return;
 	}
 	WCN_LOG("%s APB_EB:0x%x\n", __func__, reg_val);
 
-	reg_val |= M3L_DBG_CM4_EB;
-	ret = sprdwcn_bus_reg_write(M3L_APB_ENB1, &reg_val, 4);
+	reg_val |= M3L_BTWF_DBG_CM4_EB;
+	ret = sprdwcn_bus_reg_write(M3L_BTWF_APB_EB1, &reg_val, 4);
 	if (ret < 0) {
 		WCN_ERR("%s write APB_EB error:%d\n", __func__, ret);
 		return;
 	}
 	WCN_LOG("%s APB_EB:0x%x\n", __func__, reg_val);
 
-	ret = sprdwcn_bus_reg_read(M3L_APB_ENB1, &reg_val, 4);
+	ret = sprdwcn_bus_reg_read(M3L_BTWF_APB_EB1, &reg_val, 4);
 	if (ret < 0) {
 		WCN_ERR("%s read2 APB_EB error:%d\n", __func__, ret);
 		return;
@@ -530,8 +516,106 @@ static void apb_eb_lite(void)
 	WCN_LOG("%s 2:APB_EB:0x%x\n", __func__, reg_val);
 }
 
+
+/* select UMW2652 aon_apb_dap DAP(Debug Access Port) */
+void btwf_dap_sel_default_lite(void)
+{
+	int ret;
+	unsigned int reg_val;
+
+	reg_val = 0;
+	ret = sprdwcn_bus_reg_write(M3L_BTWF_DAP_CTRL, &reg_val, 4);
+	if (ret < 0) {
+		WCN_ERR("%s write DJTAG_DAP_SEL error:%d\n", __func__, ret);
+		return;
+	}
+}
+
+/* select UMW2652 aon_apb_dap DAP(Debug Access Port) */
+static void gnss_dap_sel_lite(void)
+{
+	int ret;
+	unsigned int reg_val = 0;
+
+	ret = sprdwcn_bus_reg_read(M3L_GNSS_CM4_DBG_SEL, &reg_val, 4);
+	if (ret < 0) {
+		WCN_ERR("%s read DJTAG_DAP_SEL error:%d\n", __func__, ret);
+		WCN_INFO("read DJTAG_DAP_SEL fail,start reset pin!\n");
+		ret = marlin_reset_reg();
+		if (ret < 0) {
+			WCN_ERR("marlin_reset_reg fail,reset pin fail!\n");
+			return;
+		}
+		ret = sprdwcn_bus_reg_read(M3L_GNSS_CM4_DBG_SEL, &reg_val, 4);
+		if (ret < 0) {
+			WCN_ERR("after reset,read DJTAG_DAP_SEL still fail!\n");
+			return;
+		}
+	}
+	WCN_LOG("%s DJTAG_DAP_SEL:0x%x\n", __func__, reg_val);
+
+	reg_val |= M3L_CM4_DAP_SEL_GNSS;
+	ret = sprdwcn_bus_reg_write(M3L_GNSS_CM4_DBG_SEL, &reg_val, 4);
+	if (ret < 0) {
+		WCN_ERR("%s write DJTAG_DAP_SEL error:%d\n", __func__, ret);
+		return;
+	}
+	WCN_LOG("%s DJTAG_DAP_SEL:0x%x\n", __func__, reg_val);
+
+	ret = sprdwcn_bus_reg_read(M3L_GNSS_CM4_DBG_SEL, &reg_val, 4);
+	if (ret < 0) {
+		WCN_ERR("%s read2 DJTAG_DAP_SEL error:%d\n", __func__, ret);
+		return;
+	}
+	WCN_LOG("%s 2:DJTAG_DAP_SEL:0x%x\n", __func__, reg_val);
+}
+
+/* enable UMW2652 aon_apb_dap_en */
+static void gnss_apb_eb_lite(void)
+{
+	int ret;
+	unsigned int reg_val = 0;
+
+	ret = sprdwcn_bus_reg_read(M3L_GNSS_PERI_EB, &reg_val, 4);
+	if (ret < 0) {
+		WCN_ERR("%s read APB_EB error:%d\n", __func__, ret);
+		return;
+	}
+	WCN_LOG("%s APB_EB:0x%x\n", __func__, reg_val);
+
+	reg_val |= M3L_GNSS_DBG_CM4_EB;
+	ret = sprdwcn_bus_reg_write(M3L_GNSS_PERI_EB, &reg_val, 4);
+	if (ret < 0) {
+		WCN_ERR("%s write APB_EB error:%d\n", __func__, ret);
+		return;
+	}
+	WCN_LOG("%s APB_EB:0x%x\n", __func__, reg_val);
+
+	ret = sprdwcn_bus_reg_read(M3L_GNSS_PERI_EB, &reg_val, 4);
+	if (ret < 0) {
+		WCN_ERR("%s read2 APB_EB error:%d\n", __func__, ret);
+		return;
+	}
+	WCN_LOG("%s 2:APB_EB:0x%x\n", __func__, reg_val);
+}
+
+/* select UMW2652 aon_apb_dap DAP(Debug Access Port) */
+void gnss_dap_sel_default_lite(void)
+{
+	int ret;
+	unsigned int reg_val;
+
+	reg_val = 0;
+	ret = sprdwcn_bus_reg_write(M3L_GNSS_CM4_DBG_SEL, &reg_val, 4);
+	if (ret < 0) {
+		WCN_ERR("%s write DJTAG_DAP_SEL error:%d\n", __func__, ret);
+		return;
+	}
+}
+
+
 /* select aon_apb_dap DAP(Debug Access Port) */
-static void dap_sel_btwf(void)
+static void dap_sel(void)
 {
 	int ret;
 	unsigned int reg_val = 0;
@@ -639,34 +723,36 @@ static void apb_eb(void)
 	WCN_LOG("%s 2:APB_EB:0x%x\n", __func__, reg_val);
 }
 
-static void check_dap_is_ok(void)
+static void check_dap_is_ok(u32 id)
 {
 	int ret;
 	unsigned int reg_val = 0;
 
-	ret = sprdwcn_bus_reg_read(get_btwf_status_reg(), &reg_val, 4);
+	ret = sprdwcn_bus_reg_read(get_arm_dap_status_reg(id), &reg_val, 4);
 	if (ret < 0) {
 		WCN_ERR("%s read error:%d\n", __func__, ret);
 		return;
 	}
 	WCN_LOG("%s :0x%x\n", __func__, reg_val);
 
-	if (reg_val == BTWF_OK_VALUE)
-		WCN_INFO("btwf dap is ready\n");
+	if (reg_val == CM4_DAP_OK_VALUE)
+		WCN_INFO("dap[%u] is ready\n", id);
+	else
+		WCN_ERR("dap[%u] is error, 0x%x\n", id, reg_val);
 }
 
 /*
  * Debug Halting Control status Register
  * (0xe000edf0) = 0xa05f0003
  */
-static void hold_btwf_core(void)
+static void hold_arm_core(u32 id)
 {
 	int ret, i;
 	unsigned int reg_val;
 	unsigned int a[][2] = {
-			{get_arm_dap_reg1(), 0x22000012},
-			{get_arm_dap_reg2(), 0xe000edf0},
-			{get_arm_dap_reg3(), 0xa05f0003} }; /* 0xa05f0007 try */
+			{get_arm_dap_reg1(id), 0x22000012},
+			{get_arm_dap_reg2(id), 0xe000edf0},
+			{get_arm_dap_reg3(id), 0xa05f0003} }; /* 0xa05f0007 try */
 
 	for (i = 0; i < 3; i++) {
 		reg_val = a[i][1];
@@ -682,14 +768,14 @@ static void hold_btwf_core(void)
  * Debug Halting Control status Register
  * (0xe000edf0) = 0xa05f0003
  */
-static void release_btwf_core(void)
+static void release_arm_core(u32 id)
 {
 	int ret, i;
 	unsigned int reg_val;
 	unsigned int a[][2] = {
-			{get_arm_dap_reg1(), 0x22000012},
-			{get_arm_dap_reg2(), 0xe000edf0},
-			{get_arm_dap_reg3(), 0xa05f0000} }; /* 0xa05f is a key */
+			{get_arm_dap_reg1(id), 0x22000012},
+			{get_arm_dap_reg2(id), 0xe000edf0},
+			{get_arm_dap_reg3(id), 0xa05f0000} }; /* 0xa05f is a key */
 
 	for (i = 0; i < 3; i++) {
 		reg_val = a[i][1];
@@ -702,14 +788,14 @@ static void release_btwf_core(void)
 }
 
 /* Debug Exception and Monitor Control Register */
-static void set_debug_mode(void)
+static void set_debug_mode(u32 id)
 {
 	int ret, i;
 	unsigned int reg_val;
 	unsigned int a[][2] = {
-			{get_arm_dap_reg1(), 0x22000012},
-			{get_arm_dap_reg2(), 0xe000edfC},
-			{get_arm_dap_reg3(), 0x010007f1} };
+			{get_arm_dap_reg1(id), 0x22000012},
+			{get_arm_dap_reg2(id), 0xe000edfC},
+			{get_arm_dap_reg3(id), 0x010007f1} };
 
 	for (i = 0; i < 3; i++) {
 		reg_val = a[i][1];
@@ -725,14 +811,14 @@ static void set_debug_mode(void)
  * Debug core Register Selector Register
  * The index R0 is 0, R1 is 1
  */
-static void set_core_reg(unsigned int index)
+static void set_core_reg(u32 id, u32 index)
 {
 	int ret, i;
 	unsigned int reg_val;
 	unsigned int a[][2] = {
-			{get_arm_dap_reg1(), 0x22000012},
-			{get_arm_dap_reg2(), 0xe000edf4},
-			{get_arm_dap_reg3(), index} };
+			{get_arm_dap_reg1(id), 0x22000012},
+			{get_arm_dap_reg2(id), 0xe000edf4},
+			{get_arm_dap_reg3(id), index} };
 
 	for (i = 0; i < 3; i++) {
 		reg_val = a[i][1];
@@ -749,14 +835,14 @@ static void set_core_reg(unsigned int index)
  * Example: write PC(R15)=0x12345678
  * reg_index = 15, value = 0x12345678
  */
-static void write_core_reg_value(unsigned int reg_index, unsigned int value)
+static void write_core_reg_value(u32 id, u32 reg_index, u32 value)
 {
 	int ret, i;
 	unsigned int reg_val;
 	unsigned int a[][3] = {
-			{get_arm_dap_reg1(), 0x22000012, 0x22000012},
-			{get_arm_dap_reg2(), 0xe000edf8, 0xe000edf4},
-			{get_arm_dap_reg3(), value, 0x10000+reg_index} };
+			{get_arm_dap_reg1(id), 0x22000012, 0x22000012},
+			{get_arm_dap_reg2(id), 0xe000edf8, 0xe000edf4},
+			{get_arm_dap_reg3(id), value, 0x10000+reg_index} };
 
 	for (i = 0; i < 3; i++) {
 		reg_val = a[i][1];
@@ -794,26 +880,31 @@ static void write_core_reg_value(unsigned int reg_index, unsigned int value)
 	}
 }
 
-void sprdwcn_bus_armreg_write(unsigned int reg_index, unsigned int value)
+void sprdwcn_bus_armreg_write(u32 id, u32 reg_index, u32 value)
 {
 	struct wcn_match_data *g_match_config = get_wcn_match_config();
 
 	if (g_match_config && g_match_config->unisoc_wcn_m3lite) {
-		dap_sel_btwf_lite();
-		apb_eb_lite();
+		if (id == 1) {
+			gnss_dap_sel_lite();
+			gnss_apb_eb_lite();
+		} else {
+			btwf_dap_sel_lite();
+			btwf_apb_eb_lite();
+		}
 	} else {
-		dap_sel_btwf();
+		dap_sel();
 		apb_rst();
 		apb_eb();
 	}
 
-	check_dap_is_ok();
-	hold_btwf_core();
-	set_debug_mode();
-	write_core_reg_value(reg_index, value);
+	check_dap_is_ok(id);
+	hold_arm_core(id);
+	set_debug_mode(id);
+	write_core_reg_value(id, reg_index, value);
 
 	/* make sure btwf core can run */
-	release_btwf_core();
+	release_arm_core(id);
 
 	if (g_match_config && (g_match_config->unisoc_wcn_m3lite == false)) {
 		/* make sure JTAG can connect dap */
@@ -822,14 +913,14 @@ void sprdwcn_bus_armreg_write(unsigned int reg_index, unsigned int value)
 }
 
 /* Debug Core register Data Register */
-static void read_core_reg(unsigned int value, unsigned int *p)
+static void read_core_reg(u32 id, u32 value, u32 *p)
 {
 	int ret, i;
 	unsigned int reg_val;
 	unsigned int a[][2] = {
-			{get_arm_dap_reg1(), 0x22000012},
-			{get_arm_dap_reg2(), 0xe000edf8},
-			{get_arm_dap_reg3(), 0x00000000} };
+			{get_arm_dap_reg1(id), 0x22000012},
+			{get_arm_dap_reg2(id), 0xe000edf8},
+			{get_arm_dap_reg3(id), 0x00000000} };
 
 	for (i = 0; i < 2; i++) {
 		reg_val = a[i][1];
@@ -851,8 +942,8 @@ static void read_core_reg(unsigned int value, unsigned int *p)
 	WCN_LOG("%s ****R[%d]: 0x%x****\n", __func__, value, reg_val);
 }
 
-
-int dump_arm_reg(void)
+//id=0 btwf,  id=1 gnss
+int dump_arm_reg(u32 id)
 {
 	unsigned int i;
 	static const char *core_reg_name[19] = {
@@ -871,19 +962,25 @@ int dump_arm_reg(void)
 
 	memset(p, 0, 19 * 4);
 	if (g_match_config && g_match_config->unisoc_wcn_m3lite) {
-		dap_sel_btwf_lite();
-		apb_eb_lite();
+
+		if (id == 1) {
+			gnss_dap_sel_lite();
+			gnss_apb_eb_lite();
+		} else {
+			btwf_dap_sel_lite();
+			btwf_apb_eb_lite();
+		}
 	} else {
-		dap_sel_btwf();
+		dap_sel();
 		apb_rst();
 		apb_eb();
 	}
-	check_dap_is_ok();
-	hold_btwf_core();
-	set_debug_mode();
+	check_dap_is_ok(id);
+	hold_arm_core(id);
+	set_debug_mode(id);
 	for (i = 0; i < 19; i++) {
-		set_core_reg(i);
-		read_core_reg(i, p);
+		set_core_reg(id, i);
+		read_core_reg(id, i, p);
 	}
 	WCN_INFO("------------[ ARM REG ]------------\n");
 	for (i = 0; i < 19; i++)
@@ -1104,6 +1201,7 @@ int mdbg_dump_mem(enum wcn_source_type type)
 	struct wcn_match_data *g_match_config = get_wcn_match_config();
 	int i;
 	size_t skip_modules = 0;
+	u32 id = 0;
 
 	if (g_match_config && g_match_config->unisoc_wcn_pcie) {
 		edma_dump_glb_reg();
@@ -1114,7 +1212,8 @@ int mdbg_dump_mem(enum wcn_source_type type)
 	mdbg_dev->ring_dev->ring->is_mem = 1;
 	if (g_match_config && !g_match_config->unisoc_wcn_m3e) {
 		/* DUMP ARM REG */
-		dump_arm_reg();
+		id = (type == WCN_SOURCE_GNSS ? 1 : 0);
+		dump_arm_reg(id);
 	}
 
 	if (g_match_config && g_match_config->unisoc_wcn_swd)

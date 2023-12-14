@@ -142,19 +142,6 @@ static inline unsigned int get_sync_addr(void)
 
 }
 
-static inline unsigned int get_arm_dap_reg1(void)
-{
-	struct wcn_match_data *g_match_config = get_wcn_match_config();
-
-	if (g_match_config && g_match_config->unisoc_wcn_m3)
-		return M3_ARM_DAP_REG1;
-	else if (g_match_config && g_match_config->unisoc_wcn_m3lite)
-		return M3L_ARM_DAP_REG1;
-	else
-		return M3E_ARM_DAP_REG1;
-
-}
-
 static inline unsigned int get_cp_slp_ctl_reg(void)
 {
 	struct wcn_match_data *g_match_config = get_wcn_match_config();
@@ -207,43 +194,48 @@ static inline unsigned int get_wcn_bound_xo_mode(void)
 
 }
 
-static inline unsigned int get_arm_dap_reg2(void)
+//id=0 btwf, id=1 gnss
+static inline unsigned int get_arm_dap_base_addr(u32 id)
 {
 	struct wcn_match_data *g_match_config = get_wcn_match_config();
+	unsigned int base = 0;
 
 	if (g_match_config && g_match_config->unisoc_wcn_m3)
-		return M3_ARM_DAP_REG2;
+		base = (id == 1 ? M3_ARM_DAP1_BASE_ADDR : M3_ARM_DAP0_BASE_ADDR);
 	else if (g_match_config && g_match_config->unisoc_wcn_m3lite)
-		return M3L_ARM_DAP_REG2;
+		base = (id == 1 ? M3L_ARM_DAP1_BASE_ADDR : M3L_ARM_DAP0_BASE_ADDR);
 	else
-		return M3E_ARM_DAP_REG2;
+		base = (id == 1 ? M3E_ARM_DAP1_BASE_ADDR : M3E_ARM_DAP0_BASE_ADDR);
 
+	return base;
 }
 
-static inline unsigned int get_arm_dap_reg3(void)
+static inline unsigned int get_arm_dap_reg1(u32 id)
 {
-	struct wcn_match_data *g_match_config = get_wcn_match_config();
+	unsigned int offset = CM4_DAP_REG1_OFFSET;
 
-	if (g_match_config && g_match_config->unisoc_wcn_m3)
-		return M3_ARM_DAP_REG3;
-	else if (g_match_config && g_match_config->unisoc_wcn_m3lite)
-		return M3L_ARM_DAP_REG3;
-	else
-		return M3E_ARM_DAP_REG3;
-
+	return get_arm_dap_base_addr(id)+offset;
 }
 
-static inline unsigned int get_btwf_status_reg(void)
+static inline unsigned int get_arm_dap_reg2(u32 id)
 {
-	struct wcn_match_data *g_match_config = get_wcn_match_config();
+	unsigned int offset = CM4_DAP_REG2_OFFSET;
 
-	if (g_match_config && g_match_config->unisoc_wcn_m3)
-		return M3_BTWF_STATUS_REG;
-	else if (g_match_config && g_match_config->unisoc_wcn_m3lite)
-		return M3L_BTWF_STATUS_REG;
-	else
-		return M3E_BTWF_STATUS_REG;
+	return get_arm_dap_base_addr(id)+offset;
+}
 
+static inline unsigned int get_arm_dap_reg3(u32 id)
+{
+	unsigned int offset = CM4_DAP_REG3_OFFSET;
+
+	return get_arm_dap_base_addr(id)+offset;
+}
+
+static inline unsigned int get_arm_dap_status_reg(u32 id)
+{
+	unsigned int offset = CM4_DAP_STATUS_OFFSET;
+
+	return get_arm_dap_base_addr(id)+offset;
 }
 
 static inline unsigned int get_wifi_aon_mac_size(void)

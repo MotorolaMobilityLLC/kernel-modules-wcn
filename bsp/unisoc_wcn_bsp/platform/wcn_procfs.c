@@ -118,6 +118,7 @@ void wcn_reset_process(void)
 void wcn_dump_process(enum wcn_source_type type)
 {
 	struct wcn_match_data *g_match_config = get_wcn_match_config();
+	u32 id = 0;
 
 	if (dump_cnt) {
 		WCN_ERR("dump_cnt: %d, not dump again!\n", dump_cnt);
@@ -136,7 +137,8 @@ void wcn_dump_process(enum wcn_source_type type)
 			return;
 		}
 		edma_hw_pause();
-		dump_arm_reg();
+		id = (type == WCN_SOURCE_GNSS ? 1 : 0);
+		dump_arm_reg(id);
 	}
 
 	if (g_match_config && g_match_config->unisoc_wcn_m3lite)
@@ -779,7 +781,9 @@ static ssize_t mdbg_proc_write(struct file *filp,
 			dump_arm_reg_integ();
 	} else {
 		if (x == '0')
-			dump_arm_reg();
+			dump_arm_reg(0);
+		else if (x == '1')
+			dump_arm_reg(1);
 	}
 
 	if (x == 'B') {

@@ -62,9 +62,10 @@ struct wcn_dump_head_info {
 extern int btwf_reg_cnt;
 extern struct wcn_dump_mem_reg btwf_reg[MAX_DUMP_REG];
 
-int dump_arm_reg(void);
+//id=0 btwf,  id=1 gnss
+int dump_arm_reg(u32 id);
 
-void sprdwcn_bus_armreg_write(unsigned int reg_index, unsigned int value);
+void sprdwcn_bus_armreg_write(u32 id, u32 reg_index, u32 value);
 int gnss_dump_data(void *start_addr, int len, u32 skip);
 void gnss_dump_str(char *str, int str_len);
 
