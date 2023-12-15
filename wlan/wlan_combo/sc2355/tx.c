@@ -619,31 +619,31 @@ static int tx_prepare_tx_msg(struct sprd_hif *hif, struct sprd_msg *msg)
 	return 0;
 }
 
-static void tx_get_pcie_dma_addr(struct sprd_hif *hif, struct sk_buff *skb)
+static void tx_get_pcie_dma_addr(struct sprd_hif *hif, struct sk_buff **skb)
 {
 	struct sk_buff *tmp_skb = NULL;
 	dma_addr_t dma_addr = 0;
 
-	dma_addr = PFN_PHYS(virt_to_pfn(skb->head)) + offset_in_page(skb->head);
+	dma_addr = PFN_PHYS(virt_to_pfn((*skb)->head)) + offset_in_page((*skb)->head);
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
 #ifdef CONFIG_64BIT
-	if (!dma_capable(wiphy_dev(hif->priv->wiphy), dma_addr, skb->len, true)) {
+	if (!dma_capable(wiphy_dev(hif->priv->wiphy), dma_addr, (*skb)->len, true)) {
 #else
 	{
 		wl_err("FIXME: dma_capble can't used by 32bit-ARCH!\n");
 #endif  //CONFIG_64BIT
 #else
-	if (!dma_capable(wiphy_dev(hif->priv->wiphy), dma_addr, skb->len)) {
+	if (!dma_capable(wiphy_dev(hif->priv->wiphy), dma_addr, (*skb)->len)) {
 #endif
 		/* current pa is lagrer than device dma mask
 		 * need to use dma buffer
 		 */
 		wl_err("skb copy from dma addr(%lx)\n",
 		       (unsigned long)dma_addr);
-		tmp_skb = skb_copy(skb, (GFP_DMA | GFP_ATOMIC));
-		dev_kfree_skb(skb);
-		skb = tmp_skb;
+		tmp_skb = skb_copy(*skb, (GFP_DMA | GFP_ATOMIC));
+		dev_kfree_skb(*skb);
+		*skb = tmp_skb;
 	}
 }
 
@@ -1501,7 +1501,7 @@ void sc2355_tx_free_msg(struct sprd_chip *chip, struct sprd_msg *msg)
 	sprd_free_msg(msg, msg->msglist);
 }
 
-int sc2355_tx_prepare(struct sprd_chip *chip, struct sk_buff *skb)
+int sc2355_tx_prepare(struct sprd_chip *chip, struct sk_buff **skb)
 {
 	struct sprd_priv *priv = chip->priv;
 	struct sprd_hif *hif = &priv->hif;
@@ -1511,7 +1511,7 @@ int sc2355_tx_prepare(struct sprd_chip *chip, struct sk_buff *skb)
 		    sprdwcn_bus_get_status() == WCN_BUS_DOWN) {
 			wl_err("%s, suspend(%d) or bus down, drop skb!\n",
 			       __func__, hif->suspend_mode);
-			dev_kfree_skb(skb);
+			dev_kfree_skb(*skb);
 			return -1;
 		}
 		tx_get_pcie_dma_addr(hif, skb);

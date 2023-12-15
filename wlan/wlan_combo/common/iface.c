@@ -649,7 +649,7 @@ static int iface_prepare_xmit(struct sprd_vif *vif, struct net_device *ndev,
 		return -1;
 	}
 
-	ret = sprd_chip_tx_prepare(&vif->priv->chip, skb);
+	ret = sprd_chip_tx_prepare(&vif->priv->chip, &skb);
 	if (ret)
 		return ret;
 

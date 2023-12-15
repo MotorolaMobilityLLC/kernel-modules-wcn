@@ -253,7 +253,7 @@ struct sprd_msg *sc2355_tx_get_msg(struct sprd_chip *chip,
 				   enum sprd_head_type type,
 				   enum sprd_mode mode);
 void sc2355_tx_free_msg(struct sprd_chip *chip, struct sprd_msg *msg);
-int sc2355_tx_prepare(struct sprd_chip *chip, struct sk_buff *skb);
+int sc2355_tx_prepare(struct sprd_chip *chip, struct sk_buff **skb);
 int sc2355_tx(struct sprd_chip *chip, struct sprd_msg *msg);
 int sc2355_tx_force_exit(struct sprd_chip *chip);
 int sc2355_tx_is_exit(struct sprd_chip *chip);

@@ -61,6 +61,30 @@ enum vendor_wifi_error {
 	VENDOR_WIFI_ERROR_BUSY = -10,
 };
 
+enum vendor_event_nan {
+	VENDOR_EVENT_NAN_MONITOR_RSSI = 0,
+	/* NAN */
+	VENDOR_EVENT_NAN = 0x1400,
+};
+
+/* link layer stats */
+enum vendor_attr {
+	ATTR_UNSPEC,
+	ATTR_GET_LLSTAT,
+	ATTR_CLR_LLSTAT,
+	/* NAN */
+	ATTR_NAN,
+	ATTR_ROAMING_POLICY = 5,
+	ATTR_VENDOR_AFTER_LAST,
+	ATTR_VENDOR_MAX =
+		ATTR_VENDOR_AFTER_LAST - 1,
+};
+
+static const struct nla_policy
+	roaming_policy[ATTR_VENDOR_MAX + 1] = {
+	[ATTR_ROAMING_POLICY] = {.type = NLA_U32},
+};
+
 enum vendor_cmd_id {
 	VENDOR_CMD_ROAMING = 9,
 	VENDOR_CMD_NAN = 12,

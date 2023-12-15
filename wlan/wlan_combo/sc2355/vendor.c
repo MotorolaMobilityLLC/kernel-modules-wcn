@@ -22,30 +22,6 @@
 #define MAX_CHANNELS			16
 #define MAX_BUCKETS			4
 
-enum vendor_event_nan {
-	VENDOR_EVENT_NAN_MONITOR_RSSI = 0,
-	/* NAN */
-	VENDOR_EVENT_NAN = 0x1400,
-};
-
-/* link layer stats */
-enum vendor_attr {
-	ATTR_UNSPEC,
-	ATTR_GET_LLSTAT,
-	ATTR_CLR_LLSTAT,
-	/* NAN */
-	ATTR_NAN,
-	ATTR_ROAMING_POLICY = 5,
-	ATTR_VENDOR_AFTER_LAST,
-	ATTR_VENDOR_MAX =
-		ATTR_VENDOR_AFTER_LAST - 1,
-};
-
-static const struct nla_policy
-	roaming_policy[ATTR_VENDOR_MAX + 1] = {
-	[ATTR_ROAMING_POLICY] = {.type = NLA_U32},
-};
-
 struct llstat_data {
 	int rssi_mgmt;
 	u32 bcn_rx_cnt;

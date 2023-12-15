@@ -17,7 +17,7 @@ struct sprd_chip_ops {
 				    enum sprd_head_type type,
 				    enum sprd_mode mode);
 	void (*free_msg)(struct sprd_chip *chip, struct sprd_msg *msg);
-	int (*tx_prepare)(struct sprd_chip *chip, struct sk_buff *skb);
+	int (*tx_prepare)(struct sprd_chip *chip, struct sk_buff **skb);
 	int (*tx)(struct sprd_chip *chip, struct sprd_msg *msg);
 	int (*force_exit)(struct sprd_chip *chip);
 	int (*is_exit)(struct sprd_chip *chip);
@@ -195,7 +195,7 @@ static inline void sprd_chip_free_msg(struct sprd_chip *chip,
 }
 
 static inline int sprd_chip_tx_prepare(struct sprd_chip *chip,
-				       struct sk_buff *skb)
+				       struct sk_buff **skb)
 {
 	if (chip->ops->tx_prepare)
 		return chip->ops->tx_prepare(chip, skb);
