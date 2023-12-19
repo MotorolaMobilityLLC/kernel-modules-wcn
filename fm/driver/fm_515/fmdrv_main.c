@@ -616,7 +616,8 @@ static void receive_tasklet(unsigned long arg){
         if (SDIO) {
             sdio_hdr = kmalloc(sizeof(struct fm_sdio_hdr), GFP_ATOMIC);
         if (!sdio_hdr) {
-            dev_unisoc_fm_err(fm_miscdev,"fm sdio_hdr kmalloc fail\n");
+		spin_unlock_bh(&fmdev->rw_lock);
+		dev_unisoc_fm_err(fm_miscdev, "fm sdio_hdr kmalloc fail\n");
             return;
         }
         parse_sdio_header(head, tail, num, sdio_hdr);
@@ -634,7 +635,8 @@ static void receive_tasklet(unsigned long arg){
         } else if (PCIE) {
             sdio_hdr = kmalloc(sizeof(struct fm_sdio_hdr), GFP_ATOMIC);
         if (!sdio_hdr){
-            pr_err("fm sdio_hdr kmalloc fail\n");
+		spin_unlock_bh(&fmdev->rw_lock);
+		pr_err("fm sdio_hdr kmalloc fail\n");
             return;
         }
         parse_pcie_header(head, tail, num, sdio_hdr);
@@ -643,7 +645,8 @@ static void receive_tasklet(unsigned long arg){
         } else if (SIPC2) {
             sipc_hdr = kmalloc(sizeof(struct fm_sipc_hdr), GFP_ATOMIC);
             if (!sipc_hdr) {
-            dev_unisoc_fm_err(fm_miscdev,"fm sipc_hdr kmalloc fail\n");
+		spin_unlock_bh(&fmdev->rw_lock);
+		dev_unisoc_fm_err(fm_miscdev, "fm sipc_hdr kmalloc fail\n");
             return;
             }
         receive_buf = head->buf + FM_SIPC_HEAD_LEN;
