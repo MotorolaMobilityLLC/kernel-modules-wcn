@@ -212,12 +212,12 @@ void __wcn_assert_interface(enum wcn_source_type type, char *str)
 	if (g_match_config && g_match_config->unisoc_wcn_integrated) {
 		if ((s_wcn_device.btwf_device->wcn_shutdown) || (s_wcn_device.gnss_device->wcn_shutdown)) {
 			WCN_ERR("fw assert hanppend after WCN Shutdown!!\n");
-			return;
+			goto out;
 		}
 	} else {
 		if (wcn_dump_or_not()) {
 			WCN_ERR("fw assert hanppend in WCN Powerdown!!\n");
-			return;
+			goto out;
 		}
 	}
 
