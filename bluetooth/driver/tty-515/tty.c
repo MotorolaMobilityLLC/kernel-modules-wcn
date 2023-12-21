@@ -1077,13 +1077,15 @@ static int mtty_sipc_write(struct tty_struct *tty,
     left_legnth = count;
     while(left_legnth > 0) {
         write_length = sbuf_write(mtty->pdata->dst,
-                    mtty->pdata->channel,
-                    mtty->pdata->tx_bufid,
-                    (void *)(buf + count - left_legnth), count, -1);
-        dev_unisoc_bt_dbg(ttyBT_dev,
-                            "mtty write bufwrite_length = %d, left_legnth = %d\n",
-                            write_length, left_legnth);
-        left_legnth = left_legnth - write_length;
+		mtty->pdata->channel,
+		mtty->pdata->tx_bufid,
+		(void *)(buf + count - left_legnth), left_legnth, -1);
+	left_legnth = left_legnth - write_length;
+		if (left_legnth > 0) {
+			dev_unisoc_bt_info(ttyBT_dev,
+				"mtty write bufwrite_length = %d,date count is:%d, left_legnth = %d\n",
+				write_length, count,  left_legnth);
+		}
     }
     return left_legnth;
 }
