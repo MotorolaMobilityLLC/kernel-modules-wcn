@@ -1978,6 +1978,8 @@ static int wifi_write_rf_reg(unsigned int addr, unsigned int data)
 }
 
 static struct wifi_rf_reg lna_ldo_enable[] = {
+	{REG_BBPLL_CTRL, (1 << 15), 1},
+	{DEBUG_BBPLL_CTRL, (1 << 15), 1},
 	{REG_LDO_ENABLE1, (3 << 14), 1},
 	{DEBUD_LDO_ENABLE1, (3 << 14), 1},
 	{REG_LDO_FC_PULSE1, (3 << 14), 1},
@@ -1989,6 +1991,8 @@ static struct wifi_rf_reg lna_ldo_enable[] = {
 	{REG_LDO_FC_PULSE1, (3 << 14), 0},
 	{DEBUG_LDO_FC_PULSE1, (3 << 14), 0},
 
+	{DEBUG_BBPLL_CTRL, (1 << 15), 0},
+	{REG_BBPLL_CTRL, (1 << 15), 0},
 	{DEBUG_WF_5G_PRI_RX_RF_ENABLE, (1 << 15), 0},
 	{DEBUG_WF_5G_DIV_RX_RF_ENABLE, (1 << 15), 0},
 	{REG_WF_5G_PRI_RX_RF_ENABLE, (1 << 15), 0},
@@ -2011,8 +2015,8 @@ static void cfg_lna_ldo_n79(bool in_n79)
 
 	set_wifi_rfreg_rst(false);
 
-	init_i = (in_n79) ? 0 : 10;
-	num = (in_n79) ? 10 : 6;
+	init_i = (in_n79) ? 0 : 12;
+	num = (in_n79) ? 12 : 8;
 
 	for (i = init_i; i < num + init_i; i++) {
 		pr_info("cfg rf_reg addr: 0x%x, reg_bit: 0x%x, bit_val: %d\n",
@@ -2643,16 +2647,24 @@ static void set_wifipa_status(enum wcn_sub_sys subsys, int val)
 
 		if (((subsys != MARLIN_BLUETOOTH) && (subsys != MARLIN_WIFI)) &&
 		    ((marlin_dev->power_state & 0x5) == 0)) {
-			wcn_wifipa_bound_xtl(false);
-			wifipa_enable(0);
+			if (wcn_sysfs_get_n79_prop())
+				pr_info("wifipa 3v3 need power on in n79\n");
+			else {
+				wcn_wifipa_bound_xtl(false);
+				wifipa_enable(0);
+			}
 		}
 	} else {
 		if (((subsys == MARLIN_BLUETOOTH) &&
 		     ((marlin_dev->power_state & 0x4) == 0)) ||
 		    ((subsys == MARLIN_WIFI) &&
 		     ((marlin_dev->power_state & 0x1) == 0))) {
-			wcn_wifipa_bound_xtl(false);
-			wifipa_enable(0);
+			if (wcn_sysfs_get_n79_prop())
+				pr_info("wifipa 3v3 need power on in n79\n");
+			else {
+				wcn_wifipa_bound_xtl(false);
+				wifipa_enable(0);
+			}
 		}
 	}
 }
@@ -3409,6 +3421,17 @@ int marlin_reset_reg(void)
 }
 EXPORT_SYMBOL_GPL(marlin_reset_reg);
 
+void wcn_restore_n79_settings(void)
+{
+	if (wcn_sysfs_get_n79_prop()) {
+		if (have_cfg_n79) {
+			pr_info("start wifi, rf_reg exits n79 mode\n");
+			cfg_lna_ldo_n79(false);
+		} else
+			pr_info("start wifi, rf_reg has been disabled\n");
+	}
+}
+
 int start_marlin(enum wcn_sub_sys subsys)
 {
 	struct wcn_match_data *g_match_config = get_wcn_match_config();
@@ -3442,6 +3465,8 @@ int start_marlin(enum wcn_sub_sys subsys)
 		else
 			/* not need write cali */
 			marlin_dev->wifi_need_download_ini_flag = 2;
+
+		wcn_restore_n79_settings();
 	}
 	if (marlin_set_power(subsys, true) < 0)
 		goto unlock;

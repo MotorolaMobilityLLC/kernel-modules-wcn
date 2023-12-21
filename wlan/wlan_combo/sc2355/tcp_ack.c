@@ -395,12 +395,12 @@ int sc2355_tcp_ack_filter_send(struct sprd_priv *priv, struct sprd_msg *msg,
 			       unsigned char *buf, unsigned int plen)
 {
 	int ret = 0;
-	int index, drop;
+	int index = 0, drop = 0;
 	unsigned short win_scale = 0;
 	unsigned int win = 0;
-	struct tcp_ack_msg ack_msg;
-	struct tcp_ack_msg *ack;
-	struct tcp_ack_info *ack_info;
+	struct tcp_ack_msg ack_msg = { 0 };
+	struct tcp_ack_msg *ack = NULL;
+	struct tcp_ack_info *ack_info = NULL;
 	struct sprd_tcp_ack_manage *ack_m = &priv->ack_m;
 
 	if (!atomic_read(&ack_m->enable))

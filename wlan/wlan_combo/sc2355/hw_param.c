@@ -288,8 +288,8 @@ static void hw_param_nvm_get_cmd_par(char *str, struct nvm_cali_cmd *cmd)
 	char sec_name[128] = { 0 };
 	char *p = sec_name;
 	unsigned int sec_size = sizeof(sec_name);
-	char c;
-	long val;
+	char c = 0;
+	long val = 0;
 
 	buftype = -1;
 	ctype = 0;
