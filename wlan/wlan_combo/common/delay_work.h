@@ -50,7 +50,7 @@ struct sprd_work {
 	enum sprd_hif_type hw_type;
 	u8 id;
 	u32 len;
-	u8 data[0];
+	u8 data[];
 };
 
 struct sprd_reg_mgmt {

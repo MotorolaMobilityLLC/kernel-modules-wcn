@@ -534,7 +534,6 @@ static void sipc_rx_process(unsigned char *data, unsigned int len)
 			dev_err(&hif->pdev->dev,
 				"err rx event too long:%d > %d\n",
 				len, SPRD_MAX_CMD_RXLEN);
-			return;
 		}
 		sc2332_rx_evt_process(priv, data, len);
 		break;
