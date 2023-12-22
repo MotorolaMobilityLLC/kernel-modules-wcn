@@ -2167,6 +2167,10 @@ int __init init_fm_driver(void) {
     /* malloc mem for rds struct */
     fm_rds_info = kzalloc(sizeof(struct fm_rds_data), GFP_KERNEL);
     if (NULL == fm_rds_info) {
+	if (SIPC2) {
+		kfree(fmdev->read_buf);
+		fmdev->read_buf = NULL;
+	}
         kfree(fmdev);
         fmdev = NULL;
         dev_unisoc_fm_err(fm_miscdev,"fm can't allocate FM RDS buffer\n");
