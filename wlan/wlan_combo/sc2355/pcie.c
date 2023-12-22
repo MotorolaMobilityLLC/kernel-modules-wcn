@@ -638,11 +638,12 @@ inline int sc2355_pcie_tx_cmd(struct sprd_hif *hif, unsigned char *data, int len
 	return pcie_tx_one(hif, data, len, hif->tx_cmd_port);
 }
 
-inline int sc2355_tx_addr_trans_pcie(struct sprd_hif *hif,
+inline int sc2355_tx_addr_trans_pcie(void *p_rx_mgmt,
 				     unsigned char *data, int len,
 				     bool send_now)
 {
-	struct rx_mgmt *rx_mgmt = (struct rx_mgmt *)hif->rx_mgmt;
+	struct rx_mgmt *rx_mgmt = (struct rx_mgmt *) p_rx_mgmt;
+	struct sprd_hif *hif = rx_mgmt->hif;
 	struct mbuf_t *head = NULL, *tail = NULL, *mbuf = NULL;
 	int num = 1, ret = 0;
 

@@ -236,7 +236,7 @@ struct sprd_hif_ops {
 			       struct net_device *ndev);
 	void (*free_msg_content)(struct sprd_msg *msg);
 	int (*tx_free_data)(struct sprd_priv *priv, unsigned char *data);
-	int (*tx_addr_trans)(struct sprd_hif *hif,
+	int (*tx_addr_trans)(void *rx_port_mgmt,
 			     unsigned char *data, int len,
 			     bool send_now);
 	int (*reset)(struct sprd_hif *hif);

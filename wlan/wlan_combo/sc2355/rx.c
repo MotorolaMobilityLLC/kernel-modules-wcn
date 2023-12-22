@@ -469,7 +469,7 @@ int sc2355_mm_fill_buffer(struct sprd_hif *hif)
 
 	num = sc2355_mm_buffer_alloc(&rx_mgmt->mm_entry, alloc_num);
 	if (hif->ops->tx_addr_trans)
-		hif->ops->tx_addr_trans(hif, NULL, 0, true);
+		hif->ops->tx_addr_trans((void *) rx_mgmt, NULL, 0, true);
 	if (num)
 		num = atomic_add_return(num, &mm_entry->alloc_num);
 
