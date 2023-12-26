@@ -28,11 +28,13 @@ endif
 
 ENABLE_CHR_BOARD := \
 		 ums9230-1h10-overlay \
+		 ums9230-1h10_go-overlay \
                  ums9230-4h10-overlay \
+		 ums9230-4h10-go-overlay \
 		 ums9230-6h10-overlay \
+		 ums9230-6h10-go-overlay \
                  ums9620-2h10-overlay \
-		 ums9621-1h10-overlay \
-		 ums9620-2h10_uob_marlin3-overlay
+		 ums9621-1h10-overlay
 ifneq ($(findstring $(BSP_DTBO), $(ENABLE_CHR_BOARD)),)
 CONFIG_SPRD_CHR := y
 ccflags-y += -DENABLE_CHR
