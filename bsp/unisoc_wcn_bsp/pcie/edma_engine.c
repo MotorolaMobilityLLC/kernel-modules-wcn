@@ -997,6 +997,11 @@ int edma_push_link(int chn, void *head, void *tail, int num)
 	if (inout == TX) {
 
 		dma_cfg.reg = edma->dma_chn_reg[chn].dma_cfg.reg;
+		if (unlikely(dma_cfg.reg == 0 || dma_cfg.reg == 0xFFFFFFFF)) {
+			WCN_ERR("%s chn %d dma_cfg=%#x error\n",
+				__func__, chn, dma_cfg.reg);
+		}
+
 		dma_cfg.bit.rf_chn_en = 1;
 		edma->dma_chn_reg[chn].dma_cfg.reg = dma_cfg.reg;
 		edma_hw_tx_req(chn);
@@ -1780,9 +1785,8 @@ int edma_chn_init(int chn, int mode, int inout, int max_trans)
 	edma->dma_chn_reg[chn].dma_int.reg = dma_int.reg;
 	edma->dma_chn_reg[chn].dma_cfg.reg = dma_cfg.reg;
 	dma_cfg.reg = edma->dma_chn_reg[chn].dma_cfg.reg;
+
 	WCN_INFO("[-]%s\n", __func__);
-
-
 	return 0;
 }
 
