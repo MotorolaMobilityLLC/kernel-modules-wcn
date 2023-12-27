@@ -60,6 +60,4 @@ struct sprd_tcp_ack_manage {
 	atomic_t ref;
 };
 
-struct sprd_msg *tcp_ack_delay(struct sprd_tcp_ack_manage *ack_m);
-
 #endif

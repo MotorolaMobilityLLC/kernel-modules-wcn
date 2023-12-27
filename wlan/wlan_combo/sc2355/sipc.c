@@ -530,7 +530,7 @@ inline int sc2355_tx_addr_trans_sipc(void *p_rx_mgmt,
 				     unsigned char *data, int len,
 				     bool send_now)
 {
-	struct rx_mgmt *rx_mgmt = (struct rx_mgmt *) p_rx_mgmt;
+	struct rx_mgmt *rx_mgmt = (struct rx_mgmt *)p_rx_mgmt;
 	struct sprd_hif *hif = rx_mgmt->hif;
 	struct mbuf_t *head = NULL, *tail = NULL, *mbuf = NULL;
 	int num = 1, ret = 0;

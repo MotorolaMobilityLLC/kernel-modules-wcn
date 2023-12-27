@@ -11,6 +11,7 @@
 #include "iface.h"
 #include "tcp_ack.h"
 #include "common.h"
+#include "chip_ops.h"
 
 static unsigned int max_fw_tx_dscr;
 static unsigned int tdls_threshold;
@@ -18,8 +19,13 @@ static unsigned int vo_ratio = 87;
 static unsigned int vi_ratio = 90;
 static unsigned int be_ratio = 81;
 static unsigned int wmmac_ratio = 10;
-static atomic_t tcp_ack_enable;
 int sprd_dbg_level = INIT_DBG_LEVEL;
+
+static struct sprd_debug *sprd_dbg;
+static struct debug_ctrl dbg_ctrl;
+static struct debug_time_stamp dbg_ts[MAX_DEBUG_TS_INDEX];
+static struct debug_cnt dbg_cnt[MAX_DEBUG_CNT_INDEX];
+static struct debug_record dbg_record[MAX_RECORD_NUM];
 
 int get_max_fw_tx_dscr(void)
 {
@@ -51,44 +57,54 @@ int get_wmmac_ratio(void)
 	return wmmac_ratio;
 }
 
-int is_tcp_ack_enabled(void)
+int adjust_tcp_ack(char *buf, unsigned char offset)
 {
-	return atomic_read(&tcp_ack_enable);
-}
-
-void adjust_tcp_ack(char *buf, unsigned char offset)
-{
+	struct sprd_msg *drop_msg = NULL;
+	int i;
+	struct sprd_priv *priv = NULL;
+	struct sprd_tcp_ack_manage *ack_m;
 	int enable = buf[offset] - '0';
 
-	if (!enable)
-		atomic_set(&tcp_ack_enable, 0);
-	else
-		atomic_set(&tcp_ack_enable, 1);
-}
+	if (sprd_dbg) {
+		priv = container_of(sprd_dbg, struct sprd_priv, debug);
+		ack_m = &priv->ack_m;
 
-void adjust_max_fw_tx_dscr(char *buf, unsigned char offset)
-{
-	unsigned int value = 0;
-	unsigned int i = 0;
-	unsigned int len = strlen(buf) - strlen("max_fw_tx_dscr=");
+		if (!enable && atomic_read(&ack_m->enable)) {
+			atomic_set(&ack_m->enable, 0);
+			wl_info("%s, disable drop tcpack", __func__);
+			for (i = 0; i < SPRD_TCP_ACK_NUM; i++) {
+				drop_msg = NULL;
 
-	for (i = 0; i < len; value *= 10, i++) {
-		if (buf[offset + i] >= '0' && buf[offset + i] <= '9') {
-			value += (buf[offset + i] - '0');
-		} else {
-			value /= 10;
-			break;
+				write_seqlock_bh(&ack_m->ack_info[i].seqlock);
+				drop_msg = ack_m->ack_info[i].msg;
+				ack_m->ack_info[i].msg = NULL;
+				del_timer(&ack_m->ack_info[i].timer);
+				write_sequnlock_bh(&ack_m->ack_info[i].seqlock);
+				if (drop_msg)
+					sprd_chip_drop_tcp_msg(&priv->chip, drop_msg);
+			}
+		} else if (enable && !atomic_read(&ack_m->enable)) {
+			atomic_set(&ack_m->enable, 1);
+			wl_info("%s, enable drop tcpack", __func__);
 		}
 	}
-	max_fw_tx_dscr = value;
-	wl_info("%s, change max_fw_tx_dscr to %d\n", __func__, value);
+
+	return 0;
 }
 
-static struct sprd_debug *sprd_dbg;
-static struct debug_ctrl dbg_ctrl;
-static struct debug_time_stamp dbg_ts[MAX_DEBUG_TS_INDEX];
-static struct debug_cnt dbg_cnt[MAX_DEBUG_CNT_INDEX];
-static struct debug_record dbg_record[MAX_RECORD_NUM];
+int adjust_max_fw_tx_dscr(char *buf, unsigned char offset)
+{
+	unsigned int value = 0;
+
+	if (kstrtouint(buf + offset, 10, &value)) {
+		wl_err("%s, input value error\n", __func__);
+		return -EINVAL;
+	}
+
+	max_fw_tx_dscr = value;
+	wl_info("%s, change max_fw_tx_dscr to %d\n", __func__, value);
+	return 0;
+}
 
 int sprd_get_debug_level(void)
 {
@@ -158,7 +174,7 @@ static void debug_record_show(struct seq_file *s, enum debug_record_index index)
 	seq_puts(s, "\n");
 }
 
-static void debug_adjust_debug_level(char *buf, unsigned char offset)
+static int debug_adjust_debug_level(char *buf, unsigned char offset)
 {
 	int level = buf[offset] - '0';
 
@@ -167,9 +183,10 @@ static void debug_adjust_debug_level(char *buf, unsigned char offset)
 	else
 		wl_err("invalid debug_level: %d\n", level);
 	wl_info("set debug_level: %d\n", sprd_dbg_level);
+	return 0;
 }
 
-static void debug_adjust_qos_ratio(char *buf, unsigned char offset)
+static int debug_adjust_qos_ratio(char *buf, unsigned char offset)
 {
 	unsigned int qos_ratio =
 	    (buf[offset + 3] - '0') * 10 + (buf[offset + 4] - '0');
@@ -187,9 +204,10 @@ static void debug_adjust_qos_ratio(char *buf, unsigned char offset)
 
 	wl_info("vo ratio:%u, vi ratio:%u, be ratio:%u, wmmac_ratio:%u\n",
 		vo_ratio, vi_ratio, be_ratio, wmmac_ratio);
+	return 0;
 }
 
-static void debug_adjust_ts_cnt(char *buf, unsigned char offset)
+static int debug_adjust_ts_cnt(char *buf, unsigned char offset)
 {
 	int level = buf[offset] - '0';
 
@@ -207,23 +225,18 @@ static void debug_adjust_ts_cnt(char *buf, unsigned char offset)
 		dbg_ctrl.start = true;
 		spin_unlock_bh(&dbg_ctrl.debug_ctrl_lock);
 	}
+	return 0;
 }
 
-static void debug_adjust_tcpack_delay(char *buf, unsigned char offset)
+static int debug_adjust_tcpack_delay(char *buf, unsigned char offset)
 {
-#define MAX_LEN 2
 	unsigned int cnt = 0;
-	unsigned int i = 0;
 	struct sprd_tcp_ack_manage *ack_m = NULL;
 	struct sprd_priv *priv = NULL;
 
-	for (i = 0; i < MAX_LEN; (cnt *= 10), i++) {
-		if ((buf[offset + i] >= '0') && (buf[offset + i] <= '9')) {
-			cnt += (buf[offset + i] - '0');
-		} else {
-			cnt /= 10;
-			break;
-		}
+	if (kstrtouint(buf + offset, 10, &cnt)) {
+		wl_err("%s, input value error\n", __func__);
+		return -EINVAL;
 	}
 
 	wl_debug("cnt: %d\n", cnt);
@@ -239,111 +252,87 @@ static void debug_adjust_tcpack_delay(char *buf, unsigned char offset)
 		wl_info("drop time: %d, atomic drop time: %d\n", cnt,
 		       atomic_read(&ack_m->max_drop_cnt));
 	}
-#undef MAX_LEN
+	return 0;
 }
 
-static void debug_adjust_tcpack_delay_win(char *buf, unsigned char offset)
+static int debug_adjust_tcpack_delay_win(char *buf, unsigned char offset)
 {
 	unsigned int value = 0;
-	unsigned int i = 0;
-	unsigned int len = strlen(buf) - strlen("tcpack_delay_win=");
 	struct sprd_tcp_ack_manage *ack_m = NULL;
 	struct sprd_priv *priv = NULL;
 
-	for (i = 0; i < len; (value *= 10), i++) {
-		if ((buf[offset + i] >= '0') && (buf[offset + i] <= '9')) {
-			value += (buf[offset + i] - '0');
-		} else {
-			value /= 10;
-			break;
-		}
+	if (kstrtouint(buf + offset, 10, &value)) {
+		wl_err("%s, input value error\n", __func__);
+		return -EINVAL;
 	}
+
 	if (sprd_dbg) {
 		priv = container_of(sprd_dbg, struct sprd_priv, debug);
 		ack_m = &priv->ack_m;
 		ack_m->ack_winsize = value;
 		wl_info("%s, change tcpack_delay_win to %dKB\n", __func__, value);
 	}
+	return 0;
 }
 
-static void debug_adjust_tdls_threshold(char *buf, unsigned char offset)
+static int debug_adjust_tdls_threshold(char *buf, unsigned char offset)
 {
 	unsigned int value = 0;
-	unsigned int i = 0;
-	unsigned int len = strlen(buf) - strlen("tdls_threshold=");
 
-	for (i = 0; i < len; (value *= 10), i++) {
-		if ((buf[offset + i] >= '0') && (buf[offset + i] <= '9')) {
-			value += (buf[offset + i] - '0');
-		} else {
-			value /= 10;
-			break;
-		}
+	if (kstrtouint(buf + offset, 10, &value)) {
+		wl_err("%s, input value error\n", __func__);
+		return -EINVAL;
 	}
+
 	tdls_threshold = value;
 	wl_info("%s, change tdls_threshold to %d\n", __func__, value);
+	return 0;
 }
 
-static void debug_adjust_tsq_shift(char *buf, unsigned char offset)
+static int debug_adjust_tsq_shift(char *buf, unsigned char offset)
 {
 	unsigned int value = 0;
-	unsigned int i = 0;
-	unsigned int len = strlen(buf) - strlen("tsq_shift=");
 
-	for (i = 0; i < len; value *= 10, i++) {
-		if (buf[offset + i] >= '0' && buf[offset + i] <= '9') {
-			value += (buf[offset + i] - '0');
-		} else {
-			value /= 10;
-			break;
-		}
+	if (kstrtouint(buf + offset, 10, &value)) {
+		wl_err("%s, input value error\n", __func__);
+		return -EINVAL;
 	}
+
 	sprd_dbg->tsq_shift = value;
 	wl_info("%s, change tsq_shift to %d\n", __func__, value);
+	return 0;
 }
 
-static void debug_adjust_tcpack_th_in_mb(char *buf, unsigned char offset)
+static int debug_adjust_tcpack_th_in_mb(char *buf, unsigned char offset)
 {
-#define MAX_LEN 4
 	unsigned int cnt = 0;
-	unsigned int i = 0;
 
-	for (i = 0; i < MAX_LEN; cnt *= 10, i++) {
-		if (buf[offset + i] >= '0' && buf[offset + i] <= '9') {
-			cnt += (buf[offset + i] - '0');
-		} else {
-			cnt /= 10;
-			break;
-		}
+	if (kstrtouint(buf + offset, 10, &cnt)) {
+		wl_err("%s, input value error\n", __func__);
+		return -EINVAL;
 	}
 
 	if (cnt < 0 || cnt > 9999)
 		cnt = DROPACK_TP_TH_IN_M;
 	sprd_dbg->tcpack_delay_th_in_mb = cnt;
 	wl_info("tcpack_delay_th_in_mb: %d\n", sprd_dbg->tcpack_delay_th_in_mb);
-#undef MAX_LEN
+	return 0;
 }
 
-static void debug_adjust_tcpack_time_in_ms(char *buf, unsigned char offset)
+static int debug_adjust_tcpack_time_in_ms(char *buf, unsigned char offset)
 {
-#define MAX_LEN 4
 	unsigned int cnt = 0;
-	unsigned int i = 0;
 
-	for (i = 0; i < MAX_LEN; cnt *= 10, i++) {
-		if (buf[offset + i] >= '0' && buf[offset + i] <= '9') {
-			cnt += (buf[offset + i] - '0');
-		} else {
-			cnt /= 10;
-			break;
-		}
+	if (kstrtouint(buf + offset, 10, &cnt)) {
+		wl_err("%s, input value error\n", __func__);
+		return -EINVAL;
 	}
 
 	if (cnt < 0 || cnt > 9999)
 		cnt = RX_TP_COUNT_IN_MS;
 	sprd_dbg->tcpack_time_in_ms = cnt;
 	wl_info("tcpack_time_in_ms: %d\n", sprd_dbg->tcpack_time_in_ms);
-#undef MAX_LEN
+	return 0;
 }
 
 static struct debug_info_s dbg_info[] = {
@@ -402,7 +391,8 @@ static ssize_t intf_write(struct file *file, const char __user *__user_buf,
 		if (!strncmp(dbg_info[type].str, buf,
 			     strlen(dbg_info[type].str))) {
 			wl_debug("write info:type %d\n", type);
-			dbg_info[type].func(buf, strlen(dbg_info[type].str));
+			if (dbg_info[type].func(buf, strlen(dbg_info[type].str)))
+				return -EINVAL;
 			break;
 		}
 

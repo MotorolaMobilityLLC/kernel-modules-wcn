@@ -11,7 +11,7 @@
 #include <uapi/linux/if_ether.h>
 
 /* will not drop TCP ACK if TCPRX tp under this Mb level */
-#define DROPACK_TP_TH_IN_M	40
+#define DROPACK_TP_TH_IN_M	30
 /* count RX TP timer in ms */
 #define RX_TP_COUNT_IN_MS	500
 
@@ -76,7 +76,7 @@ struct debug_time_stamp {
 };
 
 struct debug_info_s {
-	void (*func)(char *buf, unsigned char offset);
+	int (*func)(char *buf, unsigned char offset);
 	char str[30];
 };
 
@@ -159,9 +159,8 @@ int get_vo_ratio(void);
 int get_vi_ratio(void);
 int get_be_ratio(void);
 int get_wmmac_ratio(void);
-int is_tcp_ack_enabled(void);
-void adjust_tcp_ack(char *buf, unsigned char offset);
-void adjust_max_fw_tx_dscr(char *buf, unsigned char offset);
+int adjust_tcp_ack(char *buf, unsigned char offset);
+int adjust_max_fw_tx_dscr(char *buf, unsigned char offset);
 
 #define MAX_RECORD_NUM 20
 #define SPRD_SDIO_DEBUG_BUFLEN 128

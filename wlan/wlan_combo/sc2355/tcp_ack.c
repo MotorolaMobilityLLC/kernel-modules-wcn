@@ -346,26 +346,6 @@ static int tcp_ack_handle(struct sprd_msg *new_msg,
 	return ret;
 }
 
-struct sprd_msg *tcp_ack_delay(struct sprd_tcp_ack_manage *ack_m)
-{
-	struct sprd_msg *drop_msg = NULL;
-	int i;
-
-	if (!is_tcp_ack_enabled()) {
-		for (i = 0; i < SPRD_TCP_ACK_NUM; i++) {
-			drop_msg = NULL;
-
-			write_seqlock_bh(&ack_m->ack_info[i].seqlock);
-			drop_msg = ack_m->ack_info[i].msg;
-			ack_m->ack_info[i].msg = NULL;
-			del_timer(&ack_m->ack_info[i].timer);
-			write_sequnlock_bh(&ack_m->ack_info[i].seqlock);
-		}
-	}
-
-	return drop_msg;
-}
-
 void sc2355_tcp_ack_filter_rx(struct sprd_priv *priv, unsigned char *buf,
 			      unsigned int plen)
 {

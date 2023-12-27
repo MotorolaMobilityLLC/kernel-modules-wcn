@@ -274,7 +274,6 @@ void sc2355_count_rx_tp(struct sprd_hif *hif, int len)
 {
 	unsigned long long timeus = 0;
 	struct rx_mgmt *rx_mgmt = (struct rx_mgmt *)hif->rx_mgmt;
-	struct sprd_msg *drop_msg;
 
 	rx_mgmt->rx_total_len += len;
 	if (rx_mgmt->rx_total_len == len) {
@@ -290,20 +289,12 @@ void sc2355_count_rx_tp(struct sprd_hif *hif, int len)
 	    timeus > hif->priv->debug.tcpack_time_in_ms * USEC_PER_MSEC) {
 		rx_mgmt->rx_total_len = 0;
 		adjust_tcp_ack("tcpack_delay_en=1", strlen("tcpack_delay_en="));
-		drop_msg = tcp_ack_delay(&hif->priv->ack_m);
-
-		if (drop_msg)
-			sprd_chip_drop_tcp_msg(&hif->priv->chip, drop_msg);
 	} else if (div_u64((rx_mgmt->rx_total_len * 8), timeus) <
 		   hif->priv->debug.tcpack_delay_th_in_mb &&
 		   timeus >
 		   hif->priv->debug.tcpack_time_in_ms * USEC_PER_MSEC) {
 		rx_mgmt->rx_total_len = 0;
-		adjust_tcp_ack("tcpack_delay_en=1", strlen("tcpack_delay_en="));
-		drop_msg = tcp_ack_delay(&hif->priv->ack_m);
-
-		if (drop_msg)
-			sprd_chip_drop_tcp_msg(&hif->priv->chip, drop_msg);
+		adjust_tcp_ack("tcpack_delay_en=0", strlen("tcpack_delay_en="));
 	}
 }
 
@@ -469,7 +460,7 @@ int sc2355_mm_fill_buffer(struct sprd_hif *hif)
 
 	num = sc2355_mm_buffer_alloc(&rx_mgmt->mm_entry, alloc_num);
 	if (hif->ops->tx_addr_trans)
-		hif->ops->tx_addr_trans((void *) rx_mgmt, NULL, 0, true);
+		hif->ops->tx_addr_trans((void *)rx_mgmt, NULL, 0, true);
 	if (num)
 		num = atomic_add_return(num, &mm_entry->alloc_num);
 

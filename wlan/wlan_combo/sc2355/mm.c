@@ -183,7 +183,7 @@ static inline int mm_do_addr_buf(struct mem_mgmt *mm_entry)
 		/* TODO: How to do with tx fail? */
 		if (hif->ops->tx_addr_trans == NULL)
 			return -EIO;
-		if ((hif->ops->tx_addr_trans((void *) rx_mgmt, mm_entry->hdr,
+		if ((hif->ops->tx_addr_trans((void *)rx_mgmt, mm_entry->hdr,
 					  addr_trans_len, false) >= 0)) {
 			mm_alloc_addr_buf(mm_entry, hif);
 			if (unlikely(!mm_entry->addr_trans)) {
