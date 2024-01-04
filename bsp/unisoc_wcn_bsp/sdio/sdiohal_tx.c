@@ -62,6 +62,7 @@ int sdiohal_tx_thread(void *data)
 	static int times_count;
 	int ret;
 
+	data_list.type = data_list.subtype = 0; // give an initial value for these fields
 	set_user_nice(current, -20);
 	param.sched_priority = SDIO_TX_TASK_PRIO;
 	sched_setscheduler(current, SCHED_FIFO, &param);

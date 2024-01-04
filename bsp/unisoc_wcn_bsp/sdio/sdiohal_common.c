@@ -1330,6 +1330,7 @@ int sdiohal_list_direct_write(int channel, struct mbuf_t *head,
 	data_list.mbuf_tail = tail;
 	data_list.node_num = num;
 	data_list.mbuf_tail->next = NULL;
+	data_list.type = data_list.subtype = 0; // give an initial value for these fields
 	sdiohal_tx_list_push_direct_dp(channel, head, tail, num);
 
 	if (p_data->adma_tx_enable)
