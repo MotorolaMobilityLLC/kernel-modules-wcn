@@ -13,7 +13,9 @@
 
 #define NUM_TIDS		8
 #define RX_BA_LOSS_RECOVERY_TIMEOUT	(HZ / 10)
+#define RX_BA_FAIL_TIMEOUT (3000)
 #define MAX_TIMEOUT_CNT		60
+#define MAX_REORDER_FAIL_CNT (30)
 #define MIN_INDEX_SIZE		BIT(6)
 #define INDEX_SIZE_MASK(index_size)	((index_size) - 1)
 
@@ -58,6 +60,8 @@ struct rx_ba_node {
 	spinlock_t ba_node_lock;
 	struct timer_list reorder_timer;
 	struct rx_ba_entry *ba_entry;
+	unsigned long last_time;
+	unsigned char fail_cnt;
 };
 
 struct rx_ba_entry {

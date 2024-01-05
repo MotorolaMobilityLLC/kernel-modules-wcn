@@ -12,6 +12,8 @@
 #include "rx.h"
 
 static void reorder_ba_timeout(struct timer_list *t);
+static void reorder_send_delba(struct rx_ba_entry *ba_entry,
+			       unsigned short tid, unsigned char sta_lut_index);
 
 static inline unsigned int reorder_get_index_size(unsigned int size)
 {
@@ -354,6 +356,9 @@ static int reorder_msdu(struct rx_ba_entry *ba_entry,
 	if (seqno_geq(seq_num, ba_node_desc->win_start)) {
 		if (!seqno_leq(seq_num, ba_node_desc->win_limit)) {
 			/* Buffer is full, send data now */
+			wl_info("seq_num:%d great than win_limit:%d, win_start:%d, win_size:%d\n",
+				seq_num, ba_node_desc->win_limit, ba_node_desc->win_start,
+				ba_node_desc->win_size);
 			reorder_greater_than_seqhi(ba_entry, ba_node_desc,
 						   seq_num);
 		}
@@ -362,8 +367,8 @@ static int reorder_msdu(struct rx_ba_entry *ba_entry,
 		if (!ret && seqno_geq(seq_num, ba_node_desc->win_tail))
 			ba_node_desc->win_tail = seq_num;
 	} else {
-		wl_err("%s: seq_num: %d is less than win_start: %d\n",
-		       __func__, seq_num, ba_node_desc->win_start);
+		wl_err("%s: seq_num: %d is less than win_start: %d, tid=%d\n",
+		       __func__, seq_num, ba_node_desc->win_start, msdu_desc->tid);
 	}
 
 	if (ret && skb) {
@@ -372,6 +377,24 @@ static int reorder_msdu(struct rx_ba_entry *ba_entry,
 	}
 
 	return ret;
+}
+
+static void reorder_check_ba_node(struct rx_ba_node *ba_node)
+{
+	ba_node->fail_cnt++;
+
+	if (ba_node->last_time == 0)
+		ba_node->last_time = jiffies;
+
+	if (time_after(jiffies, ba_node->last_time + msecs_to_jiffies(RX_BA_FAIL_TIMEOUT)) ||
+	    ba_node->fail_cnt >= MAX_REORDER_FAIL_CNT) {
+		if (ba_node->active != 0) {
+			ba_node->active = 0;
+			wl_info("%s, %d, reorder_send_delba\n", __func__, __LINE__);
+			reorder_send_delba(ba_node->ba_entry, ba_node->tid,
+					   ba_node->sta_lut_index);
+		}
+	}
 }
 
 static void reorder_msdu_process(struct rx_ba_entry *ba_entry,
@@ -423,8 +446,11 @@ static void reorder_msdu_process(struct rx_ba_entry *ba_entry,
 				wl_all("%s: start timer\n", __func__);
 				reorder_mod_timer(ba_node);
 			}
+			ba_node->last_time = 0;
+			ba_node->fail_cnt = 0;
 		} else if (unlikely(!ba_node_desc->buff_cnt)) {
 			/* Should never happen */
+			reorder_check_ba_node(ba_node);
 			del_timer(&ba_node->reorder_timer);
 			ba_node->timeout_cnt = 0;
 		}
@@ -711,6 +737,8 @@ static int reorder_wlan_addba_event(struct rx_ba_entry *ba_entry,
 		reorder_set_ba_node_desc(ba_node->rx_ba, win_start, win_size,
 					 INDEX_SIZE_MASK(index_size));
 		ba_node->active = 1;
+		ba_node->last_time = 0;
+		ba_node->fail_cnt = 0;
 		wl_all("%s:(active:%d, tid:%d)\n",
 			 __func__, ba_node->active, ba_node->tid);
 	} else {
