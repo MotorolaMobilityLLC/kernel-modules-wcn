@@ -115,7 +115,7 @@ int sprd_rx_defragment_attack_check(struct sprd_priv *priv, struct sk_buff *skb)
 		wl_err("%s snaphdr attect flag %d %d %d\n", __func__,
 			msdu_desc->seq_num,
 			msdu_desc->sta_lut_index, msdu_desc->tid);
-		if (msdu_desc->last_buff_of_mpdu == 1) {
+		if (msdu_desc->last_msdu_of_mpdu == 1) {
 			rx_mgmt->rx_snaphdr_flag = 0;
 			wl_err("%s snaphdr attect over %d last %d %d %d\n", __func__,
 				msdu_desc->snap_hdr_present,
@@ -133,7 +133,7 @@ int sprd_rx_defragment_attack_check(struct sprd_priv *priv, struct sk_buff *skb)
 			wl_err("%s snaphdr attect %d %d %d\n", __func__,
 			       msdu_desc->seq_num,
 			       msdu_desc->sta_lut_index, msdu_desc->tid);
-			if (msdu_desc->last_buff_of_mpdu == 1) {
+			if (msdu_desc->last_msdu_of_mpdu == 1) {
 				rx_mgmt->rx_snaphdr_flag = 0;
 				wl_err("%s snaphdr attect over %d %d %d %d last %d %d %d\n",
 				       __func__, msdu_desc->snap_hdr_present,
