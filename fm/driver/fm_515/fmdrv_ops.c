@@ -353,11 +353,15 @@ int fm_open(struct inode *inode, struct file *filep) {
     powerup_parm.freq = 875;
 
     ret = fm_powerup(&powerup_parm);
-    if (fmdev->fm_invalid == 1) {
-        if (ret != 0) {
-            ret = reset_open_state;
-            pr_info("fm wcnd reset stay open invalid status\n");
-            return ret;
+	if (fmdev->fm_invalid == 1) {
+		if (ret != 0) {
+			pr_info("fm wcnd reset stay open invalid status,retry power up!\n");
+			ret = fm_powerup(&powerup_parm);
+			if (ret != 0) {
+				pr_info("fm retry powerup  invalid,return !\n");
+				return ret;
+			}
+			fmdev->fm_invalid = 0;
         } else {
             fmdev->fm_invalid = 0;
             pr_info("fm wcnd reset stay open valid status\n");
