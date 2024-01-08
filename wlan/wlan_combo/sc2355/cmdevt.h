@@ -1044,9 +1044,9 @@ int sc2355_set_sar(struct sprd_priv *priv, struct sprd_vif *vif,
 		   u8 sub_type, s8 value);
 int sc2355_set_power_backoff(struct sprd_priv *priv, struct sprd_vif *vif,
 			     struct sprd_power_backoff *data);
-int sc2355_add_key(struct sprd_priv *priv, struct sprd_vif *vif,
-		   const u8 *key_data, u8 key_len, bool pairwise, u8 key_index,
-		   const u8 *key_seq, u8 cypher_type, const u8 *mac_addr);
+int sc2355_add_key_data(struct sprd_priv *priv, struct sprd_vif *vif,
+			const u8 *key_data, u8 key_len, bool pairwise, u8 key_index,
+			const u8 *key_seq, u8 cypher_type, const u8 *mac_addr);
 int sc2355_enable_miracast(struct sprd_priv *priv,
 			   struct sprd_vif *vif, int val);
 int sc2355_del_key(struct sprd_priv *priv, struct sprd_vif *vif, u8 key_index,

@@ -430,13 +430,33 @@ void sc2355_setup_wiphy(struct wiphy *wiphy, struct sprd_priv *priv)
 #endif
 }
 
-int sc2355_set_rekey(struct wiphy *wiphy, struct net_device *ndev,
-		     struct cfg80211_gtk_rekey_data *data)
+static int sc2355_set_rekey(struct wiphy *wiphy, struct net_device *ndev,
+			    struct cfg80211_gtk_rekey_data *data)
 {
 	struct sprd_vif *vif = netdev_priv(ndev);
-	sc2355_defrag_recover(vif);
 
 	return sc2355_set_rekey_data(vif->priv, vif, data);
+}
+
+static int sc2355_add_key(struct sprd_priv *priv, struct sprd_vif *vif,
+			  const u8 *key_data, u8 key_len, bool pairwise, u8 key_index,
+			  const u8 *key_seq, u8 cypher_type, const u8 *mac_addr)
+{
+	struct sprd_hif *hif = &priv->hif;
+	int i;
+
+	if (mac_addr) {
+		for (i = 0; i < MAX_LUT_NUM; i++) {
+			if ((memcmp(hif->peer_entry[i].tx.da, mac_addr, ETH_ALEN) == 0) &&
+			    hif->peer_entry[i].ctx_id == vif->ctx_id) {
+				sc2355_defrag_recover(vif, hif->peer_entry[i].lut_index);
+				break;
+			}
+		}
+	}
+
+	return sc2355_add_key_data(priv, vif, key_data, key_len, pairwise,
+				   key_index, key_seq, cypher_type, mac_addr);
 }
 
 void sc2355_ops_update(struct cfg80211_ops *ops)

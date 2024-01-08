@@ -274,18 +274,16 @@ void sc2355_defrag_deinit(struct rx_defrag_entry *defrag_entry)
 	}
 }
 
-void sc2355_defrag_recover(struct sprd_vif *vif)
+void sc2355_defrag_recover(struct sprd_vif *vif, unsigned char lut_index)
 {
 	struct sprd_hif *hif;
 	struct rx_mgmt *rx_mgmt;
 	struct rx_defrag_entry *defrag_entry;
-	unsigned char lut_index;
 	struct rx_defrag_node *node = NULL, *pos_node = NULL;
 
 	hif = &vif->priv->hif;
 	rx_mgmt = (struct rx_mgmt *)hif->rx_mgmt;
 	defrag_entry = &rx_mgmt->defrag_entry;
-	lut_index = sc2355_find_lut_index(hif, vif);
 
 	list_for_each_entry_safe(node, pos_node, &defrag_entry->list, list) {
 		if (lut_index == node->desc.sta_lut_index) {

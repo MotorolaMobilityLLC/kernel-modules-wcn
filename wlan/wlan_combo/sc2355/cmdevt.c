@@ -1768,9 +1768,9 @@ int sc2355_enable_miracast(struct sprd_priv *priv,
 	return send_cmd_recv_rsp(priv, msg, NULL, NULL);
 }
 
-int sc2355_add_key(struct sprd_priv *priv, struct sprd_vif *vif,
-		   const u8 *key_data, u8 key_len, bool pairwise, u8 key_index,
-		   const u8 *key_seq, u8 cypher_type, const u8 *mac_addr)
+int sc2355_add_key_data(struct sprd_priv *priv, struct sprd_vif *vif,
+			const u8 *key_data, u8 key_len, bool pairwise, u8 key_index,
+			const u8 *key_seq, u8 cypher_type, const u8 *mac_addr)
 {
 	struct sprd_msg *msg;
 	struct cmd_add_key *p;
