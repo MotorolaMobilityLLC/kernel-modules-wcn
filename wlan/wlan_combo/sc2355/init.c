@@ -9,6 +9,7 @@
 #include "common/channel_5g.h"
 #include "common/chip_ops.h"
 #include "common/common.h"
+#include "common/npi.h"
 #include "qos.h"
 #include "scan.h"
 #include "txrx.h"
@@ -444,6 +445,29 @@ void sc2355_ops_update(struct cfg80211_ops *ops)
 	ops->set_rekey_data = sc2355_set_rekey;
 }
 
+static const struct sprd_npi_ops sc2355_npi_ops[] = {
+	{
+		.cmd = SPRD_NPI_CMD_GET_CHIPID,
+		.doit = sprd_npi_get_chipid,
+	},
+	{
+		.cmd = SPRD_NPI_CMD_SET_CCA_PARAM,
+		.doit = sprd_npi_deal_setcca,
+	},
+	{
+		.cmd = SPRD_NPI_CMD_SET_RANDOM_MAC,
+		.doit = sprd_npi_set_random_mac,
+	},
+	{
+		.cmd = SPRD_NPI_CMD_SET_COUNTRY,
+		.doit = sprd_npi_set_country,
+	},
+	{
+		.cmd = SPRD_NPI_CMD_5GPW_BACKOFF,
+		.doit = sprd_npi_5gpw_backoff,
+	},
+};
+
 struct sprd_chip_ops sc2355_chip_ops = {
 	.get_msg = sc2355_tx_get_msg,
 	.free_msg = sc2355_tx_free_msg,
@@ -508,6 +532,8 @@ struct sprd_chip_ops sc2355_chip_ops = {
 	.set_vowifi = sc2355_set_vowifi,
 	.dump_survey = sc2355_dump_survey,
 	.npi_send_recv = sc2355_npi_send_recv,
+	.npi_ops = sc2355_npi_ops,
+	.n_npi_ops = ARRAY_SIZE(sc2355_npi_ops),
 	.qos_init_default_map = sc2355_qos_init_default_map,
 	.qos_enable = sc2355_qos_enable,
 	.qos_wmm_ac_init = sc2355_qos_wmm_ac_init,

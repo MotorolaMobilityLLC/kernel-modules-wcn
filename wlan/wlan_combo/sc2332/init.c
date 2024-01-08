@@ -8,6 +8,7 @@
 #include "common/channel_2g.h"
 #include "common/chip_ops.h"
 #include "common/common.h"
+#include "common/npi.h"
 #include "qos.h"
 #include "txrx.h"
 #include "fcc.h"
@@ -285,6 +286,25 @@ void sc2332_setup_wiphy(struct wiphy *wiphy, struct sprd_priv *priv)
 	}
 }
 
+static const struct sprd_npi_ops sc2332_npi_ops[] = {
+	{
+		.cmd = SPRD_NPI_CMD_GET_CHIPID,
+		.doit = sprd_npi_get_chipid,
+	},
+	{
+		.cmd = SPRD_NPI_CMD_SET_CCA_PARAM,
+		.doit = sprd_npi_deal_setcca,
+	},
+	{
+		.cmd = SPRD_NPI_CMD_SET_RANDOM_MAC,
+		.doit = sprd_npi_set_random_mac,
+	},
+	{
+		.cmd = SPRD_NPI_CMD_SET_COUNTRY,
+		.doit = sprd_npi_set_country,
+	},
+};
+
 struct sprd_chip_ops sc2332_chip_ops = {
 	.get_msg = sc2332_tx_get_msg,
 	.free_msg = sc2332_tx_free_msg,
@@ -343,6 +363,8 @@ struct sprd_chip_ops sc2332_chip_ops = {
 	.set_vowifi = sc2332_set_vowifi,
 	.dump_survey = sc2332_dump_survey,
 	.npi_send_recv = sc2332_npi_send_recv,
+	.npi_ops = sc2332_npi_ops,
+	.n_npi_ops = ARRAY_SIZE(sc2332_npi_ops),
 	.scan = sc2332_scan,
 	.sched_scan_start = sc2332_sched_scan_start,
 	.sched_scan_stop = sc2332_sched_scan_stop,

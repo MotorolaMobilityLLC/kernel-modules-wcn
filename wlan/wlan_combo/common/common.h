@@ -24,9 +24,11 @@
 #include <linux/version.h>
 #include <linux/wireless.h>
 #include <linux/workqueue.h>
+#include <linux/kernel.h>
 #include <net/addrconf.h>
 #include <net/cfg80211.h>
 #include <net/if_inet6.h>
+#include <net/genetlink.h>
 
 #include "cfg80211.h"
 #include "cmd.h"

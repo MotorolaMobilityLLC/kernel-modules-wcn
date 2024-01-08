@@ -135,6 +135,9 @@ struct sprd_chip_ops {
 			   int idx, struct survey_info *s_info);
 	int (*npi_send_recv)(struct sprd_priv *priv, struct sprd_vif *vif,
 			     u8 *s_buf, u16 s_len, u8 *r_buf, u16 *r_len);
+	const struct sprd_npi_ops *npi_ops;
+	u32 n_npi_ops;
+
 	void (*qos_init_default_map)(void);
 	void (*qos_enable)(int flag);
 	void (*qos_wmm_ac_init)(struct sprd_priv *priv);
