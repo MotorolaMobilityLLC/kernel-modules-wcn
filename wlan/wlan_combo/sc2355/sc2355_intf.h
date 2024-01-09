@@ -27,7 +27,8 @@
 /* tx len less than cp len 4 byte as sdiom 4 bytes align */
 /* set MAX CMD length to 1600 on firmware side*/
 #define SPRD_MAX_CMD_TXLEN	1596
-#define SPRD_MAX_CMD_RXLEN	1092
+/* 2490390: mac max cmd rsp/evt len is 1576 */
+#define SPRD_MAX_CMD_RXLEN	1576
 #define SPRD_MAX_DATA_TXLEN	1672
 #define SPRD_MAX_DATA_RXLEN	1676
 

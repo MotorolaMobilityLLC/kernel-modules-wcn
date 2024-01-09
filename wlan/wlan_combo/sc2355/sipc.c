@@ -490,28 +490,26 @@ static int sipc_suspend_resume_handle(int chn, int mode)
 }
 
 struct mchn_ops_t sc2355_sipc_hif_ops[] = {
-
-        /* RX channels */
-        INIT_INTF_SC2355(SIPC_WIFI_CMD_RX, 2, 0, 0, SPRD_MAX_CMD_RXLEN,
-                        64, 0, 0, 0, 1, 32, sipc_rx_handle,
-                        sipc_rx_cmd_push, NULL, NULL),
-        INIT_INTF_SC2355(SIPC_WIFI_DATA0_RX, 2, 0, 0, SPRD_MAX_CMD_RXLEN,
-                        64, 0, 0, 0, 1, 32, sipc_rx_handle,
-                        sipc_rx_data_push, NULL, NULL),
-
-        INIT_INTF_SC2355(SIPC_WIFI_DATA1_RX, 2, 0, 0, SPRD_MAX_CMD_RXLEN,
-                        64, 0, 0, 0, 1, 32, sipc_rx_handle,
-                        sipc_rx_data_push, NULL, NULL),
-        /* TX channels */
-        INIT_INTF_SC2355(SIPC_WIFI_CMD_TX, 2, 1, 0, SPRD_MAX_CMD_TXLEN,
-                        64, 0, 0, 0, 1, 32, sc2355_sipc_tx_cmd_pop_list,
-                        NULL, NULL, sipc_suspend_resume_handle),
-        INIT_INTF_SC2355(SIPC_WIFI_DATA0_TX, 1, 1, 0, SPRD_MAX_CMD_TXLEN,
-                        64, 0, 0, 0, 1, 32, sc2355_sipc_tx_data_pop_list,
-                        NULL, NULL, NULL),
-        INIT_INTF_SC2355(SIPC_WIFI_DATA1_TX, 1, 1, 0, SPRD_MAX_CMD_TXLEN,
-                        64, 0, 0, 0, 1, 4, sc2355_sipc_tx_data_pop_list,
-                        NULL, NULL, NULL),
+	/* RX channels */
+	INIT_INTF_SC2355(SIPC_WIFI_CMD_RX, 2, 0, 0, SPRD_MAX_CMD_RXLEN,
+			64, 0, 0, 0, 1, 32, sipc_rx_handle,
+			sipc_rx_cmd_push, NULL, NULL),
+	INIT_INTF_SC2355(SIPC_WIFI_DATA0_RX, 2, 0, 0, SPRD_MAX_DATA_RXLEN,
+			64, 0, 0, 0, 1, 32, sipc_rx_handle,
+			sipc_rx_data_push, NULL, NULL),
+	INIT_INTF_SC2355(SIPC_WIFI_DATA1_RX, 2, 0, 0, SPRD_MAX_DATA_RXLEN,
+			64, 0, 0, 0, 1, 32, sipc_rx_handle,
+			sipc_rx_data_push, NULL, NULL),
+	/* TX channels */
+	INIT_INTF_SC2355(SIPC_WIFI_CMD_TX, 2, 1, 0, SPRD_MAX_CMD_TXLEN,
+			64, 0, 0, 0, 1, 32, sc2355_sipc_tx_cmd_pop_list,
+			NULL, NULL, sipc_suspend_resume_handle),
+	INIT_INTF_SC2355(SIPC_WIFI_DATA0_TX, 1, 1, 0, SPRD_MAX_DATA_TXLEN,
+			64, 0, 0, 0, 1, 32, sc2355_sipc_tx_data_pop_list,
+			NULL, NULL, NULL),
+	INIT_INTF_SC2355(SIPC_WIFI_DATA1_TX, 1, 1, 0, SPRD_MAX_DATA_TXLEN,
+			64, 0, 0, 0, 1, 4, sc2355_sipc_tx_data_pop_list,
+			NULL, NULL, NULL),
 };
 
 void sc2355_sipc_set_coex_bt_on_off(u8 action)
