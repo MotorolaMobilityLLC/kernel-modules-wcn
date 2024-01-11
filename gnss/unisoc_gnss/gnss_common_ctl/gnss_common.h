@@ -96,12 +96,17 @@ struct wcn_match_data *get_wcn_match_config(void);
 #define UMP9622_DISABLE		0
 #define UMP9622_BASE_OFFSET		0xf8
 
+#define UMP9652_ENABLE		1
+#define UMP9652_DISABLE		0
+#define UMP9652_BASE_OFFSET		0xf8
+
 int gnss_tsen_control(struct regmap *regmap, unsigned int base, bool en);
 
 /* begin: PMIC configuration for marlin3lite */
 /* sharkl5 sharkl6 */
 #define PMIC_CHIPID_SC27XX  (0x2730)
 #define PMIC_CHIPID_UMP9622 (0x7522)
+#define PMIC_CHIPID_UMP9652 (0x7522)
 
 #define SC2730_PIN_REG_BASE 0x0480
 #define PTEST0              0x0

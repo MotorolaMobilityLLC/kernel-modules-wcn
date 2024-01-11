@@ -73,6 +73,7 @@ static const struct of_device_id gnss_common_ctl_of_match[] = {
 static const struct of_device_id pmic_of_match[] = {
 	{ .compatible = "sprd,sc27xx-syscon",  },
 	{ .compatible = "sprd,ump9622-syscon", },
+	{ .compatible = "sprd,ump9652-syscon", },
 	{},
 };
 
@@ -223,6 +224,8 @@ static int gnss_tsen_enable(int type)
 		pmic_sc27xx_tsen_enable(regmap, base, type);
 	if (of_device_is_compatible(regmap_np, "sprd,ump9622-syscon"))
 		gnss_tsen_control(regmap, base + UMP9622_BASE_OFFSET, UMP9622_ENABLE);
+	if (of_device_is_compatible(regmap_np, "sprd,ump9652-syscon"))
+		gnss_tsen_control(regmap, base + UMP9652_BASE_OFFSET, UMP9652_ENABLE);
 
 	of_node_put(regmap_np);
 	return 0;
@@ -270,6 +273,8 @@ static int gnss_tsen_disable(int type)
 		pmic_sc27xx_tsen_disable(regmap, base, type);
 	if (of_device_is_compatible(regmap_np, "sprd,ump9622-syscon"))
 		gnss_tsen_control(regmap, base + UMP9622_BASE_OFFSET, UMP9622_DISABLE);
+	if (of_device_is_compatible(regmap_np, "sprd,ump9652-syscon"))
+		gnss_tsen_control(regmap, base + UMP9652_BASE_OFFSET, UMP9652_DISABLE);
 
 	of_node_put(regmap_np);
 	return 0;
@@ -626,6 +631,8 @@ static ssize_t gnss_pmic_chipid_show(struct device *dev,
 		i = scnprintf(buf, PAGE_SIZE, "%x\n", PMIC_CHIPID_SC27XX);
 	else if (of_device_is_compatible(regmap_np, "sprd,ump9622-syscon"))
 		i = scnprintf(buf, PAGE_SIZE, "%x\n", PMIC_CHIPID_UMP9622);
+	else if (of_device_is_compatible(regmap_np, "sprd,ump9652-syscon"))
+		i = scnprintf(buf, PAGE_SIZE, "%x\n", PMIC_CHIPID_UMP9652);
 	else
 		return -EINVAL;
 
