@@ -287,10 +287,8 @@ enum CMD_LIST {
 	CMD_EXTENDED_LLSTAT = 89,
 	CMD_PACKET_FILTER = 90, /* apf on marlin3 sipc */
 
-#ifdef ENABLE_CHR
 	/* set the chr module */
 	CMD_SET_CHR = 91,
-#endif
 	CMD_APF = 92, /* apf on marlin3LE sdio */
 
 	CMD_MAX
@@ -674,10 +672,8 @@ enum EVT_LIST {
 	/* DEBUG/OTHER */
 	EVT_SDIO_SEQ_NUM = 0xE0,
 
-#ifdef ENABLE_CHR
 	/* CHR Module */
 	EVT_CHR = 0xE1,
-#endif
 
 	EVT_BA = 0xf3,
 	/* RTT */
@@ -1147,9 +1143,7 @@ int sc2355_vendor_deinit(struct wiphy *wiphy);
 int sc2355_dump_survey(struct wiphy *wiphy, struct net_device *ndev,
 		       int idx, struct survey_info *s_info);
 int sc2355_set_sniffer(struct net_device *ndev, void __user *data);
-#ifdef ENABLE_CHR
 int sc2355_set_chr(struct sprd_chr *chr);
-#endif
 int sc2355_hif_fill_msdu_dscr(struct sprd_vif *vif,
 			      struct sk_buff *skb, u8 type, u8 offset);
 unsigned char sc2355_find_lut_index(struct sprd_hif *hif, struct sprd_vif *vif);

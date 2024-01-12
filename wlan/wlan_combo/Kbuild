@@ -26,20 +26,6 @@ ifeq ($(CONFIG_SPRD_DFS),y)
 ccflags-y += -DENABLE_DFS
 endif
 
-ENABLE_CHR_BOARD := \
-		 ums9230-1h10-overlay \
-		 ums9230-1h10_go-overlay \
-                 ums9230-4h10-overlay \
-		 ums9230-4h10-go-overlay \
-		 ums9230-6h10-overlay \
-		 ums9230-6h10-go-overlay \
-                 ums9620-2h10-overlay \
-		 ums9621-1h10-overlay
-ifneq ($(findstring $(BSP_DTBO), $(ENABLE_CHR_BOARD)),)
-CONFIG_SPRD_CHR := y
-ccflags-y += -DENABLE_CHR
-endif
-
 SUPPORT_WPA3_ENTERPRISE_BOARD := \
 		ums9230-1h10-overlay \
 		ums9230-6h10-overlay \
@@ -84,9 +70,8 @@ SPRD_WLAN_COMMON := \
 		common/npi.o \
 		common/report.o \
 		common/apf.o \
-		common/tdls.o
-
-SPRD_WLAN_CHR := common/chr.o
+		common/tdls.o \
+		common/chr.o
 
 SC2332_WLAN := \
 		sc2332/acs.o \
@@ -150,7 +135,5 @@ $(KO_MODULE_NAME)-y += \
 		$(SC2355_PCIE_WLAN)
 
 $(KO_MODULE_NAME)-$(CONFIG_SPRD_PAMWIFI) += $(SC2355_PAMWIFI_WLAN)
-
-$(KO_MODULE_NAME)-$(CONFIG_SPRD_CHR) += $(SPRD_WLAN_CHR)
 
 $(KO_MODULE_NAME)-$(CONFIG_SPRD_DFS) += $(SC2355_DFS_WLAN)

@@ -162,9 +162,7 @@ struct sprd_chip_ops {
 	int (*needed_headroom)(struct sprd_priv *priv);
 	void (*fc_add_share_credit)(struct sprd_vif *vif);
 	int (*set_sniffer)(struct net_device *ndev, void __user *data);
-#ifdef ENABLE_CHR
 	int (*set_chr)(struct sprd_chr *chr);
-#endif
 #ifdef ENABLE_DFS
 	int (*init_dfs_master)(struct sprd_vif *vif);
 	void (*deinit_dfs_master)(struct sprd_vif *vif);
@@ -914,7 +912,6 @@ static inline int sprd_set_sniffer(struct sprd_priv *priv,
 	return 0;
 }
 
-#ifdef ENABLE_CHR
 static inline int sprd_set_chr(struct sprd_chr *chr)
 {
 	struct sprd_priv *priv= chr->priv;
@@ -924,7 +921,6 @@ static inline int sprd_set_chr(struct sprd_chr *chr)
 
 	return 0;
 }
-#endif
 
 #ifdef ENABLE_DFS
 static inline int sprd_start_radar_detection(struct sprd_priv *priv,

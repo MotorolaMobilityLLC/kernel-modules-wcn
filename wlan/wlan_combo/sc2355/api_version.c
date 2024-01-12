@@ -392,14 +392,12 @@ struct sprd_api_version_t api_array[] = {
 		.drv_version = 1,
 		.name = "CMD_PACKET_FILTER",
 	},
-#ifdef ENABLE_CHR
 	[91]{
 		/*ID:91*/
 		.cmd_id = CMD_SET_CHR,
 		.drv_version = 1,
 		.name = "CMD_SET_CHR",
 	},
-#endif
 	[92]{
 		/*ID:92*/
 		.cmd_id = CMD_APF,
@@ -502,13 +500,11 @@ struct sprd_api_version_t api_array[] = {
 		.drv_version = 1,
 		.name = "EVT_SDIO_SEQ_NUM",
 	},
-#ifdef ENABLE_CHR
 	[225]{	/*ID:0xe1*/
 		.cmd_id = EVT_CHR,
 		.drv_version = 1,
 		.name = "EVT_CHR",
 	},
-#endif
 	[242]{	/*ID:0xf2*/
 		.cmd_id = EVT_RTT,
 		.drv_version = 1,
