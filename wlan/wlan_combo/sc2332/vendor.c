@@ -900,10 +900,17 @@ static int vendor_get_llstat_handler(struct wiphy *wiphy,
 	if (!(priv->fw_capa & SPRD_CAPA_LL_STATS))
 		return -ENOTSUPP;
 	memset(r_buf, 0, r_len);
+
 	radio_st = kzalloc(sizeof(*radio_st), GFP_KERNEL);
+	if (!radio_st)
+		return -ENOMEM;
+
 	iface_st = kzalloc(sizeof(*iface_st), GFP_KERNEL);
-	if (!radio_st || !iface_st)
-		goto out_put_fail;
+	if (!iface_st) {
+		kfree(radio_st);
+		return -ENOMEM;
+	}
+
 	ret = vendor_link_layer_stat(priv, vif, SUBCMD_GET, NULL, 0, r_buf, &r_len);
 	llst = (struct llstat_data *)r_buf;
 	iface_st->info.mode = vif->mode;
@@ -1011,7 +1018,6 @@ put_radio_fail:
 put_iface_fail:
 	if (reply_iface)
 		kfree_skb(reply_iface);
-out_put_fail:
 	kfree(radio_st);
 	kfree(iface_st);
 	return -EMSGSIZE;

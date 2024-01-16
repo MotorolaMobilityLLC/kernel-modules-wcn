@@ -2297,7 +2297,7 @@ out:
 int sc2355_send_tdls_cmd(struct sprd_vif *vif, const u8 *peer, int oper)
 {
 	struct sprd_work *misc_work;
-	struct sprd_tdls_work tdls;
+	struct sprd_tdls_work tdls = { 0 };
 	u8 *data = NULL;
 
 	tdls.vif_ctx_id = vif->ctx_id;

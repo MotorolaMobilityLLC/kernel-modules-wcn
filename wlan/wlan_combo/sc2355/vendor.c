@@ -807,14 +807,24 @@ static int vendor_get_llstat_handler(struct wiphy *wiphy,
 	if (!(priv->fw_capa & SPRD_CAPA_LL_STATS))
 		return -ENOTSUPP;
 	memset(r_buf, 0, r_len);
-	radio_st = kzalloc(sizeof(*radio_st), GFP_KERNEL);
-	iface_st = kzalloc(sizeof(*iface_st), GFP_KERNEL);
-	dif_radio = kzalloc(sizeof(*dif_radio), GFP_KERNEL);
 
-	if (!radio_st || !iface_st || !dif_radio) {
-		ret = -ENOMEM;
-		goto clean;
+	radio_st = kzalloc(sizeof(*radio_st), GFP_KERNEL);
+	if (!radio_st)
+		return -ENOMEM;
+
+	iface_st = kzalloc(sizeof(*iface_st), GFP_KERNEL);
+	if (!iface_st) {
+		kfree(radio_st);
+		return -ENOMEM;
 	}
+
+	dif_radio = kzalloc(sizeof(*dif_radio), GFP_KERNEL);
+	if (!dif_radio) {
+		kfree(iface_st);
+		kfree(radio_st);
+		return -ENOMEM;
+	}
+
 	ret = vendor_link_layer_stat(priv, vif, SUBCMD_GET, NULL, 0,
 				     r_buf, &r_len);
 	if (ret)
@@ -2848,7 +2858,7 @@ static int vendor_monitor_rssi(struct wiphy *wiphy,
 {
 	struct nlattr *tb[ATTR_RSSI_MONITOR_MAX + 1];
 	u32 control;
-	struct rssi_monitor_req req;
+	struct rssi_monitor_req req = { 0 };
 	struct sprd_vif *vif = container_of(wdev, struct sprd_vif, wdev);
 	struct sprd_priv *priv = wiphy_priv(wiphy);
 
