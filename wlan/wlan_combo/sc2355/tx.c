@@ -246,7 +246,8 @@ static int tx_handle_timeout(struct tx_mgmt *tx_mgmt,
 	u8 mode;
 	char *pinfo;
 	spinlock_t *lock;
-	int cnt, i, del_list_num;
+	int i, del_list_num;
+	unsigned long cnt;
 	struct list_head *tx_list;
 	struct sprd_msg *pos_buf, *temp_buf, *tailbuf;
 	struct sprd_priv *priv = tx_mgmt->hif->priv;
@@ -274,12 +275,13 @@ static int tx_handle_timeout(struct tx_mgmt *tx_mgmt,
 		    atomic_read(&p_list->l_num) / 100;
 		if (del_list_num >= atomic_read(&p_list->l_num))
 			del_list_num = atomic_read(&p_list->l_num);
-		wl_err("tx timeout drop num:%d, l_num:%d",
-			del_list_num, atomic_read(&p_list->l_num));
+		wl_err("tx timeout drop num:%d, l_num:%d. STA/AP-P2P total drop cnt:%lu-%lu\n",
+		       del_list_num, atomic_read(&p_list->l_num),
+		       tx_mgmt->drop_data1_cnt, tx_mgmt->drop_data2_cnt);
 		list_for_each_entry_safe(pos_buf, temp_buf, tx_list, list) {
 			if (i >= del_list_num)
 				break;
-			wl_err("%s:%d buf->timeout\n", __func__, __LINE__);
+
 			if (pos_buf->mode <= SPRD_MODE_AP) {
 				pinfo = "STA/AP mode";
 				cnt = tx_mgmt->drop_data1_cnt++;
@@ -287,7 +289,8 @@ static int tx_handle_timeout(struct tx_mgmt *tx_mgmt,
 				pinfo = "P2P mode";
 				cnt = tx_mgmt->drop_data2_cnt++;
 			}
-			wl_err("tx drop %s, dropcnt:%u\n", pinfo, cnt);
+			wl_all("%s:%d buf timeout, %s tx drop cnt:%lu\n",
+			       __func__, __LINE__, pinfo, cnt);
 			tx_dequeue_data_msg(tx_mgmt->hif, pos_buf);
 			atomic_dec(&tx_mgmt->tx_list[mode]->mode_list_num);
 #if defined(MORE_DEBUG)
@@ -295,6 +298,8 @@ static int tx_handle_timeout(struct tx_mgmt *tx_mgmt,
 #endif
 			i++;
 		}
+		wl_err("%s:%d after drop, STA/AP-P2P total drop data cnt:%lu-%lu\n",
+		       __func__, __LINE__, tx_mgmt->drop_data1_cnt, tx_mgmt->drop_data2_cnt);
 		atomic_sub(del_list_num, &p_list->l_num);
 		spin_unlock_bh(lock);
 		return -ENOMEM;
