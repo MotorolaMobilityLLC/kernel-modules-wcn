@@ -56,9 +56,9 @@ int sprd_wlan_parse_dt(struct sprd_priv *priv)
 	}
 
 	dt_configs->enable_n79 = of_property_read_bool(pdev->dev.of_node,
-						       "enable-n79");
+						       "sprd,enable-n79");
 	dt_configs->enable_chr = of_property_read_bool(pdev->dev.of_node,
-						       "sprd-chr");
+						       "sprd,enable-chr");
 
 	wl_info("%s n79_en:%d chr_en:%d\n", __func__,
 		dt_configs->enable_n79, dt_configs->enable_chr);
