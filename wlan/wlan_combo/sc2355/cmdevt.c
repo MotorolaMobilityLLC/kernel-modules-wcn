@@ -4181,9 +4181,9 @@ unsigned short sc2355_rx_evt_process(struct sprd_priv *priv, u8 *msg)
 		return plen;
 	}
 
-	if (hdr->cmd_id != EVT_SDIO_FLOWCON)
-		wl_info("cid %d rx[%s]len: %d,rsp_n=%d\n", ctx_id,
-			evt_str, plen, hdr->rsp_cnt);
+	if (hdr->cmd_id == EVT_SDIO_FLOWCON)
+		return plen;
+	wl_info("cid %d rx[%s]len: %d,rsp_n=%d\n", ctx_id, evt_str, plen, hdr->rsp_cnt);
 
 	if (plen < sizeof(struct sprd_cmd_hdr)) {
 		wl_err("%s plen is invalid!\n", __func__);
