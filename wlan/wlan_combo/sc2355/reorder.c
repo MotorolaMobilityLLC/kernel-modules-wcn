@@ -292,15 +292,10 @@ static inline void reorder_bar_send_ba_buffer(struct rx_ba_entry *ba_entry,
 					      struct rx_ba_node_desc *ba_node_desc,
 					      unsigned short seq_num)
 {
-	if (!seqno_leq(seq_num, ba_node_desc->win_start)) {
-		reorder_send_msdu_with_gap(ba_entry, ba_node_desc, seq_num);
-		ba_node_desc->win_start = seq_num;
-		ba_node_desc->win_start =
-		    reorder_send_msdu_in_order(ba_entry, ba_node_desc);
-		ba_node_desc->win_limit =
-		    SEQNO_ADD(ba_node_desc->win_start,
-			      (ba_node_desc->win_size - 1));
-	}
+	reorder_send_msdu_with_gap(ba_entry, ba_node_desc, seq_num);
+	ba_node_desc->win_start = seq_num;
+	ba_node_desc->win_start = reorder_send_msdu_in_order(ba_entry, ba_node_desc);
+	ba_node_desc->win_limit = SEQNO_ADD(ba_node_desc->win_start, (ba_node_desc->win_size - 1));
 }
 
 static inline int
@@ -726,7 +721,7 @@ static int reorder_wlan_addba_event(struct rx_ba_entry *ba_entry,
 		ba_node = reorder_create_ba_node(ba_entry, sta_lut_index,
 						 tid, index_size);
 		if (!ba_node) {
-			wl_err("%s: Create ba_entry fail\n", __func__);
+			wl_err("%s: Create ba_node fail\n", __func__);
 			ret = -ENOMEM;
 			goto out;
 		}
@@ -918,7 +913,6 @@ void sc2355_wlan_ba_session_event(struct sprd_hif *hif, unsigned char *data,
 	unsigned char type = ba_event->type;
 	int ret = 0;
 	struct sprd_peer_entry *peer_entry = NULL;
-	u8 qos_index;
 
 	if (ba_event->sta_lut_index >= MAX_LUT_NUM) {
 		wl_err("%s, error sta_lut_index %d!\n", __func__, ba_event->sta_lut_index);
@@ -943,8 +937,6 @@ void sc2355_wlan_ba_session_event(struct sprd_hif *hif, unsigned char *data,
 		reorder_wlan_filter_event(ba_entry, ba_event);
 		break;
 	case SPRD_DELTXBA_EVENT:
-		peer_entry = &hif->peer_entry[ba_event->sta_lut_index];
-		qos_index = sc2355_qos_tid_map_to_index(ba_event->tid);
 		peer_entry = &hif->peer_entry[ba_event->sta_lut_index];
 		if (test_and_clear_bit
 		    (ba_event->tid, &peer_entry->ba_tx_done_map))
