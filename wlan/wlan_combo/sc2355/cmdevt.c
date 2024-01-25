@@ -1432,7 +1432,7 @@ int sc2355_get_fw_info(struct sprd_priv *priv)
 	 * user version:cp has 124 buf for tx;
 	 * userdebug version: cp has 85 buf for tx.
 	 */
-#ifdef CONFIG_SPRD_WLAN_DEBUG
+#ifdef CONFIG_UNISOC_WLAN_DEBUG
 	u8 ap_version = NOTIFY_AP_VERSION_USER_DEBUG;
 #else
 	u8 ap_version = NOTIFY_AP_VERSION_USER;

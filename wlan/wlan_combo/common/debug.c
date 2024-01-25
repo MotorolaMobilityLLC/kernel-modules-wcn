@@ -571,7 +571,7 @@ DEFINE_SIMPLE_ATTRIBUTE(apf_disable_ops,
 void sprd_debug_init(struct sprd_debug *dbg)
 {
 	sprd_dbg = dbg;
-#ifdef CONFIG_SPRD_WLAN_DEBUG
+#ifdef CONFIG_UNISOC_WLAN_DEBUG
 	sprd_dbg_level = L_DBG;
 #else
 	sprd_dbg_level = L_INFO;

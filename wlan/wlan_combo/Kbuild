@@ -9,9 +9,10 @@
 # - Please refer to modules/sample/Kbuild to find out what should be
 #   done is this Kbuild file
 #
-
+ifeq ($(strip $(BSP_KERNEL_VERSION)),kernel5.15)
 ifeq ($(BSP_BUILD_VARIANT),userdebug)
-ccflags-y += -DCONFIG_SPRD_WLAN_DEBUG
+ccflags-y += -DCONFIG_UNISOC_WLAN_DEBUG
+endif
 endif
 
 ifeq ($(BSP_MODULE_ION_VERSION),ums9620)
