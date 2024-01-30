@@ -2145,3 +2145,25 @@ int edma_deinit(void)
 	return 0;
 }
 
+bool edma_pending_irq_check(void)
+{
+	struct edma_info *edma = edma_info();
+	unsigned int dma_debug_status = 0, dma_int_mask_status = 0, dma_busy_status = 0;
+
+	/* read DMA busy status first */
+	dma_debug_status = edma->dma_glb_reg->dma_debug_status;
+	dma_busy_status = dma_debug_status & BIT(20);
+	if (dma_busy_status) {
+		WCN_INFO("[dma_busy_status] = 0x%08x\n", dma_busy_status);
+		return true;
+	}
+	/* read int mask status */
+	dma_int_mask_status = edma->dma_glb_reg->dma_int_mask_status;
+	if (dma_int_mask_status) {
+		WCN_INFO("[dma_int_mask_status] = %d\n", dma_int_mask_status);
+		return true;
+	}
+
+	return false;
+}
+
