@@ -1038,6 +1038,8 @@ int sc2355_power_save(struct sprd_priv *priv, struct sprd_vif *vif,
 		      u8 sub_type, u8 status);
 int sc2355_set_sar(struct sprd_priv *priv, struct sprd_vif *vif,
 		   u8 sub_type, s8 value);
+int sc2355_set_sar_as_mode(struct sprd_priv *priv, struct sprd_vif *vif,
+		 u8 sub_type, s8 mode, s8 value);
 int sc2355_set_power_backoff(struct sprd_priv *priv, struct sprd_vif *vif,
 			     struct sprd_power_backoff *data);
 int sc2355_add_key(struct sprd_priv *priv, struct sprd_vif *vif,
