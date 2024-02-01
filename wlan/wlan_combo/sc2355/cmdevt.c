@@ -1733,6 +1733,25 @@ int sc2355_set_sar(struct sprd_priv *priv, struct sprd_vif *vif,
 	return send_cmd_recv_rsp(priv, msg, NULL, NULL);
 }
 
+int sc2355_set_sar_as_mode(struct sprd_priv *priv, struct sprd_vif *vif,
+		 u8 sub_type, s8 mode, s8 value)
+{
+	struct sprd_msg *msg;
+	struct cmd_set_sar *p;
+
+	msg = get_cmdbuf(priv, vif, sizeof(*p), CMD_POWER_SAVE);
+	if (!msg)
+		return -ENOMEM;
+
+	p = (struct cmd_set_sar *)msg->data;
+	p->power_save_type = SPRD_SET_SAR;
+	p->sub_type = sub_type;
+	p->value = value;
+	p->mode = mode;
+	wl_info("power_save [SET_SAR]\n");
+	return send_cmd_recv_rsp(priv, msg, NULL, NULL);
+}
+
 int sc2355_set_power_backoff(struct sprd_priv *priv, struct sprd_vif *vif,
 			     struct sprd_power_backoff *data)
 {
