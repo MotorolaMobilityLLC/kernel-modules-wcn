@@ -8,6 +8,7 @@
 #include "common/debug.h"
 #include "common/vendor.h"
 #include "common/report.h"
+#include "common/chip_ops.h"
 #include "scan.h"
 #include "cmdevt.h"
 #include <linux/version.h>
@@ -1962,6 +1963,21 @@ static int vendor_reset_significant_change(struct wiphy *wiphy,
 		sizeof(int), (u8 *)(&rsp), &rlen);
 }
 
+static void vendor_get_extened_feature(struct sprd_priv *priv, u32 *feature)
+{
+	/* bit 27: Support SET sar limit function */
+	if (priv->extend_feature & SPRD_CAPA_TX_POWER) {
+		wl_debug("Set sar limit function supported\n");
+		*feature |= WIFI_FEATURE_SET_SAR_LIMIT;
+	}
+
+	/* bit 31: Support SET low latency function */
+	if (priv->extend_feature & SPRD_EXTEND_FEATURE_LOW_LATENCY) {
+		wl_debug("Set low latency function supported\n");
+		*feature |= WIFI_FEATURE_SET_LATENCY_MODE;
+	}
+}
+
 /* get support feature function---CMD ID:38 */
 static int vendor_get_support_feature(struct wiphy *wiphy,
 				      struct wireless_dev *wdev,
@@ -2108,11 +2124,7 @@ static int vendor_get_support_feature(struct wiphy *wiphy,
 		wl_debug("RAND MAC SCAN supported\n");
 		feature |= WIFI_FEATURE_SCAN_RAND;
 	}
-	/* bit 27: Support SET sar limit function */
-	if (priv->extend_feature & SPRD_CAPA_TX_POWER) {
-		wl_debug("Set sar limit function supported\n");
-		feature |= WIFI_FEATURE_SET_SAR_LIMIT;
-	}
+	vendor_get_extened_feature(priv, &feature);
 
 	wl_info("%s : Supported Feature:0x%x\n", __func__, feature);
 
@@ -2805,6 +2817,57 @@ static int vendor_reset_passpoint_list(struct wiphy *wiphy,
 				   (void *)(&flush),
 				   SPRD_GSCAN_SUBCMD_RESET_ANQPO_CONFIG,
 				   sizeof(int), (u8 *)(&rsp), &rlen);
+}
+
+static int vendor_set_low_latency_mode(struct sprd_priv *priv, struct sprd_vif *vif, u32 config)
+{
+	u8 mode;
+
+	wl_info("set low latency config: %d\n", config);
+	if (!(priv->extend_feature & SPRD_EXTEND_FEATURE_LOW_LATENCY)) {
+		wl_err("%s, fw don't support set low latency function\n", __func__);
+		return -EOPNOTSUPP;
+	}
+
+	if (config == ATTR_CONFIG_LATENCY_LEVEL_NORMAL)
+		mode = 0;
+	else if (config == ATTR_CONFIG_LATENCY_LEVEL_LOW)
+		mode = 1;
+	else
+		return -EINVAL;
+
+	/* firmwware has no code size to add new command, reuse power save commond */
+	if (sprd_power_save(priv, vif, SPRD_LOW_LATENCY, mode))
+		return -EPERM;
+
+	return 0;
+}
+
+static int vendor_set_wifi_config(struct wiphy *wiphy, struct wireless_dev *wdev,
+				  const void *data, int len)
+{
+	struct nlattr *tb[ATTR_WLAN_CONFIG_MAX + 1];
+	struct sprd_vif *vif = container_of(wdev, struct sprd_vif, wdev);
+	struct sprd_priv *priv = wiphy_priv(wiphy);
+	u32 config;
+
+	if (!vif || !priv) {
+		wl_err("get vif or priv failed\n");
+		return -EINVAL;
+	}
+
+	if (nla_parse(tb, ATTR_WLAN_CONFIG_MAX, data, len,
+		      wifi_config_policy, NULL)) {
+		wl_err("failed to parse config attr\n");
+		return -EINVAL;
+	}
+
+	if (tb[ATTR_WLAN_CONFIG_LATENCY_LEVEL]) {
+		config = nla_get_u32(tb[ATTR_WLAN_CONFIG_LATENCY_LEVEL]);
+		return vendor_set_low_latency_mode(priv, vif, config);
+	}
+
+	return 0;
 }
 
 static int vendor_monitor_rssi(struct wiphy *wiphy,
@@ -3840,6 +3903,17 @@ static const struct wiphy_vendor_command vendor_cmd[] = {
 		.doit = vendor_reset_passpoint_list,
 		.policy = wlan_gscan_result_policy,
 		.maxattr = ATTR_PNO_MAX,
+	},
+	{/* 74 */
+		{
+		    .vendor_id = OUI_SPREAD,
+		    .subcmd = VENDOR_CMD_SET_WIFI_CONFIG,
+		},
+		.flags = WIPHY_VENDOR_CMD_NEED_WDEV |
+			 WIPHY_VENDOR_CMD_NEED_NETDEV,
+		.doit = vendor_set_wifi_config,
+		.policy = wifi_config_policy,
+		.maxattr = ATTR_WLAN_CONFIG_MAX,
 	},
 	{/* 76 */
 		{

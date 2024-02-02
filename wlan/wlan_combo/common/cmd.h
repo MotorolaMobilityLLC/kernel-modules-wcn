@@ -47,6 +47,7 @@
 #define SPRD_SUSPEND_RESUME		5
 #define SPRD_FW_PWR_DOWN_ACK		6
 #define SPRD_HOST_WAKEUP_FW		7
+#define SPRD_LOW_LATENCY		8
 
 #define SPRD_ROAM_OFFLOAD_SET_FLAG	1
 #define SPRD_ROAM_OFFLOAD_SET_FTIE	2
@@ -252,6 +253,8 @@ static inline char *ps_subtype2str(u8 subtype)
 		return "FW_PWR_DOWN_ACK";
 	case SPRD_HOST_WAKEUP_FW:
 		return "HOST_WAKEUP_FW";
+	case SPRD_LOW_LATENCY:
+		return "LOW_LATENCY_MODE";
 	default:
 		return "subtype_unknown";
 	}
