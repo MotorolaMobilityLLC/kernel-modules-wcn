@@ -39,8 +39,8 @@ struct sprd_chip_ops {
 			  u8 sub_type, u8 status);
 	int (*set_sar)(struct sprd_priv *priv, struct sprd_vif *vif,
 		       u8 sub_type, s8 value);
-	int (*set_sar_as_mode)(struct sprd_priv *priv, struct sprd_vif *vif,
-				u8 sub_type, s8 mode, s8 value);
+	int (*set_sar_by_band)(struct sprd_priv *priv, struct sprd_vif *vif,
+			   u8 sub_type, s8 band, s8 value);
 	void (*fcc_reset)(void);
 	void (*fcc_init)(void);
 	int (*add_key)(struct sprd_priv *priv, struct sprd_vif *vif,
@@ -319,11 +319,11 @@ static inline int sprd_set_sar(struct sprd_priv *priv, struct sprd_vif *vif,
 	return 0;
 }
 
-static inline int sprd_set_sar_as_mode(struct sprd_priv *priv, struct sprd_vif *vif,
-				u8 sub_type, s8 mode, s8 value)
+static inline int sprd_set_sar_by_band(struct sprd_priv *priv, struct sprd_vif *vif,
+				       u8 sub_type, s8 band, s8 value)
 {
-	if (priv->chip.ops->set_sar_as_mode)
-		return priv->chip.ops->set_sar_as_mode(priv, vif, sub_type, mode, value);
+	if (priv->chip.ops->set_sar_by_band)
+		return priv->chip.ops->set_sar_by_band(priv, vif, sub_type, band, value);
 
 	return 0;
 }
