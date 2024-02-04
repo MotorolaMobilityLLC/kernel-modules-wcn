@@ -18,10 +18,11 @@
 
 #define ALIGN_8BYTE(a) (((a) + 7) & ~7)
 
-static void mm_check_mh_buffer(struct device *dev, void *buffer, dma_addr_t pa,
+static bool mm_check_mh_buffer(struct device *dev, void *buffer, dma_addr_t pa,
 			       size_t size, enum dma_data_direction direction)
 {
 	int retry = 0;
+	bool flag = true;
 
 	if (direction == DMA_FROM_DEVICE) {
 		struct rx_msdu_desc *desc = buffer + sizeof(struct rx_mh_desc);
@@ -40,10 +41,10 @@ static void mm_check_mh_buffer(struct device *dev, void *buffer, dma_addr_t pa,
 
 	if (retry >= MAX_RETRY_NUM) {
 		/* TODO: How to deal with this situation? */
-		dma_sync_single_for_device(dev, pa, size, direction);
-		wl_err("%s: hw still writing: 0x%lx, 0x%lx\n",
-		       __func__, (unsigned long)buffer, (unsigned long)pa);
+		flag = false;
 	}
+
+	return flag;
 }
 
 static void mm_clear_mh_buffer(void *buffer)
@@ -61,6 +62,31 @@ static inline bool mm_is_compound_data(struct mem_mgmt *mm_entry, void *data)
 	wl_all("%s: short_pkt_num: %d\n", __func__, msdu_desc->short_pkt_num);
 
 	return (msdu_desc->short_pkt_num > 1);
+}
+
+bool sc2355_check_rx_pcie_addr(unsigned long pcie_addr, struct mem_mgmt *mm_entry)
+{
+
+	unsigned long check_pcie_addr = 0, flags = 0;
+	bool flag = false;
+	struct sk_buff_head *list = NULL;
+	struct sk_buff *skb = NULL;
+
+	list = &mm_entry->buffer_list;
+
+	spin_lock_irqsave(&list->lock, flags);
+	for (skb = (list)->next; skb != (struct sk_buff *)(list); skb = skb->next) {
+		memcpy(&check_pcie_addr, (skb->data - (SPRD_PHYS_LEN + SKB_ADDR_LEN)),
+					SPRD_PHYS_LEN);
+		check_pcie_addr &= SPRD_PHYS_MASK;
+		if (check_pcie_addr == pcie_addr) {
+			flag = true;
+			break;
+		}
+	}
+	spin_unlock_irqrestore(&list->lock, flags);
+
+	return flag;
 }
 
 static inline struct sk_buff *mm_build_skb(void *data, int len, int buffer_type)
@@ -223,7 +249,7 @@ static int mm_single_buffer_alloc(struct mem_mgmt *mm_entry)
 {
 	struct rx_mgmt *rx_mgmt =
 	    container_of(mm_entry, struct rx_mgmt, mm_entry);
-	struct sk_buff *skb = NULL;
+	struct sk_buff *skb = NULL, *temp_skb = NULL;
 	unsigned long pcie_addr = 0;
 	int ret = -ENOMEM;
 	void *buff = NULL, *pad = NULL;
@@ -232,6 +258,17 @@ static int mm_single_buffer_alloc(struct mem_mgmt *mm_entry)
 
 	skb = dev_alloc_skb(SPRD_MAX_DATA_RXLEN);
 	if (skb) {
+		if (skb_headroom(skb) < (SPRD_PHYS_LEN + SKB_ADDR_LEN)) {
+			temp_skb = skb;
+			skb = skb_realloc_headroom(skb, (SPRD_PHYS_LEN + SKB_ADDR_LEN));
+			dev_kfree_skb(temp_skb);
+			temp_skb = NULL;
+			if (skb == NULL) {
+				wl_err("%s: %d failed to unshare skbbuff: NULL\n",
+						__func__, __LINE__);
+				return -EPERM;
+			}
+		}
 		/* hook skb address after skb end
 		 * first 64 bits of skb_shared_info are
 		 * nr_frags, tx_flags, gso_size, gso_segs, gso_type
@@ -268,6 +305,7 @@ static int mm_single_buffer_alloc(struct mem_mgmt *mm_entry)
 			pcie_addr = pcie_addr & SPRD_MH_SIPC_ADDRESS_BIT;
 			wl_all("%s: sipc_addr is 0x%lx. \n", __func__, pcie_addr);
 		}
+		memcpy((skb->data - (SPRD_PHYS_LEN + SKB_ADDR_LEN)), &pcie_addr, SPRD_PHYS_LEN);
 
 		if (likely(pcie_addr)) {
 			ret = mm_w_addr_buf(mm_entry, pcie_addr);
@@ -306,14 +344,29 @@ static struct sk_buff *mm_single_buffer_unlink(struct mem_mgmt *mm_entry,
 	unsigned long flags = 0;
 	struct sprd_msg_list *list;
 
+	if (!sc2355_check_rx_pcie_addr(pcie_addr, mm_entry)) {
+		wl_err("%s pcie_addr is wrong\n", __func__);
+		return NULL;
+	}
+
 	if (rx_mgmt->hif->hw_type == SPRD_HW_SC2355_PCIE) {
 		buffer = sc2355_mm_phys_to_virt(&rx_mgmt->hif->pdev->dev, pcie_addr,
 						SPRD_MAX_DATA_RXLEN, DMA_FROM_DEVICE,
 						true);
+		if (buffer == NULL) {
+			wl_err("%s buffer is null\n", __func__);
+			return NULL;
+		}
 
 		RESTORE_ADDR(skb, buffer, sizeof(struct sk_buff *));
+		if (IS_ERR(skb)) {
+			wl_err("%s skb is not correct. please check!\n", __func__);
+			return NULL;
+		}
+
 		skb_unlink(skb, &mm_entry->buffer_list);
 		CLEAR_ADDR(skb->data, sizeof(struct sk_buff *));
+		memset((skb->data - (SPRD_PHYS_LEN + SKB_ADDR_LEN)), 0x00, SPRD_PHYS_LEN);
 	} else if (rx_mgmt->hif->hw_type == SPRD_HW_SC2355_SIPC) {
 		rx_buf = rx_mgmt->hif->sipc_mm->rx_buf;
 		phy_addr = pcie_addr & (~(SPRD_MH_ADDRESS_BIT) & SPRD_PHYS_MASK);
@@ -327,6 +380,7 @@ static struct sk_buff *mm_single_buffer_unlink(struct mem_mgmt *mm_entry,
 			skb = node->priv;
 			skb_unlink(skb, &mm_entry->buffer_list);
 			CLEAR_ADDR(skb->data, sizeof(skb));
+			memset((skb->data - (SPRD_PHYS_LEN + SKB_ADDR_LEN)), 0x00, SPRD_PHYS_LEN);
 		} else {
 			wl_err("%s node or addr is null, phy 0x%lx,\
 				sipc addr 0x%lx\n", __func__, phy_addr, pcie_addr);
@@ -641,8 +695,10 @@ void *sc2355_mm_phys_to_virt(struct device *dev, unsigned long pcie_addr,
 
 	dma_sync_single_for_device(dev, pa, size, direction);
 
-	if (is_mh)
-		mm_check_mh_buffer(dev, buffer, pa, size, direction);
+	if (is_mh) {
+		if (!mm_check_mh_buffer(dev, buffer, pa, size, direction))
+			buffer = NULL;
+	}
 
 	dma_unmap_single(dev, pa, size, direction);
 
