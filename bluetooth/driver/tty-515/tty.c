@@ -178,23 +178,43 @@ static ssize_t chipid_show(struct device *dev,
 {
     int i = 0, id;
     const char *id_str = NULL;
+	if (SIPC) {
+		id = wcn_get_aon_chip_id();
+		dev_unisoc_bt_info(ttyBT_dev, "sipc:%s: %d", __func__, id);
+		i += scnprintf(buf + i, PAGE_SIZE - i, "%d\n", id);
+	} else if (SIPC2) {
+		id = wcn_get_aon_chip_id();
+		id_str = wcn_get_chip_name();
+		dev_unisoc_bt_info(ttyBT_dev,
+							"sipc2 %s: chipid: %d, chipid_str: %s",
+							__func__, id, id_str);
+		i = scnprintf(buf, PAGE_SIZE, "%d/", id);
+		dev_unisoc_bt_info(ttyBT_dev,
+							"%s: buf: %s, i = %d",
+							__func__, buf, i);
+		strncat(buf, id_str, 32);
+		i += scnprintf(buf + i, PAGE_SIZE - i, "%s", buf + i);
+		dev_unisoc_bt_info(ttyBT_dev,
+							"%s: buf: %s, i = %d",
+							__func__, buf, i);
+	} else {
+		id = wcn_get_chip_type();
+		id_str = wcn_get_chip_name();
+		dev_unisoc_bt_info(ttyBT_dev,
+						"%s: chipid: %d, chipid_str: %s",
+						__func__, id, id_str);
 
-    id = wcn_get_chip_type();
-    id_str = wcn_get_chip_name();
-    dev_unisoc_bt_info(ttyBT_dev,
-                       "%s: chipid: %d, chipid_str: %s",
-                       __func__, id, id_str);
-
-    i = scnprintf(buf, PAGE_SIZE, "%d/", id);
-    dev_unisoc_bt_info(ttyBT_dev,
-                       "%s: buf: %s, i = %d",
-                       __func__, buf, i);
-    strcat(buf, id_str);
-    i += scnprintf(buf + i, PAGE_SIZE - i, "%s", buf + i);
-    dev_unisoc_bt_info(ttyBT_dev,
-                       "%s: buf: %s, i = %d",
-                       __func__, buf, i);
-    return i;
+		i = scnprintf(buf, PAGE_SIZE, "%d/", id);
+		dev_unisoc_bt_info(ttyBT_dev,
+						"%s: buf: %s, i = %d",
+						__func__, buf, i);
+		strcat(buf, id_str);
+		i += scnprintf(buf + i, PAGE_SIZE - i, "%s", buf + i);
+		dev_unisoc_bt_info(ttyBT_dev,
+						"%s: buf: %s, i = %d",
+						__func__, buf, i);
+	}
+	return i;
 }
 
 static DEVICE_ATTR_RO(chipid);

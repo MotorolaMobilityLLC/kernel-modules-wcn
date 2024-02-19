@@ -1357,6 +1357,7 @@ int wcn_probe(struct platform_device *pdev)
 {
 	struct wcn_device *wcn_dev;
 	static int first = 1;
+	int err;
 
 	WCN_INFO("%s start!\n", __func__);
 
@@ -1407,6 +1408,11 @@ int wcn_probe(struct platform_device *pdev)
 
 	if (strcmp(wcn_dev->name, WCN_MARLIN_DEV_NAME) == 0) {
 		mutex_init(&wcn_dev->vddwifipa_lock);
+		err = wcn_misc_init();
+		if (err) {
+			pr_err("wcn_misc_init: %d\n", err);
+			return err;
+		}
 		if (wcn_platform_chip_id() == AON_CHIP_ID_AA)
 			wcn_power_set_vddwifipa(WCN_VDDWIFIPA_WORK_VOLTAGE);
 		wcn_global_source_init();
@@ -1484,6 +1490,7 @@ int wcn_remove(struct platform_device *pdev)
 		wcn_gnss_dump_exit();
 		log_dev_exit();
 		proc_fs_exit();
+		wcn_misc_exit();
 		wcn_bus_deinit();
 		exit_wcn_sysfs();
 	}

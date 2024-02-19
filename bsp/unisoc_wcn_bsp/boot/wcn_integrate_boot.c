@@ -991,7 +991,7 @@ static int wcn_wait_marlin_boot(struct wcn_device *wcn_dev)
 		wcn_write_data_to_phy_addr(phy_addr, &magic_value, sizeof(u32));
 		return -1;
 	}
-
+	wcn_slpinfo_statistics(WCN_SOURCE_BTWF, true);
 	return 0;
 }
 
@@ -1129,6 +1129,7 @@ static int wcn_wait_gnss_boot(struct wcn_device *wcn_dev)
 	}
 
 	cali_flag = 1;
+	wcn_slpinfo_statistics(WCN_SOURCE_GNSS, true); 
 	return 0;
 }
 
@@ -4062,6 +4063,7 @@ int stop_integrate_wcn_module(u32 subsys)
 			return -1;
 		}
 		wcn_pm_qos_reset();
+		wcn_slpinfo_statistics(WCN_SOURCE_BTWF, false);
 	} else {
 		ret = gnss_sys_shutdown(wcn_dev);
 		if (-EBUSY == ret) {
@@ -4079,6 +4081,7 @@ int stop_integrate_wcn_module(u32 subsys)
 			/* WARNING: Return 0 by GNSS */
 			return 0;
 		}
+		wcn_slpinfo_statistics(WCN_SOURCE_GNSS, false);
 	}
 
 	if (wcn_subsys_active_num() == 0) {
