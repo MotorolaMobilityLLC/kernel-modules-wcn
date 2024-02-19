@@ -419,6 +419,14 @@ static int wifi_nvm_buf_operate(char *pBuf, int file_len, void *p_data)
 						conf = (struct merl_wifi_conf_t *)p_data;
 						conf->rf_config.rf_data_len = cmd->num;
 					}
+
+					if (strcmp(pTable->itm, "value") == 0) {
+						spin_lock_bh(&adap_info.adap_lock);
+						adap_info.special_data_flag = cmd->par[4];
+						wl_info("%s special_data_flag: %d\n",
+							__func__, adap_info.special_data_flag);
+						spin_unlock_bh(&adap_info.adap_lock);
+					}
 				}
 			}
 			p = i + 1;
