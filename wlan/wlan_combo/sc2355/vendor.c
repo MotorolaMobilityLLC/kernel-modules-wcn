@@ -3284,7 +3284,13 @@ static int vendor_set_sae_password(struct wiphy *wiphy,
 
 	/* all para need translate to tlv format */
 	para_len = vendor_softap_convert_para(vif, &sae_para, para);
+
 	ret = vendor_softap_set_sae_para(vif->priv, vif, para, para_len);
+	if (ret || (vif->sae_param_status != 0)) {
+		netdev_info(vif->ndev, "set sae para failed, ret=%d\n", ret);
+		vif->sae_param_status = 0;
+		ret = -EINVAL;
+	}
 
 	kfree(para);
 	return ret;

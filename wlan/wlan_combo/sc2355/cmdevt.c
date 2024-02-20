@@ -4409,6 +4409,8 @@ unsigned short sc2355_rx_rsp_process(struct sprd_priv *priv, u8 *msg)
 	struct sprd_cmd_hdr *hdr;
 	const char *cmd_str = NULL, *err_str = NULL;
 	u32 hdr_mstime;
+	struct sprd_vif *vif = NULL;
+	struct sprd_hif *hif = &priv->hif;
 
 	if (unlikely(!cmd->init_ok)) {
 		wl_err("%s cmd coming too early, drop it\n", __func__);
@@ -4464,6 +4466,15 @@ unsigned short sc2355_rx_rsp_process(struct sprd_priv *priv, u8 *msg)
 			if (hdr->cmd_id == CMD_TX_MGMT) {
 				wl_err("tx mgmt status : %d\n", hdr->status);
 				priv->tx_mgmt_status = hdr->status;
+			}
+
+			if (hdr->cmd_id == CMD_SET_SAE_PARAM &&
+			    hif->hw_type == SPRD_HW_SC2355_SDIO) {
+				vif = sc2355_ctxid_to_vif(priv, hdr->common.mode);
+				if (vif) {
+					vif->sae_param_status = hdr->status;
+					sprd_put_vif(vif);
+				}
 			}
 		}
 		cmd->data = data;

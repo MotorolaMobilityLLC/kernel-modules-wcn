@@ -255,7 +255,7 @@ int sc2332_sched_scan_start(struct wiphy *wiphy, struct net_device *ndev,
 	struct cfg80211_match_set *match_ssid_tmp = NULL;
 	int ret = 0;
 	int i = 0, j = 0;
-	int ch = request->channels[i]->hw_value;
+	u16 ch = 0;
 
 	if (!ndev) {
 		netdev_err(ndev, "%s NULL ndev\n", __func__);
@@ -283,6 +283,7 @@ int sc2332_sched_scan_start(struct wiphy *wiphy, struct net_device *ndev,
 		sscan_buf->rssi_thold = request->min_rssi_thold;
 
 	for (i = 0, j = 0; i < request->n_channels; i++) {
+		ch = cpu_to_le16(request->channels[i]->hw_value);
 		if (ch == 0) {
 			netdev_info(ndev, "%s  unknown frequency %dMhz\n",
 				    __func__,
