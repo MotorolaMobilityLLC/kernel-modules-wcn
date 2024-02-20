@@ -1121,9 +1121,14 @@ static int wcn_get_syscon_regmap(void)
 	regmap_np = of_find_compatible_node(NULL, NULL, "sprd,sc27xx-syscon");
 	if (!regmap_np) {
 		regmap_np = of_find_compatible_node(NULL, NULL, "sprd,ump962x-syscon");
+		pr_info("get pmic syscon sprd,ump962x-syscon\n");
 		if (!regmap_np) {
-			pr_err("unable to get syscon node\n");
-			return -ENODEV;
+			regmap_np = of_find_compatible_node(NULL, NULL, "sprd,ump965x-syscon");
+			pr_info("get pmic syscon sprd,ump965x-syscon\n");
+			if (!regmap_np) {
+				pr_err("unable to get syscon node\n");
+				return -ENODEV;
+			}
 		}
 	}
 
