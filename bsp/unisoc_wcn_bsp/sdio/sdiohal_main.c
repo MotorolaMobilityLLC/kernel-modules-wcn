@@ -1407,6 +1407,9 @@ static void sdiohal_remove(struct sdio_func *func)
 	if (p_data->irq_num != 0)
 		free_irq(p_data->irq_num, &func->dev);
 
+	if (func->num == 1)
+		kfree(p_data->sdio_func[FUNC_0]);
+
 	pr_info("%s remove card successful\n", __func__);
 }
 
