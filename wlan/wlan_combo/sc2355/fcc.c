@@ -7,46 +7,514 @@
 #include "common/npi.h"
 #include "cmdevt.h"
 
+/* subtype, channel, bw, {mode(2.4g : b,g,n,ac; 5g : a,n,ac), value} */
+
+#define num_ce 8
+
+#define power_backoff_ce {{1, 149, 0, { {0, 127}, {1, 127}, {2, 127}, {3, 127}, {4, 12}, {5, 12}, {6, 12} } }, {1, 153, 0, { {0, 127}, {1, 127}, {2, 127}, {3, 127}, {4, 12}, {5, 12}, {6, 12} } }, {1, 157, 0, { {0, 127}, {1, 127}, {2, 127}, {3, 127}, {4, 12}, {5, 12}, {6, 12} } }, {1, 161, 0, { {0, 127}, {1, 127}, {2, 127}, {3, 127}, {4, 12}, {5, 12}, {6, 12} } }, {1, 165, 0, { {0, 127}, {1, 127}, {2, 127}, {3, 127}, {4, 12}, {5, 12}, {6, 12} } }, {1, 151, 1, { {0, 127}, {1, 127}, {2, 127}, {3, 127}, {4, 12}, {5, 12}, {6, 12} } }, {1, 159, 1, { {0, 127}, {1, 127}, {2, 127}, {3, 127}, {4, 12}, {5, 12}, {6, 12} } }, {1, 155, 2, { {0, 127}, {1, 127}, {2, 127}, {3, 127}, {4, 12}, {5, 12}, {6, 12} } }, }
+
 static struct sprd_fcc_priv fcc_info;
 
 static struct fcc_power_bo g_fcc_power_table[MAX_FCC_COUNTRY_NUM] = {
 	{
+		.country = "AE",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "AL",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "AM",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "AN",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "AT",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "AW",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "AZ",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "BA",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "BD",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "BE",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "BG",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "BH",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "BL",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "BN",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "BO",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "BR",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "BY",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "BZ",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "CH",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "CL",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "CR",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "CY",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "CZ",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "DE",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "DK",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "DZ",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "EC",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "EE",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "EG",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "ES",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "FI",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "FR",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "GB",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "GE",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "GF",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "GL",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "GP",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "GR",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "HU",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "IE",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "IL",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "IN",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "IR",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "IS",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "IT",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "JO",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "KE",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "KH",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "KP",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "KR",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "KW",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "KZ",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "LB",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "LI",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "LK",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "LT",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "LU",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "LV",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "MA",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "MC",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "MK",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "MQ",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "MU",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "MW",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "MY",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "NG",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "NL",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "NO",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "NP",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "PE",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "PF",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "PG",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "PK",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "PL",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "PT",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "QA",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "RE",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "RO",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "RS",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "RU",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "SA",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "SE",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "SG",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "SI",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "SK",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "SV",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "SY",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "TH",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "TN",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "TR",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "TT",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "UA",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "UG",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
 		.country = "UY",
-		.num = 4,
-		.power_backoff = {
-			/* subtype, channel, bw, {mode(2.4g : b,g,n,ac; 5g : a,n,ac), value} */
-			{0, 1, 0, { {0, 1}, {1, 2}, {2, 3}, {3, 4}, {4, 5}, {5, 6}, {6, 7} } },
-			{1, 2, 0, { {0, 1}, {1, 2}, {2, 3}, {3, 4}, {4, 5}, {5, 6}, {6, 7} } },
-			{0, 1, 0, { {0, 1}, {1, 2}, {2, 3}, {3, 4}, {4, 5}, {5, 6}, {6, 7} } },
-			{1, 4, 0, { {0, 1}, {1, 2}, {2, 3}, {3, 4}, {4, 5}, {5, 6}, {6, 7} } },
-		},
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
 	},
 	{
-		.country = "MX",
-		.num = 4,
-		.power_backoff = {
-			/* subtype, channel, bw, {mode(2.4g : b,g,n,ac; 5g : a,n,ac), value} */
-			{0, 5, 0, { {0, 1}, {1, 2}, {2, 3}, {3, 4}, {4, 5}, {5, 6}, {6, 7} } },
-			{1, 6, 0, { {0, 1}, {1, 2}, {2, 3}, {3, 4}, {4, 5}, {5, 6}, {6, 7} } },
-			{0, 7, 0, { {0, 1}, {1, 2}, {2, 3}, {3, 4}, {4, 5}, {5, 6}, {6, 7} } },
-			{1, 8, 0, { {0, 1}, {1, 2}, {2, 3}, {3, 4}, {4, 5}, {5, 6}, {6, 7} } },
-
-		},
+		.country = "VE",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
 	},
 	{
-		.country = "CN",
-		.num = 8,
-		.power_backoff = {
-			/* subtype, channel, bw, {mode(2.4g : b,g,n,ac; 5g : a,n,ac), value} */
-			{1,   1, 0, { {0, 127}, {1,  13}, {2,  12}, {3, 127}, {4, 127}, {5, 127}, {6, 127} } },
-			{1,   2, 0, { {0, 127}, {1,  13}, {2,  12}, {3, 127}, {4, 127}, {5, 127}, {6, 127} } },
-			{1,  10, 0, { {0, 127}, {1,  13}, {2,  12}, {3, 127}, {4, 127}, {5, 127}, {6, 127} } },
-			{1,  11, 0, { {0, 127}, {1,  13}, {2,  12}, {3, 127}, {4, 127}, {5, 127}, {6, 127} } },
-			{1,  36, 0, { {0, 127}, {1, 127}, {2, 127}, {3, 127}, {4, 127}, {5,  11}, {6,  10} } },
-			{1,  64, 0, { {0, 127}, {1, 127}, {2, 127}, {3, 127}, {4, 127}, {5,  11}, {6,  10} } },
-			{1, 100, 0, { {0, 127}, {1, 127}, {2, 127}, {3, 127}, {4, 127}, {5,  11}, {6,  10} } },
-			{1, 140, 0, { {0, 127}, {1, 127}, {2, 127}, {3, 127}, {4, 127}, {5,  11}, {6,  10} } },
-		},
+		.country = "VN",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "YE",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "YT",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "ZA",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "ZW",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
 	},
 };
 
