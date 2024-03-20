@@ -628,7 +628,7 @@ int sc2355_sipc_hif_tx_list(struct sprd_hif *hif,
 	struct mbuf_t *head = NULL, *tail = NULL, *mbuf_pos;
 	struct list_head *pos, *tx_list_tail, *tx_head = NULL;
 	struct tx_msdu_dscr *dscr;
-	int print_len;
+	int print_len = 0, sipc_count_save = 0;
 #if defined(MORE_DEBUG)
 	unsigned long tx_bytes = 0;
 #endif
@@ -637,22 +637,26 @@ int sc2355_sipc_hif_tx_list(struct sprd_hif *hif,
 
 	tx_mgmt = (struct tx_mgmt *)hif->tx_mgmt;
 
-	if (tx_count <= SIPC_TX_NUM) {
-		sipc_count = 1;
-	} else {
-		cnt = tx_count;
-		while (cnt > SIPC_TX_NUM) {
-			++num;
-			cnt -= SIPC_TX_NUM;
-		}
-		sipc_count = num + 1;
+
+	cnt = tx_count;
+	while (cnt > SIPC_TX_NUM) {
+		++num;
+		cnt -= SIPC_TX_NUM;
 	}
+	sipc_count_save = sipc_count = num + 1;
 
 	ret = sprdwcn_bus_list_alloc(hif->tx_data_port, &head, &tail,
 					&sipc_count); //port is 6
 
 	if (ret != 0 || head == NULL || tail == NULL || sipc_count == 0) {
 		wl_err("%s:%d mbuf link alloc fail\n", __func__, __LINE__);
+		return -1;
+	}
+
+	if (sipc_count_save != sipc_count) {
+		wl_err("%s, %d error!mbuf not enough%d\n",
+		       __func__, __LINE__, (sipc_count_save - sipc_count));
+		sprd_mbuf_list_free(hif, head, tail, sipc_count);
 		return -1;
 	}
 
