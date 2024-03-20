@@ -1107,6 +1107,7 @@ static int iface_set_p2p_mac(struct net_device *ndev, void __user *data)
 	int ret = 0;
 	struct sprd_vif *tmp1, *tmp2;
 	u8 addr[ETH_ALEN] = { 0 };
+	bool is_found = false;
 	#define P2P_MAC_SKIP_LEN 11
 
 	if (!data)
@@ -1148,12 +1149,13 @@ static int iface_set_p2p_mac(struct net_device *ndev, void __user *data)
 			netdev_info(ndev,
 				    "get p2p device, set addr for wdev\n");
 			memcpy(tmp1->wdev.address, addr, ETH_ALEN);
+			is_found = true;
 			break;
 		}
 	}
 	spin_unlock_bh(&priv->list_lock);
 
-	if (!tmp1) {
+	if (!is_found) {
 		netdev_err(ndev, "%s Can not find p2p device\n", __func__);
 		ret = -EFAULT;
 		goto out;
