@@ -43,6 +43,7 @@ u32 wcn_print_level = WCN_DEBUG_OFF;
 
 static u32 g_dumpmem_switch =  1;
 static u32 g_loopcheck_switch;
+static u32 g_holdcpu_switch = 1;
 static u32 g_assert_cnt;
 struct wcn_pcie_info *pcie_dev;
 
@@ -221,6 +222,11 @@ void __wcn_assert_interface(enum wcn_source_type type, char *str)
 		}
 	}
 
+	if (!g_holdcpu_switch) {
+		wcn_notify_fw_error(type, "SKIP Hold Cpu For Trace32 Debug!");
+		mdbg_proc->assert_notify_flag = 1;
+		goto out;
+	}
 	if (!mdbg_proc->assert_notify_flag) {
 		wcn_notify_fw_error(type, str);
 		mdbg_proc->assert_notify_flag = 1;
@@ -232,7 +238,7 @@ void __wcn_assert_interface(enum wcn_source_type type, char *str)
 	wcn_pm_qos_reset();
 	stop_loopcheck();
 	wcnlog_clear_log();
-
+	
 	if (reset_prop == WCN_ASSERT_ONLY_DUMP) { /*userdebug version*/
 		wcn_dump_process(type);
 		goto out;
@@ -953,6 +959,20 @@ static ssize_t mdbg_proc_write(struct file *filp,
 		start_loopcheck();
 		WCN_INFO("loopcheck debug:switch(%d)\n",
 				g_loopcheck_switch);
+		return count;
+	}
+	if (strncmp(mdbg_proc->write_buf, "holdcpuon",
+		strlen("holdcpuon")) == 0) {
+		g_holdcpu_switch = 1;
+		WCN_INFO("holdcpu debug:switch(%d)\n",
+				g_holdcpu_switch);
+		return count;
+	}
+	if (strncmp(mdbg_proc->write_buf, "holdcpuoff",
+		strlen("holdcpuoff")) == 0) {
+		g_holdcpu_switch = 0;
+		WCN_INFO("holdcpu debug:switch(%d)\n",
+				g_holdcpu_switch);
 		return count;
 	}
 
