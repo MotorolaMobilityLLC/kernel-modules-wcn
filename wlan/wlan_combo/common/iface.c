@@ -528,13 +528,13 @@ void sprd_filter_data_debug(struct sk_buff *skb, struct net_device *ndev, const 
 		return;
 }
 
-void sprd_netif_rx(struct net_device *ndev, struct sk_buff *skb)
+void sprd_netif_rx(struct sk_buff *skb)
 {
 	struct sprd_vif *vif;
 	struct sprd_hif *hif;
 	int print_len;
 
-	vif = netdev_priv(ndev);
+	vif = netdev_priv(skb->dev);
 	hif = &vif->priv->hif;
 	print_len = skb->len > 64 ? 64 : skb->len;
 
@@ -545,15 +545,14 @@ void sprd_netif_rx(struct net_device *ndev, struct sk_buff *skb)
 
 		wl_debug("sniffer data cnt: %lu\n", vif->priv->monitor_data_cnt++);
 
-		skb->dev = ndev;
 		/* report data for sniffer mode */
 		skb_set_mac_header(skb, 0);
 		skb->ip_summed = CHECKSUM_UNNECESSARY;
 		skb->pkt_type = PACKET_OTHERHOST;
 		skb->protocol = htons(ETH_P_802_2);
 
-		ndev->stats.rx_packets++;
-		ndev->stats.rx_bytes += skb->len;
+		skb->dev->stats.rx_packets++;
+		skb->dev->stats.rx_bytes += skb->len;
 
 		local_bh_disable();
 		netif_receive_skb(skb);
@@ -562,11 +561,10 @@ void sprd_netif_rx(struct net_device *ndev, struct sk_buff *skb)
 		return;
 	}
 
-	sprd_filter_data_debug(skb, ndev, "RX");
+	sprd_filter_data_debug(skb, skb->dev, "RX");
 	print_hex_dump_debug("RX packet: ", DUMP_PREFIX_OFFSET,
 			     16, 1, skb->data, print_len, 0);
-	skb->dev = ndev;
-	skb->protocol = eth_type_trans(skb, ndev);
+	skb->protocol = eth_type_trans(skb, skb->dev);
 	/* CHECKSUM_UNNECESSARY not supported by our hardware */
 	/* skb->ip_summed = CHECKSUM_UNNECESSARY; */
 
@@ -575,8 +573,8 @@ void sprd_netif_rx(struct net_device *ndev, struct sk_buff *skb)
 	else if (skb->protocol == cpu_to_be16(WAPI_TYPE))
 		wl_info("RX special data: WAPI\n");
 
-	ndev->stats.rx_packets++;
-	ndev->stats.rx_bytes += skb->len;
+	skb->dev->stats.rx_packets++;
+	skb->dev->stats.rx_bytes += skb->len;
 #if defined(MORE_DEBUG)
 	hif->stats.rx_packets++;
 	hif->stats.rx_bytes += skb->len;

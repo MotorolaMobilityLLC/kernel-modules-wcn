@@ -33,21 +33,20 @@ static int rx_normal_data_process(struct sprd_vif *vif,
 				  unsigned char *pdata, unsigned short len)
 {
 	struct sk_buff *skb;
-	struct net_device *ndev;
 
 	skb = dev_alloc_skb(len + NET_IP_ALIGN);
 	if (!skb)
 		return -ENOMEM;
 	sc2332_tcp_ack_filter_rx(pdata);
-	ndev = vif->ndev;
 	skb_reserve(skb, NET_IP_ALIGN);
+	skb->dev = vif->ndev;
 	/* for copy align */
 	skb->data[0] = pdata[0];
 	skb->data[1] = pdata[1];
 	memcpy(skb->data + NET_IP_ALIGN,
 	       pdata + NET_IP_ALIGN, len - NET_IP_ALIGN);
 	skb_put(skb, len);
-	sprd_netif_rx(ndev, skb);
+	sprd_netif_rx(skb);
 
 	return 0;
 }
@@ -90,10 +89,8 @@ static int rx_wapi_data_process(struct sprd_vif *vif,
 	int decryp_data_len = 0;
 	struct ieee80211_hdr_3addr *addr;
 	struct sk_buff *skb;
-	struct net_device *ndev;
 	u8 snap_header[6] = {0xaa, 0xaa, 0x03, 0x00, 0x00, 0x00};
 
-	ndev = vif->ndev;
 	addr = (struct ieee80211_hdr_3addr *)pdata;
 
 	if (len <= 24) {
@@ -105,7 +102,7 @@ static int rx_wapi_data_process(struct sprd_vif *vif,
 	if (!skb)
 		return -ENOMEM;
 	skb_reserve(skb, NET_IP_ALIGN);
-
+	skb->dev = vif->ndev;
 	decryp_data_len = sc2332_wapi_dec(vif, (unsigned char *)addr,
 					  24, (len - 24), (skb->data + 12));
 	if (!decryp_data_len) {
@@ -125,7 +122,7 @@ static int rx_wapi_data_process(struct sprd_vif *vif,
 		skb_put(skb, (decryp_data_len + 12));
 	}
 
-	sprd_netif_rx(ndev, skb);
+	sprd_netif_rx(skb);
 	return 0;
 }
 

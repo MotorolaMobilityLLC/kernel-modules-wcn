@@ -11,10 +11,10 @@
 #include "common/delay_work.h"
 #include "common/msg.h"
 #include "common/chip_ops.h"
+#include "common/cpu_performance.h"
 #include "rx.h"
 #include "txrx.h"
 #include "sipc_buf.h"
-#include "cpu_performance.h"
 
 static bool rx_mh_ipv6_ext_hdr(unsigned char nexthdr)
 {
@@ -152,21 +152,19 @@ int sprd_rx_defragment_attack_check(struct sprd_priv *priv, struct sk_buff *skb)
 static void rx_skb_process(struct sprd_priv *priv, struct sk_buff *skb)
 {
 	struct sprd_vif *vif = NULL;
-	struct net_device *ndev = NULL;
 	struct rx_msdu_desc *msdu_desc = NULL;
 	struct sk_buff *tx_skb = NULL;
 	struct sprd_hif *hif;
 	struct ethhdr *eth;
 	int ret = 0;
 
-	hif = &priv->hif;
-	msdu_desc = (struct rx_msdu_desc *)skb->data;
-
 	if (unlikely(!priv)) {
 		wl_err("%s priv not init.\n", __func__);
 		goto err;
 	}
 
+	hif = &priv->hif;
+	msdu_desc = (struct rx_msdu_desc *)skb->data;
 	ret = sprd_rx_defragment_attack_check(priv, skb);
 	if (ret == -1)
 		goto err;
@@ -184,61 +182,50 @@ static void rx_skb_process(struct sprd_priv *priv, struct sk_buff *skb)
 		BUG_ON(1);
 	}
 
-	ndev = vif->ndev;
+	skb->dev = vif->ndev;
 	skb_reserve(skb, msdu_desc->msdu_offset);
 	skb_put(skb, msdu_desc->msdu_len);
 
 	eth = (struct ethhdr *)skb->data;
-	if (eth->h_proto == htons(ETH_P_IPV6))
-		if (ether_addr_equal(skb->data, skb->data + ETH_ALEN)) {
-			wl_err
-			    ("%s, drop loopback pkt, macaddr:%02x:%02x:%02x:%02x:%02x:%02x\n",
-			     __func__, skb->data[0], skb->data[1], skb->data[2],
-			     skb->data[3], skb->data[4], skb->data[5]);
-			sprd_put_vif(vif);
-			goto err;
-		}
+	if (eth->h_proto == htons(ETH_P_IPV6) &&
+	    ether_addr_equal(skb->data, skb->data + ETH_ALEN)) {
+		wl_err("%s, drop loopback pkt, macaddr: %pM\n",
+		       __func__, skb->data);
+		sprd_put_vif(vif);
+		goto err;
+	}
 
 	if (hif->tdls_flow_count_enable == 1)
 		sc2355_tdls_count_flow(vif, skb->data + ETH_ALEN,
 				       skb->len - ETH_ALEN);
-	sc2355_rx_tp_statistic(skb->len);
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
-	if (hif->hw_type == SPRD_HW_SC2355_SDIO)
-		sc2355_set_wcn_thread_uclamp();
-#endif
 
-	if ((vif->mode == SPRD_MODE_AP ||
-	     vif->mode == SPRD_MODE_P2P_GO) && msdu_desc->uc_w2w_flag) {
-		skb->dev = ndev;
-		dev_queue_xmit(skb);
-	} else {
-		if ((vif->mode == SPRD_MODE_AP ||
-		     vif->mode == SPRD_MODE_P2P_GO) &&
-		    msdu_desc->bc_mc_w2w_flag) {
-			struct ethhdr *eth = (struct ethhdr *)skb->data;
+	sprd_rx_tp_statistic(hif, skb->len);
+	sprd_set_wcn_thread_uclamp(hif);
 
-			if (eth->h_proto != ETH_P_IP &&
-			    eth->h_proto != ETH_P_IPV6) {
-				tx_skb = pskb_copy(skb, GFP_ATOMIC);
-				if (likely(tx_skb)) {
-					tx_skb->dev = ndev;
-					dev_queue_xmit(tx_skb);
-				}
-			}
+	if (vif->mode == SPRD_MODE_AP ||
+	    vif->mode == SPRD_MODE_P2P_GO) {
+		if (msdu_desc->uc_w2w_flag) {
+			dev_queue_xmit(skb);
+			goto out;
 		}
-
-		/* skb->data MUST point to ETH HDR */
-		sc2355_tcp_ack_filter_rx(priv, skb->data, msdu_desc->msdu_len);
-
-		if (hif->hw_type == SPRD_HW_SC2355_PCIE ||
-			hif->hw_type == SPRD_HW_SC2355_SIPC)
-			sc2355_count_rx_tp(hif, msdu_desc->msdu_len);
-		sprd_netif_rx(ndev, skb);
+		if (msdu_desc->bc_mc_w2w_flag &&
+		    eth->h_proto != ETH_P_IP &&
+		    eth->h_proto != ETH_P_IPV6) {
+			tx_skb = pskb_copy(skb, GFP_ATOMIC);
+			if (likely(tx_skb))
+				dev_queue_xmit(tx_skb);
+		}
 	}
+	/* skb->data MUST point to ETH HDR */
+	sc2355_tcp_ack_filter_rx(priv, skb->data, msdu_desc->msdu_len);
 
+	if (hif->hw_type == SPRD_HW_SC2355_PCIE ||
+	    hif->hw_type == SPRD_HW_SC2355_SIPC)
+		sc2355_count_rx_tp(hif, msdu_desc->msdu_len);
+	sprd_netif_rx(skb);
+
+out:
 	sprd_put_vif(vif);
-
 	return;
 
 err:

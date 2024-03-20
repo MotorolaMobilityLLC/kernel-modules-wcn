@@ -7,12 +7,12 @@
 
 #include "common/chip_ops.h"
 #include "common/common.h"
+#include "common/cpu_performance.h"
 #include "cmdevt.h"
 #include "qos.h"
 #include "rx.h"
 #include "tx.h"
 #include "txrx.h"
-#include "cpu_performance.h"
 #include "wcn_bus.h"
 
 #define MAX_FW_TX_DSCR	(1024)
@@ -807,7 +807,7 @@ static int sc2355_tx_thread(void *data)
 		if (unlikely(tx_mgmt->tx_thread_exit))
 			goto exit;
 
-		sprd_hif_tp_ctl_uclamp(tx_mgmt->hif);
+		sprd_tp_ctl_uclamp(tx_mgmt->hif, tx_mgmt->tx_thread);
 		tx_work_queue(tx_mgmt);
 	}
 
@@ -2209,14 +2209,11 @@ int sc2355_send_data(struct sprd_vif *vif, struct sprd_msg *msg,
 		     struct sk_buff *skb, u8 type, u8 offset, bool flag)
 {
 	int ret;
-	unsigned char *buf = NULL;
-	struct sprd_hif *hif;
+	unsigned char *buf = skb->data;
+	struct sprd_hif *hif = &vif->priv->hif;
 	unsigned int plen = cpu_to_le16(skb->len);
 
-	hif = &vif->priv->hif;
-
-	buf = skb->data;
-	sprd_hif_tp_ctl_pd(hif, skb->len);
+	sprd_tp_ctl_core_pd(hif, skb->len);
 
 	if (sc2355_hif_fill_msdu_dscr(vif, skb, SPRD_TYPE_DATA, offset)) {
 		sprd_free_msg(msg, msg->msglist);

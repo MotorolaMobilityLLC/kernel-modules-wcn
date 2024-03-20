@@ -12,12 +12,12 @@
 #include "common/chip_ops.h"
 #include "common/common.h"
 #include "common/iface.h"
+#include "common/cpu_performance.h"
 #include "qos.h"
 #include "rx.h"
 #include "sdio.h"
 #include "tx.h"
 #include "txrx.h"
-#include "cpu_performance.h"
 #include "defrag.h"
 
 #define SPRD_NORMAL_MEM	0
@@ -235,7 +235,6 @@ static int sdio_suspend_resume_handle(int chn, int mode)
 	unsigned long time;
 	struct sprd_cmd *cmd = &priv->cmd;
 
-	sc2355_reset_cpu_prf_param(hif);
 	spin_lock_bh(&priv->list_lock);
 	list_for_each_entry(tmp_vif, &priv->vif_list, vif_node) {
 		if (tmp_vif->state & VIF_STATE_OPEN) {
@@ -254,6 +253,8 @@ static int sdio_suspend_resume_handle(int chn, int mode)
 		       __LINE__);
 		return 0;
 	}
+
+	sprd_reset_cpu_prf_param(tx_mgmt->tx_thread);
 
 	if (mode == 0) {
 		if (atomic_read(&tx_mgmt->tx_list_qos_pool.ref) > 0 ||
@@ -1092,6 +1093,7 @@ int sc2355_sdio_init(struct sprd_hif *hif)
 {
 	u8 i;
 	int ret = -EINVAL, chn = 0;
+	struct tx_mgmt *tx_mgmt = NULL;
 
 	hif->hw_type = SPRD_HW_SC2355_SDIO;
 
@@ -1117,7 +1119,10 @@ int sc2355_sdio_init(struct sprd_hif *hif)
 		goto err_tx_init;
 	}
 
-	sc2355_tp_static_init();
+	sprd_tp_static_init();
+	tx_mgmt = (struct tx_mgmt *)hif->tx_mgmt;
+	//reset thread uclamp param
+	sprd_set_thread_uclamp(tx_mgmt->tx_thread, 0);
 
 	sc2355_hif.mchn_ops = sdio_hif_ops;
 	sc2355_hif.max_num =
@@ -1149,7 +1154,7 @@ err:
 		sprdwcn_bus_chn_deinit(&sc2355_hif.mchn_ops[chn]);
 	sc2355_hif.mchn_ops = NULL;
 	sc2355_hif.max_num = 0;
-
+	sprd_tp_static_deinit();
 	sc2355_tx_deinit(hif);
 err_tx_init:
 	sc2355_rx_deinit(hif);
@@ -1166,7 +1171,7 @@ void sc2355_sdio_deinit(struct sprd_hif *hif)
 	sc2355_hif.hif = NULL;
 	sc2355_hif.max_num = 0;
 
-	sc2355_tp_static_deinit();
+	sprd_tp_static_deinit();
 	sc2355_tx_deinit(hif);
 	sc2355_rx_deinit(hif);
 }
@@ -1181,8 +1186,7 @@ void sdio_post_deinit(struct sprd_hif *hif)
 	tx_mgmt->hang_recovery_status = HANG_RECOVERY_END;
 	tx_mgmt->thermal_status = THERMAL_TX_RESUME;
 	hif->suspend_mode = SPRD_PS_RESUMED;
-	sc2355_reset_cpu_prf_param(hif);
-
+	sprd_reset_cpu_prf_param(tx_mgmt->tx_thread);
 }
 
 static struct sprd_hif_ops sc2355_sdio_ops = {
@@ -1196,8 +1200,6 @@ static struct sprd_hif_ops sc2355_sdio_ops = {
 #ifdef DRV_RESET_SELF
 	.reset_self = sc2355_reset_self,
 #endif
-	.tp_ctl_pd = sc2355_tp_ctl_core_pd,
-	.tp_ctl_uclamp = sc2355_tp_ctl_uclamp,
 	.tx_flush = sc2355_tx_flush,
 };
 
