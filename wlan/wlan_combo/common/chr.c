@@ -245,12 +245,36 @@ static inline int sprd_chr_set_sockflag(struct sprd_chr *chr, u8 *data)
 	return 0;
 }
 
+static int sprd_chr_connect_server(struct sprd_chr *chr, struct sockaddr_in *s_addr)
+{
+	int ret = 0;
+	int connect_limit = 0;
+	struct socket *sock = chr->chr_sock;
+
+	wl_debug("%s, CHR: wait the server starting", __func__);
+	/* Optimize:block here while server not ready */
+	while (1) {
+		if (chr->thread_exit || connect_limit++ >= CHR_CONNECT_LIMIT) {
+			wl_err("%s, CHR: stop wait connect, go exit!", __func__);
+			return -1;
+		}
+		complete(&chr->socket_completed);
+		msleep(1000);
+
+		ret = sock->ops->connect(sock, (struct sockaddr *)s_addr, sizeof(*s_addr), 0);
+		if (!ret)
+			break;
+	}
+	wl_debug("CHR: wifi_client connected\n");
+
+	return ret;
+}
+
 static int sprd_chr_client_thread(void *params)
 {
 	int ret, sbuf_len, buf_pos;
 	struct sockaddr_in s_addr;
 	char *recv_buf;
-	int connect_limit = 0;
 	struct msghdr recv_msg = {0};
 	struct kvec recv_vec = {0};
 	struct chr_cmd command = {0};
@@ -286,24 +310,9 @@ retry:
 	s_addr.sin_port = htons(4758);
 	s_addr.sin_addr.s_addr = in_aton("127.0.0.1");
 
-	wl_debug("%s, CHR: wait the server starting", __func__);
-	/* Optimize:block here while server not ready */
-	while (1) {
-		if (chr->thread_exit || connect_limit++ >= CHR_CONNECT_LIMIT) {
-			wl_err("%s, CHR: stop wait connect, go exit!", __func__);
-			goto exit;
-		}
-		complete(&chr->socket_completed);
-		msleep(1000);
-
-		ret = sock->ops->connect(sock, (struct sockaddr *)&s_addr,
-					 sizeof(s_addr), 0);
-
-		if (!ret)
-			break;
-	}
-	wl_debug("CHR: wifi_client connected\n");
-	connect_limit = 0;
+	ret = sprd_chr_connect_server(chr, &s_addr);
+	if (ret == -1)
+		goto exit;
 
 	recv_vec.iov_base = recv_buf;
 	recv_vec.iov_len = CHR_BUF_SIZE;
