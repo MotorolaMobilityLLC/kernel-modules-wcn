@@ -3869,7 +3869,8 @@ static const struct wiphy_vendor_command vendor_cmd[] = {
 		.flags = WIPHY_VENDOR_CMD_NEED_WDEV |
 			WIPHY_VENDOR_CMD_NEED_RUNNING,
 		.doit = sc2355_rtt_start_session,
-		.policy = VENDOR_CMD_RAW_DATA,
+		.policy = rtt_policy,
+		.maxattr = SPRD_RTT_ATTRIBUTE_MAX,
 	},
 	{
 		{
@@ -3879,7 +3880,8 @@ static const struct wiphy_vendor_command vendor_cmd[] = {
 		.flags = WIPHY_VENDOR_CMD_NEED_WDEV |
 			WIPHY_VENDOR_CMD_NEED_RUNNING,
 		.doit = sc2355_rtt_abort_session,
-		.policy = VENDOR_CMD_RAW_DATA,
+		.policy = rtt_policy,
+		.maxattr = SPRD_RTT_ATTRIBUTE_MAX,
 	},
 	{
 		{
@@ -3889,7 +3891,8 @@ static const struct wiphy_vendor_command vendor_cmd[] = {
 		.flags = WIPHY_VENDOR_CMD_NEED_WDEV |
 			WIPHY_VENDOR_CMD_NEED_RUNNING,
 		.doit = sc2355_rtt_configure_responder,
-		.policy = VENDOR_CMD_RAW_DATA,
+		.policy = rtt_policy,
+		.maxattr = SPRD_RTT_ATTRIBUTE_MAX,
 	},
 #endif /* CONFIG_SC2355_WLAN_RTT */
 	{
