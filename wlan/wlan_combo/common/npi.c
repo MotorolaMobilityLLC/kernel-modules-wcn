@@ -166,7 +166,7 @@ int sprd_npi_get_chipid(struct genl_info *info,
 	int ret = 0;
 	const char *id_name = NULL;
 	const char *vendor = "UniSoC,";
-	unsigned char status = 0;
+	struct sprd_npi_cmd_hdr hdr = {0};
 	unsigned short r_len = SPRD_NPI_RECV_BUF_LEN;
 	unsigned char *r_buf = NULL;
 
@@ -175,12 +175,16 @@ int sprd_npi_get_chipid(struct genl_info *info,
 		return -ENOMEM;
 
 	id_name = (char *)wcn_get_chip_name();
-
-	snprintf(r_buf, SPRD_NPI_RECV_BUF_LEN, "%d", status);
-	strncat(r_buf, vendor, strlen(vendor));
-	strncat(r_buf, id_name, strlen(id_name));
-	r_len = strlen(r_buf);
-	wl_info("%s show chip name: %s\n", __func__, r_buf);
+	hdr.len = sizeof(int) + strlen(vendor) + strlen(id_name);
+	hdr.type = SPRD_CP2HT_REPLY;
+	hdr.subtype = SPRD_NPI_CMD_GET_CHIPID;
+	r_len = sizeof(hdr) + hdr.len;
+	memcpy(r_buf, &hdr, sizeof(hdr));
+	memcpy(r_buf + sizeof(hdr), &ret, sizeof(ret));
+	memcpy(r_buf + sizeof(hdr) + sizeof(ret), vendor, strlen(vendor));
+	memcpy(r_buf + sizeof(hdr) + sizeof(ret) + strlen(vendor), id_name,
+	       strlen(id_name));
+	wl_info("%s show chip name: %s\n", __func__, id_name);
 
 	ret = npi_nl_send_generic(info, SPRD_NL_ATTR_CP2AP,
 				  SPRD_NL_CMD_NPI, r_len, r_buf);
