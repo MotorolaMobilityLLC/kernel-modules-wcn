@@ -109,7 +109,7 @@ static void iface_str2mac(const char *mac_addr, u8 *mac)
 
 	if (sscanf(mac_addr, "%02x:%02x:%02x:%02x:%02x:%02x",
 		   &m[0], &m[1], &m[2], &m[3], &m[4], &m[5]) != ETH_ALEN) {
-		wl_err("failed to parse mac address '%s'", mac_addr);
+		wl_err("failed to parse mac address");
 		memset(m, 0, sizeof(unsigned int) * ETH_ALEN);
 	}
 	mac[0] = m[0];
@@ -966,7 +966,6 @@ static int iface_priv_cmd(struct net_device *ndev, void __user *data)
 		skip = strlen(CMD_11V_SET_CFG) + 1;
 		status = command[skip];
 
-		netdev_info(ndev, "%s: 11v cfg %d\n", __func__, status);
 		sprd_set_11v_feature_support(priv, vif, status);
 	} else if (!strncasecmp(command, CMD_11V_WNM_SLEEP,
 				strlen(CMD_11V_WNM_SLEEP))) {
@@ -976,8 +975,6 @@ static int iface_priv_cmd(struct net_device *ndev, void __user *data)
 		if (status)
 			interval = command[skip + 1];
 
-		netdev_info(ndev, "%s: 11v sleep, status %d, interval %d\n",
-			    __func__, status, interval);
 		sprd_set_11v_sleep_mode(priv, vif, status, interval);
 	} else if (!strncasecmp(command, CMD_SET_COUNTRY,
 				strlen(CMD_SET_COUNTRY))) {
@@ -990,8 +987,7 @@ static int iface_priv_cmd(struct net_device *ndev, void __user *data)
 			ret = -EINVAL;
 			goto out;
 		}
-		netdev_info(ndev, "%s country code:%c%c\n", __func__,
-			    toupper(country[0]), toupper(country[1]));
+
 		ret = regulatory_hint(priv->wiphy, country);
 	} else if (!strncasecmp(command, CMD_SET_MAX_CLIENTS,
 				strlen(CMD_SET_MAX_CLIENTS))) {
@@ -1057,8 +1053,6 @@ static int iface_set_power_save(struct net_device *ndev, void __user *data)
 		ret = kstrtoint(command + skip, 0, &value);
 		if (ret)
 			goto out;
-		netdev_info(ndev, "%s: set suspend mode,value : %d\n",
-			    __func__, value);
 
 		priv->is_screen_off = value;
 		ret = sprd_power_save(priv, vif, SPRD_SCREEN_ON_OFF, value);
@@ -1068,8 +1062,7 @@ static int iface_set_power_save(struct net_device *ndev, void __user *data)
 		ret = kstrtoint(command + skip, 0, &value);
 		if (ret)
 			goto out;
-		netdev_info(ndev, "%s: set fcc channel,value : %d\n",
-			    __func__, value);
+
 		ret = sprd_power_save(priv, vif, SPRD_SET_FCC_CHANNEL, value);
 	} else if (!strncasecmp(command, CMD_SET_SAR,
 				strlen(CMD_SET_SAR))) {
@@ -1132,7 +1125,6 @@ static int iface_set_p2p_mac(struct net_device *ndev, void __user *data)
 	}
 
 	memcpy(addr, command + P2P_MAC_SKIP_LEN, ETH_ALEN);
-	netdev_info(ndev, "p2p dev random addr is %pM\n", addr);
 	if (is_multicast_ether_addr(addr)) {
 		netdev_err(ndev, "%s invalid addr\n", __func__);
 		ret = -EINVAL;
