@@ -961,6 +961,66 @@ static int vendor_set_llstat_handler(struct wiphy *wiphy,
 	return ret;
 }
 
+static int radio_iface_set_common_attr(struct sk_buff *reply, u8 select)
+{
+	if (nla_put_u32(reply, NL80211_ATTR_VENDOR_ID, OUI_SPREAD))
+		return -1;
+	if (nla_put_u32(reply, NL80211_ATTR_VENDOR_SUBCMD, VENDOR_GET_LLSTAT))
+		return -1;
+
+	/* put radio */
+	if (!select) {
+		if (nla_put_u32(reply, ATTR_LL_STATS_TYPE, ATTR_CMD_LL_STATS_GET_TYPE_RADIO))
+			return -1;
+	} else { /* put iface */
+		if (nla_put_u32(reply, ATTR_LL_STATS_TYPE, ATTR_CMD_LL_STATS_GET_TYPE_IFACE))
+			return -1;
+	}
+
+	return 0;
+}
+
+static int sc2332_get_channel_info(struct sprd_vif *vif,
+				   struct wifi_radio_stat *radio_st)
+{
+	u16 recv_len = sizeof(struct llstat_channel_info) + 4;
+	struct llstat_channel_info *info;
+	char recv_buf[50] = { 0x00 };
+	u32 channel_num = 0;
+	char *pos;
+	int ret = 0;
+
+	ret = sc2332_extended_llstate(vif->priv, vif, SUBCMD_GET,
+				      SPRD_SUBTYPE_CHANNEL_INFO, NULL,
+				      0, recv_buf, &recv_len);
+	if (ret) {
+		wl_err("set externed llstate failed\n");
+		return ret;
+	}
+	pos = recv_buf;
+	channel_num = *(u32 *)pos;
+	pos += sizeof(u32);
+	wl_debug("channel num %d\n", channel_num);
+	radio_st->num_channels = channel_num;
+
+	if (channel_num) {
+		info = (struct llstat_channel_info *)(pos);
+		wl_debug("cca busy time: %d, on time: %d\n",
+			 info->cca_busy_time, info->on_time);
+		wl_debug("chan_width: %d, center_freq: %d, center_freq0: %d, center_freq1: %d\n",
+			 info->channel_width, info->center_freq,
+			 info->center_freq0, info->center_freq1);
+		radio_st->channels[0].cca_busy_time = info->cca_busy_time;
+		radio_st->channels[0].on_time = info->on_time;
+		radio_st->channels[0].channel.center_freq = info->center_freq;
+		radio_st->channels[0].channel.center_freq0 = info->center_freq0;
+		radio_st->channels[0].channel.center_freq1 = info->center_freq1;
+		radio_st->channels[0].channel.width = info->channel_width;
+	}
+
+	return ret;
+}
+
 static int vendor_get_llstat_handler(struct wiphy *wiphy,
 				     struct wireless_dev *wdev,
 				     const void *data, int len)
@@ -973,11 +1033,6 @@ static int vendor_get_llstat_handler(struct wiphy *wiphy,
 	u16 r_len = sizeof(*llst);
 	u8 r_buf[sizeof(*llst)], i;
 	u32 reply_radio_length, reply_iface_length;
-	u16 recv_len = sizeof(struct llstat_channel_info) + 4;
-	char recv_buf[50] = { 0x00 };
-	u32 channel_num = 0;
-	struct llstat_channel_info *info;
-	char *pos;
 
 	struct sprd_priv *priv = wiphy_priv(wiphy);
 	struct sprd_vif *vif = container_of(wdev, struct sprd_vif, wdev);
@@ -1023,41 +1078,11 @@ static int vendor_get_llstat_handler(struct wiphy *wiphy,
 		 radio_st->tx_time, radio_st->rx_time, radio_st->on_time_scan);
 	/* androidR need get channel info to pass vts test */
 	if (priv->extend_feature & SPRD_EXTEND_FEATURE_LLSTATE) {
-		ret =
-		    sc2332_extended_llstate(priv, vif, SUBCMD_GET,
-					    SPRD_SUBTYPE_CHANNEL_INFO, NULL,
-					    0, recv_buf, &recv_len);
-		if (ret) {
-			wl_err("set externed llstate failed\n");
+		ret = sc2332_get_channel_info(vif, radio_st);
+		if (ret)
 			goto put_iface_fail;
-		}
-		pos = recv_buf;
-		channel_num = *(u32 *)pos;
-		pos += sizeof(u32);
-		wl_debug("channel num %d\n", channel_num);
-		radio_st->num_channels = channel_num;
-
-		if (channel_num) {
-			info = (struct llstat_channel_info *)(pos);
-			wl_debug("cca busy time: %d, on time: %d\n",
-				 info->cca_busy_time, info->on_time);
-			wl_debug("center width: %d, center_freq: %d, "
-				 "center_freq0: %d, center_freq1: %d\n",
-				 info->channel_width, info->center_freq,
-				 info->center_freq0, info->center_freq1);
-			radio_st->channels[0].cca_busy_time =
-			    info->cca_busy_time;
-			radio_st->channels[0].on_time = info->on_time;
-			radio_st->channels[0].channel.center_freq =
-			    info->center_freq;
-			radio_st->channels[0].channel.center_freq0 =
-			    info->center_freq0;
-			radio_st->channels[0].channel.center_freq1 =
-			    info->center_freq1;
-			radio_st->channels[0].channel.width =
-			    info->channel_width;
-		}
 	}
+
 	reply_radio_length = sizeof(struct wifi_radio_stat) + 1100;
 	reply_iface_length = sizeof(struct wifi_iface_stat) + 1000;
 
@@ -1068,14 +1093,9 @@ static int vendor_get_llstat_handler(struct wiphy *wiphy,
 		kfree(iface_st);
 		return -ENOMEM;
 	}
-	if (nla_put_u32(reply_radio, NL80211_ATTR_VENDOR_ID, OUI_SPREAD))
+	if (radio_iface_set_common_attr(reply_radio, 0))
 		goto put_radio_fail;
-	if (nla_put_u32(reply_radio, NL80211_ATTR_VENDOR_SUBCMD,
-			VENDOR_GET_LLSTAT))
-		goto put_radio_fail;
-	if (nla_put_u32(reply_radio, ATTR_LL_STATS_TYPE,
-			ATTR_CMD_LL_STATS_GET_TYPE_RADIO))
-		goto put_radio_fail;
+
 	ret = vendor_compose_radio_st(reply_radio, radio_st);
 	ret = cfg80211_vendor_cmd_reply(reply_radio);
 
@@ -1086,14 +1106,9 @@ static int vendor_get_llstat_handler(struct wiphy *wiphy,
 		kfree(iface_st);
 		return -ENOMEM;
 	}
-	if (nla_put_u32(reply_iface, NL80211_ATTR_VENDOR_ID, OUI_SPREAD))
+	if (radio_iface_set_common_attr(reply_iface, 1))
 		goto put_iface_fail;
-	if (nla_put_u32(reply_iface, NL80211_ATTR_VENDOR_SUBCMD,
-			VENDOR_GET_LLSTAT))
-		goto put_iface_fail;
-	if (nla_put_u32(reply_iface, ATTR_LL_STATS_TYPE,
-			ATTR_CMD_LL_STATS_GET_TYPE_IFACE))
-		goto put_iface_fail;
+
 	ret = vendor_compose_iface_st(reply_iface, iface_st);
 	ret = cfg80211_vendor_cmd_reply(reply_iface);
 
@@ -1172,6 +1187,35 @@ out_put_fail:
 	return -EMSGSIZE;
 }
 
+static int nla_put_gscan_cap_reply(struct sk_buff *reply, struct gscan_capabilities *p)
+{
+	if (nla_put_u32(reply, ATTR_GSCAN_SCAN_CACHE_SIZE, p->max_scan_cache_size) ||
+	    nla_put_u32(reply, ATTR_GSCAN_MAX_SCAN_BUCKETS, p->max_scan_buckets) ||
+	    nla_put_u32(reply, ATTR_GSCAN_MAX_AP_CACHE_PER_SCAN,
+			p->max_ap_cache_per_scan) ||
+	    nla_put_u32(reply, ATTR_GSCAN_MAX_RSSI_SAMPLE_SIZE,
+			p->max_rssi_sample_size) ||
+	    nla_put_s32(reply, ATTR_GSCAN_MAX_SCAN_REPORTING_THRESHOLD,
+			p->max_scan_reporting_threshold) ||
+	    nla_put_u32(reply, ATTR_GSCAN_MAX_HOTLIST_BSSIDS,
+			p->max_hotlist_bssids) ||
+	    nla_put_u32(reply, ATTR_GSCAN_MAX_SIGNIFICANT_WIFI_CHANGE_APS,
+			p->max_significant_wifi_change_aps) ||
+	    nla_put_u32(reply, ATTR_GSCAN_MAX_BSSID_HISTORY_ENTRIES,
+			p->max_bssid_history_entries) ||
+	    nla_put_u32(reply, ATTR_GSCAN_MAX_HOTLIST_SSIDS,
+			p->max_hotlist_bssids) ||
+	    nla_put_u32(reply, ATTR_GSCAN_MAX_NUM_EPNO_NETS,
+			p->max_number_epno_networks) ||
+	    nla_put_u32(reply, ATTR_GSCAN_MAX_NUM_EPNO_NETS_BY_SSID,
+			p->max_number_epno_networks_by_ssid) ||
+	    nla_put_u32(reply, ATTR_GSCAN_MAX_NUM_WHITELISTED_SSID,
+			p->max_number_of_white_listed_ssid))
+		return -1;
+
+	return 0;
+}
+
 static int vendor_get_gscan_capabilities(struct wiphy *wiphy,
 					 struct wireless_dev *wdev,
 					 const void *data, int len)
@@ -1207,31 +1251,11 @@ static int vendor_get_gscan_capabilities(struct wiphy *wiphy,
 		goto out;
 	}
 
-	if (nla_put_u32(reply, ATTR_GSCAN_SCAN_CACHE_SIZE, p->max_scan_cache_size) ||
-	    nla_put_u32(reply, ATTR_GSCAN_MAX_SCAN_BUCKETS, p->max_scan_buckets) ||
-	    nla_put_u32(reply, ATTR_GSCAN_MAX_AP_CACHE_PER_SCAN,
-			p->max_ap_cache_per_scan) ||
-	    nla_put_u32(reply, ATTR_GSCAN_MAX_RSSI_SAMPLE_SIZE,
-			p->max_rssi_sample_size) ||
-	    nla_put_s32(reply, ATTR_GSCAN_MAX_SCAN_REPORTING_THRESHOLD,
-			p->max_scan_reporting_threshold) ||
-	    nla_put_u32(reply, ATTR_GSCAN_MAX_HOTLIST_BSSIDS,
-			p->max_hotlist_bssids) ||
-	    nla_put_u32(reply, ATTR_GSCAN_MAX_SIGNIFICANT_WIFI_CHANGE_APS,
-			p->max_significant_wifi_change_aps) ||
-	    nla_put_u32(reply, ATTR_GSCAN_MAX_BSSID_HISTORY_ENTRIES,
-			p->max_bssid_history_entries) ||
-	    nla_put_u32(reply, ATTR_GSCAN_MAX_HOTLIST_SSIDS,
-			p->max_hotlist_bssids) ||
-	    nla_put_u32(reply, ATTR_GSCAN_MAX_NUM_EPNO_NETS,
-			p->max_number_epno_networks) ||
-	    nla_put_u32(reply, ATTR_GSCAN_MAX_NUM_EPNO_NETS_BY_SSID,
-			p->max_number_epno_networks_by_ssid) ||
-	    nla_put_u32(reply, ATTR_GSCAN_MAX_NUM_WHITELISTED_SSID,
-			p->max_number_of_white_listed_ssid)) {
-		netdev_err(vif->ndev, "failed to put channel number\n");
+	if (nla_put_gscan_cap_reply(reply, p)) {
+		netdev_err(vif->ndev, "failed to put Gscan capabilies\n");
 		goto out_put_fail;
 	}
+
 	ret = cfg80211_vendor_cmd_reply(reply);
 	if (ret)
 		netdev_err(vif->ndev, "%s failed to reply skb!\n", __func__);

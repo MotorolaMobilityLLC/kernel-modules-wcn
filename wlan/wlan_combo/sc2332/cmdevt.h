@@ -80,6 +80,7 @@
 
 enum CMD_LIST {
 	CMD_MIN = 0,
+	CMD_ERR = CMD_MIN,
 	/* All Interface */
 	CMD_GET_INFO = 1,
 	CMD_SET_REGDOM,
