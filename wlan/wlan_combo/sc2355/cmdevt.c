@@ -451,6 +451,45 @@ int sc2355_assert_cmd(struct sprd_priv *priv, u8 cmd_id,
 #undef ASSERT_INFO_BUF_SIZE
 }
 
+static int sc2355_get_cmdbuf_check_status(struct sprd_priv *priv,
+					  struct sprd_vif *vif, u8 cmd_id)
+{
+	const char *cmd_str = cmdevt_cmd2str(cmd_id);
+
+	if (!sprd_hif_is_on(&priv->hif)) {
+		wl_err("%s Drop command %s in case of power off\n",
+		       __func__, cmd_str);
+		return -1;
+	}
+
+	if (cmd_id == CMD_POWER_SAVE &&
+	    (!atomic_read(&priv->power_back_off)) &&
+	    (!vif || !(vif->state & VIF_STATE_OPEN))) {
+		wl_err("%s:send [%s] fail because mode close",
+		       __func__, cmd_str);
+		return -1;
+	}
+
+	if (priv->hif.hw_type == SPRD_HW_SC2355_PCIE) {
+		if (cmd_id != CMD_POWER_SAVE &&
+		    sprdwcn_bus_get_status() == WCN_BUS_DOWN) {
+			wl_err("%s:send [%s] fail because bus done",
+			       __func__, cmd_str);
+			return -1;
+		}
+	}
+
+#ifdef DRV_RESET_SELF
+	if (priv->hif.drv_resetting == 1 &&
+	    !RESET_CMD_ALLOW(cmd_id)) {
+		wl_err("%s:wifi resetting, cannot send [%s]",
+		       __func__, cmd_str);
+		return -1;
+	}
+#endif
+	return 0;
+}
+
 struct sprd_msg *sc2355_get_cmdbuf(struct sprd_priv *priv, struct sprd_vif *vif,
 				   u16 len, u8 cmd_id, enum sprd_head_rsp rsp,
 				   gfp_t flags)
@@ -460,16 +499,10 @@ struct sprd_msg *sc2355_get_cmdbuf(struct sprd_priv *priv, struct sprd_vif *vif,
 	u16 plen = sizeof(*hdr) + len;
 	enum sprd_mode mode = SPRD_MODE_NONE;	/*default to open new device*/
 	u8 ctx_id;
-	const char *cmd_str = NULL;
 	void *data = NULL;
 
-	cmd_str = cmdevt_cmd2str(cmd_id);
-	if (!sprd_hif_is_on(&priv->hif)) {
-		wl_err("%s Drop command %s in case of power off\n",
-		       __func__, cmd_str);
-
+	if (sc2355_get_cmdbuf_check_status(priv, vif, cmd_id))
 		return NULL;
-	}
 
 	if (!vif) {
 		mode = SPRD_MODE_NONE;
@@ -479,35 +512,6 @@ struct sprd_msg *sc2355_get_cmdbuf(struct sprd_priv *priv, struct sprd_vif *vif,
 		ctx_id = vif->ctx_id;
 	}
 
-	if (cmd_id >= CMD_OPEN) {
-
-		if (cmd_id == CMD_POWER_SAVE &&
-		    (!atomic_read(&priv->power_back_off)) &&
-		    (!vif || !(vif->state & VIF_STATE_OPEN))) {
-			wl_err("%s:send [%s] fail because mode close",
-			       __func__, cmd_str);
-			return NULL;
-		}
-		if (priv->hif.hw_type == SPRD_HW_SC2355_PCIE) {
-			if (cmd_id != CMD_POWER_SAVE &&
-			    sprdwcn_bus_get_status() == WCN_BUS_DOWN) {
-				wl_err("%s:send [%s] fail because bus done",
-				       __func__, cmd_str);
-				return NULL;
-			}
-		}
-	}
-#ifdef DRV_RESET_SELF
-	if (priv->hif.drv_resetting == 1 &&
-	   !(cmd_id == CMD_SYNC_VERSION ||
-	    cmd_id == CMD_DOWNLOAD_INI ||
-	    cmd_id == CMD_GET_INFO ||
-	    cmd_id == CMD_OPEN)) {
-		wl_err("%s:wifi resetting, cannot send [%s]",
-			__func__, cmd_str);
-		return NULL;
-	}
-#endif
 	msg = sprd_chip_get_msg(&priv->chip, SPRD_TYPE_CMD, mode);
 	if (!msg) {
 		wl_err("%s, %d, fail to get msg, mode=%d\n",

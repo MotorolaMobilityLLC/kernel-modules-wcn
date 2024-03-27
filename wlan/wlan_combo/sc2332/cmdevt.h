@@ -78,6 +78,10 @@
 #define CMD_SNIFFER_LISTEN_CHANNEL        "LISTEN_CHANNEL"
 #endif
 
+#define RESET_CMD_ALLOW(cmd_id)		\
+	((cmd_id) == CMD_GET_INFO ||		\
+	 (cmd_id) == CMD_OPEN)
+
 enum CMD_LIST {
 	CMD_MIN = 0,
 	CMD_ERR = CMD_MIN,

@@ -510,6 +510,26 @@ static int cmdevt_recv_rsp_timeout(struct sprd_priv *priv, unsigned int timeout)
 	return ret;
 }
 
+static int sc2332_get_cmdbuf_check_status(struct sprd_priv *priv,  u8 cmd_id)
+{
+	const char *cmd_str = cmdevt_cmd2str(cmd_id);
+
+	if (!sprd_hif_is_on(&priv->hif)) {
+		wl_err("%s Drop command %s in case of power off\n",
+		       __func__, cmd_str);
+		return -1;
+	}
+#ifdef DRV_RESET_SELF
+	if (priv->hif.drv_resetting == 1 &&
+	    !RESET_CMD_ALLOW(cmd_id)) {
+		wl_err("%s:wifi resetting, cannot send [%s]",
+			__func__, cmd_str);
+		return -1;
+	}
+#endif
+	return 0;
+}
+
 struct sprd_msg *sc2332_get_cmdbuf(struct sprd_priv *priv, struct sprd_vif *vif,
 				   u16 len, u8 cmd_id, enum sprd_head_rsp rsp)
 {
@@ -517,26 +537,13 @@ struct sprd_msg *sc2332_get_cmdbuf(struct sprd_priv *priv, struct sprd_vif *vif,
 	struct sprd_cmd_hdr *hdr;
 	u16 plen = sizeof(*hdr) + len;
 	u8 mode = SPRD_MODE_NONE;
-	const char *cmd_str = cmdevt_cmd2str(cmd_id);
 
-	if (!sprd_hif_is_on(&priv->hif)) {
-		wl_err("%s Drop command %s in case of power off\n",
-		       __func__, cmd_str);
-
+	if (sc2332_get_cmdbuf_check_status(priv, cmd_id))
 		return NULL;
-	}
 
 	if (vif)
 		mode = vif->mode;
-#ifdef DRV_RESET_SELF
-	if (priv->hif.drv_resetting == 1 &&
-	   !(cmd_id == CMD_GET_INFO ||
-	    cmd_id == CMD_OPEN)) {
-		wl_err("%s:wifi resetting, cannot send [%s]",
-			__func__, cmd_str);
-		return NULL;
-	}
-#endif
+
 	msg = sprd_chip_get_msg(&priv->chip, SPRD_TYPE_CMD, mode);
 	if (!msg)
 		return NULL;
