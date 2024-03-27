@@ -151,6 +151,78 @@ static void sc2332_reg_notify(struct wiphy *wiphy,
 	kfree(rd);
 }
 
+void sc2332_wiphy_fw_capa(struct wiphy *wiphy, struct sprd_priv *priv)
+{
+	if (priv->fw_capa & SPRD_CAPA_5G) {
+		wl_debug("Dual band supported\n");
+		wiphy->bands[NL80211_BAND_5GHZ] = SPRD_BAND_5G;
+	}
+
+	if (priv->fw_capa & SPRD_CAPA_MCC) {
+		wl_debug("MCC supported\n");
+		wiphy->n_iface_combinations = ARRAY_SIZE(sprd_iface_combos);
+		wiphy->iface_combinations = sprd_iface_combos;
+	} else {
+		wl_debug("SCC supported\n");
+		wiphy->software_iftypes =
+		    BIT(NL80211_IFTYPE_STATION) | BIT(NL80211_IFTYPE_AP) |
+		    BIT(NL80211_IFTYPE_P2P_CLIENT) |
+		    BIT(NL80211_IFTYPE_P2P_GO) | BIT(NL80211_IFTYPE_P2P_DEVICE);
+	}
+
+	if (priv->fw_capa & SPRD_CAPA_ACL) {
+		wl_debug("ACL supported (%d)\n", priv->max_acl_mac_addrs);
+		wiphy->max_acl_mac_addrs = priv->max_acl_mac_addrs;
+	}
+
+	if (priv->fw_capa & SPRD_CAPA_AP_SME) {
+		wl_debug("AP SME enabled\n");
+		wiphy->flags |= WIPHY_FLAG_HAVE_AP_SME;
+		wiphy->ap_sme_capa = 1;
+	}
+
+	if (priv->fw_capa & SPRD_CAPA_PMK_OKC_OFFLOAD &&
+	    priv->fw_capa & SPRD_CAPA_11R_ROAM_OFFLOAD) {
+		wl_debug("Roaming offload supported\n");
+		wiphy->flags |= WIPHY_FLAG_SUPPORTS_FW_ROAM;
+	}
+
+	/* Random MAC addr is enabled by default. And needs to be
+	 * disabled to pass WFA Certification.
+	 */
+	if (priv->fw_capa & SPRD_CAPA_SCAN_RANDOM_MAC_ADDR &&
+	    (!(wfa_cap & SPRD_WFA_CAP_NON_RAN_MAC))) {
+		wl_debug("Random MAC address scan default supported\n");
+		wiphy->features |= NL80211_FEATURE_SCAN_RANDOM_MAC_ADDR;
+	}
+
+	if (priv->fw_capa & SPRD_CAPA_SCHED_SCAN) {
+		wl_debug("Scheduled scan supported\n");
+		wiphy->max_sched_scan_reqs = 1;
+		if (priv->random_mac_support)
+			wiphy->features |=
+			    NL80211_FEATURE_SCHED_SCAN_RANDOM_MAC_ADDR;
+
+		wiphy->max_sched_scan_ssids = SPRD_MAX_PFN_LIST_COUNT;
+		wiphy->max_match_sets = SPRD_MAX_PFN_LIST_COUNT;
+		wiphy->max_sched_scan_ie_len = SPRD_MAX_SCAN_IE_LEN;
+		wiphy->max_sched_scan_plans = SPRD_MAX_SCHED_PLANS;
+		wiphy->max_sched_scan_plan_interval = SPRD_MAX_SCHED_INTERVAL;
+		wiphy->max_sched_scan_plan_iterations =
+		    SPRD_MAX_SCHED_ITERATION;
+	}
+
+	if (priv->fw_capa & SPRD_CAPA_TDLS) {
+		wl_debug("TDLS supported\n");
+		wiphy->flags |= WIPHY_FLAG_SUPPORTS_TDLS;
+		wiphy->flags |= WIPHY_FLAG_TDLS_EXTERNAL_SETUP;
+		wiphy->features |= NL80211_FEATURE_TDLS_CHANNEL_SWITCH;
+	}
+
+	if (priv->fw_capa & SPRD_CAPA_LL_STATS)
+		wl_debug("Link layer stats supported\n");
+}
+
 void sc2332_setup_wiphy(struct wiphy *wiphy, struct sprd_priv *priv)
 {
 	wiphy->mgmt_stypes = sprd_mgmt_stypes;
@@ -177,104 +249,37 @@ void sc2332_setup_wiphy(struct wiphy *wiphy, struct sprd_priv *priv)
 	wiphy->max_num_pmkids = SPRD_MAX_NUM_PMKIDS;
 
 	if (priv->fw_std & SPRD_STD_11D) {
-		wl_debug("\tIEEE802.11d supported\n");
+		wl_debug("IEEE802.11d supported\n");
 		wiphy->reg_notifier = sc2332_reg_notify;
 	}
 
 	if (priv->fw_std & SPRD_STD_11E) {
-		wl_debug("\tIEEE802.11e supported\n");
+		wl_debug("IEEE802.11e supported\n");
 		wiphy->features |= NL80211_FEATURE_SUPPORTS_WMM_ADMISSION;
 		wiphy->flags |= WIPHY_FLAG_AP_UAPSD;
 	}
 
 	if (priv->fw_std & SPRD_STD_11K)
-		wl_debug("\tIEEE802.11k supported\n");
+		wl_debug("IEEE802.11k supported\n");
 
 	if (priv->fw_std & SPRD_STD_11R)
-		wl_debug("\tIEEE802.11r supported\n");
+		wl_debug("IEEE802.11r supported\n");
 
 	if (priv->fw_std & SPRD_STD_11U)
-		wl_debug("\tIEEE802.11u supported\n");
+		wl_debug("IEEE802.11u supported\n");
 
 	if (priv->fw_std & SPRD_STD_11V)
-		wl_debug("\tIEEE802.11v supported\n");
+		wl_debug("IEEE802.11v supported\n");
 
 	if (priv->fw_std & SPRD_STD_11W)
-		wl_debug("\tIEEE802.11w supported\n");
+		wl_debug("IEEE802.11w supported\n");
 
-	if (priv->fw_capa & SPRD_CAPA_5G) {
-		wl_debug("\tDual band supported\n");
-		wiphy->bands[NL80211_BAND_5GHZ] = SPRD_BAND_5G;
-	}
-
-	if (priv->fw_capa & SPRD_CAPA_MCC) {
-		wl_debug("\tMCC supported\n");
-		wiphy->n_iface_combinations = ARRAY_SIZE(sprd_iface_combos);
-		wiphy->iface_combinations = sprd_iface_combos;
-	} else {
-		wl_debug("\tSCC supported\n");
-		wiphy->software_iftypes =
-		    BIT(NL80211_IFTYPE_STATION) | BIT(NL80211_IFTYPE_AP) |
-		    BIT(NL80211_IFTYPE_P2P_CLIENT) |
-		    BIT(NL80211_IFTYPE_P2P_GO) | BIT(NL80211_IFTYPE_P2P_DEVICE);
-	}
-
-	if (priv->fw_capa & SPRD_CAPA_ACL) {
-		wl_debug("\tACL supported (%d)\n", priv->max_acl_mac_addrs);
-		wiphy->max_acl_mac_addrs = priv->max_acl_mac_addrs;
-	}
-
-	if (priv->fw_capa & SPRD_CAPA_AP_SME) {
-		wl_debug("\tAP SME enabled\n");
-		wiphy->flags |= WIPHY_FLAG_HAVE_AP_SME;
-		wiphy->ap_sme_capa = 1;
-	}
-
-	if (priv->fw_capa & SPRD_CAPA_PMK_OKC_OFFLOAD &&
-	    priv->fw_capa & SPRD_CAPA_11R_ROAM_OFFLOAD) {
-		wl_debug("\tRoaming offload supported\n");
-		wiphy->flags |= WIPHY_FLAG_SUPPORTS_FW_ROAM;
-	}
-
-	/* Random MAC addr is enabled by default. And needs to be
-	 * disabled to pass WFA Certification.
-	 */
-	if (priv->fw_capa & SPRD_CAPA_SCAN_RANDOM_MAC_ADDR &&
-	    (!(wfa_cap & SPRD_WFA_CAP_NON_RAN_MAC))) {
-		wl_debug("\tRandom MAC address scan default supported\n");
-		wiphy->features |= NL80211_FEATURE_SCAN_RANDOM_MAC_ADDR;
-	}
-
-	if (priv->fw_capa & SPRD_CAPA_SCHED_SCAN) {
-		wl_debug("\tScheduled scan supported\n");
-		wiphy->max_sched_scan_reqs = 1;
-		if (priv->random_mac_support)
-			wiphy->features |=
-			    NL80211_FEATURE_SCHED_SCAN_RANDOM_MAC_ADDR;
-
-		wiphy->max_sched_scan_ssids = SPRD_MAX_PFN_LIST_COUNT;
-		wiphy->max_match_sets = SPRD_MAX_PFN_LIST_COUNT;
-		wiphy->max_sched_scan_ie_len = SPRD_MAX_SCAN_IE_LEN;
-		wiphy->max_sched_scan_plans = SPRD_MAX_SCHED_PLANS;
-		wiphy->max_sched_scan_plan_interval = SPRD_MAX_SCHED_INTERVAL;
-		wiphy->max_sched_scan_plan_iterations =
-		    SPRD_MAX_SCHED_ITERATION;
-	}
-
-	if (priv->fw_capa & SPRD_CAPA_TDLS) {
-		wl_debug("\tTDLS supported\n");
-		wiphy->flags |= WIPHY_FLAG_SUPPORTS_TDLS;
-		wiphy->flags |= WIPHY_FLAG_TDLS_EXTERNAL_SETUP;
-		wiphy->features |= NL80211_FEATURE_TDLS_CHANNEL_SWITCH;
-	}
-
-	if (priv->fw_capa & SPRD_CAPA_LL_STATS)
-		wl_debug("\tLink layer stats supported\n");
+	sc2332_wiphy_fw_capa(wiphy, priv);
 
 	wiphy->features |= NL80211_FEATURE_SAE;
 
 	if (priv->extend_feature & SPRD_EXTEND_FEATURE_OCE) {
-		wl_debug("\tOCE supported\n");
+		wl_debug("OCE supported\n");
 		wiphy_ext_feature_set(wiphy,
 				      NL80211_EXT_FEATURE_ACCEPT_BCAST_PROBE_RESP);
 		wiphy_ext_feature_set(wiphy,
