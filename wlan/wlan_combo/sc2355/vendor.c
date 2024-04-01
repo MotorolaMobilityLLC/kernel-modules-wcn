@@ -179,37 +179,9 @@ static int vendor_link_layer_stat(struct sprd_priv *priv,
 		return send_cmd_recv_rsp(priv, msg, r_buf, r_len);
 }
 
-static int vendor_compose_radio_st(struct sk_buff *reply,
-				   struct wifi_radio_stat *radio_st)
+static int vendor_compose_radio_on_time(struct sk_buff *reply,
+					struct wifi_radio_stat *radio_st)
 {
-	/* 2.4G only,radio_num=1,if 5G supported radio_num=2 */
-	int radio_num = 1;
-	struct nlattr *chan_list, *chan_info;
-
-	if (nla_put_u32(reply, ATTR_LL_STATS_NUM_RADIOS,
-			radio_num))
-		goto out_put_fail;
-	if (nla_put_u32(reply, ATTR_LL_STATS_RADIO_ID,
-			radio_st->radio))
-		goto out_put_fail;
-	if (nla_put_u32(reply, ATTR_LL_STATS_RADIO_ON_TIME,
-			radio_st->on_time))
-		goto out_put_fail;
-	if (nla_put_u32(reply, ATTR_LL_STATS_RADIO_TX_TIME,
-			radio_st->tx_time))
-		goto out_put_fail;
-	if (nla_put_u32(reply, ATTR_LL_STATS_RADIO_NUM_TX_LEVELS,
-			radio_st->num_tx_levels))
-		goto out_put_fail;
-	if (radio_st->num_tx_levels > 0) {
-		if (nla_put(reply, ATTR_LL_STATS_RADIO_TX_TIME_PER_LEVEL,
-			    sizeof(u32) * radio_st->num_tx_levels,
-			    radio_st->tx_time_per_levels))
-			goto out_put_fail;
-	}
-	if (nla_put_u32(reply, ATTR_LL_STATS_RADIO_RX_TIME,
-			radio_st->rx_time))
-		goto out_put_fail;
 	if (nla_put_u32(reply, ATTR_LL_STATS_RADIO_ON_TIME_SCAN,
 			radio_st->on_time_scan))
 		goto out_put_fail;
@@ -228,12 +200,35 @@ static int vendor_compose_radio_st(struct sk_buff *reply,
 	if (nla_put_u32(reply, ATTR_LL_STATS_RADIO_ON_TIME_HS20,
 			radio_st->on_time_hs20))
 		goto out_put_fail;
+
+	return 0;
+
+out_put_fail:
+	return -EMSGSIZE;
+}
+
+static int vendor_compose_radio_channel(struct sk_buff *reply,
+					struct wifi_radio_stat *radio_st)
+{
 	if (nla_put_u32(reply, ATTR_LL_STATS_RADIO_NUM_CHANNELS,
 			radio_st->num_channels))
 		goto out_put_fail;
 	if (radio_st->num_channels > 0) {
+		struct nlattr *chan_list, *chan_info;
+
 		chan_list = nla_nest_start(reply, ATTR_LL_STATS_CH_INFO);
 		chan_info = nla_nest_start(reply, 0);
+
+		if (!chan_list) {
+			wl_err("%s %d\n", __func__, __LINE__);
+			goto out_put_fail;
+		}
+
+		if (!chan_info) {
+			wl_err("%s %d\n", __func__, __LINE__);
+			goto out_put_fail;
+		}
+
 		if (nla_put_u32(reply, ATTR_LL_STATS_CHANNEL_INFO_WIDTH,
 				radio_st->channels[0].channel.width))
 			goto out_put_fail;
@@ -260,17 +255,57 @@ static int vendor_compose_radio_st(struct sk_buff *reply,
 		nla_nest_end(reply, chan_info);
 		nla_nest_end(reply, chan_list);
 	}
+
 	return 0;
+
 out_put_fail:
 	return -EMSGSIZE;
 }
 
-static int vendor_compose_iface_st(struct sk_buff *reply,
-				   struct wifi_iface_stat *iface_st)
+static int vendor_compose_radio_st(struct sk_buff *reply,
+				   struct wifi_radio_stat *radio_st)
 {
-	int i;
-	struct nlattr *nest1, *nest2;
+	/* 2.4G only,radio_num=1,if 5G supported radio_num=2 */
+	int radio_num = 1;
 
+	if (nla_put_u32(reply, ATTR_LL_STATS_NUM_RADIOS,
+			radio_num))
+		goto out_put_fail;
+	if (nla_put_u32(reply, ATTR_LL_STATS_RADIO_ID,
+			radio_st->radio))
+		goto out_put_fail;
+	if (nla_put_u32(reply, ATTR_LL_STATS_RADIO_ON_TIME,
+			radio_st->on_time))
+		goto out_put_fail;
+	if (nla_put_u32(reply, ATTR_LL_STATS_RADIO_TX_TIME,
+			radio_st->tx_time))
+		goto out_put_fail;
+	if (nla_put_u32(reply, ATTR_LL_STATS_RADIO_NUM_TX_LEVELS,
+			radio_st->num_tx_levels))
+		goto out_put_fail;
+	if (radio_st->num_tx_levels > 0) {
+		if (nla_put(reply, ATTR_LL_STATS_RADIO_TX_TIME_PER_LEVEL,
+			    sizeof(u32) * radio_st->num_tx_levels,
+			    radio_st->tx_time_per_levels))
+			goto out_put_fail;
+	}
+	if (nla_put_u32(reply, ATTR_LL_STATS_RADIO_RX_TIME,
+			radio_st->rx_time))
+		goto out_put_fail;
+	if (vendor_compose_radio_on_time(reply, radio_st) < 0)
+		goto out_put_fail;
+	if (vendor_compose_radio_channel(reply, radio_st) < 0)
+		goto out_put_fail;
+
+	return 0;
+
+out_put_fail:
+	return -EMSGSIZE;
+}
+
+static int vendor_compose_iface_info(struct sk_buff *reply,
+				     struct wifi_iface_stat *iface_st)
+{
 	if (nla_put_u32(reply, ATTR_LL_STATS_IFACE_INFO_MODE,
 			iface_st->info.mode))
 		goto out_put_fail;
@@ -303,22 +338,16 @@ static int vendor_compose_iface_st(struct sk_buff *reply,
 	if (nla_put_u32(reply, ATTR_LL_STATS_IFACE_INFO_TIME_SLICING_DUTY_CYCLE_PERCENT,
 			iface_st->info.time_slicing_duty_cycle_percent))
 		goto out_put_fail;
-	if (nla_put_u32(reply, ATTR_LL_STATS_IFACE_BEACON_RX,
-			iface_st->beacon_rx))
-		goto out_put_fail;
-	if (nla_put_u64_64bit(reply, ATTR_LL_STATS_IFACE_AVERAGE_TSF_OFFSET,
-			      iface_st->average_tsf_offset, 0))
-		goto out_put_fail;
-	if (nla_put_u32(reply, ATTR_LL_STATS_IFACE_LEAKY_AP_DETECTED,
-			iface_st->leaky_ap_detected))
-		goto out_put_fail;
-	if (nla_put_u32(reply,
-			ATTR_LL_STATS_IFACE_LEAKY_AP_AVG_NUM_FRAMES_LEAKED,
-			iface_st->leaky_ap_avg_num_frames_leaked))
-		goto out_put_fail;
-	if (nla_put_u32(reply, ATTR_LL_STATS_IFACE_LEAKY_AP_GUARD_TIME,
-			iface_st->leaky_ap_guard_time))
-		goto out_put_fail;
+
+	return 0;
+
+out_put_fail:
+	return -EMSGSIZE;
+}
+
+static int vendor_compose_iface_mgmt_and_rssi(struct sk_buff *reply,
+					      struct wifi_iface_stat *iface_st)
+{
 	if (nla_put_u32(reply, ATTR_LL_STATS_IFACE_MGMT_RX,
 			iface_st->mgmt_rx))
 		goto out_put_fail;
@@ -340,6 +369,87 @@ static int vendor_compose_iface_st(struct sk_buff *reply,
 	if (nla_put_u32(reply, ATTR_LL_STATS_IFACE_RSSI_DATA,
 			iface_st->rssi_data))
 		goto out_put_fail;
+
+	return 0;
+
+out_put_fail:
+	return -EMSGSIZE;
+}
+
+static int vendor_compose_iface_wmm_info_sec1(struct sk_buff *reply,
+					      struct wifi_iface_stat *iface_st, int i)
+{
+	if (nla_put_u32(reply, ATTR_LL_STATS_WMM_AC_AC,
+			iface_st->ac[i].ac))
+		goto out_put_fail;
+	if (nla_put_u32(reply, ATTR_LL_STATS_WMM_AC_TX_MPDU,
+			iface_st->ac[i].tx_mpdu))
+		goto out_put_fail;
+	if (nla_put_u32(reply, ATTR_LL_STATS_WMM_AC_RX_MPDU,
+			iface_st->ac[i].rx_mpdu))
+		goto out_put_fail;
+	if (nla_put_u32(reply, ATTR_LL_STATS_WMM_AC_TX_MCAST,
+			iface_st->ac[i].tx_mcast))
+		goto out_put_fail;
+	if (nla_put_u32(reply, ATTR_LL_STATS_WMM_AC_RX_MCAST,
+			iface_st->ac[i].rx_mcast))
+		goto out_put_fail;
+	if (nla_put_u32(reply, ATTR_LL_STATS_WMM_AC_RX_AMPDU,
+			iface_st->ac[i].rx_ampdu))
+		goto out_put_fail;
+	if (nla_put_u32(reply, ATTR_LL_STATS_WMM_AC_TX_AMPDU,
+			iface_st->ac[i].tx_ampdu))
+		goto out_put_fail;
+	if (nla_put_u32(reply, ATTR_LL_STATS_WMM_AC_MPDU_LOST,
+			iface_st->ac[i].mpdu_lost))
+		goto out_put_fail;
+	if (nla_put_u32(reply, ATTR_LL_STATS_WMM_AC_RETRIES,
+			iface_st->ac[i].retries))
+		goto out_put_fail;
+	if (nla_put_u32(reply, ATTR_LL_STATS_WMM_AC_RETRIES_SHORT,
+			iface_st->ac[i].retries_short))
+		goto out_put_fail;
+
+	return 0;
+
+out_put_fail:
+	return -EMSGSIZE;
+}
+
+static int vendor_compose_iface_wmm_info_sec2(struct sk_buff *reply,
+					      struct wifi_iface_stat *iface_st, int i)
+{
+	if (nla_put_u32(reply, ATTR_LL_STATS_WMM_AC_RETRIES_LONG,
+			iface_st->ac[i].retries_long))
+		goto out_put_fail;
+	if (nla_put_u32(reply,
+			ATTR_LL_STATS_WMM_AC_CONTENTION_TIME_MIN,
+			iface_st->ac[i].contention_time_min))
+		goto out_put_fail;
+	if (nla_put_u32(reply,
+			ATTR_LL_STATS_WMM_AC_CONTENTION_TIME_MAX,
+			iface_st->ac[i].contention_time_max))
+		goto out_put_fail;
+	if (nla_put_u32(reply,
+			ATTR_LL_STATS_WMM_AC_CONTENTION_TIME_AVG,
+			iface_st->ac[i].contention_time_avg))
+		goto out_put_fail;
+	if (nla_put_u32(reply,
+			ATTR_LL_STATS_WMM_AC_CONTENTION_NUM_SAMPLES,
+			iface_st->ac[i].contention_num_samples))
+		goto out_put_fail;
+
+	return 0;
+
+out_put_fail:
+	return -EMSGSIZE;
+}
+static int vendor_compose_iface_wmm_info(struct sk_buff *reply,
+					 struct wifi_iface_stat *iface_st)
+{
+	int i;
+	struct nlattr *nest1, *nest2;
+
 	nest1 = nla_nest_start(reply, ATTR_LL_STATS_WMM_INFO);
 	if (!nest1)
 		goto out_put_fail;
@@ -347,58 +457,45 @@ static int vendor_compose_iface_st(struct sk_buff *reply,
 		nest2 = nla_nest_start(reply, ATTR_LL_STATS_WMM_AC_AC);
 		if (!nest2)
 			goto out_put_fail;
-		if (nla_put_u32(reply, ATTR_LL_STATS_WMM_AC_AC,
-				iface_st->ac[i].ac))
+		if (vendor_compose_iface_wmm_info_sec1(reply, iface_st, i) < 0)
 			goto out_put_fail;
-		if (nla_put_u32(reply, ATTR_LL_STATS_WMM_AC_TX_MPDU,
-				iface_st->ac[i].tx_mpdu))
-			goto out_put_fail;
-		if (nla_put_u32(reply, ATTR_LL_STATS_WMM_AC_RX_MPDU,
-				iface_st->ac[i].rx_mpdu))
-			goto out_put_fail;
-		if (nla_put_u32(reply, ATTR_LL_STATS_WMM_AC_TX_MCAST,
-				iface_st->ac[i].tx_mcast))
-			goto out_put_fail;
-		if (nla_put_u32(reply, ATTR_LL_STATS_WMM_AC_RX_MCAST,
-				iface_st->ac[i].rx_mcast))
-			goto out_put_fail;
-		if (nla_put_u32(reply, ATTR_LL_STATS_WMM_AC_RX_AMPDU,
-				iface_st->ac[i].rx_ampdu))
-			goto out_put_fail;
-		if (nla_put_u32(reply, ATTR_LL_STATS_WMM_AC_TX_AMPDU,
-				iface_st->ac[i].tx_ampdu))
-			goto out_put_fail;
-		if (nla_put_u32(reply, ATTR_LL_STATS_WMM_AC_MPDU_LOST,
-				iface_st->ac[i].mpdu_lost))
-			goto out_put_fail;
-		if (nla_put_u32(reply, ATTR_LL_STATS_WMM_AC_RETRIES,
-				iface_st->ac[i].retries))
-			goto out_put_fail;
-		if (nla_put_u32(reply, ATTR_LL_STATS_WMM_AC_RETRIES_SHORT,
-				iface_st->ac[i].retries_short))
-			goto out_put_fail;
-		if (nla_put_u32(reply, ATTR_LL_STATS_WMM_AC_RETRIES_LONG,
-				iface_st->ac[i].retries_long))
-			goto out_put_fail;
-		if (nla_put_u32(reply,
-				ATTR_LL_STATS_WMM_AC_CONTENTION_TIME_MIN,
-				iface_st->ac[i].contention_time_min))
-			goto out_put_fail;
-		if (nla_put_u32(reply,
-				ATTR_LL_STATS_WMM_AC_CONTENTION_TIME_MAX,
-				iface_st->ac[i].contention_time_max))
-			goto out_put_fail;
-		if (nla_put_u32(reply,
-				ATTR_LL_STATS_WMM_AC_CONTENTION_TIME_AVG,
-				iface_st->ac[i].contention_time_avg))
-			goto out_put_fail;
-		if (nla_put_u32(reply,
-				ATTR_LL_STATS_WMM_AC_CONTENTION_NUM_SAMPLES,
-				iface_st->ac[i].contention_num_samples))
+		if (vendor_compose_iface_wmm_info_sec2(reply, iface_st, i) < 0)
 			goto out_put_fail;
 		nla_nest_end(reply, nest2);
 	}
 	nla_nest_end(reply, nest1);
+
+	return 0;
+
+out_put_fail:
+	return -EMSGSIZE;
+}
+static int vendor_compose_iface_st(struct sk_buff *reply,
+				   struct wifi_iface_stat *iface_st)
+{
+	if (vendor_compose_iface_info(reply, iface_st) < 0)
+		goto out_put_fail;
+	if (nla_put_u32(reply, ATTR_LL_STATS_IFACE_BEACON_RX,
+			iface_st->beacon_rx))
+		goto out_put_fail;
+	if (nla_put_u64_64bit(reply, ATTR_LL_STATS_IFACE_AVERAGE_TSF_OFFSET,
+			      iface_st->average_tsf_offset, 0))
+		goto out_put_fail;
+	if (nla_put_u32(reply, ATTR_LL_STATS_IFACE_LEAKY_AP_DETECTED,
+			iface_st->leaky_ap_detected))
+		goto out_put_fail;
+	if (nla_put_u32(reply,
+			ATTR_LL_STATS_IFACE_LEAKY_AP_AVG_NUM_FRAMES_LEAKED,
+			iface_st->leaky_ap_avg_num_frames_leaked))
+		goto out_put_fail;
+	if (nla_put_u32(reply, ATTR_LL_STATS_IFACE_LEAKY_AP_GUARD_TIME,
+			iface_st->leaky_ap_guard_time))
+		goto out_put_fail;
+	if (vendor_compose_iface_mgmt_and_rssi(reply, iface_st) < 0)
+		goto out_put_fail;
+	if (vendor_compose_iface_wmm_info(reply, iface_st) < 0)
+		goto out_put_fail;
+
 	return 0;
 out_put_fail:
 	return -EMSGSIZE;
@@ -4469,12 +4566,12 @@ out_put_fail:
 	return -EMSGSIZE;
 }
 
-static int fill_hotlist_change_eventt_reply(
+static int fill_hotlist_change_event_reply(
 	   struct sprd_vif *vif, struct sk_buff *reply,
 	   struct sprd_gscan_hotlist_results *p)
 {
 	struct sprd_priv *priv = vif->priv;
-	int i = 0, ret = 0;
+	int i = 0;
 	struct nlattr *ap;
 
 	for (i = 0; i < priv->hotlist_res->num_results; i++) {
@@ -4487,63 +4584,57 @@ static int fill_hotlist_change_eventt_reply(
 		ap = nla_nest_start(reply, i + 1);
 		if (!ap) {
 			netdev_err(vif->ndev, "%s %d, failed to put!\n", __func__, __LINE__);
-			ret = -EMSGSIZE;
 			goto out_put_fail;
 		}
 		if (nla_put_u64_64bit(reply,
 				      ATTR_GSCAN_RESULTS_SCAN_RESULT_TIME_STAMP,
 				      p->results[i].ts, 0)) {
 			netdev_err(vif->ndev, "%s %d, failed to put!\n", __func__, __LINE__);
-			ret = -EMSGSIZE;
 			goto out_put_fail;
 		}
 		if (nla_put(reply,
 			    ATTR_GSCAN_RESULTS_SCAN_RESULT_SSID,
 			    sizeof(p->results[i].ssid), p->results[i].ssid)) {
 			netdev_err(vif->ndev, "%s %d, failed to put!\n", __func__, __LINE__);
-			ret = -EMSGSIZE;
 			goto out_put_fail;
 		}
 		if (nla_put(reply,
 			    ATTR_GSCAN_RESULTS_SCAN_RESULT_BSSID,
 			    sizeof(p->results[i].bssid), p->results[i].bssid)) {
 			netdev_err(vif->ndev, "%s %d, failed to put!\n", __func__, __LINE__);
-			ret = -EMSGSIZE;
 			goto out_put_fail;
 		}
 		if (nla_put_u32(reply,
 				ATTR_GSCAN_RESULTS_SCAN_RESULT_CHANNEL,
 				p->results[i].channel)) {
 			netdev_err(vif->ndev, "%s %d, failed to put!\n", __func__, __LINE__);
-			ret = -EMSGSIZE;
 			goto out_put_fail;
 		}
 		if (nla_put_s32(reply,
 				ATTR_GSCAN_RESULTS_SCAN_RESULT_RSSI,
 				p->results[i].rssi)) {
 			netdev_err(vif->ndev, "%s %d, failed to put!\n", __func__, __LINE__);
-			ret = -EMSGSIZE;
 			goto out_put_fail;
 		}
 		if (nla_put_u32(reply,
 				ATTR_GSCAN_RESULTS_SCAN_RESULT_RTT,
 				p->results[i].rtt)) {
 			netdev_err(vif->ndev, "%s %d, failed to put!\n", __func__, __LINE__);
-			ret = -EMSGSIZE;
 			goto out_put_fail;
 		}
 		if (nla_put_u32(reply,
 				ATTR_GSCAN_RESULTS_SCAN_RESULT_RTT_SD,
 				p->results[i].rtt_sd)) {
 			netdev_err(vif->ndev, "%s %d, failed to put!\n", __func__, __LINE__);
-			ret = -EMSGSIZE;
 			goto out_put_fail;
 		}
 		nla_nest_end(reply, ap);
 	}
 
+	return 0;
+
 out_put_fail:
-	return ret;
+	return -EMSGSIZE;
 }
 static int vendor_hotlist_change_event(struct sprd_vif *vif,
 				       u32 report_event)
@@ -4596,7 +4687,7 @@ static int vendor_hotlist_change_event(struct sprd_vif *vif,
 	if (!cached_list)
 		goto out_put_fail;
 
-	if (fill_hotlist_change_eventt_reply(vif, reply, p) < 0)
+	if (fill_hotlist_change_event_reply(vif, reply, p) < 0)
 		goto out_put_fail;
 
 	nla_nest_end(reply, cached_list);
