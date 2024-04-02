@@ -1678,8 +1678,7 @@ int marlin_avdd18_dcxo_enable(bool enable)
 
 	if (enable) {
 		if (g_match_config && !g_match_config->unisoc_wcn_pcie) {
-			if (!marlin_dev->bound_dcxo18 &&
-			    regulator_is_enabled(marlin_dev->dcxo18)) {
+			if (marlin_dev->dcxo18_status) {
 				pr_info("avdd18_dcxo 1v8 have enable\n");
 				return 0;
 			}
@@ -1689,6 +1688,7 @@ int marlin_avdd18_dcxo_enable(bool enable)
 		pr_info("avdd18_dcxo set 1v8\n");
 		if (!marlin_dev->bound_dcxo18) {
 			ret = regulator_enable(marlin_dev->dcxo18);
+			marlin_dev->dcxo18_status = true;
 			pr_info("avdd18_dcxo power enable\n");
 			if (ret)
 				pr_err("fail to enable avdd18_dcxo\n");
@@ -1698,6 +1698,7 @@ int marlin_avdd18_dcxo_enable(bool enable)
 		    regulator_is_enabled(marlin_dev->dcxo18)) {
 			pr_info("avdd18_dcxo power disable\n");
 			ret = regulator_disable(marlin_dev->dcxo18);
+			marlin_dev->dcxo18_status = false;
 			if (ret)
 				pr_err("fail to disable avdd18_dcxo\n");
 		}

@@ -141,6 +141,7 @@ struct marlin_device {
 	bool need_to_check_ufs;
 	bool btwf_wakeup_lock;
 	bool n79_mode_support;
+	bool dcxo18_status;
 	int wifi_need_download_ini_flag;
 	int first_power_on_ready;
 	atomic_t download_finish_flag;

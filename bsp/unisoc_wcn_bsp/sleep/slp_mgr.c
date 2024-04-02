@@ -57,6 +57,7 @@ int slp_mgr_wakeup(enum slp_subsys subsys)
 	int do_dump = 0;
 	ktime_t time_end;
 	struct wcn_match_data *g_match_config = get_wcn_match_config();
+	struct sdiohal_data_t *p_data = sdiohal_get_data();
 
 	if (STAY_DEATH == (atomic_read(&slp_mgr.cp2_state))) {
 		WCN_ERR("CP2 has been shutdown, ignor this wakeup\n");
@@ -67,6 +68,7 @@ int slp_mgr_wakeup(enum slp_subsys subsys)
 	if (STAY_SLPING == (atomic_read(&(slp_mgr.cp2_state)))) {
 		ap_wakeup_cp();
 		time_end = ktime_add_ms(ktime_get(), 5);
+		p_data->tm_wakeup_begin = ktime_get_boot_fast_ns();
 		while (1) {
 			ret = sprdwcn_bus_aon_readb(get_btwf_slp_sts_reg(), &slp_sts);
 			if (ret < 0) {
@@ -110,7 +112,7 @@ try_timeout:
 			if (ktime_after(ktime_get(), time_end))
 				do_dump = 1;
 		}
-
+		p_data->tm_wakeup_end = ktime_get_boot_fast_ns();
 		atomic_set(&(slp_mgr.cp2_state), STAY_AWAKING);
 	}
 

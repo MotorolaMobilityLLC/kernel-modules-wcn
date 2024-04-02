@@ -41,6 +41,9 @@ void sdiohal_debug_point_show(void)
 	for (i = 0; i < SDIO_DEBUG_CMD_REQ_POINT_NUM; i++)
 		pr_info("tm_sdio_cmd_req[%d], time=%llu", i, p_data->tm_sdio_cmd_req[i]);
 
+	pr_info("tm_wakeup_begin: %lld, tm_wakeup_end: %lld\n",
+		p_data->tm_wakeup_begin, p_data->tm_wakeup_end);
+
 	if (p_data->op_enter_ns > p_data->op_leave_ns)
 		pr_info("WARNING: Task(%s) holds xmit_lock!!!", p_data->sdcb.op_enter_comm);
 
