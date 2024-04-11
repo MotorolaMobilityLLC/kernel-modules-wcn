@@ -393,7 +393,7 @@ apf_write_request_params_ccn(struct apf_program_state *apf_st,
 	return 0;
 }
 
-static int apf_write_request_params(struct apf_program_state *apf_st,
+int apf_write_request_params(struct apf_program_state *apf_st,
 			struct nlattr **tb, struct apf_request *apf_req)
 {
 	int ret = 0;
@@ -544,14 +544,15 @@ static int get_apf_request(struct sprd_vif *vif, struct nlattr **tb,
 	case WLAN_WRITE_PACKET_FILTER:
 		wl_err("%s apf_write no used in HAL, so just return.\n", __func__);
 		return -EINVAL;
-
-		if (apf_write_request_params(apf_st, tb, apf_req)) {
-			return -EINVAL;
-		}
-		apf_req->apf_hdr.length = sizeof(struct apf_request) -
-			sizeof(struct apf_cmd_header) +	apf_req->apf_offset_slice_size;
-		rsp_len = sizeof(struct apf_response);
-		break;
+/*
+ *		if (apf_write_request_params(apf_st, tb, apf_req)) {
+ *			return -EINVAL;
+ *		}
+ *		apf_req->apf_hdr.length = sizeof(struct apf_request) -
+ *			sizeof(struct apf_cmd_header) +	apf_req->apf_offset_slice_size;
+ *		rsp_len = sizeof(struct apf_response);
+ *		break;
+ */
 	case WLAN_READ_PACKET_FILTER:
 		if (apf_read_request_params(apf_st, tb, apf_req)) {
 			return -EINVAL;
