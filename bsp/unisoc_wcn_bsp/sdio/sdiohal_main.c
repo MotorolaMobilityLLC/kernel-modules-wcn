@@ -997,7 +997,7 @@ static int sdiohal_enable_slave_irq(void)
 {
 	struct sdiohal_data_t *p_data = sdiohal_get_data();
 	int err;
-	unsigned char reg_val;
+	unsigned char reg_val, reg_val_t;
 
 	sdiohal_resume_check();
 	sdiohal_op_enter();
@@ -1006,8 +1006,9 @@ static int sdiohal_enable_slave_irq(void)
 			     SDIOHAL_FBR_DEINT_EN, &err);
 	sdio_writeb(p_data->sdio_func[FUNC_0],
 		    reg_val | VAL_DEINT_ENABLE, SDIOHAL_FBR_DEINT_EN, &err);
-	reg_val = sdio_readb(p_data->sdio_func[FUNC_0],
+	reg_val_t = sdio_readb(p_data->sdio_func[FUNC_0],
 			     SDIOHAL_FBR_DEINT_EN, &err);
+	sdiohal_debug("%s:0x%x - 0x%x\n", __func__, reg_val, reg_val_t);
 	sdio_release_host(p_data->sdio_func[FUNC_0]);
 	sdiohal_op_leave();
 
@@ -1565,6 +1566,7 @@ int sdiohal_init(void)
 
 	if (sdiohal_parse_dt() < 0) {
 		kfree(p_data);
+		p_data = NULL;
 		return -1;
 	}
 
@@ -1572,6 +1574,7 @@ int sdiohal_init(void)
 	if (ret != 0) {
 		kfree(p_data);
 		pr_err("sdiohal_misc_init error :%d\n", ret);
+		p_data = NULL;
 		return -1;
 	}
 
@@ -1588,7 +1591,6 @@ int sdiohal_init(void)
 #endif
 
 	pr_info("%s sdiohal driver init successful\n", __func__);
-
 	return 0;
 }
 

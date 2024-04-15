@@ -1080,6 +1080,7 @@ void wcn_notify_fw_error(enum wcn_source_type type, char *buf)
 			   KOBJ_CHANGE, envp);
 
 	kfree(pbuf);
+	pbuf = NULL;
 }
 
 int init_wcn_sysfs(void)

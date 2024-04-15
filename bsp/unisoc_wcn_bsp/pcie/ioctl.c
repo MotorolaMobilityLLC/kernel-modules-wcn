@@ -279,7 +279,7 @@ static int pcie_cmd_proc(struct char_drv_info *dev, unsigned char *input,
 		offset = args_value(PCIE_ARG_OFFSET);
 		value = args_value(PCIE_ARG_VALUE);
 
-		sprintf(string, "bwrite bar=%d offset=0x%x value=0x%lx\n", bar,
+		snprintf(string, sizeof(string), "bwrite bar=%d offset=0x%x value=0x%lx\n", bar,
 			offset, value);
 		WCN_INFO("do %s\n", string);
 		ret = pcie_bar_write(priv, bar, offset, (char *)(&value), 4);
@@ -305,10 +305,10 @@ static int pcie_cmd_proc(struct char_drv_info *dev, unsigned char *input,
 
 		ret = dmalloc(priv, &dm, size);
 		if (!ret) {
-			sprintf(string, "dmalloc(%ld) 0x%lx, 0x%lx ok\n",
+			snprintf(string, sizeof(string), "dmalloc(%ld) 0x%lx, 0x%lx ok\n",
 				size, dm.vir, dm.phy);
 		} else
-			sprintf(string, "dmalloc(%ld) fail\n", size);
+			snprintf(string, sizeof(string), "dmalloc(%ld) fail\n", size);
 		replay->t = 0;
 		replay->l = strlen(string);
 		memcpy(replay->v, string, replay->l);
@@ -334,7 +334,7 @@ static int pcie_cmd_proc(struct char_drv_info *dev, unsigned char *input,
 				memcpy(replay->v,
 				       pcie_bar_vmem(priv, 0) + cp2_test_addr3 +
 				       cp2_test_addr4, 128);
-				sprintf(string, "ok\n");
+				snprintf(string, sizeof(string), "ok\n");
 				replay->t = 0;
 				replay->l = strlen(string);
 				memcpy(replay->v, string, replay->l);
@@ -344,7 +344,7 @@ static int pcie_cmd_proc(struct char_drv_info *dev, unsigned char *input,
 			usleep_range_state(1000, 2000, TASK_UNINTERRUPTIBLE);
 		}
 		if (flag == 1) {
-			sprintf(string, "cmd timeout\n");
+			snprintf(string, sizeof(string), "cmd timeout\n");
 			replay->t = 0;
 			replay->l = strlen(string);
 			memcpy(replay->v, string, replay->l);
@@ -376,12 +376,12 @@ static int pcie_cmd_proc(struct char_drv_info *dev, unsigned char *input,
 			memcpy(mem, pcie_bar_vmem(priv, bar) + offset,
 			       size);
 			if (memcmp(buf, mem, size)) {
-				sprintf(string, "inbound run %d err\n", i);
+				snprintf(string, sizeof(string), "inbound run %d err\n", i);
 				break;
 			}
 		}
 		if (i == run) {
-			sprintf(string, "inbound(0x%x,0x%lx,0x%x) ok\n", offset,
+			snprintf(string, sizeof(string), "inbound(0x%x,0x%lx,0x%x) ok\n", offset,
 				size, run);
 		}
 		WCN_INFO("%s", string);
@@ -391,6 +391,8 @@ static int pcie_cmd_proc(struct char_drv_info *dev, unsigned char *input,
 
 		kfree(mem);
 		kfree(buf);
+		mem = NULL;
+		buf = NULL;
 	} else if (!strcmp("lo_start", cmd)) {
 		mode = args_value(PCIE_ARG_MODE);
 		lo_start(mode);

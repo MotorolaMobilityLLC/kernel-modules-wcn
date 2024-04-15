@@ -129,7 +129,7 @@ void sdiohal_print_list_data(struct sdiohal_list_t *data_list,
 		return;
 	}
 
-	sprintf(print_str, "%s list: ", func);
+	snprintf(print_str, sizeof(print_str), "%s list: ", func);
 	node = data_list->mbuf_head;
 	for (i = 0; i < data_list->node_num; i++, node = node->next) {
 		if (!node)
@@ -158,7 +158,7 @@ void sdiohal_print_mbuf_data(int channel, struct mbuf_t *head,
 		return;
 	}
 
-	sprintf(print_str, "%s mbuf: ", func);
+	snprintf(print_str, sizeof(print_str), "%s mbuf: ", func);
 
 	node = head;
 	for (i = 0; i < num; i++, node = node->next) {
@@ -925,7 +925,6 @@ int sdiohal_rx_list_dispatch(void)
 			times_count = 0;
 		}
 	}
-
 	return 0;
 }
 
@@ -1126,6 +1125,7 @@ struct sdiohal_list_t *sdiohal_get_rx_mbuf_list(int num)
 			sdiohal_rx_list_free(idle_list->mbuf_head,
 				idle_list->mbuf_tail, num);
 			kfree(idle_list);
+			idle_list = NULL;
 			goto err;
 		}
 		WARN_ON_ONCE((unsigned long int)
@@ -1462,6 +1462,7 @@ static void sdiohal_eof_buf_deinit(void)
 	struct sdiohal_data_t *p_data = sdiohal_get_data();
 
 	kfree(p_data->eof_buf);
+	p_data = NULL;
 }
 
 static int sdiohal_dtbs_buf_init(void)

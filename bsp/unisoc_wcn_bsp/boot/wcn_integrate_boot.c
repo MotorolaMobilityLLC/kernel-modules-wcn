@@ -642,10 +642,12 @@ static int wcn_download_image(struct wcn_device *wcn_dev)
 	if (is_marlin)
 		strncpy(firmware_file_name, WCN_BTWF_FILENAME,
 			sizeof(firmware_file_name));
-	strcat(firmware_file_name, ".bin");
+	strncat(firmware_file_name, ".bin", FIRMWARE_FILEPATHNAME_LENGTH_MAX - 1);
 	if (!is_marlin) {
-		strcpy(firmware_file_path, gnss_firmware_path);
-		strcat(firmware_file_path, firmware_file_name);
+		strscpy(firmware_file_path, gnss_firmware_path,
+			sizeof(firmware_file_name));
+		strncat(firmware_file_path, firmware_file_name,
+			FIRMWARE_FILEPATHNAME_LENGTH_MAX - 1);
 		WCN_INFO("gnss firmware path:%s\n", firmware_file_path);
 	}
 

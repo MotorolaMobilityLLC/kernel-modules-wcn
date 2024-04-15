@@ -63,9 +63,8 @@ static int lo_index(int chn)
 			return i;
 
 	}
-	WCN_INFO(" %s(%d) err \n", __func__, chn);
-	while (1)
-		;
+	WCN_ERR("%s(%d) err\n", __func__, chn);
+	wcn_assert_interface(WCN_SOURCE_WCN, "PCIe error!");
 
 	return -1;
 }
@@ -169,22 +168,20 @@ static int lo_rx_pop(int chn, struct mbuf_t *head, struct mbuf_t *tail,
 		//todo...
 		if (tx_link->num != rx_link->num) {
 			WCN_ERR("%s line:%d err\n", __func__, __LINE__);
-			while (1)
-				;
+			wcn_assert_interface(WCN_SOURCE_WCN, "PCIe error!");
 
 			return -1;
 		}
-		pos = sprintf(string+pos, "lo(%d,%d){",
+		pos = snprintf(string+pos, WCN_PCIE_LO_RX_POP_MAX - 1, "lo(%d,%d){",
 			      tx_link->chn, rx_link->chn);
 		for (i = 0, tx_mbuf = tx_link->head, rx_mbuf = rx_link->head;
 		    i < tx_link->num; i++) {
 			if (memcmp(tx_mbuf->buf, rx_mbuf->buf, 1024) != 0) {
 				WCN_ERR("%s line:%d err\n", __func__,
 					__LINE__);
-				while (1)
-					;
+				wcn_assert_interface(WCN_SOURCE_WCN, "PCIe error!");
 			}
-			pos += sprintf(string+pos, "%d ",
+			pos += snprintf(string+pos, WCN_PCIE_LO_RX_POP_MAX - 1, "%d ",
 				       *(int *)(tx_mbuf->buf));
 			tx_mbuf = tx_mbuf->next;
 			rx_mbuf = rx_mbuf->next;

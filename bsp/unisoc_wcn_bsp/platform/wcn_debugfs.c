@@ -52,12 +52,14 @@ static ssize_t read_wcn_reg(struct file *file, char __user *user_buf,
 	if (copy_from_user(reg_rd, user_buf, sizeof(*reg_rd))) {
 		WCN_ERR("reg value copy's ret value is -eFAULT\n");
 		kfree(reg_rd);
+		reg_rd = NULL;
 		return -EFAULT;
 	}
 
 	if (reg_rd->len > WCN_REG_MAX_LEN) {
 		WCN_INFO("%s len is to long:%d\n", __func__, reg_rd->len);
 		kfree(reg_rd);
+		reg_rd = NULL;
 		return -EPERM;
 	}
 
@@ -88,11 +90,12 @@ static ssize_t read_wcn_reg(struct file *file, char __user *user_buf,
 	if (copy_to_user(user_buf, reg_rd, sizeof(*reg_rd))) {
 		WCN_ERR("reg copy_to_user ret value is -eFAULT\n");
 		kfree(reg_rd);
+		reg_rd = NULL;
 		return -EFAULT;
 	}
 
 	kfree(reg_rd);
-
+	reg_rd = NULL;
 	return count;
 }
 
@@ -113,12 +116,14 @@ static ssize_t write_wcn_reg(struct file *file, const char __user *user_buf,
 	if (copy_from_user(reg_wr, user_buf, sizeof(*reg_wr))) {
 		WCN_ERR("%s copy's ret value is -eFAULT\n", __func__);
 		kfree(reg_wr);
+		reg_wr = NULL;
 		return -EFAULT;
 	}
 
 	if (reg_wr->len > WCN_REG_MAX_LEN) {
 		WCN_INFO("%s len is to long:%d\n", __func__, reg_wr->len);
 		kfree(reg_wr);
+		reg_wr = NULL;
 		return -EPERM;
 	}
 
@@ -146,6 +151,7 @@ static ssize_t write_wcn_reg(struct file *file, const char __user *user_buf,
 	}
 
 	kfree(reg_wr);
+	reg_wr = NULL;
 
 	return count;
 

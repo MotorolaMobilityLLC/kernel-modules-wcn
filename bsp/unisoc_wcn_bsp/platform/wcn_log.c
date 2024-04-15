@@ -206,6 +206,7 @@ static ssize_t wcnlog_write(struct file *filp,
 	sent_size = mdbg_send(p_data, count, MDBG_SUBTYPE_AT);
 	mutex_unlock(&mdbg_dev->mdbg_lock);
 	kfree(p_data);
+	p_data = NULL;
 
 	WCN_DEBUG("sent_size = %ld", sent_size);
 
@@ -391,6 +392,7 @@ int log_dev_exit(void)
 	mdbg_ring_remove();
 	mutex_destroy(&mdbg_dev->mdbg_lock);
 	kfree(mdbg_dev);
+	mdbg_dev = NULL;
 
 	return 0;
 }

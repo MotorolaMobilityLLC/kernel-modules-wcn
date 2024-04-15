@@ -221,6 +221,7 @@ static long int mdbg_comm_write(char *buf,
 		WCN_INFO("smp ret:%d, flag_smp:%ld\n", ret,
 			 ring_dev->flag_smp);
 		kfree(send_buf);
+		send_buf = NULL;
 	} else {
 		if (!sprdwcn_bus_list_alloc(
 				p_mdbg_proc_ops[MDBG_AT_TX_OPS].channel,
