@@ -507,6 +507,9 @@ int sprd_pcie_update_bits(unsigned int reg, unsigned int mask, unsigned int val)
 	struct wcn_match_data *g_match_config = get_wcn_match_config();
 	unsigned int ep_inbound_align;
 
+	if (!sprd_pcie_check_linkup())
+		return -1;
+
 	if (g_match_config && g_match_config->unisoc_wcn_m3e)
 		ep_inbound_align = EP_INBOUND_ALIGN_M3E;
 	else
@@ -809,8 +812,8 @@ int sprd_pcie_scan_card(void *wcn_dev)
 
 pcie_rescan_timeout:
 	WCN_ERR("Waiting for PCIe scan card timeout\n");
-	sprd_pcie_unconfigure_device(pdev);
-	priv->rc_pd = NULL;
+	//sprd_pcie_unconfigure_device(pdev);
+	//priv->rc_pd = NULL;
 
 	return -ENODEV;
 }
@@ -980,6 +983,7 @@ void sprd_pcie_remove_card(void *wcn_dev)
 
 	sprd_pcie_unconfigure_device(pdev);
 	priv->dev = NULL;
+	priv->rc_pd = NULL;
 	if (wait_for_completion_timeout(&priv->remove_done,
 					msecs_to_jiffies(5000)) == 0)
 		WCN_ERR("remove card time out\n");

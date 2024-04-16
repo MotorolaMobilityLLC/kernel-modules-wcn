@@ -3417,6 +3417,8 @@ int marlin_reset_reg(void)
 	init_completion(&marlin_dev->carddetect_done);
 	marlin_reset(true);
 	mdelay(1);
+	if (g_match_config && g_match_config->unisoc_wcn_pcie)
+		sprdwcn_bus_remove_card(marlin_dev);
 	sprdwcn_bus_rescan(marlin_dev);
 	if (wait_for_completion_timeout(&marlin_dev->carddetect_done,
 		msecs_to_jiffies(card_detect_wait_ms))) {
