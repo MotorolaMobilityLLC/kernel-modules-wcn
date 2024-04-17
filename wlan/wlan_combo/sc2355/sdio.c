@@ -854,6 +854,38 @@ void sc2355_handle_tx_return(struct sprd_hif *hif,
 	}
 }
 
+static void rx_work_check_rsp_cnt(struct rx_mgmt *rx_mgmt, void *data)
+{
+	struct sprd_priv *priv;
+	struct sprd_cmd_hdr *hdr;
+
+	hdr = (struct sprd_cmd_hdr *)data;
+	priv = rx_mgmt->hif->priv;
+
+	if ((SPRD_HEAD_GET_TYPE(data) != SPRD_TYPE_CMD &&
+	     SPRD_HEAD_GET_TYPE(data) != SPRD_TYPE_EVENT))
+		return;
+
+	if (rx_mgmt->rsp_event_cnt != hdr->rsp_cnt) {
+		wl_err("%s, %d, rsp_event_cnt=%d, hdr->cnt=%d\n",
+		       __func__, __LINE__, rx_mgmt->rsp_event_cnt,
+		       hdr->rsp_cnt);
+
+		if (hdr->rsp_cnt == 0) {
+			rx_mgmt->rsp_event_cnt = 0;
+			wl_info("%s reset rsp_event_cnt", __func__);
+		}
+		/* hdr->rsp_cnt=0 means it's a old version CP2,
+		 * so do not assert. vif=NULL means driver not init ok,
+		 * send cmd may cause crash
+		 */
+		if (hdr->rsp_cnt != 0)
+			sc2355_assert_cmd(priv, hdr->cmd_id, RSP_CNT_ERROR);
+	}
+
+	rx_mgmt->rsp_event_cnt++;
+}
+
 void sc2355_rx_work_queue(struct work_struct *work)
 {
 	struct sprd_msg *msg;
@@ -862,7 +894,6 @@ void sc2355_rx_work_queue(struct work_struct *work)
 	struct sprd_hif *hif;
 	void *pos = NULL, *data = NULL, *tran_data = NULL;
 	int len = 0, num = 0;
-	struct sprd_cmd_hdr *hdr;
 
 	rx_mgmt = container_of(work, struct rx_mgmt, rx_work);
 	hif = rx_mgmt->hif;
@@ -890,74 +921,44 @@ void sc2355_rx_work_queue(struct work_struct *work)
 			 * if not equal, must be lost on SDIOHAL/PCIE.
 			 * assert to warn CP2
 			 */
-			hdr = (struct sprd_cmd_hdr *)data;
-			if ((SPRD_HEAD_GET_TYPE(data) == SPRD_TYPE_CMD ||
-			     SPRD_HEAD_GET_TYPE(data) == SPRD_TYPE_EVENT)) {
-				if (rx_mgmt->rsp_event_cnt != hdr->rsp_cnt) {
-					wl_err
-					    ("%s, %d, rsp_event_cnt=%d, hdr->cnt=%d\n",
-					     __func__, __LINE__,
-					     rx_mgmt->rsp_event_cnt,
-					     hdr->rsp_cnt);
-
-					if (hdr->rsp_cnt == 0) {
-						rx_mgmt->rsp_event_cnt = 0;
-						wl_info
-						    ("%s reset rsp_event_cnt",
-						     __func__);
-					}
-					/* hdr->rsp_cnt=0 means it's a
-					 * old version CP2,
-					 * so do not assert.
-					 * vif=NULL means driver not init ok,
-					 * send cmd may cause crash
-					 */
-					if (hdr->rsp_cnt != 0)
-						sc2355_assert_cmd(priv, hdr->cmd_id, RSP_CNT_ERROR);
-				}
-
-				rx_mgmt->rsp_event_cnt++;
-			}
+			rx_work_check_rsp_cnt(rx_mgmt, data);
 
 			switch (SPRD_HEAD_GET_TYPE(data)) {
 			case SPRD_TYPE_DATA:
-				if (msg->len > SPRD_MAX_DATA_RXLEN)
-					wl_err("err rx data too long:%d > %d\n",
-					       len, SPRD_MAX_DATA_RXLEN);
+				wl_true((msg->len > SPRD_MAX_DATA_RXLEN),
+					"err rx data too long:%d > %d\n",
+					len, SPRD_MAX_DATA_RXLEN);
 				rx_data_process(priv, data);
 				break;
 			case SPRD_TYPE_CMD:
-				if (msg->len > SPRD_MAX_CMD_RXLEN)
-					wl_err("err rx cmd too long:%d > %d\n",
-					       len, SPRD_MAX_CMD_RXLEN);
+				wl_true((msg->len > SPRD_MAX_CMD_RXLEN),
+					"err rx cmd too long:%d > %d\n",
+					len, SPRD_MAX_CMD_RXLEN);
 				sc2355_rx_rsp_process(priv, data);
 				break;
 
 			case SPRD_TYPE_EVENT:
-				if (msg->len > SPRD_MAX_CMD_RXLEN)
-					wl_err
-					    ("err rx event too long:%d > %d\n",
-					     len, SPRD_MAX_CMD_RXLEN);
+				wl_true((msg->len > SPRD_MAX_CMD_RXLEN),
+					"err rx event too long:%d > %d\n",
+					len, SPRD_MAX_CMD_RXLEN);
 				sc2355_rx_evt_process(priv, data);
 				break;
 			case SPRD_TYPE_DATA_SPECIAL:
 				sprd_debug_ts_leave(RX_SDIO_PORT);
 				sprd_debug_ts_enter(RX_SDIO_PORT);
 
-				if (msg->len > SPRD_MAX_DATA_RXLEN)
-					wl_err
-					    ("err data trans too long:%d > %d\n",
-					     len, SPRD_MAX_CMD_RXLEN);
+				wl_true((msg->len > SPRD_MAX_DATA_RXLEN),
+					"err data trans too long:%d > %d\n",
+					len, SPRD_MAX_CMD_RXLEN);
 				sc2355_mm_mh_data_process(&rx_mgmt->mm_entry, tran_data, len,
 						   msg->buffer_type);
 				tran_data = NULL;
 				data = NULL;
 				break;
 			case SPRD_TYPE_DATA_PCIE_ADDR:
-				if (msg->len > SPRD_MAX_CMD_RXLEN)
-					wl_err
-					    ("err rx mh data too long:%d > %d\n",
-					     len, SPRD_MAX_DATA_RXLEN);
+				wl_true((msg->len > SPRD_MAX_CMD_RXLEN),
+					"err rx mh data too long:%d > %d\n",
+					len, SPRD_MAX_DATA_RXLEN);
 				sc2355_rx_mh_addr_process(rx_mgmt, tran_data, len,
 						   msg->buffer_type);
 				tran_data = NULL;

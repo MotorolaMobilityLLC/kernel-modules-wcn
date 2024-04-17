@@ -52,7 +52,7 @@
 #define MAX_CHN_NUM	16
 
 #define DSCR_LEN	sizeof(struct tx_msdu_dscr)
-#define MSG_PTR_LEN	8
+#define MSG_PTR_LEN	sizeof(struct sprd_msg *)
 
 #define GET_MSG_BUF(ptr) \
 	((struct sprd_msg *) \

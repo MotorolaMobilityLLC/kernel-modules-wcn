@@ -149,11 +149,41 @@ int sprd_rx_defragment_attack_check(struct sprd_priv *priv, struct sk_buff *skb)
 	return 0;
 }
 
+static void rx_mode_deliver_skb(struct sprd_vif *vif, struct sk_buff *skb,
+				struct rx_msdu_desc *msdu_desc)
+{
+	struct sprd_priv *priv = vif->priv;
+	struct sprd_hif *hif = &priv->hif;
+	struct sk_buff *tx_skb = NULL;
+	struct ethhdr *eth = (struct ethhdr *)skb->data;
+
+	if (vif->mode == SPRD_MODE_AP ||
+	    vif->mode == SPRD_MODE_P2P_GO) {
+		if (msdu_desc->uc_w2w_flag) {
+			dev_queue_xmit(skb);
+			return;
+		}
+		if (msdu_desc->bc_mc_w2w_flag &&
+		    eth->h_proto != ETH_P_IP &&
+		    eth->h_proto != ETH_P_IPV6) {
+			tx_skb = pskb_copy(skb, GFP_ATOMIC);
+			if (likely(tx_skb))
+				dev_queue_xmit(tx_skb);
+		}
+	}
+	/* skb->data MUST point to ETH HDR */
+	sc2355_tcp_ack_filter_rx(priv, skb->data, msdu_desc->msdu_len);
+
+	if (hif->hw_type == SPRD_HW_SC2355_PCIE ||
+	    hif->hw_type == SPRD_HW_SC2355_SIPC)
+		sc2355_count_rx_tp(hif, msdu_desc->msdu_len);
+	sprd_netif_rx(skb);
+}
+
 static void rx_skb_process(struct sprd_priv *priv, struct sk_buff *skb)
 {
 	struct sprd_vif *vif = NULL;
 	struct rx_msdu_desc *msdu_desc = NULL;
-	struct sk_buff *tx_skb = NULL;
 	struct sprd_hif *hif;
 	struct ethhdr *eth;
 	int ret = 0;
@@ -202,29 +232,7 @@ static void rx_skb_process(struct sprd_priv *priv, struct sk_buff *skb)
 	sprd_rx_tp_statistic(hif, skb->len);
 	sprd_set_wcn_thread_uclamp(hif);
 
-	if (vif->mode == SPRD_MODE_AP ||
-	    vif->mode == SPRD_MODE_P2P_GO) {
-		if (msdu_desc->uc_w2w_flag) {
-			dev_queue_xmit(skb);
-			goto out;
-		}
-		if (msdu_desc->bc_mc_w2w_flag &&
-		    eth->h_proto != ETH_P_IP &&
-		    eth->h_proto != ETH_P_IPV6) {
-			tx_skb = pskb_copy(skb, GFP_ATOMIC);
-			if (likely(tx_skb))
-				dev_queue_xmit(tx_skb);
-		}
-	}
-	/* skb->data MUST point to ETH HDR */
-	sc2355_tcp_ack_filter_rx(priv, skb->data, msdu_desc->msdu_len);
-
-	if (hif->hw_type == SPRD_HW_SC2355_PCIE ||
-	    hif->hw_type == SPRD_HW_SC2355_SIPC)
-		sc2355_count_rx_tp(hif, msdu_desc->msdu_len);
-	sprd_netif_rx(skb);
-
-out:
+	rx_mode_deliver_skb(vif, skb, msdu_desc);
 	sprd_put_vif(vif);
 	return;
 

@@ -153,6 +153,12 @@ extern int sprd_dbg_level;
 			pr_info(fmt, ##args); \
 	} while (0)
 
+#define wl_true(cond, fmt, args...) \
+	do { \
+		if (cond) \
+			pr_err(fmt, ##args); \
+	} while (0)
+
 int get_max_fw_tx_dscr(void);
 int get_tdls_threshold(void);
 int get_vo_ratio(void);

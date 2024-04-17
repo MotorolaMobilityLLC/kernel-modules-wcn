@@ -383,7 +383,7 @@ unsigned int sc2355_qos_change_priority_if(struct sprd_priv *priv,
 					   unsigned char *tid,
 					   unsigned char *tos, u16 len)
 {
-	unsigned int qos_index, ac;
+	unsigned int ac;
 	int match_index = 0;
 	unsigned char priority = *tos;
 
@@ -444,23 +444,8 @@ unsigned int sc2355_qos_change_priority_if(struct sprd_priv *priv,
 		*tid = qos_map_edca_ac_to_priority(ac);
 	}
 
-	switch (*tid) {
-	case prio_1:
-		qos_index = SPRD_AC_BK;
-		break;
-	case prio_4:
-		qos_index = SPRD_AC_VI;
-		break;
-	case prio_6:
-		qos_index = SPRD_AC_VO;
-		break;
-	default:
-		qos_index = SPRD_AC_BE;
-		break;
-	}
-
 	/*return data_type as qos queue index */
-	return qos_index;
+	return sc2355_qos_tid_map_to_index(*tid);
 }
 
 void sc2355_qos_init_default_map(void)
