@@ -41,6 +41,27 @@ static void sched_scan_cancel(struct sprd_vif *vif)
 	}
 }
 
+static void scan_handle_beacon_loss(struct wiphy *wiphy, struct sprd_vif *vif)
+{
+	struct cfg80211_bss *bss = NULL;
+
+	if (!vif->beacon_loss)
+		return;
+
+	bss = cfg80211_get_bss(wiphy, NULL, vif->bssid,
+			       vif->ssid, vif->ssid_len,
+			       IEEE80211_BSS_TYPE_ESS,
+			       IEEE80211_PRIVACY_ANY);
+	if (bss) {
+		netdev_info(vif->ndev,
+			    "unlink %pM due to beacon loss\n",
+			    bss->bssid);
+		cfg80211_unlink_bss(wiphy, bss);
+		cfg80211_put_bss(wiphy, bss);
+		vif->beacon_loss = 0;
+	}
+}
+
 void sc2332_report_scan_result(struct sprd_vif *vif, u16 chan, s16 rssi,
 			       u8 *frame, u16 len)
 {
@@ -121,20 +142,7 @@ void sc2332_report_scan_result(struct sprd_vif *vif, u16 chan, s16 rssi,
 	else
 		cfg80211_put_bss(wiphy, bss);
 
-	if (vif->beacon_loss) {
-		bss = cfg80211_get_bss(wiphy, NULL, vif->bssid,
-				       vif->ssid, vif->ssid_len,
-				       IEEE80211_BSS_TYPE_ESS,
-				       IEEE80211_PRIVACY_ANY);
-		if (bss) {
-			netdev_info(vif->ndev,
-				    "unlink %pM due to beacon loss\n",
-				    bss->bssid);
-			cfg80211_unlink_bss(wiphy, bss);
-			cfg80211_put_bss(wiphy, bss);
-			vif->beacon_loss = 0;
-		}
-	}
+	scan_handle_beacon_loss(wiphy, vif);
 }
 
 void sc2332_scan_timeout(struct timer_list *t)

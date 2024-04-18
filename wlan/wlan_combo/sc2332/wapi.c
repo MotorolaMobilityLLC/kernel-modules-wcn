@@ -318,6 +318,11 @@ static void wapi_crypto_sms4_mic(unsigned char *iv, unsigned char *key,
 unsigned short sc2332_wapi_enc(struct sprd_vif *vif, unsigned char *data,
 			     unsigned short len, unsigned char *output_buf)
 {
+#define WAPI_SNAP_FLAG(type) \
+		(((type) == ARP_TYPE) || ((type) == IP_TYPE) || \
+		 ((type) == ONE_X_TYPE) || ((type) == VLAN_TYPE) || \
+		 ((type) == WAPI_TYPE) || ((type) == IPV6_TYPE) || \
+		 ((type) == LLTD_TYPE))
 	unsigned short offset = 0;
 	bool qos_in = false;
 	bool valid_addr4 = true;
@@ -395,10 +400,7 @@ unsigned short sc2332_wapi_enc(struct sprd_vif *vif, unsigned char *data,
 	eth_type =
 	    ((*(data + ETH_PKT_TYPE_OFFSET) << 8) |
 	     *(data + ETH_PKT_TYPE_OFFSET + 1));
-	if ((eth_type == ARP_TYPE) || (eth_type == IP_TYPE) ||
-	    (eth_type == ONE_X_TYPE) || (eth_type == VLAN_TYPE) ||
-	    (eth_type == WAPI_TYPE) || (eth_type == IPV6_TYPE) ||
-	    (eth_type == LLTD_TYPE)) {
+	if (WAPI_SNAP_FLAG(eth_type)) {
 		snap_hdr[0] = 0xAA;
 		snap_hdr[1] = 0xAA;
 		snap_hdr[2] = 0x03;
