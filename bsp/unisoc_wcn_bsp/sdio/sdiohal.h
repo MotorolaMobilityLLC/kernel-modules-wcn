@@ -327,6 +327,7 @@ struct sdiohal_data_t {
 	u64 op_enter_ns;
 	u64 op_leave_ns;
 	u64 op_expire_cnt;
+	u64 last_sdio_blocked_time;
 	wait_queue_head_t resume_waitq;
 	/*SDIO debug control block*/
 	struct sdiohal_debug_t sdcb;

@@ -693,8 +693,37 @@ static ssize_t wcn_sysfs_store_reset_dump(struct device *dev,
 	return count;
 }
 
+static bool shoudl_do_sdio_block_workround(void)
+{
+	struct sdiohal_data_t *p_data = sdiohal_get_data();
+	long long now = ktime_get_boot_fast_ns();
+	long long max_blocked_time = (3LL * 1000000000LL);
+	long long within_blocked_time = (3LL * 1000000000LL);
+
+	if (p_data == NULL)
+		return false;
+
+	if ((now - p_data->last_sdio_blocked_time) < within_blocked_time) {
+		WCN_INFO("force WCN reset\n");
+		return true;
+	}
+
+	if (p_data->op_enter_ns > p_data->op_leave_ns &&
+		((now - p_data->op_enter_ns) > max_blocked_time)) {
+		WCN_INFO("holds xmit_lock!!! time=%llu.%llu\n",
+			p_data->op_enter_ns, p_data->op_leave_ns);
+		return true;
+	}
+	return false;
+}
+
 int wcn_sysfs_get_reset_prop(void)
 {
+	if (shoudl_do_sdio_block_workround()) {
+		// special case: force on reset never dumps WCN
+		WCN_INFO("force on WCN assert on reset\n");
+		return WCN_ASSERT_ONLY_RESET;
+	}
 	return atomic_read(&sysfs_info.is_reset);
 }
 
@@ -1017,6 +1046,8 @@ void wcn_notify_fw_error(enum wcn_source_type type, char *buf)
 	char *pbuf;
 	char *envp[4];
 
+	if (shoudl_do_sdio_block_workround())
+		return;
 	WCN_ERR("Notify firmware error:%s\n", buf);
 	len = strlen(buf) + strlen(WCN_UEVENT_REASON) + 1;
 	if (len > 256)
