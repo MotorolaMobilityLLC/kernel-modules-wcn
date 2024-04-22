@@ -95,7 +95,10 @@ static int apf_subcmd_rsp(struct sprd_vif *vif, struct apf_request *apf_req,
 		return -ENOTSUPP;
 	}
 
-	apf_version = apf_st->apf_cap.apf_version;
+	if (apf_st->apf_cap.apf_version > APF_VERSION_4)
+		apf_version = apf_st->apf_cap.capa_param.apf_v6_version;
+	else
+		apf_version = apf_st->apf_cap.apf_version;
 	apf_max_capa_prog_len = apf_st->apf_cap.max_capa_apf_prog_len;
 
 	if (apf_req->apf_hdr.apf_subcmd == WLAN_READ_PACKET_FILTER) {
@@ -174,6 +177,9 @@ static int apf_check_cp2_rsp(struct apf_program_state *apf_st,
 			apf_st->apf_cap.apf_version = apf_cap->apf_version;
 			apf_st->apf_cap.max_capa_apf_prog_len =
 			    apf_cap->max_capa_apf_prog_len;
+			if (apf_cap->apf_version > APF_VERSION_4)
+				apf_st->apf_cap.capa_param.apf_v6_version =
+					apf_cap->capa_param.apf_v6_version;
 		} else if (apf_subcmd == WLAN_READ_PACKET_FILTER) {
 			u32 rsp_prog_data_len =
 			    apf_rsp->apf_hdr.length - sizeof(apf_rsp->cmd_ret_value);
@@ -197,6 +203,7 @@ static int apf_subcmd_send_recv(struct sprd_vif *vif, struct apf_request *apf_re
 	struct apf_capa *apf_cap;
 	int ret = 0;
 	u16 apf_subcmd, expect_rsp_len, rsp_len;
+	bool valid_rsp_len = false;
 
 	if (!apf_st || !apf_req || !apf_rsp) {
 		netdev_info(vif->ndev, "%s error params", __func__);
@@ -236,7 +243,10 @@ static int apf_subcmd_send_recv(struct sprd_vif *vif, struct apf_request *apf_re
 		apf_req->apf_trans_size, apf_req->apf_prog_len,
 		apf_req->apf_hdr.length + sizeof(struct apf_cmd_header), expect_rsp_len);
 
-	if (rsp_len != expect_rsp_len) {
+	valid_rsp_len = (apf_subcmd == WLAN_GET_PACKET_FILTER &&
+		rsp_len == expect_rsp_len - sizeof(struct apf_capa_param)) ||
+		(rsp_len == expect_rsp_len);
+	if (!valid_rsp_len) {
 		wl_err("%s rsp_len %u err %u.\n", __func__, rsp_len, expect_rsp_len);
 		ret = -EINVAL;
 		goto exit;

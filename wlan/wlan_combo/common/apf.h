@@ -43,9 +43,15 @@ enum vendor_attr_packet_filter {
 	VENDOR_ATTR_PACKET_FILTER_AFTER_LAST - 1,
 };
 
+struct apf_capa_param {
+	u32 apf_v6_version;
+} __packed;
+
 struct apf_capa {
 	u8 apf_version;
 	u16 max_capa_apf_prog_len;
+
+	struct apf_capa_param capa_param;
 } __packed;
 
 struct apf_cmd_header {
