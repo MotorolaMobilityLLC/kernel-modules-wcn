@@ -3197,6 +3197,14 @@ int gnss_sys_poweron(struct wcn_device *wcn_dev)
 	WCN_INFO("Set REG 0x40880050:val=0x%x(Sync address)!\n",
 		      reg_val);
 
+	/*Set Reserve3 REG to check the CP2->AP solution*/
+	wcn_regmap_raw_write_bit(wcn_dev->rmap[REGMAP_WCN_AON_AHB],
+                        0x0058, 0x1);
+        wcn_regmap_read(wcn_dev->rmap[REGMAP_WCN_AON_AHB],
+                                 0x0058, &reg_val);
+        WCN_INFO("Set REG 0x40880058:val=0x%x(AP direct to GNSS)!\n",
+                      reg_val);
+
 	/* Set SYS,CPU,Cache at release status
 	 * let BTWF CPU run
 	 */
