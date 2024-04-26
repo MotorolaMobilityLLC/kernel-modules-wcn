@@ -421,11 +421,12 @@ static void reorder_msdu_process(struct rx_ba_entry *ba_entry,
 			goto out;
 		}
 
-		/* add log for bug:1592287 */
-		if (seqno_geq(seq_num, ba_node_desc->win_start) &&
+		if (!seqno_geq(seq_num, ba_node_desc->win_start) &&
 		    !msdu_desc->ampdu_flag) {
 			wl_info("%s receive non ampdu packet, seq:%d, win_start:%d\n",
 				__func__, seq_num, ba_node_desc->win_start);
+			reorder_set_skb_list(ba_entry, skb, skb);
+			goto out;
 		}
 
 		old_win_start = ba_node_desc->win_start;
