@@ -1354,39 +1354,164 @@ out_put_fail:
 	return -EMSGSIZE;
 }
 
-static int vendor_get_cached_gscan_results(struct wiphy *wiphy,
-					   struct wireless_dev *wdev,
-					   const void *data, int len)
+static int vendor_traverse_cached_gscan_results(struct sprd_vif *vif, struct sk_buff *reply, int i)
 {
-	int ret = 0, i, j, rlen, payload, request_id = 0, moredata = 0;
-	int rem_len, type, flush = 0, max_param = 0, n, buckets_scanned = 1;
-	struct sprd_vif *vif = netdev_priv(wdev->netdev);
-	struct sk_buff *reply;
-	struct nlattr *pos, *scan_res, *cached_list, *res_list;
+	int j;
 	struct nlattr *ap;
 	struct sprd_gscan_cached_results *p;
+
+	for (j = 0; j < (vif->priv->gscan_res + i)->num_results; j++) {
+		p = vif->priv->gscan_res + i;
+		netdev_info(vif->ndev, "[index = %d] Timestamp(%lu) Ssid (%s) Bssid: %pM\n",
+			    j, (unsigned long)p->results[j].ts,
+			    p->results[j].ssid, p->results[j].bssid);
+		netdev_info(vif->ndev, "Channel (%d) Rssi (%d) RTT (%lu) RTT_SD (%lu)\n",
+			    p->results[j].channel, p->results[j].rssi,
+			    (unsigned long)p->results[j].rtt,
+			    (unsigned long)p->results[j].rtt_sd);
+
+		ap = nla_nest_start(reply, j + 1);
+		if (!ap) {
+			netdev_err(vif->ndev, "failed to put!\n");
+			return -1;
+		}
+
+		if (nla_put_u64_64bit(reply, ATTR_GSCAN_RESULTS_SCAN_RESULT_TIME_STAMP,
+				      p->results[j].ts, 0)) {
+			netdev_err(vif->ndev, "failed to put!\n");
+			return -1;
+		}
+
+		if (nla_put(reply, ATTR_GSCAN_RESULTS_SCAN_RESULT_SSID,
+			    sizeof(p->results[j].ssid), p->results[j].ssid)) {
+			netdev_err(vif->ndev, "failed to put!\n");
+			return -1;
+		}
+
+		if (nla_put(reply, ATTR_GSCAN_RESULTS_SCAN_RESULT_BSSID,
+			    sizeof(p->results[j].bssid), p->results[j].bssid)) {
+			netdev_err(vif->ndev, "failed to put!\n");
+			return -1;
+		}
+
+		if (nla_put_u32(reply, ATTR_GSCAN_RESULTS_SCAN_RESULT_CHANNEL,
+				p->results[j].channel)) {
+			netdev_err(vif->ndev, "failed to put!\n");
+			return -1;
+		}
+
+		if (nla_put_s32(reply, ATTR_GSCAN_RESULTS_SCAN_RESULT_RSSI,
+				p->results[j].rssi)) {
+			netdev_err(vif->ndev, "failed to put!\n");
+			return -1;
+		}
+
+		if (nla_put_u32(reply, ATTR_GSCAN_RESULTS_SCAN_RESULT_RTT,
+				p->results[j].rtt)) {
+			netdev_err(vif->ndev, "failed to put!\n");
+			return -1;
+		}
+
+		if (nla_put_u32(reply, ATTR_GSCAN_RESULTS_SCAN_RESULT_RTT_SD,
+				p->results[j].rtt_sd)) {
+			netdev_err(vif->ndev, "failed to put!\n");
+			return -1;
+		}
+		nla_nest_end(reply, ap);
+	}
+
+	return 0;
+}
+
+static int vendor_traverse_cached_gscan_results_buckets(struct sprd_vif *vif,
+							struct sk_buff *reply, int i)
+{
+	int n, buckets_scanned = 1;
+	struct nlattr *scan_res, *res_list;
+
+	for (n = 0; n < vif->priv->gscan_buckets_num; n++) {
+		res_list = nla_nest_start(reply, n);
+
+		if (!res_list)
+			return -1;
+
+		if (nla_put_u32(reply, ATTR_GSCAN_CACHED_RESULTS_SCAN_ID,
+				(vif->priv->gscan_res + i)->scan_id)) {
+			netdev_err(vif->ndev, "failed to put!\n");
+			return -1;
+		}
+
+		if (nla_put_u32(reply, ATTR_GSCAN_CACHED_RESULTS_FLAGS,
+				(vif->priv->gscan_res + i)->flags)) {
+			netdev_err(vif->ndev, "failed to put!\n");
+			return -1;
+		}
+
+		if (nla_put_u32(reply, ATTR_GSCAN_RESULTS_BUCKETS_SCANNED,
+				buckets_scanned)) {
+			netdev_err(vif->ndev, "failed to put!\n");
+			return -1;
+		}
+
+		if (nla_put_u32(reply, ATTR_GSCAN_RESULTS_NUM_RESULTS_AVAILABLE,
+				(vif->priv->gscan_res + i)->num_results)) {
+			netdev_err(vif->ndev, "failed to put!\n");
+			return -1;
+		}
+
+		scan_res = nla_nest_start(reply, ATTR_GSCAN_RESULTS_LIST);
+		if (!scan_res)
+			return -1;
+
+		if (vendor_traverse_cached_gscan_results(vif, reply, i))
+			return -1;
+
+		nla_nest_end(reply, scan_res);
+		nla_nest_end(reply, res_list);
+	}
+
+	return 0;
+}
+
+static void vendor_traverse_cached_gscan_results_attr(const void *data, struct sprd_vif *vif,
+						      int *attr_type, int len)
+{
+	struct nlattr *pos;
+	int rem_len, type, ret = 0;
 
 	nla_for_each_attr(pos, (void *)data, len, rem_len) {
 		type = nla_type(pos);
 		switch (type) {
 		case GSCAN_ATTR_CONFIG_REQUEST_ID:
-			request_id = nla_get_u32(pos);
+			attr_type[0] = nla_get_u32(pos);
 			break;
 		case GSCAN_ATTR_CONFIG_CACHED_PARAM_FLUSH:
-			flush = nla_get_u32(pos);
+			attr_type[1] = nla_get_u32(pos);
 			break;
 		case GSCAN_ATTR_CONFIG_CACHED_PARAM_MAX:
-			max_param = nla_get_u32(pos);
+			attr_type[2] = nla_get_u32(pos);
 			break;
 		default:
-			netdev_err(vif->ndev,
-				   "nla gscan result 0x%x not support\n", type);
+			netdev_err(vif->ndev, "nla gscan result 0x%x not support\n", type);
 			ret = -EINVAL;
 			break;
 		}
 		if (ret < 0)
 			break;
 	}
+}
+
+static int vendor_get_cached_gscan_results(struct wiphy *wiphy,
+					   struct wireless_dev *wdev,
+					   const void *data, int len)
+{
+	int ret = 0, i, j, rlen, payload;
+	int attr_type[3] = {0}, moredata = 0;
+	struct sprd_vif *vif = netdev_priv(wdev->netdev);
+	struct sk_buff *reply;
+	struct nlattr  *cached_list;
+
+	vendor_traverse_cached_gscan_results_attr(data, vif, attr_type, len);
 
 	rlen = vif->priv->gscan_buckets_num
 	    * sizeof(struct sprd_gscan_cached_results);
@@ -1400,23 +1525,17 @@ static int vendor_get_cached_gscan_results(struct wiphy *wiphy,
 
 		for (j = 0; j < (vif->priv->gscan_res + i)->num_results; j++) {
 			if (time_after(jiffies - VENDOR_SCAN_RESULT_EXPIRE,
-				       (unsigned long)
-				       (vif->priv->gscan_res +
-					i)->results[j].ts)) {
-				memcpy((void *)
-				       (&(vif->priv->gscan_res + i)->results
-					[j]), (void *)
-				       (&(vif->priv->gscan_res + i)->results
-					[j + 1]), sizeof(struct gscan_result)
-				       * ((vif->priv->gscan_res +
-					 i)->num_results - j - 1));
+			    (unsigned long)(vif->priv->gscan_res + i)->results[j].ts)) {
+				memcpy((void *)(&(vif->priv->gscan_res + i)->results[j]),
+				       (void *)(&(vif->priv->gscan_res + i)->results[j + 1]),
+				       sizeof(struct gscan_result) * ((vif->priv->gscan_res +
+				       i)->num_results - j - 1));
 				(vif->priv->gscan_res + i)->num_results--;
 				j = 0;
 			}
 		}
 
-		if (nla_put_u32(reply, ATTR_GSCAN_RESULTS_REQUEST_ID,
-				request_id) ||
+		if (nla_put_u32(reply, ATTR_GSCAN_RESULTS_REQUEST_ID, attr_type[0]) ||
 		    nla_put_u32(reply,
 				ATTR_GSCAN_RESULTS_NUM_RESULTS_AVAILABLE,
 				(vif->priv->gscan_res + i)->num_results)) {
@@ -1424,14 +1543,13 @@ static int vendor_get_cached_gscan_results(struct wiphy *wiphy,
 			goto out_put_fail;
 		}
 
-		if (nla_put_u8(reply,
-			       ATTR_GSCAN_RESULTS_SCAN_RESULT_MORE_DATA, moredata)) {
+		if (nla_put_u8(reply, ATTR_GSCAN_RESULTS_SCAN_RESULT_MORE_DATA,
+			       moredata)) {
 			netdev_err(vif->ndev, "failed to put!\n");
 			goto out_put_fail;
 		}
 
-		if (nla_put_u32(reply,
-				ATTR_GSCAN_CACHED_RESULTS_SCAN_ID,
+		if (nla_put_u32(reply, ATTR_GSCAN_CACHED_RESULTS_SCAN_ID,
 				(vif->priv->gscan_res + i)->scan_id)) {
 			netdev_err(vif->ndev, "failed to put!\n");
 			goto out_put_fail;
@@ -1441,121 +1559,10 @@ static int vendor_get_cached_gscan_results(struct wiphy *wiphy,
 			break;
 
 		cached_list = nla_nest_start(reply, ATTR_GSCAN_CACHED_RESULTS_LIST);
-		for (n = 0; n < vif->priv->gscan_buckets_num; n++) {
-			res_list = nla_nest_start(reply, n);
+		ret = vendor_traverse_cached_gscan_results_buckets(vif, reply, i);
+		if (ret)
+			goto out_put_fail;
 
-			if (!res_list)
-				goto out_put_fail;
-
-			if (nla_put_u32(reply,
-					ATTR_GSCAN_CACHED_RESULTS_SCAN_ID,
-					(vif->priv->gscan_res + i)->scan_id)) {
-				netdev_err(vif->ndev, "failed to put!\n");
-				goto out_put_fail;
-			}
-
-			if (nla_put_u32(reply,
-					ATTR_GSCAN_CACHED_RESULTS_FLAGS,
-					(vif->priv->gscan_res + i)->flags)) {
-				netdev_err(vif->ndev, "failed to put!\n");
-				goto out_put_fail;
-			}
-
-			if (nla_put_u32(reply,
-					ATTR_GSCAN_RESULTS_BUCKETS_SCANNED,
-					buckets_scanned)) {
-				netdev_err(vif->ndev, "failed to put!\n");
-				goto out_put_fail;
-			}
-
-			if (nla_put_u32(reply,
-					ATTR_GSCAN_RESULTS_NUM_RESULTS_AVAILABLE,
-					(vif->priv->gscan_res +
-					 i)->num_results)) {
-				netdev_err(vif->ndev, "failed to put!\n");
-				goto out_put_fail;
-			}
-
-			scan_res = nla_nest_start(reply, ATTR_GSCAN_RESULTS_LIST);
-			if (!scan_res)
-				goto out_put_fail;
-
-			for (j = 0;
-			     j < (vif->priv->gscan_res + i)->num_results; j++) {
-				p = vif->priv->gscan_res + i;
-				netdev_info(vif->ndev,
-					    "[index = %d] Timestamp(%lu) Ssid (%s) Bssid: %pM "
-					    "Channel (%d) Rssi (%d) RTT (%lu) RTT_SD (%lu)\n",
-					    j, (unsigned long)p->results[j].ts,
-					    p->results[j].ssid,
-					    p->results[j].bssid,
-					    p->results[j].channel,
-					    p->results[j].rssi,
-					    (unsigned long)p->results[j].rtt,
-					    (unsigned long)
-					    p->results[j].rtt_sd);
-				ap = nla_nest_start(reply, j + 1);
-				if (!ap) {
-					netdev_err(vif->ndev,
-						   "failed to put!\n");
-					goto out_put_fail;
-				}
-				if (nla_put_u64_64bit(reply,
-						      ATTR_GSCAN_RESULTS_SCAN_RESULT_TIME_STAMP,
-						      p->results[j].ts, 0)) {
-					netdev_err(vif->ndev,
-						   "failed to put!\n");
-					goto out_put_fail;
-				}
-				if (nla_put(reply,
-					    ATTR_GSCAN_RESULTS_SCAN_RESULT_SSID,
-					    sizeof(p->results[j].ssid),
-					    p->results[j].ssid)) {
-					netdev_err(vif->ndev,
-						   "failed to put!\n");
-					goto out_put_fail;
-				}
-				if (nla_put(reply,
-					    ATTR_GSCAN_RESULTS_SCAN_RESULT_BSSID,
-					    sizeof(p->results[j].bssid),
-					    p->results[j].bssid)) {
-					netdev_err(vif->ndev,
-						   "failed to put!\n");
-					goto out_put_fail;
-				}
-				if (nla_put_u32(reply,
-						ATTR_GSCAN_RESULTS_SCAN_RESULT_CHANNEL,
-						p->results[j].channel)) {
-					netdev_err(vif->ndev,
-						   "failed to put!\n");
-					goto out_put_fail;
-				}
-				if (nla_put_s32(reply,
-						ATTR_GSCAN_RESULTS_SCAN_RESULT_RSSI,
-						p->results[j].rssi)) {
-					netdev_err(vif->ndev,
-						   "failed to put!\n");
-					goto out_put_fail;
-				}
-				if (nla_put_u32(reply,
-						ATTR_GSCAN_RESULTS_SCAN_RESULT_RTT,
-						p->results[j].rtt)) {
-					netdev_err(vif->ndev,
-						   "failed to put!\n");
-					goto out_put_fail;
-				}
-				if (nla_put_u32(reply,
-						ATTR_GSCAN_RESULTS_SCAN_RESULT_RTT_SD,
-						p->results[j].rtt_sd)) {
-					netdev_err(vif->ndev,
-						   "failed to put!\n");
-					goto out_put_fail;
-				}
-				nla_nest_end(reply, ap);
-			}
-			nla_nest_end(reply, scan_res);
-			nla_nest_end(reply, res_list);
-		}
 		nla_nest_end(reply, cached_list);
 	}
 
