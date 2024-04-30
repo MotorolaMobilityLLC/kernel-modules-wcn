@@ -1095,6 +1095,7 @@ static int wcn_wait_gnss_boot(struct wcn_device *wcn_dev)
 
 	if (cali_flag) {
 		gnss_read_boot_flag(wcn_dev);
+		wcn_slpinfo_statistics(WCN_SOURCE_GNSS, true);
 		return 0;
 	}
 	boot_flag = GNSS_CALI_DONE_FLAG;

@@ -688,6 +688,7 @@ int wcn_misc_init(void)
 	struct wcn_slpinfo_desc *slpinfo = wcn_get_slpinfo_data();
 
 	snprintf(slpinfo->gnss_general.name, ARRAY_SIZE(slpinfo->gnss_general.name), "GNSS");
+	wcn_slpinfo_statistics(WCN_SOURCE_GNSS, false);
 
 	ret = sprd_pdbg_notify_register(&wcn_slpinfo_notifier);
 	if (ret) {
