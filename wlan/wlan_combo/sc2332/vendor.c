@@ -1719,6 +1719,7 @@ static int vendor_get_wake_state(struct wiphy *wiphy, struct wireless_dev *wdev,
 	int ret = 0;
 	struct sk_buff *skb;
 	int payload;
+	enum vendor_attr_wake_stats i;
 
 	wl_debug("%s\n", __func__);
 	payload = NLMSG_HDRLEN;
@@ -1729,27 +1730,11 @@ static int vendor_get_wake_state(struct wiphy *wiphy, struct wireless_dev *wdev,
 	if (!skb)
 		return -ENOMEM;
 
-	if (nla_put_u32(skb, ATTR_WAKE_TOTAL_CMD_EVT_WAKE, 0) ||
-	    nla_put_u32(skb, ATTR_WAKE_CMD_EVT_WAKE_CNT_PTR, 0) ||
-	    nla_put_u32(skb, ATTR_WAKE_CMD_EVT_WAKE_CNT_SZ, 0) ||
-	    nla_put_u32(skb, ATTR_WAKE_TOTAL_DRV_FW_LOCAL_WAKE, 0) ||
-	    nla_put_u32(skb, ATTR_WAKE_DRV_FW_LOCAL_WAKE_CNT_PTR, 0) ||
-	    nla_put_u32(skb, ATTR_WAKE_DRV_FW_LOCAL_WAKE_CNT_SZ, 0) ||
-	    nla_put_u32(skb, ATTR_WAKE_TOTAL_RX_DATA_WAKE, 0) ||
-	    nla_put_u32(skb, ATTR_WAKE_RX_UNICAST_CNT, 0) ||
-	    nla_put_u32(skb, ATTR_WAKE_RX_MULTICAST_CNT, 0) ||
-	    nla_put_u32(skb, ATTR_WAKE_RX_BROADCAST_CNT, 0) ||
-	    nla_put_u32(skb, ATTR_WAKE_ICMP_PKT, 0) ||
-	    nla_put_u32(skb, ATTR_WAKE_ICMP6_PKT, 0) ||
-	    nla_put_u32(skb, ATTR_WAKE_ICMP6_RA, 0) ||
-	    nla_put_u32(skb, ATTR_WAKE_ICMP6_NA, 0) ||
-	    nla_put_u32(skb, ATTR_WAKE_ICMP6_NS, 0) ||
-	    nla_put_u32(skb, ATTR_WAKE_ICMP4_RX_MULTICAST_CNT, 0) ||
-	    nla_put_u32(skb, ATTR_WAKE_ICMP6_RX_MULTICAST_CNT, 0) ||
-	    nla_put_u32(skb, ATTR_WAKE_OTHER_RX_MULTICAST_CNT, 0)) {
-		wl_err("%s nla put error\n", __func__);
-		goto out_put_fail;
-	}
+	for (i = ATTR_WAKE_TOTAL_CMD_EVT_WAKE; i < ATTR_WAKE_AFTER_LAST; i++)
+		if (nla_put_u32(skb, i, 0)) {
+			wl_err("%s nla put error: %d\n", __func__, i);
+			goto out_put_fail;
+		}
 
 	ret = cfg80211_vendor_cmd_reply(skb);
 	if (ret)

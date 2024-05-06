@@ -1796,15 +1796,58 @@ out_put_fail:
 	return -EMSGSIZE;
 }
 
+int vendor_set_bssid_hotlist_ap_thr_param(struct sprd_vif *vif, struct nlattr *pos,
+					   struct wifi_bssid_hotlist_params *bssid_hotlist_params)
+{
+	int i = 0, ret = 0;
+	int type, rem_outer_len, rem_inner_len;
+	struct nlattr *outer_iter, *inner_iter;
+
+	nla_for_each_nested(outer_iter, pos, rem_outer_len) {
+		nla_for_each_nested(inner_iter, outer_iter,
+				    rem_inner_len) {
+			type = nla_type(inner_iter);
+			switch (type) {
+			case GSCAN_ATTR_CONFIG_AP_THR_BSSID:
+				if (nla_len(inner_iter) < 6 * sizeof(unsigned char)) {
+					netdev_err(vif->ndev, "networks nla type 0x%x not support\n"
+						   , type);
+					ret = -EINVAL;
+				} else {
+					memcpy(bssid_hotlist_params->ap[i].bssid,
+					       nla_data(inner_iter), 6 * sizeof(unsigned char));
+				}
+				break;
+
+			case GSCAN_ATTR_CONFIG_AP_THR_RSSI_LOW:
+				bssid_hotlist_params->ap[i].low = nla_get_s32(inner_iter);
+				break;
+
+			case GSCAN_ATTR_CONFIG_AP_THR_RSSI_HIGH:
+				bssid_hotlist_params->ap[i].high = nla_get_s32(inner_iter);
+				break;
+			default:
+				netdev_err(vif->ndev, "networks nla type 0x%x not support\n",
+					   type);
+				ret = -EINVAL;
+				break;
+			}
+		}
+
+		if (ret < 0 || ++i >= MAX_HOTLIST_APS)
+			break;
+	}
+	return ret;
+}
+
 /* set_ssid_hotlist function---CMD ID:29 */
 static int vendor_set_bssid_hotlist(struct wiphy *wiphy,
 				    struct wireless_dev *wdev,
 				    const void *data, int len)
 {
-	int i, ret = 0, tlen;
-	int type;
-	int rem_len, rem_outer_len, rem_inner_len;
-	struct nlattr *pos, *outer_iter, *inner_iter;
+	int ret = 0, tlen;
+	int type, rem_len;
+	struct nlattr *pos;
 	struct wifi_bssid_hotlist_params *bssid_hotlist_params;
 	struct cmd_gscan_rsp_header rsp;
 	struct sprd_vif *vif = netdev_priv(wdev->netdev);
@@ -1845,50 +1888,7 @@ static int vendor_set_bssid_hotlist(struct wiphy *wiphy,
 			break;
 
 		case GSCAN_ATTR_CONFIG_AP_THR_PARAM:
-			i = 0;
-			nla_for_each_nested(outer_iter, pos, rem_outer_len) {
-				nla_for_each_nested(inner_iter, outer_iter,
-						    rem_inner_len) {
-					type = nla_type(inner_iter);
-					switch (type) {
-					case GSCAN_ATTR_CONFIG_AP_THR_BSSID:
-						if (nla_len(inner_iter) < 6 * sizeof(unsigned char)) {
-							netdev_err(vif->ndev,
-								"nla_data for networks nla type 0x%x not support\n",
-								type);
-							ret = -EINVAL;
-						} else {
-							memcpy(bssid_hotlist_params->ap[i].bssid,
-								nla_data(inner_iter),
-								6 * sizeof(unsigned char));
-						}
-					break;
-
-					case GSCAN_ATTR_CONFIG_AP_THR_RSSI_LOW:
-						bssid_hotlist_params->ap[i].low
-						    = nla_get_s32(inner_iter);
-						break;
-
-					case GSCAN_ATTR_CONFIG_AP_THR_RSSI_HIGH:
-						bssid_hotlist_params->ap[i].high
-						    = nla_get_s32(inner_iter);
-						break;
-					default:
-						netdev_err(vif->ndev,
-							   "networks nla type 0x%x not support\n",
-							   type);
-						ret = -EINVAL;
-						break;
-					}
-				}
-
-				if (ret < 0)
-					break;
-
-				i++;
-				if (i >= MAX_HOTLIST_APS)
-					break;
-			}
+			ret = vendor_set_bssid_hotlist_ap_thr_param(vif, pos, bssid_hotlist_params);
 			break;
 
 		default:
