@@ -93,7 +93,7 @@ void sprd_chr_report_disconnect(struct sprd_vif *vif, u8 version,
 	sprd_fill_chr_driver(&chr_driver, refcnt, evt_id, version,
 			     evt_content_len, evt_content, sendbuf);
 
-	spin_lock_bh(&chr->sock_lock);
+	mutex_lock(&chr->sock_lock);
 	if (chr->chr_sock && chr->chr_status == CHR_ENABLE) {
 		ret = sprd_chr_sock_sendmsg(chr, sendbuf);
 		if (ret)
@@ -101,7 +101,7 @@ void sprd_chr_report_disconnect(struct sprd_vif *vif, u8 version,
 	} else {
 		wl_err("CHR: connect been closed, can not send msg to server");
 	}
-	spin_unlock_bh(&chr->sock_lock);
+	mutex_unlock(&chr->sock_lock);
 
 	return;
 }
@@ -126,7 +126,7 @@ void sprd_chr_report_open_error(struct sprd_chr *chr, u32 evt_id, u8 err_code)
 
 	sprd_fill_chr_driver(&chr_driver, refcnt, evt_id, CHR_VERSION, 1, &err_code, sendbuf);
 
-	spin_lock_bh(&chr->sock_lock);
+	mutex_lock(&chr->sock_lock);
 	if (chr->chr_sock && chr->chr_status == CHR_ENABLE) {
 		ret = sprd_chr_sock_sendmsg(chr, sendbuf);
 		if (ret)
@@ -134,7 +134,7 @@ void sprd_chr_report_open_error(struct sprd_chr *chr, u32 evt_id, u8 err_code)
 	} else {
 		wl_err("CHR: connect been closed, can not send msg to server");
 	}
-	spin_unlock_bh(&chr->sock_lock);
+	mutex_unlock(&chr->sock_lock);
 
 	wl_debug("%s: CHR: %s, ref_cnt=%u\n", __func__,
 		open_error.reason_code == 0 ? "Power_on Err" : "Download_ini Err",
@@ -404,13 +404,13 @@ retry:
 		sprd_send_chr_cmd(priv, chr);
 	}
 
-	spin_lock_bh(&chr->sock_lock);
+	mutex_lock(&chr->sock_lock);
 	if (chr->chr_sock) {
 		sock_release(chr->chr_sock);
 		chr->chr_sock = NULL;
 	}
 	chr->chr_status = CHR_UNDEFINE;
-	spin_unlock_bh(&chr->sock_lock);
+	mutex_unlock(&chr->sock_lock);
 	wl_debug("%s, CHR: init socket, try to connect server\n", __func__);
 
 	goto retry;
@@ -419,10 +419,10 @@ exit:
 
 	chr->chr_status = CHR_UNDEFINE;
 	chr->thread_exit = 0;
-	spin_lock_bh(&chr->sock_lock);
+	mutex_lock(&chr->sock_lock);
 	sock_release(chr->chr_sock);
 	chr->chr_sock = NULL;
-	spin_unlock_bh(&chr->sock_lock);
+	mutex_unlock(&chr->sock_lock);
 	kfree(recv_buf);
 	recv_buf = NULL;
 	complete(&chr->thread_completed);
@@ -519,7 +519,7 @@ int sprd_chr_init(struct sprd_chr *chr)
 
 	chr->chr_client_thread = NULL;
 	chr->chr_sock = NULL;
-	spin_lock_init(&chr->sock_lock);
+	mutex_init(&chr->sock_lock);
 
 	wl_debug("%s, CHR: ready to init the chr_client_thread", __func__);
 	chr->chr_client_thread = kthread_create(sprd_chr_client_thread, chr, "wifi_driver_chr");
@@ -578,6 +578,7 @@ void sprd_chr_deinit(struct sprd_chr *chr, int exit_type)
 	chr->chr_client_thread = NULL;
 
 exit:
+	mutex_destroy(&chr->sock_lock);
 	if (chr->chr_refcnt) {
 		kfree(chr->chr_refcnt);
 		chr->chr_refcnt = NULL;

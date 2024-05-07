@@ -202,7 +202,7 @@ struct sprd_chr {
 	struct task_struct *chr_client_thread;
 	struct chr_refcnt_arr *chr_refcnt;
 	struct socket *chr_sock;
-	spinlock_t sock_lock;
+	struct mutex sock_lock;
 
 	struct chr_cmd fw_cmd_list[CHR_ARR_SIZE];
 	u32 fw_len;
