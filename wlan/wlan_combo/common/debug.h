@@ -29,8 +29,6 @@ enum {
 	L_DBG,			/*LEVEL_DEBUG */
 	L_ALL,			/*LEVEL_ALL */
 };
-/* loglevel during driver probe/remove */
-#define INIT_DBG_LEVEL	L_INFO
 
 enum debug_ts_index {
 	RX_SDIO_PORT,

@@ -19,7 +19,11 @@ static unsigned int vo_ratio = 87;
 static unsigned int vi_ratio = 90;
 static unsigned int be_ratio = 81;
 static unsigned int wmmac_ratio = 10;
-int sprd_dbg_level = INIT_DBG_LEVEL;
+#ifdef CONFIG_UNISOC_WLAN_DEBUG
+	int sprd_dbg_level = L_DBG;
+#else
+	int sprd_dbg_level = L_INFO;
+#endif
 
 static struct sprd_debug *sprd_dbg;
 static struct debug_ctrl dbg_ctrl;
@@ -571,11 +575,6 @@ DEFINE_SIMPLE_ATTRIBUTE(apf_disable_ops,
 void sprd_debug_init(struct sprd_debug *dbg)
 {
 	sprd_dbg = dbg;
-#ifdef CONFIG_UNISOC_WLAN_DEBUG
-	sprd_dbg_level = L_DBG;
-#else
-	sprd_dbg_level = L_INFO;
-#endif
 	/* create debugfs
 	 * run "mount -t debugfs none /sys/kernel/debug"
 	 * on user_root version */
@@ -605,7 +604,6 @@ void sprd_debug_init(struct sprd_debug *dbg)
 
 void sprd_debug_deinit(struct sprd_debug *dbg)
 {
-	sprd_dbg_level = INIT_DBG_LEVEL;
 	/* remove debugfs */
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
 	debugfs_remove(dbg->dir);
