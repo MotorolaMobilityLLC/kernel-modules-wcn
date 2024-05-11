@@ -1911,7 +1911,8 @@ int sc2332_xmit_data2cmd(struct sk_buff *skb, struct net_device *ndev)
 	if (vif->mode == SPRD_MODE_P2P_GO || vif->mode == SPRD_MODE_AP) {
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
 		chandef = wdev_chandef(ndev->ieee80211_ptr, 0);
-		channel = chandef->chan->hw_value;
+		if (chandef)
+			channel = chandef->chan->hw_value;
 #else
 		channel = ndev->ieee80211_ptr->chandef.chan->hw_value;
 #endif
