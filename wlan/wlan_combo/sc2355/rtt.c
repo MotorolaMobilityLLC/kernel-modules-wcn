@@ -199,12 +199,16 @@ out:
 
 static void rtt_event_end(struct sprd_priv *priv)
 {
-	struct sk_buff *reply;
+	struct sk_buff *reply = NULL;
 	struct wiphy *wiphy = priv->wiphy;
 	struct sprd_vif *vif = sprd_mode_to_vif(priv, SPRD_MODE_STATION);
 	int i, rlen, ret = 0;
-	struct nlattr *nl_res;
+	struct nlattr *nl_res = NULL;
 
+	if (!vif) {
+		wl_err("%s, vif is NULL.\n", __func__);
+		goto out;
+	}
 	rlen = priv->rtt_results.peer_num * sizeof(struct rtt_wifi_hal_result);
 	reply = cfg80211_vendor_event_alloc(wiphy, &vif->wdev,
 					    rlen + NLMSG_HDRLEN + 100,

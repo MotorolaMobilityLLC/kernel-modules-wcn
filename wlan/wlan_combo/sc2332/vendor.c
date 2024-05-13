@@ -1559,6 +1559,10 @@ static int vendor_get_cached_gscan_results(struct wiphy *wiphy,
 			break;
 
 		cached_list = nla_nest_start(reply, ATTR_GSCAN_CACHED_RESULTS_LIST);
+		if (!cached_list) {
+			wl_err("%s, %d\n", __func__, __LINE__);
+			goto out_put_fail;
+		}
 		ret = vendor_traverse_cached_gscan_results_buckets(vif, reply, i);
 		if (ret)
 			goto out_put_fail;

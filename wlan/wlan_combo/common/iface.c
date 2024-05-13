@@ -33,6 +33,9 @@
 
 static struct sprd_priv *sprd_prv;
 
+#define is_alpha(key)    \
+	((key >= 'a' && key <= 'z') || (key >= 'A' && key <= 'Z') || (key == '0'))
+
 const char *dhcp_str_info[] = {
 	"INVALID DHCP",
 	"DHCP DISCOVER",
@@ -904,6 +907,9 @@ static int iface_prase_mac_acl(struct net_device *ndev, char *command,
 			       int *skip_r)
 {
 	int ret = 0, skip = 0;
+	struct sprd_vif *vif = netdev_priv(ndev);
+	struct sprd_priv *priv = vif->priv;
+	char country[SPRD_COUNTRY_CODE_LEN + 1];
 
 	if (!strncasecmp(command, CMD_BLACKLIST_ENABLE,
 			 strlen(CMD_BLACKLIST_ENABLE))) {
@@ -929,7 +935,20 @@ static int iface_prase_mac_acl(struct net_device *ndev, char *command,
 				strlen(CMD_DISABLE_WHITELIST))) {
 		skip = strlen(CMD_DISABLE_WHITELIST) + 1;
 		ret = iface_handle_whitelist(ndev, command, priv_cmd, SUBCMD_DISABLE, skip);
+	} else if (!strncasecmp(command, CMD_SET_COUNTRY,
+				strlen(CMD_SET_COUNTRY))) {
+		skip = strlen(CMD_SET_COUNTRY) + 1;
+		memcpy(country, command + skip, SPRD_COUNTRY_CODE_LEN);
+		country[SPRD_COUNTRY_CODE_LEN] = '\0';
+		if (!is_alpha(country[0]) || !is_alpha(country[1])) {
+			ret = -EINVAL;
+			goto out;
+		}
+		netdev_info(ndev, "%s country code:%c%c\n", __func__,
+			    toupper(country[0]), toupper(country[1]));
+		ret = regulatory_hint(priv->wiphy, country);
 	}
+out:
 	*skip_r = skip;
 
 	return ret;
@@ -942,7 +961,6 @@ static int iface_priv_cmd(struct net_device *ndev, void __user *data)
 	struct sprd_priv *priv = vif->priv;
 	struct android_wifi_priv_cmd priv_cmd;
 	char *command = NULL;
-	char country[SPRD_COUNTRY_CODE_LEN + 1];
 	u16 interval = 0;
 	u8 feat = 0, status = 0;
 	int ret = 0, skip;
@@ -988,14 +1006,6 @@ static int iface_priv_cmd(struct net_device *ndev, void __user *data)
 			interval = command[skip + 1];
 
 		sprd_set_11v_sleep_mode(priv, vif, status, interval);
-	} else if (!strncasecmp(command, CMD_SET_COUNTRY,
-				strlen(CMD_SET_COUNTRY))) {
-		skip = strlen(CMD_SET_COUNTRY) + 1;
-		memcpy(country, command + skip, SPRD_COUNTRY_CODE_LEN);
-		country[SPRD_COUNTRY_CODE_LEN] = '\0';
-		netdev_info(ndev, "%s country code:%c%c\n", __func__,
-			    toupper(country[0]), toupper(country[1]));
-		ret = regulatory_hint(priv->wiphy, country);
 	} else if (!strncasecmp(command, CMD_SET_MAX_CLIENTS,
 				strlen(CMD_SET_MAX_CLIENTS))) {
 		skip = strlen(CMD_SET_MAX_CLIENTS) + 1;
