@@ -60,14 +60,16 @@ reorder_set_skb_list(struct rx_ba_entry *ba_entry,
 		     struct sk_buff *skb_head, struct sk_buff *skb_last)
 {
 	spin_lock_bh(&ba_entry->skb_list_lock);
-	if (!ba_entry->skb_head) {
-		ba_entry->skb_head = skb_head;
-		ba_entry->skb_last = skb_last;
-	} else {
-		ba_entry->skb_last->next = skb_head;
-		ba_entry->skb_last = skb_last;
+	if (skb_head && skb_last) {
+		if (!ba_entry->skb_head) {
+			ba_entry->skb_head = skb_head;
+			ba_entry->skb_last = skb_last;
+		} else {
+			ba_entry->skb_last->next = skb_head;
+			ba_entry->skb_last = skb_last;
+		}
+		ba_entry->skb_last->next = NULL;
 	}
-	ba_entry->skb_last->next = NULL;
 	spin_unlock_bh(&ba_entry->skb_list_lock);
 }
 
