@@ -3499,6 +3499,11 @@ static int vendor_softap_set_sae_para(struct sprd_priv *priv,
 	return send_cmd_recv_rsp(priv, msg, NULL, NULL);
 }
 
+static bool vendor_check_sae_password_valid(const char *para)
+{
+	return *((u16 *)para) ==  VENDOR_SAE_ENTRY - 1 ? true : false;
+}
+
 static int vendor_set_sae_password(struct wiphy *wiphy,
 				   struct wireless_dev *wdev,
 				   const void *data, int len)
@@ -3509,7 +3514,7 @@ static int vendor_set_sae_password(struct wiphy *wiphy,
 	struct sprd_vif *vif = netdev_priv(wdev->netdev);
 	struct sprd_priv *priv = wiphy_priv(wiphy);
 	char *para;
-	int para_len, ret;
+	int para_len, ret = -EINVAL;
 
 	if (!(priv->extend_feature & SPRD_EXTEND_SOATAP_WPA3)) {
 		wl_err("firmware not support softap wpa3!\n");
@@ -3571,8 +3576,12 @@ static int vendor_set_sae_password(struct wiphy *wiphy,
 
 	/* all para need translate to tlv format */
 	para_len = vendor_softap_convert_para(vif, &sae_para, para);
+	if (!vendor_check_sae_password_valid(para)) {
+		wl_err("%s sae para invalid \n", __func__);
+		goto exit;
+	}
 	ret = vendor_softap_set_sae_para(vif->priv, vif, para, para_len);
-
+exit:
 	kfree(para);
 	return ret;
 }
