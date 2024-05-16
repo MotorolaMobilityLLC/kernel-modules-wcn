@@ -155,21 +155,31 @@ static void wcn_bus_change_state(struct wcn_pcie_info *bus,
 
 bool sprd_pcie_check_linkup(void)
 {
-	u32 val;
 	struct wcn_pcie_info *priv = get_wcn_device_info();
+	u32 val = 0;
+	int ret = 0;
 
-	if (pci_dev_is_disconnected(priv->dev))
+	ret = pci_read_config_dword(priv->dev->bus->self, CXPL_DEBUG_INFO1, &val);
+	if (ret != 0) {
+		WCN_ERR("%s|%d) read CXPL_DEBUG_INFO1 error, ret:0x%x\n", __func__, __LINE__, ret);
 		return false;
+	}
 
-	/*PCIe link error, read vendor id will return 0xffffffff*/
-	pci_read_config_dword(priv->dev, 0, &val);
-	if (val == 0xFFFFFFFF)
+	if (!(val & BIT(4))) {
+		WCN_ERR("%s|%d) CXPL_DEBUG_INFO1 indicate pcie link down\n", __func__, __LINE__);
 		return false;
+	}
 
-	/*PCIe linkdown occur, but ltssm is L0, read vendor id is ok, but command happen reset*/
-	pci_read_config_dword(priv->dev, 4, &val);
-	if (val == 0xFFFFFFFF || (val & 0x6) == 0)
+	ret = pci_read_config_dword(priv->dev->bus->self, PCI_ERR_STATUS, &val);
+	if (ret != 0) {
+		WCN_ERR("%s|%d) read PCI_ERR_STATUS error, ret:0x%x\n", __func__, __LINE__, ret);
 		return false;
+	}
+
+	if (val & BIT(30)) {
+		WCN_ERR("%s|%d) PCI_ERR_STATUS indicate pcie link down\n", __func__, __LINE__);
+		return false;
+	}
 
 	return true;
 }
