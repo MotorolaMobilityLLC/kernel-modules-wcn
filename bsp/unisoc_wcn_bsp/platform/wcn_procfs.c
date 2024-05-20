@@ -103,6 +103,25 @@ void mdbg_device_unlock_notify(void)
 }
 EXPORT_SYMBOL_GPL(mdbg_device_unlock_notify);
 
+/*
+ * 1.For BTWF SYS deepsleep fail WorkRound,
+ * 2.For Sensorhub reset, gnss no can't switch pll
+ * soft reset WCN SYS and notify GNSS
+ */
+void wcn_silent_reset(void)
+{
+	WCN_INFO("BTWF sys deepsleep failed or sp reset!, soft reset\n");
+	if (s_wcn_device.gnss_device &&
+		s_wcn_device.gnss_device->power_state) {
+		WCN_INFO("GNSS open! set reset status\n");
+		atomic_set(&sysfs_info.is_reset_wr, 1);
+		sysfs_info.reset_prop = wcn_sysfs_get_reset_prop();
+		/*set reset status when notifer gps*/
+		atomic_set(&sysfs_info.is_reset, WCN_ASSERT_ONLY_RESET);
+	}
+	wcn_reset_cp2();
+}
+
 void wcn_reset_process(void)
 {
 	WCN_INFO("%s reset begin\n", __func__);
@@ -208,6 +227,12 @@ void __wcn_assert_interface(enum wcn_source_type type, char *str)
 	}
 	if (!marlin_get_power()) {
 		WCN_INFO("no modules open\n");
+		goto out;
+	}
+	if (type == WCN_SOURCE_SP_RESET) {
+		WCN_INFO("SP reset, WCN silen reset!\n");
+		stop_loopcheck();
+		wcn_silent_reset();
 		goto out;
 	}
 	if (g_match_config && g_match_config->unisoc_wcn_integrated) {
