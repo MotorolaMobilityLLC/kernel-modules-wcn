@@ -2167,8 +2167,9 @@ int sprd_tx_filter_packet(struct sk_buff *skb, struct net_device *ndev)
 	}
 	if (ethhdr->h_proto == htons(ETH_P_IPV6)) {
 		lut_index = sc2355_find_lut_index(hif, vif);
-		if ((vif->mode == SPRD_MODE_AP || vif->mode == SPRD_MODE_P2P_GO) &&
-			(lut_index != 4) && hif->peer_entry[lut_index].ip_acquired == 0) {
+		if (((vif->mode == SPRD_MODE_AP && (lut_index != 4)) ||
+			(vif->mode == SPRD_MODE_P2P_GO && (lut_index != 5))) &&
+			hif->peer_entry[lut_index].ip_acquired == 0) {
 			wl_debug("ipv6 ethhdr->h_proto=%x\n", ethhdr->h_proto);
 			dev_kfree_skb(skb);
 			return 0;
