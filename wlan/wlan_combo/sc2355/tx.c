@@ -137,9 +137,9 @@ tx_add_xmit_list_tail(struct tx_mgmt *tx_mgmt,
 	return 0;
 }
 
-static void tx_sdio_flush_txlist(struct sprd_msg_list *list)
+static void tx_flush_cmd_txlist(struct sprd_msg_list *list)
 {
-	struct sprd_msg *msg;
+	struct sprd_msg *msg = NULL, *pos_msg = NULL;
 	int cnt = 0;
 
 	/*wait until cmd list sent completely and freed by HIF */
@@ -148,6 +148,17 @@ static void tx_sdio_flush_txlist(struct sprd_msg_list *list)
 		usleep_range(2500, 3000);
 		cnt++;
 	}
+
+	if (!list_empty(&list->cmd_to_free)) {
+		wl_err("%s flush cmd_to_free\n", __func__);
+		list_for_each_entry_safe(pos_msg, msg,
+				 &list->cmd_to_free, list) {
+			kfree(pos_msg->tran_data);
+			pos_msg->tran_data = NULL;
+			sc2355_free_cmd_buf(pos_msg, list);
+		}
+	}
+
 	while ((msg = sprd_peek_msg(list))) {
 		if (msg->skb) {
 			dev_kfree_skb(msg->skb);
@@ -530,7 +541,7 @@ static int tx_eachmode_data(struct sprd_hif *hif, enum sprd_mode mode)
 
 static void tx_flush_all_txlist(struct tx_mgmt *tx_dev)
 {
-	tx_sdio_flush_txlist(&tx_dev->tx_list_cmd);
+	tx_flush_cmd_txlist(&tx_dev->tx_list_cmd);
 	tx_flush_data_txlist(tx_dev);
 }
 

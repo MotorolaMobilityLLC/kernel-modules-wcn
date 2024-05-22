@@ -190,14 +190,14 @@ static ssize_t wcnlog_write(struct file *filp,
 		return -EIO;
 	}
 
-	WCN_INFO("%s count=%ld\n", __func__, (long int)count);
+	WCN_INFO("%s count=%ld\n", __func__, (long)count);
 	if (count > MDBG_WRITE_SIZE) {
 		WCN_ERR("mdbg_write count > MDBG_WRITE_SIZE\n");
 		return -ENOMEM;
 	}
 
-	if (NULL == buf || 0 == count) {
-		WCN_ERR("Param Error!");
+	if (NULL == buf || 4 > count) {
+		WCN_ERR("Param Error! count = %ld\n", (long int)count);
 		return count;
 	}
 
