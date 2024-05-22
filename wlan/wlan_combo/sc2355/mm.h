@@ -20,6 +20,7 @@
 #define SPRD_MH_ADDRESS_BIT ((uint64_t)1 << 39)
 #define SPRD_MH_SIPC_ADDRESS_BIT 0x00F0FFFFFF
 #define SPRD_MH_SIPC_ADDRESS_BASE 0x87000000
+#define SKB_ADDR_LEN sizeof(struct sk_buff *)
 
 #define SPRD_MAX_MH_BUF 500
 #define SPRD_PCIE_MAX_MH_BUF 500

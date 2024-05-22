@@ -541,6 +541,7 @@ void sdiohal_op_leave(void)
 		__builtin_return_address(1), __builtin_return_address(0),
 		expire_time_ns/NSEC_PER_MSEC, p_data->op_expire_cnt,
 		p_data->op_enter_ns, p_data->op_leave_ns);
+		p_data->last_sdio_blocked_time = p_data->op_leave_ns;
 	}
 	p_data->sdcb.op_leave_builtin_addr[0] = __builtin_return_address(0);
 	memcpy(p_data->sdcb.op_leave_comm, current->comm, sizeof(p_data->sdcb.op_leave_comm));

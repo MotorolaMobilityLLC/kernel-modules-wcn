@@ -436,8 +436,9 @@ enum cp2_chip_type wcn_get_cp2_type(void)
 EXPORT_SYMBOL_GPL(wcn_get_cp2_type);
 
 #if IS_ENABLED(CONFIG_SPRD_POWER_DEBUG) || IS_ENABLED(CONFIG_SPRD_PDBG)
-static char *wcn_slpinfo_irq_type_to_str(enum wcn_source_type type, enum intc_wakeup_irq irq_type)
+static char *wcn_slpinfo_irq_type_to_str(enum wcn_source_type type, int irq_type)
 {
+	int chip_type = wcn_get_cp2_type();
 	char *irq_type_str_by_btwf[WAKEUP_BY_INVALID] = {
 		"BTWF_SDIO_128BIT_AP_WAKE_CP2",
 		"BTWF_TOP_AON",
@@ -451,13 +452,27 @@ static char *wcn_slpinfo_irq_type_to_str(enum wcn_source_type type, enum intc_wa
 		"BTWF_OTHERS",
 	};
 
+	char *irq_type_str_by_btwf_merlion[WAKEUP_BY_INVALID] = {
+		"WAKEUP_BY_BT_SERVICE_OPREATION",
+		"WAKEUP_BY_WIFI_SERVICE_OPREATION",
+		"WAKEUP_BY_COEX_SERVICE_OPREATION",
+		"WAKEUP_BY_GNSS_IPI",
+		"WAKEUP_BY_MAILBOX",
+		"WAKEUP_BY_RFI",
+		"WAKEUP_BY_TIMER",
+		"WAKEUP_BY_BUSMONITOR",
+		"WAKEUP_BY_DFAULT_ISR",
+		"WAKEUP_BY_OTHERS",
+	};
 	if (type == WCN_SOURCE_GNSS)
 		return "GNSS_WAKEUP_IRQ";
 
-	if (irq_type < WAKEUP_BY_EIC_LATCH_SDIO_AP_WAKE_PULSE || irq_type >= WAKEUP_BY_INVALID)
+	if (irq_type >= WAKEUP_BY_INVALID)
 		return "INVALID";
-
-	return irq_type_str_by_btwf[irq_type];
+	if (chip_type == l6_ums2631)
+		return irq_type_str_by_btwf_merlion[irq_type];
+	else
+		return irq_type_str_by_btwf[irq_type];
 }
 
 static uint64_t wcn_slpinfo_ns_to_clk32k(uint64_t ns)
@@ -546,7 +561,7 @@ static void wcn_slpinfo_show(enum wcn_source_type type,
 
 static int wcn_slpinfo_get_for_btwf(struct subsys_slp_info *info)
 {
-	char at_cmd_getslpinfo[] = "at+debug=12\r";
+	char at_cmd_getslpinfo[] = "at+sleepinfo?\r";
 	size_t slp_info_len = WCN_AT_RSP_RAW_FLAG;
 	int ret = 0;
 	struct wcn_slpinfo_desc *slpinfo = wcn_get_slpinfo_data();

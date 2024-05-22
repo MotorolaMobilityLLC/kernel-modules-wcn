@@ -233,15 +233,16 @@ int buf_list_alloc(int chn, struct mbuf_t **head,
 
 	pool = &((chn_inf + chn)->pool);
 
+	spin_lock_bh(&(pool->lock));
 	if ((*num <= 0) || (pool->free <= 0)) {
 		pr_err("[+]%s err, num %d, free %d)\n",
 		       __func__, *num, pool->free);
 		*num = 0;
 		*head = *tail = NULL;
+		spin_unlock_bh(&(pool->lock));
 		return -1;
 	}
 
-	spin_lock_bh(&(pool->lock));
 	buf_pool_check(pool);
 	if (*num > (int)pool->free)
 		*num = pool->free;
@@ -291,11 +292,12 @@ int buf_list_free(int chn, struct mbuf_t *head, struct mbuf_t *tail, int num)
 	}
 
 	pool = &((chn_inf + chn)->pool);
+	spin_lock_bh(&(pool->lock));
 	if (pool->mem == NULL) {
 		pr_err("%s channel has been released\n", __func__);
+		spin_unlock_bh(&(pool->lock));
 		return -1;
 	}
-	spin_lock_bh(&(pool->lock));
 	buf_list_check(pool, head, tail, num);
 	tail->next = pool->head;
 	pool->head = head;
@@ -312,6 +314,10 @@ int bus_chn_init(struct mchn_ops_t *ops, int hif_type)
 	struct chn_info_t *chn_inf = chn_info();
 
 	pr_info("[+]%s(%d, %d)\n", __func__, ops->channel, ops->hif_type);
+
+	if (ops->channel >= CHN_MAX_NUM || ops->channel < 0)
+		return -1;
+
 	if ((chn_inf + ops->channel)->ops != NULL) {
 		pr_err("%s err, hif_type %d\n", __func__, ops->hif_type);
 		WARN_ON_ONCE(1);

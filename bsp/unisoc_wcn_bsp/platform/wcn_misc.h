@@ -63,26 +63,13 @@ struct wcn_tm {
 };
 
 #if IS_ENABLED(CONFIG_SPRD_POWER_DEBUG) || IS_ENABLED(CONFIG_SPRD_PDBG)
-enum intc_wakeup_irq {
-	WAKEUP_BY_EIC_LATCH_SDIO_AP_WAKE_PULSE, /* SD_CLK_DSlp_Handler */
-	WAKEUP_BY_AON_INTC_TOP_AON_INT_IRQ_REQ_BB_TS, /* top_aon_isr */
-	WAKEUP_BY_TB_SDIO_INTC_SRC_INT, /* Enable before deepsleep */
-	WAKEUP_BY_TB_TMR0_TMR0_INTC_INT, /* Enable before deepsleep */
-	WAKEUP_BY_TB_MAC_INTC_INT, /* Enable before deepsleep */
-	WAKEUP_BY_TB_FIQ_BT_MASKED_AUX_TMR, /* Enable before deepsleep */
-	WAKEUP_BY_TB_FM_INTC_SRC_INT, /* Enable before deepsleep */
-	WAKEUP_BY_BT_TIM, /* BT_TIM, PKD, PKA */
-	WAKEUP_BY_BT_ACCELERATOR, /* BT_ACCELERATOR, BT_MODEM */
-	WAKEUP_BY_OTHERS,
-	WAKEUP_BY_INVALID,
-};
-
 enum {
 	WCN_ACTIVE,
 	WCN_DEEPSLEEP,
 	WCN_POWER_OFF,
 };
 
+#define WAKEUP_BY_INVALID 10
 #define WCN_SLP_INFO_SYNC_LABEL "BTWFSYS"
 #define WAKEUP_SOURCE_IRQ_MAX WAKEUP_BY_INVALID
 

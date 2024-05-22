@@ -20,7 +20,7 @@
 
 #define CHR_VERSION			1
 #define CHR_ARR_SIZE			64
-#define CHR_BUF_SIZE			1024
+#define CHR_BUF_SIZE			800
 #define CHR_CP2_DATA_LEN		11
 #define CHR_WAIT_TIMEOUT		2000
 #define CHR_CONNECT_LIMIT		10

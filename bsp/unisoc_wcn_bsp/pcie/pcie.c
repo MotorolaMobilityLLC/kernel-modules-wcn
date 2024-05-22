@@ -1279,10 +1279,14 @@ static int sprd_ep_suspend(struct device *dev)
 	}
 	mdbg_device_unlock_notify();
 
-	if (edma_hw_pause() < 0) {
-		atomic_set(&priv->is_suspending, 0);
-		return -1;
-	}
+	if (edma_hw_pause() < 0)
+		goto power_notify_resume;
+
+	/* delay 2ms for trans chn data finish */
+	mdelay(2);
+
+	if (edma_pending_irq_check())
+		goto suspend_failed;
 
 	WCN_INFO("%s[+]\n", __func__);
 
@@ -1299,6 +1303,24 @@ static int sprd_ep_suspend(struct device *dev)
 	WCN_INFO("%s[-]\n", __func__);
 
 	return 0;
+suspend_failed:
+	edma_hw_restore();
+
+power_notify_resume:
+	mdbg_device_lock_notify();
+	for (chn = chn - 1; chn >= 0; chn--) {
+		ops = mchn_ops(chn);
+		if ((ops != NULL) && (ops->power_notify != NULL)) {
+			ret = ops->power_notify(chn, 1);
+			if (ret != 0)
+				WCN_ERR("[%s] chn:%d resume fail\n", __func__, chn);
+		}
+	}
+	mdbg_device_unlock_notify();
+
+	atomic_set(&priv->is_suspending, 0);
+	wcn_bus_change_state(priv, WCN_BUS_UP);
+	return -1;
 }
 
 static int sprd_ep_resume(struct device *dev)

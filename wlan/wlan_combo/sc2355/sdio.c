@@ -573,6 +573,7 @@ void sc2355_handle_pop_list(void *data)
 	struct list_head tmp_list;
 	struct sprd_msg *msg_head, *msg_tail;
 
+	INIT_LIST_HEAD(&tmp_list);
 	tx_mgmt = (struct tx_mgmt *)hif->tx_mgmt;
 	mbuf_pos = (struct mbuf_t *)pop->head;
 	msg_pos = GET_MSG_BUF(mbuf_pos);
