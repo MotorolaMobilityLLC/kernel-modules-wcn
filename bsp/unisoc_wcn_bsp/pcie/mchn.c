@@ -169,8 +169,10 @@ int mchn_hw_tx_complete(int chn, int timeout)
 {
 	struct mchn_info_t *mchn = mchn_info();
 
-	if (mchn->ops[chn] == NULL)
+	if (mchn->ops[chn] == NULL) {
 		WARN_ON(1);
+		return -1;
+	}
 	if (mchn->ops[chn]->tx_complete)
 		mchn->ops[chn]->tx_complete(chn, timeout);
 
