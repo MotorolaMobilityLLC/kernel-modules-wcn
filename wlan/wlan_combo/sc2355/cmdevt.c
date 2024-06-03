@@ -2485,7 +2485,7 @@ int sc2355_notify_ip(struct sprd_priv *priv, struct sprd_vif *vif, u8 ip_type,
 		return -EINVAL;
 
 	entry = sc2355_find_peer_entry_using_addr(vif, vif->bssid);
-	if (entry && ip_type == SPRD_IPV4) {
+	if (entry) {
 		if (entry->ctx_id == vif->ctx_id)
 			entry->ip_acquired = 1;
 		else
