@@ -999,6 +999,9 @@ int sc2355_tx_free_sipc_data(unsigned char *data)
 	struct sipc_buf_node *node = NULL;
 	static unsigned long caller_jiffies;
 	struct sprd_priv *priv = hif->priv;
+	struct sprd_msg *pos_msg = NULL;
+	unsigned long lockflag_txc = 0;
+	bool found = false;
 
 	wl_all("%s:=0x%p %p %p\n", __func__, data, tx_mgmt, hif);
 
@@ -1025,6 +1028,23 @@ int sc2355_tx_free_sipc_data(unsigned char *data)
 	for (i = 0; i < data_num; i++, pos++) {
 		memcpy(&sipc_addr, pos, SPRD_PHYS_LEN);
 		sipc_addr -= 0x10;	//Workaround for HW issue
+
+		found = false;
+		spin_lock_irqsave(&tx_mgmt->xmit_msg_list.free_lock, lockflag_txc);
+		list_for_each_entry(pos_msg, &tx_mgmt->xmit_msg_list.to_free_list,
+					list) {
+			if (pos_msg->pcie_addr == sipc_addr) {
+				found = true;
+				break;
+			}
+		}
+		spin_unlock_irqrestore(&tx_mgmt->xmit_msg_list.free_lock, lockflag_txc);
+
+		if (!found) {
+			wl_err("%s: sipc_addr %p not in to free list\n",
+						__func__, sipc_addr);
+			continue;
+		}
 
 		wl_all("%s: sipc_addr=0x%lx", __func__, sipc_addr);
 		phy_addr = sipc_addr & (~(SPRD_MH_ADDRESS_BIT) & SPRD_PHYS_MASK);
