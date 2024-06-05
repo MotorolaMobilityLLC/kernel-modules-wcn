@@ -1239,6 +1239,24 @@ int wcn_sys_power_clock_unsupport(bool is_btwf_sys)
 	return 0;
 }
 
+void wcn_sys_aonip_force_on(struct wcn_device *wcn_dev, bool set)
+{
+	u32 reg_val = 0, setclr_oft = set ? 0x1000 : 0x2000;
+
+	wcn_regmap_read(wcn_dev->rmap[REGMAP_AON_APB],
+				 0x0358, &reg_val);
+	WCN_INFO("REG 0x64000358:val=0x%x!\n", reg_val);
+
+	reg_val = (1 << 26);
+
+	wcn_regmap_raw_write_bit(wcn_dev->rmap[REGMAP_AON_APB],
+				0x0358 + setclr_oft, reg_val);
+	wcn_regmap_read(wcn_dev->rmap[REGMAP_AON_APB],
+				 0x0358, &reg_val);
+	WCN_INFO("Set REG 0x64000358:val=0x%x!(AON IP Force on %s)\n",
+		reg_val, set ? "set" : "clear");
+}
+
 /* WCN SYS powerup:PMU support WCN SYS power switch on.
  * The WCN SYS will be at power on and wakeup status.
  */
@@ -1251,6 +1269,8 @@ int wcn_sys_power_up(struct wcn_device *wcn_dev)
 		WCN_ERR("[-]%s NULL\n", __func__);
 		return -1;
 	}
+
+	wcn_sys_aonip_force_on(wcn_dev, true);
 
 	/* PMU XTL, XTL-Buf, PLL stable delay count for WCN SYS
 	 * one count time is 1/(32*1024) second.(PMU Clock is 32k)
@@ -1332,6 +1352,7 @@ int wcn_sys_power_up(struct wcn_device *wcn_dev)
 	 * The XTL, XTL-BUF, PLL1, PLL2 stable time is about 6.x ms
 	 */
 	msleep(WCN_SYS_POWER_ON_WAKEUP_TIME);
+	wcn_sys_aonip_force_on(wcn_dev, false);
 
 	/*
 	 * Special Debug:maybe btwf,gnss sys wakeup too slow
