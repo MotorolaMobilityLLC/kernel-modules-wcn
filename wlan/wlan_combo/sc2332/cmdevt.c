@@ -619,6 +619,8 @@ int sc2332_send_cmd_recv_rsp(struct sprd_priv *priv, struct sprd_msg *msg,
 		}
 	}
 
+	reinit_completion(&cmd->completed);
+
 	ret = cmdevt_send_cmd(priv, msg);
 	if (ret) {
 		cmdevt_unlock_cmd(cmd);
