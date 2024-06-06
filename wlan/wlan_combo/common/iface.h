@@ -115,6 +115,7 @@ struct sprd_vif {
 	u8 random_mac[ETH_ALEN];
 	bool has_rand_mac;
 	u8 wps_flag;
+	s8 sae_param_status;
 #ifdef ENABLE_DFS
 	/* dfs master mode */
 	struct workqueue_struct *dfs_cac_workqueue;

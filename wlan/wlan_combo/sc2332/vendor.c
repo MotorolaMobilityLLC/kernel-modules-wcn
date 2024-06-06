@@ -2043,8 +2043,11 @@ static int vendor_softap_set_sae_para(struct sprd_vif *vif,
 	memcpy(param->data, data, data_len);
 
 	ret = send_cmd_recv_rsp(vif->priv, msg, NULL, NULL);
-	if (ret)
+	if (ret || (vif->sae_param_status != 0)) {
 		netdev_info(vif->ndev, "set sae para failed, ret=%d\n", ret);
+		vif->sae_param_status = 0;
+		ret = -EINVAL;
+	}
 
 	kfree(data);
 	return ret;
