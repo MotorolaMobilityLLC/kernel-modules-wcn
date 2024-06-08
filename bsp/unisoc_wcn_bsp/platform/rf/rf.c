@@ -494,7 +494,7 @@ static void get_cmd_par(const char *str, struct nvm_cali_cmd *cmd)
 			tmp[j] = '\0';
 
 			if ((bufType == 1) && (flag == 0)) {
-				strcpy(cmd->itm, tmp);
+				strscpy(cmd->itm, tmp, sizeof(cmd->itm));
 				flag = 1;
 			} else {
 				if (kstrtos64(tmp, 0, &val))

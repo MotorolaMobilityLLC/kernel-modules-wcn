@@ -993,7 +993,7 @@ static int sdiohal_enable_slave_irq(void)
 {
 	struct sdiohal_data_t *p_data = sdiohal_get_data();
 	int err;
-	unsigned char reg_val;
+	unsigned char reg_val, reg_val_t;
 
 	sdiohal_resume_check();
 	sdiohal_op_enter();
@@ -1002,8 +1002,9 @@ static int sdiohal_enable_slave_irq(void)
 			     SDIOHAL_FBR_DEINT_EN, &err);
 	sdio_writeb(p_data->sdio_func[FUNC_0],
 		    reg_val | VAL_DEINT_ENABLE, SDIOHAL_FBR_DEINT_EN, &err);
-	reg_val = sdio_readb(p_data->sdio_func[FUNC_0],
+	reg_val_t = sdio_readb(p_data->sdio_func[FUNC_0],
 			     SDIOHAL_FBR_DEINT_EN, &err);
+	sdiohal_debug("%s:0x%x - 0x%x\n", __func__, reg_val, reg_val_t);
 	sdio_release_host(p_data->sdio_func[FUNC_0]);
 	sdiohal_op_leave();
 
@@ -1403,6 +1404,9 @@ static void sdiohal_remove(struct sdio_func *func)
 	if (p_data->irq_num != 0)
 		free_irq(p_data->irq_num, &func->dev);
 
+	if (func->num == 1)
+		kfree(p_data->sdio_func[FUNC_0]);
+
 	pr_info("%s remove card successful\n", __func__);
 }
 
@@ -1558,6 +1562,7 @@ int sdiohal_init(void)
 
 	if (sdiohal_parse_dt() < 0) {
 		kfree(p_data);
+		p_data = NULL;
 		return -1;
 	}
 
@@ -1565,6 +1570,7 @@ int sdiohal_init(void)
 	if (ret != 0) {
 		kfree(p_data);
 		pr_err("sdiohal_misc_init error :%d\n", ret);
+		p_data = NULL;
 		return -1;
 	}
 
@@ -1573,6 +1579,7 @@ int sdiohal_init(void)
 	p_data->flag_init = true;
 	/* card not ready */
 	atomic_set(&p_data->xmit_cnt, SDIOHAL_REMOVE_CARD_VAL);
+	spin_lock_init(&p_data->debug_spinlock);
 #if 0
 #ifdef CONFIG_DEBUG_FS
 	sdiohal_debug_init();
@@ -1580,7 +1587,6 @@ int sdiohal_init(void)
 #endif
 
 	pr_info("%s sdiohal driver init successful\n", __func__);
-
 	return 0;
 }
 

@@ -84,8 +84,10 @@ static void tx_flush_data_txlist(struct tx_mgmt *tx_mgmt)
 			spin_lock_irqsave(&tx_mgmt->xmit_msg_list.free_lock,
 					  lockflag_txfree);
 			list_for_each_entry_safe(pos_buf, temp_buf,
-						 data_list, list)
-				sc2355_dequeue_tofreelist_buf(tx_mgmt->hif, pos_buf);
+						 data_list, list) {
+				tx_dequeue_data_msg(tx_mgmt->hif, pos_buf);
+				atomic_dec(&tx_mgmt->xmit_msg_list.free_num);
+			}
 			spin_unlock_irqrestore(&tx_mgmt->xmit_msg_list.free_lock,
 					       lockflag_txfree);
 			goto out;
@@ -1066,13 +1068,26 @@ void sc2355_free_cmd_buf(struct sprd_msg *msg, struct sprd_msg_list *list)
 	sprd_free_msg(msg, list);
 }
 
-void sc2355_dequeue_tofreelist_buf(struct sprd_hif *hif, struct sprd_msg *msg)
+void sc2355_flush_mode_tofreelist(struct sprd_hif *hif, struct sprd_vif *vif)
 {
+	struct tx_mgmt *tx_mgmt = NULL;
+	struct sprd_msg *pos_buf = NULL, *temp_buf = NULL;
+	unsigned long lockflag_txfree = 0;
+	struct list_head *data_list = NULL;
 
-	if (hif->ops->free_msg_content)
-		hif->ops->free_msg_content(msg);
-	list_del(&msg->list);
-	sprd_free_msg(msg, msg->msglist);
+	tx_mgmt = (struct tx_mgmt *)hif->tx_mgmt;
+	data_list = &tx_mgmt->xmit_msg_list.to_free_list;
+
+	spin_lock_irqsave(&tx_mgmt->xmit_msg_list.free_lock, lockflag_txfree);
+	list_for_each_entry_safe(pos_buf, temp_buf, data_list, list) {
+		if (pos_buf->mode == vif->mode) {
+			wl_info("%s: msg_buf %lx, pcie_addr %lx\n",
+					__func__, pos_buf, pos_buf->pcie_addr);
+			tx_dequeue_data_msg(tx_mgmt->hif, pos_buf);
+			atomic_dec(&tx_mgmt->xmit_msg_list.free_num);
+		}
+	}
+	spin_unlock_irqrestore(&tx_mgmt->xmit_msg_list.free_lock, lockflag_txfree);
 }
 
 void sc2355_flush_tx_qoslist(struct tx_mgmt *tx_mgmt, int mode,
@@ -1265,6 +1280,10 @@ void sc2355_handle_tx_status_after_close(struct sprd_vif *vif)
 		     0))
 			sc2355_flush_mode_txlist(tx_mgmt, vif->mode);
 	}
+
+	if (!(vif->state & VIF_STATE_OPEN) && ((priv->hif.hw_type == SPRD_HW_SC2355_PCIE)
+		   || (priv->hif.hw_type == SPRD_HW_SC2355_SIPC)))
+		sc2355_flush_mode_tofreelist(hif, vif);
 }
 
 unsigned int sc2355_queue_is_empty(struct tx_mgmt *tx_mgmt, enum sprd_mode mode)
@@ -1676,9 +1695,9 @@ int sc2355_reset(struct sprd_hif *hif)
 		if (vif->mode != SPRD_MODE_NONE) {
 			wl_debug("need reset mode to none: %d\n", vif->mode);
 			vif->state &= ~VIF_STATE_OPEN;
+			sc2355_handle_tx_status_after_close(vif);
 			vif->mode = SPRD_MODE_NONE;
 			vif->ctx_id = 0;
-			sc2355_handle_tx_status_after_close(vif);
 		}
 
 		/* reset ssid & bssid */
@@ -1812,9 +1831,9 @@ int sc2355_reset_self(struct sprd_priv *priv)
 		if (vif->mode != SPRD_MODE_NONE) {
 			wl_all("need reset mode to none: %d\n", vif->mode);
 			vif->state &= ~VIF_STATE_OPEN;
+			sc2355_handle_tx_status_after_close(vif);
 			vif->mode = SPRD_MODE_NONE;
 			vif->ctx_id = 0;
-			sc2355_handle_tx_status_after_close(vif);
 		}
 		/* reset ssid & bssid */
 		memset(vif->bssid, 0, sizeof(vif->bssid));

@@ -309,8 +309,10 @@ static int do_wcn_firmware_sec_verify(struct firmware_verify_ctrl *verify_ctrl)
 tpic_disconnect:
 	wcn_ca_tipc_disconnect(verify_ctrl->ca_tipc_ctx);
 	kfree(verify_result);
+	verify_result = NULL;
 free_request_buff:
 	kfree(verify_request);
+	verify_request = NULL;
 ret:
 	return rc;
 }
