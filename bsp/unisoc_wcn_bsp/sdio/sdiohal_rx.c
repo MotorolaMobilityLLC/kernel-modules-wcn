@@ -180,6 +180,7 @@ static int sdiohal_rx_buf_parser(char *data_buf, int valid_len)
 			+ SDIOHAL_ALIGN_4BYTE(puh->len);
 		puh = (struct bus_puh_t *)p;
 	}
+	data_list = NULL;
 
 	return 0;
 }

@@ -102,6 +102,7 @@ static long wcn_op_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	if (copy_from_user(ptr, wcn_op_attr.val, sizeof(wcn_op_attr.length))) {
 		pr_err("%s copy from user error! Address invalid\n", __func__);
 		kfree(ptr);
+		ptr = NULL;
 		return -EFAULT;
 	}
 
@@ -113,6 +114,7 @@ static long wcn_op_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 					 wcn_op_attr.length)) {
 				pr_err("%s copy from user error!\n", __func__);
 				kfree(ptr);
+				ptr = NULL;
 				return -EFAULT;
 			}
 		} else
@@ -129,6 +131,7 @@ static long wcn_op_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	}
 
 	kfree(ptr);
+	ptr = NULL;
 
 	return ret;
 }

@@ -17,6 +17,7 @@
 #include "sitm.h"
 #include "../unisoc_bt_log.h"
 
+struct mutex		write_lock;
 
 extern struct device *ttyBT_dev;
 static const uint8_t preamble_sizes[] = {
@@ -31,6 +32,7 @@ static struct packet_receive_data_t *rd;
 
 int sitm_ini(void)
 {
+	mutex_init(&write_lock);
 	rd = kmalloc(sizeof(struct packet_receive_data_t),
 		GFP_KERNEL);
 	if (NULL == rd) {
@@ -51,9 +53,11 @@ int sitm_cleanup(void)
 {
 	if (rd == NULL)
 		return 0;
+	mutex_lock(&write_lock);
 	kfifo_free(&rd->fifo);
 	kfree(rd);
 	rd = NULL;
+	mutex_unlock(&write_lock);
 	return 0;
 }
 
@@ -175,10 +179,12 @@ int sitm_write(const uint8_t *buf, int count, frame_complete_cb frame_complete)
 #endif
 {
 	ssize_t ret;
+	mutex_lock(&write_lock);
 
 	if (!rd) {
 		dev_unisoc_bt_err(ttyBT_dev,
 							"hci fifo no memory\n");
+		mutex_unlock(&write_lock);
 		return count;
 	}
 
@@ -186,6 +192,7 @@ int sitm_write(const uint8_t *buf, int count, frame_complete_cb frame_complete)
 	if (ret == 0) {
 		dev_unisoc_bt_err(ttyBT_dev,
 							"hci fifo no memory\n");
+		mutex_unlock(&write_lock);
 		return ret;
 	} else if (ret < count) {
 		dev_unisoc_bt_err(ttyBT_dev,
@@ -195,6 +202,7 @@ int sitm_write(const uint8_t *buf, int count, frame_complete_cb frame_complete)
 
 	kfifo_in(&rd->fifo, buf, count);
 	parse_frame(data_ready, frame_complete);
+	mutex_unlock(&write_lock);
 	return count;
 }
 

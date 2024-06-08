@@ -41,6 +41,9 @@ void sdiohal_debug_point_show(void)
 	for (i = 0; i < SDIO_DEBUG_CMD_REQ_POINT_NUM; i++)
 		pr_info("tm_sdio_cmd_req[%d], time=%llu", i, p_data->tm_sdio_cmd_req[i]);
 
+	pr_info("tm_wakeup_begin: %lld, tm_wakeup_end: %lld\n",
+		p_data->tm_wakeup_begin, p_data->tm_wakeup_end);
+
 	if (p_data->op_enter_ns > p_data->op_leave_ns)
 		pr_info("WARNING: Task(%s) holds xmit_lock!!!", p_data->sdcb.op_enter_comm);
 
@@ -80,6 +83,7 @@ void sdiohal_debug_point_store(int type, int channel, int num, struct mbuf_t *he
 	struct sdiohal_data_t *p_data = sdiohal_get_data();
 	int *index = NULL;
 	struct sdiohal_xmit_debug_point *point = NULL;
+	unsigned long flags;
 
 	WARN(type <= TX_LIST_PUSH && channel >= SDIO_CHN_TX_NUM,
 			"debug point check(1) %d,%d\n", type, channel);
@@ -87,6 +91,8 @@ void sdiohal_debug_point_store(int type, int channel, int num, struct mbuf_t *he
 			"debug point check(2) %d,%d\n", type, channel);
 	WARN((channel >= SDIO_CHN_TX_NUM) && tx_direct,
 			"debug point check(3) %d,%d\n", type, channel);
+
+	spin_lock_irqsave(&p_data->debug_spinlock, flags);
 
 	switch (type) {
 	case TX_LIST_PUSH:
@@ -98,14 +104,16 @@ void sdiohal_debug_point_store(int type, int channel, int num, struct mbuf_t *he
 		index = &p_data->sdcb.rx_list_dispatch_index;
 		break;
 	default:
-		pr_err("unexpected!\n");
-		break;
+		pr_err("unexpected! type:%d\n", type);
+		spin_unlock_irqrestore(&p_data->debug_spinlock, flags);
+		return;
 	};
 
 	if (index != NULL && *index >= SDIO_DEBUG_POINT_NUM)
 		*index = 0;
 
 	__sdiohal_debug_point_store(channel, num, head, tail, &point[(*index)++], tx_direct);
+	spin_unlock_irqrestore(&p_data->debug_spinlock, flags);
 }
 
 void sdiohal_print_list_data(struct sdiohal_list_t *data_list,
@@ -121,7 +129,7 @@ void sdiohal_print_list_data(struct sdiohal_list_t *data_list,
 		return;
 	}
 
-	sprintf(print_str, "%s list: ", func);
+	snprintf(print_str, sizeof(print_str), "%s list: ", func);
 	node = data_list->mbuf_head;
 	for (i = 0; i < data_list->node_num; i++, node = node->next) {
 		if (!node)
@@ -150,7 +158,7 @@ void sdiohal_print_mbuf_data(int channel, struct mbuf_t *head,
 		return;
 	}
 
-	sprintf(print_str, "%s mbuf: ", func);
+	snprintf(print_str, sizeof(print_str), "%s mbuf: ", func);
 
 	node = head;
 	for (i = 0; i < num; i++, node = node->next) {
@@ -917,7 +925,6 @@ int sdiohal_rx_list_dispatch(void)
 			times_count = 0;
 		}
 	}
-
 	return 0;
 }
 
@@ -1118,6 +1125,7 @@ struct sdiohal_list_t *sdiohal_get_rx_mbuf_list(int num)
 			sdiohal_rx_list_free(idle_list->mbuf_head,
 				idle_list->mbuf_tail, num);
 			kfree(idle_list);
+			idle_list = NULL;
 			goto err;
 		}
 		WARN_ON_ONCE((unsigned long int)
@@ -1453,6 +1461,7 @@ static void sdiohal_eof_buf_deinit(void)
 	struct sdiohal_data_t *p_data = sdiohal_get_data();
 
 	kfree(p_data->eof_buf);
+	p_data = NULL;
 }
 
 static int sdiohal_dtbs_buf_init(void)

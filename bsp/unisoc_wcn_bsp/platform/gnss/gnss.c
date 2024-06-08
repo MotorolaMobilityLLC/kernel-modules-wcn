@@ -228,11 +228,13 @@ int gnss_boot_wait(void)
 			if (!wcn_get_edma_status() || wcn_get_card_remove_status()) {
 				pr_err("%s:card removed.stop boot gnss", __func__);
 				kfree(buffer);
+				buffer = NULL;
 				return -1;
 			}
 			if (sprdwcn_bus_get_carddump_status()) {
 				pr_err("%s:stop boot gnss in dump status", __func__);
 				kfree(buffer);
+				buffer = NULL;
 				return -1;
 			}
 		}
@@ -257,6 +259,7 @@ int gnss_boot_wait(void)
 		msleep(20);
 	}
 	kfree(buffer);
+	buffer = NULL;
 
 	return ret;
 }

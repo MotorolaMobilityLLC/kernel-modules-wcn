@@ -87,6 +87,7 @@
 
 #define WCN_PCIE_DEV_AND_VND_ID 0x180000
 #define WCN_PCIE_CMD 0x180004
+#define WCN_PCIE_LO_RX_POP_MAX 128
 
 struct bar_info {
 	resource_size_t mmio_start;

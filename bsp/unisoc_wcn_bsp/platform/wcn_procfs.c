@@ -1057,7 +1057,8 @@ static ssize_t mdbg_proc_write(struct file *filp,
 			MARLIN_64B_NS_TO_32B_MS(loopcheck_tx_ns);
 			MARLIN_64B_NS_TO_32B_MS(marlin_boot_t);
 
-			sprintf(mdbg_proc->write_buf, "at+loopcheck=%llu,%llu\r",
+			snprintf(mdbg_proc->write_buf, sizeof(mdbg_proc->write_buf),
+				"at+loopcheck=%llu,%llu\r",
 				loopcheck_tx_ns, marlin_boot_t);
 			/* Be care the count value changed here before send to CP2 */
 			count = strlen(mdbg_proc->write_buf);

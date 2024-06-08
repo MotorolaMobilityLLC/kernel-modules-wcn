@@ -1332,8 +1332,10 @@ static int sprd_ep_resume(struct device *dev)
 	struct wcn_pcie_info *priv = pci_get_drvdata(pdev);
 
 	WCN_INFO("%s[+]\n", __func__);
-	if (!pdev)
+	if (priv == NULL) {
+		WCN_ERR("priv is NULL!\n");
 		return 0;
+	}
 
 	ret = pci_set_power_state(pdev, PCI_D0);
 	WCN_INFO("pci_set_power_state(PCI_D0) ret %d\n", ret);
@@ -1430,6 +1432,7 @@ void sprd_pcie_exit(void)
 	WCN_INFO("%s\n", __func__);
 	pci_unregister_driver(&sprd_pcie_driver);
 	kfree(priv);
+	priv = NULL;
 }
 
 //module_init(sprd_pcie_init);

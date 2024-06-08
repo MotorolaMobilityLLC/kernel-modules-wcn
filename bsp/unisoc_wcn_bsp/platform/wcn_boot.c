@@ -1240,7 +1240,7 @@ static void wcn_get_pmic_config(struct device_node *np)
 		return;
 
 	pmic = &marlin_dev->avdd12_parent_bound_chip;
-	strcpy(pmic->name, "avdd12-parent-bound-chip");
+	strscpy(pmic->name, "avdd12-parent-bound-chip", sizeof(pmic->name));
 	ret = of_property_read_u32_array(np, pmic->name,
 					 (u32 *)pmic->config,
 					 WCN_BOUND_CONFIG_NUM);
@@ -1248,7 +1248,8 @@ static void wcn_get_pmic_config(struct device_node *np)
 	pr_info("vddgen1-bound-chip config enable:%d\n", pmic->enable);
 
 	pmic = &marlin_dev->avdd12_bound_wbreq;
-	strcpy(pmic->name, "avdd12-bound-wbreq");
+	strscpy(pmic->name, "avdd12-bound-wbreq",
+		sizeof(pmic->name));
 	ret = of_property_read_u32_array(np, pmic->name,
 					 (u32 *)pmic->config,
 					 WCN_BOUND_CONFIG_NUM);
@@ -1256,7 +1257,8 @@ static void wcn_get_pmic_config(struct device_node *np)
 	pr_info("avdd12-bound-wbreq config status:%d\n", pmic->enable);
 
 	pmic = &marlin_dev->avdd33_bound_wbreq;
-	strcpy(pmic->name, "avdd33-bound-wbreq");
+	strscpy(pmic->name, "avdd33-bound-wbreq",
+		sizeof(pmic->name));
 	ret = of_property_read_u32_array(np, pmic->name,
 					 (u32 *)pmic->config,
 					 WCN_BOUND_CONFIG_NUM);
@@ -1582,7 +1584,8 @@ static int marlin_parse_dt(struct platform_device *pdev)
 				      (const char **)&marlin_dev->btwf_path);
 	if (!ret) {
 		pr_info("btwf firmware name:%s\n", marlin_dev->btwf_path);
-		strcpy(BTWF_FIRMWARE_PATH, marlin_dev->btwf_path);
+		strscpy(BTWF_FIRMWARE_PATH, marlin_dev->btwf_path,
+			sizeof(BTWF_FIRMWARE_PATH));
 		pr_info("BTWG path is %s\n", BTWF_FIRMWARE_PATH);
 	}
 
@@ -1593,7 +1596,8 @@ static int marlin_parse_dt(struct platform_device *pdev)
 				      (const char **)&marlin_dev->gnss_path);
 	if (!ret) {
 		pr_info("gnss firmware name:%s\n", marlin_dev->gnss_path);
-		strcpy(GNSS_FIRMWARE_PATH, marlin_dev->gnss_path);
+		strscpy(GNSS_FIRMWARE_PATH, marlin_dev->gnss_path,
+			sizeof(GNSS_FIRMWARE_PATH));
 	}
 
 	if (of_property_read_bool(np, "btwf-wakeup-lock")) {
@@ -1618,10 +1622,10 @@ static int marlin_parse_dt(struct platform_device *pdev)
 
 	if (slot_suffix) {
 		if (strcmp(slot_suffix, "_a") == 0) {
-			strcat(BTWF_FIRMWARE_PATH, "_a");
+			strncat(BTWF_FIRMWARE_PATH, "_a", 2);
 			//strcat(GNSS_FIRMWARE_PATH, "_a");
 		} else if (strcmp(slot_suffix, "_b") == 0) {
-			strcat(BTWF_FIRMWARE_PATH, "_b");
+			strncat(BTWF_FIRMWARE_PATH, "_b", 2);
 			//strcat(GNSS_FIRMWARE_PATH, "_b");
 		}
 	} else {
@@ -1630,10 +1634,10 @@ static int marlin_parse_dt(struct platform_device *pdev)
 			if (parse_cmdline) {
 				pr_debug("fstab: %s\n", parse_cmdline);
 				if (!strncmp(parse_cmdline + strlen(SUFFIX), "_a", 2)) {
-					strcat(BTWF_FIRMWARE_PATH, "_a");
+					strncat(BTWF_FIRMWARE_PATH, "_a", 2);
 					//strcat(GNSS_FIRMWARE_PATH, "_a");
 				} else if (!strncmp(parse_cmdline + strlen(SUFFIX), "_b", 2)) {
-					strcat(BTWF_FIRMWARE_PATH, "_b");
+					strncat(BTWF_FIRMWARE_PATH, "_b", 2);
 					//strcat(GNSS_FIRMWARE_PATH, "_b");
 				}
 			} else {
@@ -1641,10 +1645,10 @@ static int marlin_parse_dt(struct platform_device *pdev)
 				if (parse_cmdline) {
 					pr_debug("fstab_sprdboot: %s\n", parse_cmdline);
 					if (!strncmp(parse_cmdline + strlen(SUFFIXS), "_a", 2)) {
-						strcat(BTWF_FIRMWARE_PATH, "_a");
+						strncat(BTWF_FIRMWARE_PATH, "_a", 2);
 						//strcat(GNSS_FIRMWARE_PATH, "_a");
 					} else if (!strncmp(parse_cmdline + strlen(SUFFIXS), "_b", 2)) {
-						strcat(BTWF_FIRMWARE_PATH, "_b");
+						strncat(BTWF_FIRMWARE_PATH, "_b", 2);
 						//strcat(GNSS_FIRMWARE_PATH, "_b");
 					}
 				}
@@ -1760,8 +1764,7 @@ int marlin_avdd18_dcxo_enable(bool enable)
 
 	if (enable) {
 		if (g_match_config && !g_match_config->unisoc_wcn_pcie) {
-			if (!marlin_dev->bound_dcxo18 &&
-			    regulator_is_enabled(marlin_dev->dcxo18)) {
+			if (marlin_dev->dcxo18_status) {
 				pr_info("avdd18_dcxo 1v8 have enable\n");
 				return 0;
 			}
@@ -1771,6 +1774,7 @@ int marlin_avdd18_dcxo_enable(bool enable)
 		pr_info("avdd18_dcxo set 1v8\n");
 		if (!marlin_dev->bound_dcxo18) {
 			ret = regulator_enable(marlin_dev->dcxo18);
+			marlin_dev->dcxo18_status = true;
 			pr_info("avdd18_dcxo power enable\n");
 			if (ret)
 				pr_err("fail to enable avdd18_dcxo\n");
@@ -1780,6 +1784,7 @@ int marlin_avdd18_dcxo_enable(bool enable)
 		    regulator_is_enabled(marlin_dev->dcxo18)) {
 			pr_info("avdd18_dcxo power disable\n");
 			ret = regulator_disable(marlin_dev->dcxo18);
+			marlin_dev->dcxo18_status = false;
 			if (ret)
 				pr_err("fail to disable avdd18_dcxo\n");
 		}
@@ -3454,9 +3459,9 @@ int marlin_set_wakeup(enum wcn_sub_sys subsys)
 {
 	int ret = 0;	/* temp */
 
-	return 0;
 	if (!atomic_read(&marlin_dev->download_finish_flag))
-		return -1;
+		pr_err("%s download_finish_flag is %d", __func__,
+			atomic_read(&marlin_dev->download_finish_flag));
 
 	return ret;
 }
@@ -3464,12 +3469,13 @@ EXPORT_SYMBOL_GPL(marlin_set_wakeup);
 
 int marlin_set_sleep(enum wcn_sub_sys subsys, bool enable)
 {
-	return 0;	/* temp */
+	int ret = 0;	/* temp */
 
 	if (!atomic_read(&marlin_dev->download_finish_flag))
-		return -1;
+		pr_err("%s download_finish_flag is %d", __func__,
+			atomic_read(&marlin_dev->download_finish_flag));
 
-	return 0;
+	return ret;
 }
 EXPORT_SYMBOL_GPL(marlin_set_sleep);
 
