@@ -278,7 +278,6 @@ void sc2355_flush_tx_qoslist(struct tx_mgmt *tx_mgmt, int mode, int ac_index,
 void sc2355_flush_mode_txlist(struct tx_mgmt *tx_mgmt, enum sprd_mode mode);
 void sc2355_flush_tosendlist(struct tx_mgmt *tx_mgmt);
 bool sc2355_is_vowifi_pkt(struct sk_buff *skb, bool *b_cmd_path);
-void sc2355_dequeue_tofreelist_buf(struct sprd_hif *hif, struct sprd_msg *msg);
 void sc2355_tx_flush(struct sprd_hif *hif, struct sprd_vif *vif);
 int sc2355_tx_special_data(struct sk_buff *skb, struct net_device *ndev);
 int sc2355_send_data(struct sprd_vif *vif, struct sprd_msg *msg,

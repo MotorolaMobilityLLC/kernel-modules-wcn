@@ -442,6 +442,7 @@ int sc2355_assert_cmd(struct sprd_priv *priv, u8 cmd_id,
 
 		mdbg_assert_interface(buf);
 
+
 		return 1;
 	} else {
 		return -1;
@@ -651,9 +652,9 @@ int sc2355_send_cmd_recv_rsp(struct sprd_priv *priv, struct sprd_msg *msg, u8 *r
 	cmdevt_unlock_cmd(cmd, hif);
 	return ret;
 out:
-	sprd_chip_free_msg(&priv->chip, msg);
 	kfree(msg->tran_data);
 	msg->tran_data = NULL;
+	sprd_chip_free_msg(&priv->chip, msg);
 	if (rlen)
 		*rlen = 0;
 	return ret;

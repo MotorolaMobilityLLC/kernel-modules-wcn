@@ -153,21 +153,25 @@ static void wcn_bus_change_state(struct wcn_pcie_info *bus,
 	bus->pci_status = state;
 }
 
-static bool sprd_pcie_check_linkup(void)
+bool sprd_pcie_check_linkup(void)
 {
-	u32 val, trycnt = 1;
+	u32 val;
 	struct wcn_pcie_info *priv = get_wcn_device_info();
 
 	if (pci_dev_is_disconnected(priv->dev))
 		return false;
 
-	do {
-		pci_read_config_dword(priv->dev, 0, &val);
-		if (val != 0xFFFFFFFF)
-			return true;
-	}while(trycnt--);
+	/*PCIe link error, read vendor id will return 0xffffffff*/
+	pci_read_config_dword(priv->dev, 0, &val);
+	if (val == 0xFFFFFFFF)
+		return false;
 
-	return false;
+	/*PCIe linkdown occur, but ltssm is L0, read vendor id is ok, but command happen reset*/
+	pci_read_config_dword(priv->dev, 4, &val);
+	if (val == 0xFFFFFFFF || (val & 0x6) == 0)
+		return false;
+
+	return true;
 }
 
 static irqreturn_t sprd_pcie_msi_irq(int irq, void *arg)
@@ -1328,8 +1332,10 @@ static int sprd_ep_resume(struct device *dev)
 	struct wcn_pcie_info *priv = pci_get_drvdata(pdev);
 
 	WCN_INFO("%s[+]\n", __func__);
-	if (!pdev)
+	if (priv == NULL) {
+		WCN_ERR("priv is NULL!\n");
 		return 0;
+	}
 
 	ret = pci_set_power_state(pdev, PCI_D0);
 	WCN_INFO("pci_set_power_state(PCI_D0) ret %d\n", ret);
@@ -1426,6 +1432,7 @@ void sprd_pcie_exit(void)
 	WCN_INFO("%s\n", __func__);
 	pci_unregister_driver(&sprd_pcie_driver);
 	kfree(priv);
+	priv = NULL;
 }
 
 //module_init(sprd_pcie_init);

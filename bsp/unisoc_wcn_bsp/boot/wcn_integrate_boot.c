@@ -642,10 +642,12 @@ static int wcn_download_image(struct wcn_device *wcn_dev)
 	if (is_marlin)
 		strncpy(firmware_file_name, WCN_BTWF_FILENAME,
 			sizeof(firmware_file_name));
-	strcat(firmware_file_name, ".bin");
+	strncat(firmware_file_name, ".bin", FIRMWARE_FILEPATHNAME_LENGTH_MAX - 1);
 	if (!is_marlin) {
-		strcpy(firmware_file_path, gnss_firmware_path);
-		strcat(firmware_file_path, firmware_file_name);
+		strscpy(firmware_file_path, gnss_firmware_path,
+			sizeof(firmware_file_name));
+		strncat(firmware_file_path, firmware_file_name,
+			FIRMWARE_FILEPATHNAME_LENGTH_MAX - 1);
 		WCN_INFO("gnss firmware path:%s\n", firmware_file_path);
 	}
 
@@ -1093,6 +1095,7 @@ static int wcn_wait_gnss_boot(struct wcn_device *wcn_dev)
 
 	if (cali_flag) {
 		gnss_read_boot_flag(wcn_dev);
+		wcn_slpinfo_statistics(WCN_SOURCE_GNSS, true);
 		return 0;
 	}
 	boot_flag = GNSS_CALI_DONE_FLAG;
@@ -2479,8 +2482,8 @@ int wcn_poweron_device(struct wcn_device *wcn_dev)
 		return -1;
 	}
 
-#if 0	//SPECIAL_DEBUG_EN	//temp debug
-	msleep(1000);
+#if 1  /* SPCSS01317666 */
+	msleep(5);
 #endif
 
 	ret = pll1_pll2_stable_time(wcn_dev);
@@ -2585,11 +2588,18 @@ int btwf_sys_wait_cp2_wfi(struct wcn_device *wcn_dev)
 
 int btwf_try_reset_wfi(struct wcn_device *wcn_dev)
 {
-        int ret = 0;
-        mdbg_hold_cpu(MDBG_RESET_WFI_FLAG_VALUE);
-        if (btwf_sys_polling_deepsleep(wcn_dev) == false)
-                ret = -1;
-        return ret;
+	phys_addr_t init_addr;
+	int ret = 0;
+	u32 value = MDBG_CACHE_FLAG_VALUE;
+
+	init_addr = wcn_get_btwf_init_status_addr();
+	wcn_write_data_to_phy_addr(init_addr, (void *)&value, 4);
+	btwf_sys_poweron(wcn_dev);
+
+	if (btwf_sys_polling_deepsleep(wcn_dev) == false)
+		ret = -1;
+
+	return ret;
 }
 
 /* wait BTWF SYS enter deep sleep and then set it auto shutdown.

@@ -162,7 +162,7 @@ char *wcn_get_kernel_time(void)
 
 	/* save time with string: month,day,hour,min,sec,mili-sec */
 	memset(aptime, 0, 64);
-	sprintf(aptime, "at+aptime=%ld,%ld,%ld,%ld,%ld,%ld\r\n",
+	snprintf(aptime, sizeof(aptime), "at+aptime=%ld,%ld,%ld,%ld,%ld,%ld\r\n",
 		tm.tm_mon + 1, tm.tm_mday,
 		tm.tm_hour, tm.tm_min, tm.tm_sec, tm.tm_msec);
 
@@ -689,6 +689,7 @@ int wcn_misc_init(void)
 	struct wcn_slpinfo_desc *slpinfo = wcn_get_slpinfo_data();
 
 	snprintf(slpinfo->gnss_general.name, ARRAY_SIZE(slpinfo->gnss_general.name), "GNSS");
+	wcn_slpinfo_statistics(WCN_SOURCE_GNSS, false);
 
 	ret = sprd_pdbg_notify_register(&wcn_slpinfo_notifier);
 	if (ret) {

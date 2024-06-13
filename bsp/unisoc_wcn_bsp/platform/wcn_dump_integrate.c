@@ -86,6 +86,7 @@ static int wcn_fill_dump_head_info(struct wcn_dump_mem_reg *mem_cfg, size_t cnt)
 	mdbg_ring_write(mdev_ring, head, head_len);
 	wake_up_log_wait();
 	kfree(head);
+	head = NULL;
 
 	return 0;
 }

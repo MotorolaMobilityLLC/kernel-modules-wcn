@@ -361,7 +361,7 @@ static void wcn_set_tcxo_init(struct wcn_device *wcn_dev)
 	 *	wcn_ref_26m_sel = 2'b01
 	 *	wcn_bb_ck26m_sel = 1'b1
 	 */
-	reg_val = 0x11;
+	reg_val = 0x3;
 	wcn_regmap_raw_write_bit(wcn_dev->rmap[REGMAP_PMU_APB], 0x1fe4, reg_val);
 	reg_val = 0x4;
 	wcn_regmap_raw_write_bit(wcn_dev->rmap[REGMAP_PMU_APB], 0x2fe4, reg_val);
@@ -1032,7 +1032,8 @@ static int wcn_parse_dt(struct platform_device *pdev,
 					(const char **)&wcn_dev->firmware_path_name);
 	if (!ret) {
 		WCN_DBG("firmware path:%s\n", wcn_dev->firmware_path_name);
-		strcpy(gnss_firmware_path, wcn_dev->firmware_path_name);
+		strscpy(gnss_firmware_path, wcn_dev->firmware_path_name,
+			sizeof(gnss_firmware_path));
 	}
 	cmdline_node = of_find_node_by_path("/chosen");
 	if (cmdline_node)
@@ -1369,6 +1370,7 @@ int wcn_probe(struct platform_device *pdev)
 	if (wcn_parse_dt(pdev, wcn_dev) < 0) {
 		WCN_ERR("wcn_parse_dt Failed!\n");
 		kfree(wcn_dev);
+		wcn_dev = NULL;
 		return -EINVAL;
 	}
 

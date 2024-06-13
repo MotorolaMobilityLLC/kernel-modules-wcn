@@ -222,7 +222,7 @@ enum {
 };
 
 #define SDIO_DEBUG_POINT_NUM 30
-#define SDIO_DEBUG_CMD_REQ_POINT_NUM 8
+#define SDIO_DEBUG_CMD_REQ_POINT_NUM 9
 struct sdiohal_debug_t {
 	struct sdiohal_xmit_debug_point tx_list_push[SDIO_DEBUG_POINT_NUM];
 
@@ -317,6 +317,9 @@ struct sdiohal_data_t {
 	u64 tm_begin_irq;
 	u64 tm_end_irq;
 
+	u64 tm_wakeup_begin;
+	u64 tm_wakeup_end;
+
 	struct wakeup_source *scan_ws;
 	struct completion scan_done;
 	struct completion remove_done;
@@ -328,6 +331,7 @@ struct sdiohal_data_t {
 	wait_queue_head_t resume_waitq;
 	/*SDIO debug control block*/
 	struct sdiohal_debug_t sdcb;
+	spinlock_t debug_spinlock;
 };
 
 struct sdiohal_data_t *sdiohal_get_data(void);

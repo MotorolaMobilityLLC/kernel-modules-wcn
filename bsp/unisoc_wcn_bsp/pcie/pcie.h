@@ -87,6 +87,7 @@
 
 #define WCN_PCIE_DEV_AND_VND_ID 0x180000
 #define WCN_PCIE_CMD 0x180004
+#define WCN_PCIE_LO_RX_POP_MAX 128
 
 struct bar_info {
 	resource_size_t mmio_start;
@@ -222,6 +223,7 @@ char *pcie_bar_vmem(struct wcn_pcie_info *priv, int bar);
 int dmalloc(struct wcn_pcie_info *priv, struct dma_buf *dm, int size);
 int dmfree(struct wcn_pcie_info *priv, struct dma_buf *dm);
 struct wcn_pcie_info *get_wcn_device_info(void);
+bool sprd_pcie_check_linkup(void);
 #else
 static inline char *pcie_bar_vmem(struct wcn_pcie_info *priv, int bar)
 {
@@ -241,6 +243,10 @@ static inline int dmfree(struct wcn_pcie_info *priv, struct dma_buf *dm)
 static inline struct wcn_pcie_info *get_wcn_device_info(void)
 {
 	return NULL;
+}
+static inline bool sprd_pcie_check_linkup(void)
+{
+	return false;
 }
 #endif
 

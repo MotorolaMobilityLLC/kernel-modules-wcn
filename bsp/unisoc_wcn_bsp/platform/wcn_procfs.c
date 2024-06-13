@@ -123,21 +123,22 @@ void wcn_dump_process(enum wcn_source_type type)
 		WCN_ERR("dump_cnt: %d, not dump again!\n", dump_cnt);
 		return;
 	}
+	dump_cnt++;
 
 	WCN_INFO("%s dumpmem begin\n", __func__);
 	sprdwcn_bus_set_carddump_status(true);
 
 	if (g_match_config && g_match_config->unisoc_wcn_pcie) {
-	/* check pcie link status, reset if disconnected, or do nothing */
-		wcn_reset_pcie();
-	}
-
-	if (g_match_config && g_match_config->unisoc_wcn_pcie) {
+		/* check pcie link status, reset if disconnected, or do nothing */
+		//wcn_reset_pcie();
+		if (!sprd_pcie_check_linkup()) {
+			WCN_INFO("%s dumpmem stop, PCIe link error\n", __func__);
+			return;
+		}
 		edma_hw_pause();
 		dump_arm_reg();
 	}
 
-	dump_cnt++;
 	if (g_match_config && g_match_config->unisoc_wcn_m3lite)
 		sdiohal_dump_aon_reg();
 	if (g_match_config && g_match_config->unisoc_wcn_integrated)
@@ -160,6 +161,30 @@ void wcn_set_powerdown_flag(bool flag)
 	return;
 }
 EXPORT_SYMBOL_GPL(wcn_set_powerdown_flag);
+
+int wcn_dump_or_not(void)
+{
+	u8 module_on_cnt = 0, powerdown_flag = 0;
+	unsigned long state = 0, temp_state = 0;
+
+	powerdown_flag = mdbg_proc->marlin_powerdown_flag;
+	if (powerdown_flag == 3)
+		usleep_range(15, 20);
+
+	state = marlin_get_power();
+	temp_state = state;
+	while (state) {
+		state &= state - 1;
+		module_on_cnt++;
+	}
+	WCN_INFO("%s module on cnt: %d, power state: 0x%lx, powerdown_flag: %d\n",
+			__func__, module_on_cnt, temp_state, powerdown_flag);
+	if (((powerdown_flag == 1) && (module_on_cnt == 1))
+	|| ((powerdown_flag == 3) && (module_on_cnt == 0)))
+		return -1;
+
+	return 0;
+}
 
 void __wcn_assert_interface(enum wcn_source_type type, char *str)
 {
@@ -188,7 +213,7 @@ void __wcn_assert_interface(enum wcn_source_type type, char *str)
 			return;
 		}
 	} else {
-		if (mdbg_proc->marlin_powerdown_flag) {
+		if (wcn_dump_or_not()) {
 			WCN_ERR("fw assert hanppend in WCN Powerdown!!\n");
 			return;
 		}
@@ -1032,7 +1057,8 @@ static ssize_t mdbg_proc_write(struct file *filp,
 			MARLIN_64B_NS_TO_32B_MS(loopcheck_tx_ns);
 			MARLIN_64B_NS_TO_32B_MS(marlin_boot_t);
 
-			sprintf(mdbg_proc->write_buf, "at+loopcheck=%llu,%llu\r",
+			snprintf(mdbg_proc->write_buf, sizeof(mdbg_proc->write_buf),
+				"at+loopcheck=%llu,%llu\r",
 				loopcheck_tx_ns, marlin_boot_t);
 			/* Be care the count value changed here before send to CP2 */
 			count = strlen(mdbg_proc->write_buf);

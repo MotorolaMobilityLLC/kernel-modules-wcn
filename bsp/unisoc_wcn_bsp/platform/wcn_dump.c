@@ -84,6 +84,7 @@ static int mdbg_write_smp_head(unsigned int len)
 	mdbg_ring_write(mdbg_dev->ring_dev->ring, smp_buf, smp_len);
 
 	kfree(smp_buf);
+	smp_buf = NULL;
 
 	return 0;
 }
@@ -397,6 +398,8 @@ static int cp_dcache_clean_invalid_all(void)
 		reg_val |= 0x30000002;
 		/* cache set 32k, write allocate mode */
 		ret = sprdwcn_bus_reg_write(DCACHE_CFG0, &reg_val, 4);
+		if (!ret)
+			pr_info("Marlin3_Dcache REG sdiohal_dt_read error !\n");
 		/* config block addr */
 		for (i = 0; i < DCACHE_BLOCK_NUM; i++)
 			sprdwcn_bus_reg_write(s_cache_block_config[i].reg_addr,
@@ -433,9 +436,13 @@ static int cp_dcache_clean_invalid_all(void)
 		(DCACHE_CMD_ISSUE_START | DCACHE_CMD_CLEAN_INVALID_ALL)&
 		DCACHE_CMD_CFG2_MASK);
 	ret = sprdwcn_bus_reg_write(DCACHE_CMD_CFG2, &reg_val, 4);
+	if (!ret)
+		pr_info("Marlin3_Dcache REG sdiohal_dt_write error !\n");
 	/* cmd excuting */
 	udelay(200);
 	ret = sprdwcn_bus_reg_read(DCACHE_INT_RAW_STS, &reg_val, 4);
+	if (!ret)
+		pr_info("Marlin3_Dcache REG sdiohal_dt_read error !\n");
 	/* read raw */
 	if ((reg_val & 0X00000001) == 0) {
 		pr_info("Marlin3_Dcache clear cost time not enough !\n");

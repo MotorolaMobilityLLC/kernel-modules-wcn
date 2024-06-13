@@ -686,7 +686,7 @@ int sc2355_pcie_hif_tx_list(struct sprd_hif *hif,
 	struct mbuf_t *head = NULL, *tail = NULL, *mbuf_pos;
 	struct list_head *pos, *tx_list_tail, *tx_head = NULL;
 	struct tx_msdu_dscr *dscr;
-	int print_len;
+	int print_len = 0, pcie_count_save = 0;
 #if defined(MORE_DEBUG)
 	unsigned long tx_bytes = 0;
 #endif
@@ -696,16 +696,12 @@ int sc2355_pcie_hif_tx_list(struct sprd_hif *hif,
 	tx_mgmt = (struct tx_mgmt *)hif->tx_mgmt;
 
 	if (hif->hw_type == SPRD_HW_SC2355_PCIE) {
-		if (tx_count <= PCIE_TX_NUM) {
-			pcie_count = 1;
-		} else {
-			cnt = tx_count;
-			while (cnt > PCIE_TX_NUM) {
-				++num;
-				cnt -= PCIE_TX_NUM;
-			}
-			pcie_count = num + 1;
+		cnt = tx_count;
+		while (cnt > PCIE_TX_NUM) {
+			++num;
+			cnt -= PCIE_TX_NUM;
 		}
+		pcie_count_save = pcie_count = num + 1;
 		ret = sprdwcn_bus_list_alloc(hif->tx_data_port, &head, &tail,
 				&pcie_count); //port is 6
 	} else {
@@ -714,6 +710,13 @@ int sc2355_pcie_hif_tx_list(struct sprd_hif *hif,
 	}
 	if (ret != 0 || head == NULL || tail == NULL || pcie_count == 0) {
 		wl_err("%s:%d mbuf link alloc fail\n", __func__, __LINE__);
+		return -1;
+	}
+
+	if (pcie_count_save != pcie_count) {
+		wl_err("%s, %d error!mbuf not enough%d\n",
+		       __func__, __LINE__, (pcie_count_save - pcie_count));
+		sprdwl_mbuf_list_free(hif, head, tail, pcie_count);
 		return -1;
 	}
 
@@ -1652,6 +1655,7 @@ void pcie_post_deinit(struct sprd_hif *hif)
 	tx_mgmt = (struct tx_mgmt *)hif->tx_mgmt;
 	for (chn = 0; chn < sc2355_hif.max_num; chn++)
 		sprdwcn_bus_chn_deinit(&sc2355_hif.mchn_ops[chn]);
+
 	sc2355_hif.hif = NULL;
 	sc2355_hif.max_num = 0;
 

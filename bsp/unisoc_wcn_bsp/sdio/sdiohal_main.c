@@ -298,11 +298,12 @@ static int sdiohal_config_packer_chain(struct sdiohal_list_t *data_list,
 	if (!fifo)
 		addr += ttl_len;
 
-	sdio_claim_host(sdio_func);
-	mmc_set_data_timeout(&mmc_dat, sdio_func->card);
 	p_data->tm_sdio_cmd_req[0] = ktime_get_boot_fast_ns();
-	mmc_wait_for_req(host, &mmc_req);
+	sdio_claim_host(sdio_func);
 	p_data->tm_sdio_cmd_req[1] = ktime_get_boot_fast_ns();
+	mmc_set_data_timeout(&mmc_dat, sdio_func->card);
+	mmc_wait_for_req(host, &mmc_req);
+	p_data->tm_sdio_cmd_req[2] = ktime_get_boot_fast_ns();
 	sdio_release_host(sdio_func);
 
 	err_ret = mmc_cmd.error ? mmc_cmd.error : mmc_dat.error;
@@ -508,6 +509,10 @@ void sdiohal_dump_aon_reg(void)
 		print_hex_dump(KERN_INFO, "WCN BTWF SUBSYS",
 			DUMP_PREFIX_OFFSET, 16, 16, btwf_db, 256, 0);
 	}
+
+	if (sdiohal_get_carddump_status())
+		goto end;
+
 	/*
 	 * check hready_status, if bt hung the bus, reset it.
 	 * BIT(2):bt2 hready out
@@ -528,7 +533,7 @@ void sdiohal_dump_aon_reg(void)
 				 CP_BUS_HREADY + i, reg_buf[i]);
 		}
 	}
-
+end:
 	pr_info("sdio dump_aon_reg end\n\n");
 }
 EXPORT_SYMBOL_GPL(sdiohal_dump_aon_reg);
@@ -892,9 +897,9 @@ int sdiohal_aon_readb(unsigned int addr, unsigned char *val)
 	sdiohal_resume_check();
 	sdiohal_op_enter();
 	sdio_claim_host(p_data->sdio_func[FUNC_0]);
-	p_data->tm_sdio_cmd_req[4] = ktime_get_boot_fast_ns();
-	reg_val = sdio_readb(p_data->sdio_func[FUNC_0], addr, &err);
 	p_data->tm_sdio_cmd_req[5] = ktime_get_boot_fast_ns();
+	reg_val = sdio_readb(p_data->sdio_func[FUNC_0], addr, &err);
+	p_data->tm_sdio_cmd_req[6] = ktime_get_boot_fast_ns();
 	if (val)
 		*val = reg_val;
 	sdio_release_host(p_data->sdio_func[FUNC_0]);
@@ -915,9 +920,9 @@ int sdiohal_aon_writeb(unsigned int addr, unsigned char val)
 	sdiohal_resume_check();
 	sdiohal_op_enter();
 	sdio_claim_host(p_data->sdio_func[FUNC_0]);
-	p_data->tm_sdio_cmd_req[6] = ktime_get_boot_fast_ns();
-	sdio_writeb(p_data->sdio_func[FUNC_0], val, addr, &err);
 	p_data->tm_sdio_cmd_req[7] = ktime_get_boot_fast_ns();
+	sdio_writeb(p_data->sdio_func[FUNC_0], val, addr, &err);
+	p_data->tm_sdio_cmd_req[8] = ktime_get_boot_fast_ns();
 	sdio_release_host(p_data->sdio_func[FUNC_0]);
 	sdiohal_op_leave();
 	sdiohal_card_unlock(p_data);
@@ -992,7 +997,7 @@ static int sdiohal_enable_slave_irq(void)
 {
 	struct sdiohal_data_t *p_data = sdiohal_get_data();
 	int err;
-	unsigned char reg_val;
+	unsigned char reg_val, reg_val_t;
 
 	sdiohal_resume_check();
 	sdiohal_op_enter();
@@ -1001,8 +1006,9 @@ static int sdiohal_enable_slave_irq(void)
 			     SDIOHAL_FBR_DEINT_EN, &err);
 	sdio_writeb(p_data->sdio_func[FUNC_0],
 		    reg_val | VAL_DEINT_ENABLE, SDIOHAL_FBR_DEINT_EN, &err);
-	reg_val = sdio_readb(p_data->sdio_func[FUNC_0],
+	reg_val_t = sdio_readb(p_data->sdio_func[FUNC_0],
 			     SDIOHAL_FBR_DEINT_EN, &err);
+	sdiohal_debug("%s:0x%x - 0x%x\n", __func__, reg_val, reg_val_t);
 	sdio_release_host(p_data->sdio_func[FUNC_0]);
 	sdiohal_op_leave();
 
@@ -1196,6 +1202,7 @@ fail_to_suspend:
 	}
 	atomic_set(&p_data->flag_suspending, 1);
 	atomic_set(&p_data->flag_resume, 1);
+	wake_up_all(&p_data->resume_waitq);
 
 power_notify:
 	for (chn = chn - 1; chn >= 0; chn--) {
@@ -1401,6 +1408,9 @@ static void sdiohal_remove(struct sdio_func *func)
 	if (p_data->irq_num != 0)
 		free_irq(p_data->irq_num, &func->dev);
 
+	if (func->num == 1)
+		kfree(p_data->sdio_func[FUNC_0]);
+
 	pr_info("%s remove card successful\n", __func__);
 }
 
@@ -1556,6 +1566,7 @@ int sdiohal_init(void)
 
 	if (sdiohal_parse_dt() < 0) {
 		kfree(p_data);
+		p_data = NULL;
 		return -1;
 	}
 
@@ -1563,6 +1574,7 @@ int sdiohal_init(void)
 	if (ret != 0) {
 		kfree(p_data);
 		pr_err("sdiohal_misc_init error :%d\n", ret);
+		p_data = NULL;
 		return -1;
 	}
 
@@ -1571,6 +1583,7 @@ int sdiohal_init(void)
 	p_data->flag_init = true;
 	/* card not ready */
 	atomic_set(&p_data->xmit_cnt, SDIOHAL_REMOVE_CARD_VAL);
+	spin_lock_init(&p_data->debug_spinlock);
 #if 0
 #ifdef CONFIG_DEBUG_FS
 	sdiohal_debug_init();
@@ -1578,7 +1591,6 @@ int sdiohal_init(void)
 #endif
 
 	pr_info("%s sdiohal driver init successful\n", __func__);
-
 	return 0;
 }
 
