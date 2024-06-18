@@ -2062,6 +2062,7 @@ static int vendor_set_sae_password(struct wiphy *wiphy,
 	struct softap_sae_setting sae_para;
 	struct sprd_vif *vif = netdev_priv(wdev->netdev);
 	struct sprd_priv *priv;
+	int ret = 0;
 
 	priv = wiphy_priv(wiphy);
 	if (!(priv->extend_feature & SPRD_EXTEND_SOATAP_WPA3)) {
@@ -2117,8 +2118,8 @@ static int vendor_set_sae_password(struct wiphy *wiphy,
 			break;
 		}
 	}
-	vendor_softap_set_sae_para(vif, &sae_para);
-	return 0;
+	ret = vendor_softap_set_sae_para(vif, &sae_para);
+	return ret;
 }
 
 static int vendor_ftm_get_capabilities(struct wiphy *wiphy,
