@@ -562,8 +562,9 @@ static void mtty_handler (int event, void *data)
 //sipc2 rx_cb
 static int mtty_sipc2_rx_cb(int chn, struct mbuf_t *head, struct mbuf_t *tail, int num)
 {
-    int ret = 0, len_send;
+    int ret = 0, len_send, rx_num;
     struct rx_data *rx;
+    struct mbuf_t *rx_head = head;
     len_send = head->len;
 
     bt_wakeup_host();
@@ -580,20 +581,39 @@ static int mtty_sipc2_rx_cb(int chn, struct mbuf_t *head, struct mbuf_t *tail, i
             dev_unisoc_bt_dbg(ttyBT_dev,
                                 "%s tty_insert_flip_string",
                                 __func__);
-            ret = tty_insert_flip_string(mtty_dev->port,
-                    (unsigned char *)head->buf + BT_SIPC_HEAD_LEN,
-                    len_send);   // -BT_SDIO_HEAD_LEN
-            dev_unisoc_bt_dbg(ttyBT_dev,
-                                "%s ret: %d, len: %d\n",
-                                __func__, ret, len_send);
-            if (ret)
-                tty_flip_buffer_push(mtty_dev->port);
-            if (ret == (len_send)) {
+            for (rx_num = num; rx_num > 0; rx_num--) {
+                len_send = head->len;
+                /*if (rx_head->buf[BT_SIPC_HEAD_LEN] == 0x04) {
+                    if(len_send < 32)
+                       hex_dump_block((unsigned char *)rx_head->buf + BT_SIPC_HEAD_LEN, len_send);
+                    else
+                       hex_dump_block((unsigned char *)rx_head->buf + BT_SIPC_HEAD_LEN, 16);
+                }*/
+                ret = tty_insert_flip_string(mtty_dev->port,
+                            (unsigned char *)rx_head->buf+BT_SIPC_HEAD_LEN,
+                            len_send);
                 dev_unisoc_bt_dbg(ttyBT_dev,
-                                    "%s send success",
-                                    __func__);
-                sprdwcn_bus_push_list(chn, head, tail, num);
-                return 0;
+                                  "%s ret: %d, len: %d\n",
+                                  __func__, ret, len_send);
+                if (ret)
+                    tty_flip_buffer_push(mtty_dev->port);
+
+                if (ret == (len_send)) {
+                    if (rx_num > 1) {
+                        rx_head = rx_head->next;
+                        dev_unisoc_bt_info(ttyBT_dev, "%s point next",__func__);
+                    } else {
+                        dev_unisoc_bt_dbg(ttyBT_dev,
+                                          "%s send success",
+                                          __func__);
+                        sprdwcn_bus_push_list(chn, head, tail, num);
+                        return 0;
+                    }
+                } else {
+                    dev_unisoc_bt_info(ttyBT_dev,
+                                       "%s send error", __func__);
+                    return -1;
+                }
             }
         }
 
@@ -661,25 +681,11 @@ static int mtty_sipc2_rx_cb(int chn, struct mbuf_t *head, struct mbuf_t *tail, i
 //sdio rx_cb
 static int mtty_rx_cb(int chn, struct mbuf_t *head, struct mbuf_t *tail, int num)
 {
-    int ret = 0, block_size;
+    int ret = 0, block_size, rx_num;
     struct rx_data *rx;
-    int rx_head, event_type;
+    struct mbuf_t *rx_head = head;
 
     bt_wakeup_host();
-    block_size = ((head->buf[2] & 0x7F) << 9) + (head->buf[1] << 1) + (head->buf[0] >> 7);
-
-    rx_head = head->buf[BT_SDIO_HEAD_LEN];
-    event_type = head->buf[BT_SDIO_HEAD_LEN + 1];
-
-    if(rx_head == 0x04 && event_type == 0x0E) {
-        /*dev_unisoc_bt_info(ttyBT_dev,
-                           "%s dump head: %d, channel: %d, num: %d, event size: %d\n",
-                           __func__, BT_SDIO_HEAD_LEN, chn, num, block_size);*/
-        if(block_size < 16)
-            hex_dump_block((unsigned char *)head->buf + BT_SDIO_HEAD_LEN, block_size);
-        else
-            hex_dump_block((unsigned char *)head->buf + BT_SDIO_HEAD_LEN, 16);
-    }
 
     if (atomic_read(&mtty_dev->state) == MTTY_STATE_CLOSE) {
         dev_unisoc_bt_err(ttyBT_dev,
@@ -691,23 +697,48 @@ static int mtty_rx_cb(int chn, struct mbuf_t *head, struct mbuf_t *tail, int num
 
     if (mtty_dev != NULL) {
         if (!work_pending(&mtty_dev->bt_rx_work)) {
-            dev_unisoc_bt_dbg(ttyBT_dev,
-                              "%s tty_insert_flip_string",
-                              __func__);
-            ret = tty_insert_flip_string(mtty_dev->port,
-                            (unsigned char *)head->buf + BT_SDIO_HEAD_LEN,
-                            block_size);   // -BT_SDIO_HEAD_LEN
-            dev_unisoc_bt_dbg(ttyBT_dev,
-                              "%s ret: %d, len: %d\n",
-                              __func__, ret, block_size);
-            if (ret)
-                tty_flip_buffer_push(mtty_dev->port);
-            if (ret == (block_size)) {
+            for (rx_num = num; rx_num > 0; rx_num--) {
+                block_size = ((rx_head->buf[2] & 0x7F) << 9) + (rx_head->buf[1] << 1) + (rx_head->buf[0] >> 7);
+
                 dev_unisoc_bt_dbg(ttyBT_dev,
-                                  "%s send success",
+                                   "%s dump head: %d, channel: %d, num: %d, event size: %d\n",
+                                   __func__, BT_SDIO_HEAD_LEN, chn, rx_num, block_size);
+                /*if (rx_head->buf[BT_SDIO_HEAD_LEN] == 0x04) {
+                    if(block_size < 32)
+                       hex_dump_block((unsigned char *)rx_head->buf + BT_SDIO_HEAD_LEN, block_size);
+                    else
+                       hex_dump_block((unsigned char *)rx_head->buf + BT_SDIO_HEAD_LEN, 16);
+                }*/
+
+                dev_unisoc_bt_dbg(ttyBT_dev,
+                                  "%s tty_insert_flip_string",
                                   __func__);
-                sprdwcn_bus_push_list(chn, head, tail, num);
-                return 0;
+                ret = tty_insert_flip_string(mtty_dev->port,
+                                            (unsigned char *)rx_head->buf + BT_SDIO_HEAD_LEN,
+                                            block_size);   // -BT_SDIO_HEAD_LEN
+                dev_unisoc_bt_dbg(ttyBT_dev,
+                                  "%s ret: %d, len: %d\n",
+                                  __func__, ret, block_size);
+
+                if (ret)
+                    tty_flip_buffer_push(mtty_dev->port);
+
+                if (ret == (block_size)) {
+                    if (rx_num > 1) {
+                        rx_head = rx_head->next;
+                        dev_unisoc_bt_info(ttyBT_dev, "%s point next",__func__);
+                    } else {
+                        dev_unisoc_bt_dbg(ttyBT_dev,
+                                          "%s send success",
+                                          __func__);
+                        sprdwcn_bus_push_list(chn, head, tail, num);
+                        return 0;
+                    }
+                } else {
+                    dev_unisoc_bt_info(ttyBT_dev,
+                                       "%s send error", __func__);
+                    return -1;
+                }
             }
         }
 
@@ -759,9 +790,10 @@ static int mtty_rx_cb(int chn, struct mbuf_t *head, struct mbuf_t *tail, int num
 //pcie rx_cb
 static int mtty_pcie_rx_cb(int chn, struct mbuf_t *head, struct mbuf_t *tail, int num)
 {
-    int ret = 0, len_send;
+    int ret = 0, len_send, rx_num;
     struct rx_data *rx;
     unsigned char *sdio_buf = NULL;
+    struct mbuf_t *rx_head = head;
     sdio_buf = (unsigned char *)head->buf;
     bt_wakeup_host();
 
@@ -780,16 +812,38 @@ static int mtty_pcie_rx_cb(int chn, struct mbuf_t *head, struct mbuf_t *tail, in
     if (mtty_dev != NULL) {
         if (!work_pending(&mtty_dev->bt_rx_work)) {
             BT_VER("%s() tty_insert_flip_string", __func__);
-            ret = tty_insert_flip_string(mtty_dev->port0,
-                            (unsigned char *)head->buf+BT_PCIE_SDIO_HEAD_LEN,
-                            len_send);   // -BT_SDIO_HEAD_LEN
-            BT_VER("%s() ret=%d, len=%d\n", __func__, ret, len_send);
-            if (ret)
-                tty_flip_buffer_push(mtty_dev->port0);
-            if (ret == (len_send)) {
-                BT_VER("%s() send success", __func__);
-                sprdwcn_bus_push_list(chn, head, tail, num);
-                return 0;
+            for (rx_num = num; rx_num > 0; rx_num--) {
+                len_send = head->len;
+                /*if (rx_head->buf[BT_PCIE_SDIO_HEAD_LEN] == 0x04) {
+                    if(len_send < 32)
+                       hex_dump_block((unsigned char *)rx_head->buf + BT_PCIE_SDIO_HEAD_LEN, len_send);
+                    else
+                       hex_dump_block((unsigned char *)rx_head->buf + BT_PCIE_SDIO_HEAD_LEN, 16);
+                }*/
+                ret = tty_insert_flip_string(mtty_dev->port0,
+                            (unsigned char *)rx_head->buf+BT_PCIE_SDIO_HEAD_LEN,
+                            len_send);
+                pr_info("%s ret: %d, len: %d\n", __func__, ret, len_send);
+
+                if (ret)
+                    tty_flip_buffer_push(mtty_dev->port0);
+
+                if (ret == (len_send)) {
+                    if (rx_num > 1) {
+                        rx_head = rx_head->next;
+                        dev_unisoc_bt_info(ttyBT_dev, "%s point next",__func__);
+                    } else {
+                        dev_unisoc_bt_dbg(ttyBT_dev,
+                                          "%s send success",
+                                          __func__);
+                        sprdwcn_bus_push_list(chn, head, tail, num);
+                        return 0;
+                    }
+                } else {
+                    dev_unisoc_bt_info(ttyBT_dev,
+                                       "%s send error", __func__);
+                    return -1;
+                }
             }
         }
 
