@@ -54,6 +54,8 @@
 #define GNSS_CACHE_FLAG_ADDR_L6		0x158000
 #define MCU_AP_RST_ADDR			0x40bc8280
 #define CMSTAR_BOOT_CTRL_ADDR		0x4088000c
+#define GNSS_SYS_BB_EN			0x40b18004
+#define GNSS_SYS_CGM_GNSS_FAKE_SEL	0x40bd8020
 #define GNSS_AP_ACCESS_CP_OFFSET	0x11000000
 /* qogirl6 cpu hold end*/
 
@@ -82,10 +84,17 @@
 #define CTL_BASE_AON_CLOCK  0x40844200
 #define CTL_BASE_AON_CLOCK_SIZE  0x144
 
+enum DEBUGBUS_QOGIRL6 {
+	DEBUGBUS_CGM_GNSS_MTX_GATE_EN,
+	DEBUGBUS_GNSS_IP_CURRENT_STATE,
+	DEBUGBUS_RESERVE,
+};
+#define CGM_GNSS_MTX_GATE_EN	0x2
+#define GNSS_IP_CURRENT_STATE	(0x7 << 28)
 extern int gnss_reg_cnt;
 extern struct wcn_dump_mem_reg gnss_reg[MAX_DUMP_REG];
 
 int gnss_dump_mem(char flag);
-void gnss_set_clk_gate_en(u32 flag);
-u32 gnss_get_clk_gate_en(void);
+void debugbus_set_value(u32 flag_debugbus, enum DEBUGBUS_QOGIRL6 flag, int val);
+u32 debugbus_get_value(enum DEBUGBUS_QOGIRL6 flag);
 #endif
