@@ -57,19 +57,19 @@ static void sdio_dump_stats(struct sprd_hif *hif)
 static void sdio_get_tx_avg_time(struct sprd_hif *hif,
 				 unsigned long tx_start_time)
 {
-	unsigned long tx_end;
+	s64 tx_end;
 
 	tx_end = sprd_get_ktime();
 	hif->stats.tx_cost_time += tx_end - tx_start_time;
 
 	if (hif->stats.gap_num >= STATS_COUNT) {
 		hif->stats.tx_avg_time =
-		    hif->stats.tx_cost_time / hif->stats.gap_num;
+		    div_s64(hif->stats.tx_cost_time, hif->stats.gap_num);
 		sdio_dump_stats(hif);
 		hif->stats.gap_num = 0;
 		hif->stats.tx_cost_time = 0;
-		wl_debug("%s:%d packets avg cost time: %lu\n",
-			__func__, __LINE__, hif->stats.tx_avg_time);
+		wl_debug("%s:%d packets avg cost time: %lld\n",
+			 __func__, __LINE__, hif->stats.tx_avg_time);
 	}
 }
 #endif
@@ -232,7 +232,7 @@ static int sdio_suspend_resume_handle(int chn, int mode)
 	struct tx_mgmt *tx_mgmt = (struct tx_mgmt *)hif->tx_mgmt;
 	int ret;
 	struct sprd_vif *vif = NULL, *tmp_vif;
-	unsigned long time;
+	s64 time;
 	struct sprd_cmd *cmd = &priv->cmd;
 
 	spin_lock_bh(&priv->list_lock);
@@ -285,8 +285,8 @@ static int sdio_suspend_resume_handle(int chn, int mode)
 		hif->sleep_time = time - hif->sleep_time;
 
 		ret = sprd_power_save(priv, vif, SPRD_SUSPEND_RESUME, 1);
-		wl_info("%s, %d,resume ret=%d, resume after %lu ms\n",
-			__func__, __LINE__, ret, hif->sleep_time / 1000000);
+		wl_info("%s, %d,resume ret=%d, resume after %lld ms\n",
+			__func__, __LINE__, ret, div_s64(hif->sleep_time, 1000000));
 		return ret;
 	}
 	return -EBUSY;
