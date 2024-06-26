@@ -47,29 +47,50 @@ static int tcp_ack_check_quick(unsigned char *buf, struct tcp_ack_msg *ack_msg)
 	struct ethhdr *ethhdr;
 	struct iphdr *iphdr;
 	struct tcphdr *tcphdr;
+	struct ipv6hdr *ipv6hdr;
 
 	ethhdr = (struct ethhdr *)buf;
-	if (ethhdr->h_proto != htons(ETH_P_IP))
-		return 0;
-	iphdr = (struct iphdr *)(ethhdr + 1);
-	if (iphdr->version != 4 || iphdr->protocol != IPPROTO_TCP)
-		return 0;
-	ip_hdr_len = iphdr->ihl * 4;
-	temp = (unsigned char *)(iphdr) + ip_hdr_len;
-	tcphdr = (struct tcphdr *)temp;
-	/* TCP_FLAG_ACK */
-	if (!(temp[13] & 0x10))
-		return 0;
+	if (ethhdr->h_proto == htons(ETH_P_IP)) {
+		iphdr = (struct iphdr *)(ethhdr + 1);
+		if (iphdr->version != 4 || iphdr->protocol != IPPROTO_TCP)
+			return 0;
+		ip_hdr_len = iphdr->ihl * 4;
+		temp = (unsigned char *)(iphdr) + ip_hdr_len;
+		tcphdr = (struct tcphdr *)temp;
+		/* TCP_FLAG_ACK */
+		if (!(temp[13] & 0x10))
+			return 0;
 
-	if (temp[13] & 0x8) {
-		ack_msg->saddr = iphdr->daddr;
-		ack_msg->daddr = iphdr->saddr;
-		ack_msg->source = tcphdr->dest;
-		ack_msg->dest = tcphdr->source;
-		ack_msg->seq = ntohl(tcphdr->seq);
-		return 1;
+		if (temp[13] & 0x8) {
+			ack_msg->is_ipv6 = false;
+			ack_msg->saddr = iphdr->daddr;
+			ack_msg->daddr = iphdr->saddr;
+			ack_msg->source = tcphdr->dest;
+			ack_msg->dest = tcphdr->source;
+			ack_msg->seq = ntohl(tcphdr->seq);
+			return 1;
+		}
+	} else if (ethhdr->h_proto == htons(ETH_P_IPV6)) {
+		ipv6hdr = (struct ipv6hdr *)(ethhdr + 1);
+		if (ipv6hdr->version != 6 || ipv6hdr->nexthdr != IPPROTO_TCP)
+			return 0;
+		ip_hdr_len = 40;
+		temp = (unsigned char *)(ipv6hdr) + ip_hdr_len;
+		tcphdr = (struct tcphdr *)temp;
+		/* TCP_FLAG_ACK */
+		if (!(temp[13] & 0x10))
+			return 0;
+
+		if (temp[13] & 0x8) {
+			ack_msg->is_ipv6 = true;
+			memcpy(&(ack_msg->ipv6_saddr), &(ipv6hdr->saddr), 16);
+			memcpy(&(ack_msg->ipv6_daddr), &(ipv6hdr->daddr), 16);
+			ack_msg->source = tcphdr->dest;
+			ack_msg->dest = tcphdr->source;
+			ack_msg->seq = ntohl(tcphdr->seq);
+			return 1;
+		}
 	}
-
 	return 0;
 }
 
@@ -136,39 +157,63 @@ static int tcp_ack_is_drop(struct tcphdr *tcphdr, int tcp_tot_len,
 static int tcp_ack_check(unsigned char *buf, struct tcp_ack_msg *ack_msg,
 			 unsigned short *win_scale)
 {
-	int ret;
+	int ret = 0;
 	int ip_hdr_len;
 	int tcp_tot_len;
 	unsigned char *temp;
 	struct ethhdr *ethhdr;
 	struct iphdr *iphdr;
 	struct tcphdr *tcphdr;
+	struct ipv6hdr *ipv6hdr;
 
 	ethhdr = (struct ethhdr *)buf;
-	if (ethhdr->h_proto != htons(ETH_P_IP))
-		return 0;
-	iphdr = (struct iphdr *)(ethhdr + 1);
-	if (iphdr->version != 4 || iphdr->protocol != IPPROTO_TCP)
-		return 0;
-	ip_hdr_len = iphdr->ihl * 4;
-	temp = (unsigned char *)(iphdr) + ip_hdr_len;
-	tcphdr = (struct tcphdr *)temp;
-	/* TCP_FLAG_ACK, only indicates whether ack seq is valid, not means ACK packet */
-	if (!(temp[13] & 0x10))
-		return 0;
+	if (ethhdr->h_proto == htons(ETH_P_IP)) {
+		iphdr = (struct iphdr *)(ethhdr + 1);
+		if (iphdr->version != 4 || iphdr->protocol != IPPROTO_TCP)
+			return 0;
+		ip_hdr_len = iphdr->ihl * 4;
+		temp = (unsigned char *)(iphdr) + ip_hdr_len;
+		tcphdr = (struct tcphdr *)((unsigned char *)(iphdr) + ip_hdr_len);
+		/* TCP_FLAG_ACK, only indicates whether ack seq is valid, not means ACK packet */
+		if (!(temp[13] & 0x10))
+			return 0;
 
-	tcp_tot_len = ntohs(iphdr->tot_len) - ip_hdr_len;
-	ret = tcp_ack_is_drop(tcphdr, tcp_tot_len, win_scale);
+		tcp_tot_len = ntohs(iphdr->tot_len) - ip_hdr_len;
+		ret = tcp_ack_is_drop(tcphdr, tcp_tot_len, win_scale);
 
-	if (ret > 0) {
-		ack_msg->saddr = iphdr->saddr;
-		ack_msg->daddr = iphdr->daddr;
-		ack_msg->source = tcphdr->source;
-		ack_msg->dest = tcphdr->dest;
-		ack_msg->seq = ntohl(tcphdr->ack_seq);
-		ack_msg->win = ntohs(tcphdr->window);
+		if (ret > 0) {
+			ack_msg->is_ipv6 = false;
+			ack_msg->saddr = iphdr->saddr;
+			ack_msg->daddr = iphdr->daddr;
+			ack_msg->source = tcphdr->source;
+			ack_msg->dest = tcphdr->dest;
+			ack_msg->seq = ntohl(tcphdr->ack_seq);
+			ack_msg->win = ntohs(tcphdr->window);
+		}
+	} else if (ethhdr->h_proto == htons(ETH_P_IPV6)) {
+		ipv6hdr = (struct ipv6hdr *)(ethhdr + 1);
+		if (ipv6hdr->version != 6 || ipv6hdr->nexthdr != IPPROTO_TCP)
+			return 0;
+		ip_hdr_len = 40;
+		temp = (unsigned char *)(ipv6hdr) + ip_hdr_len;
+		tcphdr = (struct tcphdr *)((unsigned char *)(ipv6hdr) + ip_hdr_len);
+		/* TCP_FLAG_ACK, only indicates whether ack seq is valid, not means ACK packet */
+		if (!(temp[13] & 0x10))
+			return 0;
+
+		tcp_tot_len = ntohs(ipv6hdr->payload_len);
+		ret = tcp_ack_is_drop(tcphdr, tcp_tot_len, win_scale);
+
+		if (ret > 0) {
+			ack_msg->is_ipv6 = true;
+			memcpy(&(ack_msg->ipv6_saddr), &(ipv6hdr->saddr), 16);
+			memcpy(&(ack_msg->ipv6_daddr), &(ipv6hdr->daddr), 16);
+			ack_msg->source = tcphdr->source;
+			ack_msg->dest = tcphdr->dest;
+			ack_msg->seq = ntohl(tcphdr->ack_seq);
+			ack_msg->win = ntohs(tcphdr->window);
+		}
 	}
-
 	return ret;
 }
 
@@ -191,8 +236,11 @@ static int tcp_ack_match(struct sprd_tcp_ack_manage *ack_m,
 			if (ack_info->busy &&
 			    ack->dest == ack_msg->dest &&
 			    ack->source == ack_msg->source &&
-			    ack->saddr == ack_msg->saddr &&
-			    ack->daddr == ack_msg->daddr)
+			    ((ack->is_ipv6 == false && ack->saddr == ack_msg->saddr &&
+				ack->daddr == ack_msg->daddr) ||
+			    (ack->is_ipv6 == true &&
+				!memcmp(&(ack->ipv6_saddr), &(ack_msg->ipv6_saddr), 16) &&
+			    !memcmp(&(ack->ipv6_daddr), &(ack_msg->ipv6_daddr), 16))))
 				ret = i;
 		} while (read_seqretry(&ack_info->seqlock, start));
 	}
@@ -433,6 +481,9 @@ int sc2355_tcp_ack_filter_send(struct sprd_priv *priv, struct sprd_msg *msg,
 		ack->source = ack_msg.source;
 		ack->saddr = ack_msg.saddr;
 		ack->daddr = ack_msg.daddr;
+		memcpy(&(ack->ipv6_saddr), &(ack_msg.ipv6_saddr), 16);
+		memcpy(&(ack->ipv6_daddr), &(ack_msg.ipv6_daddr), 16);
+		ack->is_ipv6 = ack_msg.is_ipv6;
 		ack->seq = ack_msg.seq;
 		write_sequnlock_bh(&ack_m->ack_info[index].seqlock);
 	}
