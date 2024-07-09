@@ -223,6 +223,10 @@ static void loopcheck_work_queue(struct work_struct *work)
 				 msecs_to_jiffies(1500));
 			return;
 		}
+		if (!marlin_get_module_status()) {
+			WCN_ERR("WCN module have not open\n");
+			return;
+		}
 		wcn_send_atcmd_lock();
 		ret = loopcheck_send(a, strlen(a));
 		if ((g_match_config && g_match_config->unisoc_wcn_pcie) && (ret == -1)) {
