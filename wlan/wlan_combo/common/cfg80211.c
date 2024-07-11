@@ -582,6 +582,51 @@ int sprd_cfg80211_set_default_mgmt_key(struct wiphy *wiphy,
 	return 0;
 }
 
+/*
+ * check whether beacon head carries ds params
+ * return value, 0: beacon head carried ds params;
+ * 1: beacon head didn't carry ds params, driver need add ds params
+ */
+static u8 sprd_find_no_ds_ie(struct cfg80211_beacon_data *beacon)
+{
+	const u8 *tmp;
+	u16 ielen, var_offset;
+	struct ieee80211_mgmt *mgmt;
+
+	mgmt = (struct ieee80211_mgmt *)beacon->head;
+	var_offset = offsetof(struct ieee80211_mgmt, u.beacon.variable);
+	ielen = beacon->head_len - var_offset;
+	tmp = cfg80211_find_ie(WLAN_EID_DS_PARAMS, mgmt->u.beacon.variable, ielen);
+	if (tmp)
+		return 0;
+	return 1;
+}
+
+/*
+ * wifi driver add ds params for mac that acquire chan info.
+ * for more information,please ref to bug 2722816 and 2652217
+ */
+static void sprd_add_ds_params(struct cfg80211_ap_settings *settings, u8 *data, u16 *index)
+{
+	struct ieee80211_channel *chan;
+	u8 channel;
+
+	if (sprd_find_no_ds_ie(&settings->beacon)) {
+		chan = settings->chandef.chan;
+		channel =  ieee80211_frequency_to_channel(chan->center_freq);
+		/* ie type */
+		*(data + *index) = WLAN_EID_DS_PARAMS;
+		*index += 1;
+		/* ie len */
+		*(data + *index) = 1;
+		*index += 1;
+		/* ie value */
+		*(data + *index) = channel;
+		*index += 1;
+		wl_info("%s, add ds params, chan = %u", __func__, channel);
+	}
+}
+
 int sprd_cfg80211_start_ap(struct wiphy *wiphy, struct net_device *ndev,
 			   struct cfg80211_ap_settings *settings)
 {
@@ -615,6 +660,9 @@ int sprd_cfg80211_start_ap(struct wiphy *wiphy, struct net_device *ndev,
 		hidden_len += settings->ssid_len;
 	mgmt_len += hidden_len;
 
+	if (sprd_find_no_ds_ie(beacon))
+		mgmt_len += SPRD_DS_PARAMS_LEN;
+
 	if (beacon->tail)
 		mgmt_len += beacon->tail_len;
 
@@ -644,10 +692,12 @@ int sprd_cfg80211_start_ap(struct wiphy *wiphy, struct net_device *ndev,
 	memcpy(data + index, beacon->head + hidden_index - 1,
 	       beacon->head_len + 1 - hidden_index);
 
-	if (beacon->tail)
-		memcpy(data + beacon->head_len + hidden_len, beacon->tail,
-		       beacon->tail_len);
+	/*bug 2722816 ,2652217*/
+	index = beacon->head_len + hidden_len;
+	sprd_add_ds_params(settings, data, &index);
 
+	if (beacon->tail)
+		memcpy(data + index, beacon->tail, beacon->tail_len);
 	ret = sprd_start_ap(vif->priv, vif, (unsigned char *)mgmt, mgmt_len, settings);
 	if (ret)
 		netdev_err(ndev, "%s failed to start AP!\n", __func__);
