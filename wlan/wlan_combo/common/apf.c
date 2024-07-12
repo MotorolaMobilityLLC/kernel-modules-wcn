@@ -749,7 +749,7 @@ int apf_force_disable_status(struct sprd_vif *vif, u8 *disable_status)
 
 	apf_req.apf_hdr.apf_subcmd = WLAN_GET_APF_FORCE_DIS_STATUS;
 
-	apf_rsp = kzalloc(ALIGN(sizeof(expect_rsp_len), APF_ALIGN_SIZE), GFP_KERNEL);
+	apf_rsp = kzalloc(ALIGN(expect_rsp_len, APF_ALIGN_SIZE), GFP_KERNEL);
 	if (!apf_rsp) {
 		netdev_info(vif->ndev, "%s alloc failed", __func__);
 		return -ENOMEM;
