@@ -57,7 +57,8 @@ enum wcn_source_type {
 	WCN_SOURCE_BTWF,
 	WCN_SOURCE_GNSS,
 	WCN_SOURCE_WCN,
-	WCN_SOURCE_CP2_ALIVE  /*notify slogmodem wcn cp2 alive*/
+	WCN_SOURCE_CP2_ALIVE,  /*notify slogmodem wcn cp2 alive*/
+	WCN_SOURCE_SP_RESET    /*reset wcn cp2*/
 };
 
 enum wcn_bus_state {
@@ -344,6 +345,7 @@ void mdbg_device_unlock_notify(void);
 extern void wcn_pm_qos_enable(void);
 extern void wcn_pm_qos_disable(void);
 extern void wcn_pm_qos_reset(void);
+extern void gnss_hold_cpu(void);
 
 static inline
 int sprdwcn_bus_preinit(void)

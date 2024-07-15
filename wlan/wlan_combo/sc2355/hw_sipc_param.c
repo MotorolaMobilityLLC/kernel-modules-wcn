@@ -253,6 +253,7 @@ static struct merl_nvm_name_table g_config_table[] = {
 	CF_TAB("roaming_trigger", wifi_param.roaming_param.trigger, 1),
 	CF_TAB("roaming_delta", wifi_param.roaming_param.delta, 1),
 	CF_TAB("roaming_5g_prefer", wifi_param.roaming_param.band_5g_prefer, 1),
+	CF_TAB("oui_config", oui_config.oui_data, 4),
 };
 
 static int find_type(char key, char *str, int *index_ptr)
@@ -418,6 +419,10 @@ static int wifi_nvm_buf_operate(char *pBuf, int file_len, void *p_data)
 					if (strcmp(pTable->itm, "rf_config") == 0) {
 						conf = (struct merl_wifi_conf_t *)p_data;
 						conf->rf_config.rf_data_len = cmd->num;
+					}
+					if (strcmp(pTable->itm, "oui_config") == 0) {
+						conf = (struct merl_wifi_conf_t *)p_data;
+						conf->oui_config.ap_oui_num = cmd->num;
 					}
 
 					if (strcmp(pTable->itm, "value") == 0) {

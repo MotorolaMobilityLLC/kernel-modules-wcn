@@ -75,6 +75,12 @@ int wcn_send_atcmd(void *cmd, size_t cmd_len, void *response, size_t *response_l
 			WCN_WARN("%s:can not send atcmd before download flag is true\n", __func__);
 			return -EIO;
 		}
+	} else if (g_match_config && g_match_config->unisoc_wcn_integrated){
+		if (!s_wcn_device.btwf_device ||
+			!(s_wcn_device.btwf_device->wcn_open_status & WCN_MARLIN_MASK)) {
+			WCN_WARN("%s:can not send atcmd when btwfsys is powerdown!\n", __func__);
+			return -EIO;
+                }
 	}
 
 	if (g_match_config && g_match_config->unisoc_wcn_pcie) {
