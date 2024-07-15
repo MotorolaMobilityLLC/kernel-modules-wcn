@@ -532,6 +532,7 @@ static void gnss_dump_mem_ctrl_co(char *trigStr)
 		wcn_assert_interface(WCN_SOURCE_GNSS, triggerStr);
 		gnss_common_ctl_dev.gnss_status = GNSS_STATUS_ASSERT;
 	}
+	dump_flag = 0;
 }
 
 static void gnss_dump_mem_ctrl(char *trigStr)
@@ -554,7 +555,7 @@ static void gnss_dump_mem_ctrl(char *trigStr)
 		wcn_assert_interface(WCN_SOURCE_GNSS, triggerStr);
 		gnss_common_ctl_dev.gnss_status = GNSS_STATUS_ASSERT;
 	}
-
+	dump_flag = 0;
 }
 
 static ssize_t gnss_dump_store(struct device *dev,
@@ -583,6 +584,12 @@ static ssize_t gnss_dump_store(struct device *dev,
 		else
 			gnss_dump_mem_ctrl(triggerStr);
 		ret = GNSS_DUMP_DATA_START_UP;
+	} else if(set_value == 4) {
+		wcn_assert_interface(WCN_SOURCE_SP_RESET, triggerStr);
+		ret = GNSS_DUMP_DATA_START_UP;
+	} else if(set_value == 5) {
+		gnss_hold_cpu();
+		ret = 0;
 	} else
 		ret = -EINVAL;
 

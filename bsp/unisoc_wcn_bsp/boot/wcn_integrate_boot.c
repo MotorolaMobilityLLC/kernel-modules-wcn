@@ -3939,25 +3939,6 @@ int btwf_force_shutdown_aontop(struct wcn_device *wcn_dev)
 	return 0;
 }
 
-/*
- * For BTWF SYS deepsleep fail WorkRound,
- * soft reset WCN SYS and notify GNSS
- */
-int reset_prop_btwf_deepsleep;
-void integ_workround_for_deepsleep(void)
-{
-	WCN_INFO("BTWF sys deepsleep failed, soft reset\n");
-	if (s_wcn_device.gnss_device &&
-		s_wcn_device.gnss_device->power_state) {
-		WCN_INFO("GNSS open! set reset status\n");
-		atomic_set(&sysfs_info.is_deepsleep_wr, 1);
-		reset_prop_btwf_deepsleep = wcn_sysfs_get_reset_prop();
-		/*set reset status when notifer gps*/
-		atomic_set(&sysfs_info.is_reset, WCN_ASSERT_ONLY_RESET);
-	}
-	wcn_reset_cp2();
-}
-
 int btwf_clear_force_shutdown_aontop(struct wcn_device *wcn_dev)
 {
 	u32 reg_val = 0;
@@ -3999,11 +3980,11 @@ int stop_integrate_wcn_module(u32 subsys)
 	wcn_show_dev_status("before stop");
 	is_marlin = wcn_dev_is_marlin(wcn_dev);
 
-	if (atomic_read(&sysfs_info.is_deepsleep_wr) && (!is_marlin)) {
-		atomic_set(&sysfs_info.is_deepsleep_wr, 0);
-		WCN_INFO("BTWF sys deepsleep failed, soft reset done!\n");
+	if (atomic_read(&sysfs_info.is_reset_wr) && (!is_marlin)) {
+		atomic_set(&sysfs_info.is_reset_wr, 0);
+		WCN_INFO("BTWF sys deepsleep failed or sp reset!, soft reset done!\n");
 		/*restore reset\dump status after notifer gps*/
-		atomic_set(&sysfs_info.is_reset, reset_prop_btwf_deepsleep);
+		atomic_set(&sysfs_info.is_reset, sysfs_info.reset_prop);
 	}
 
 	if (unlikely(!(subsys_bit & wcn_dev->wcn_open_status))) {
@@ -4230,7 +4211,7 @@ int stop_integrate_wcn(u32 subsys)
 			/* WARNING: Return 0 by GNSS */
 			return 0;
 		} else if (ret == -BTWF_SYS_DEEPSLEEP_ABNORMAL) {
-			integ_workround_for_deepsleep();
+			wcn_silent_reset();
 			return 0;
 		}
 	}

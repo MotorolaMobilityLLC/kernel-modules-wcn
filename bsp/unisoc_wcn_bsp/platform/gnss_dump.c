@@ -190,7 +190,7 @@ static void gnss_soft_reset_release_cpu(u32 type)
 	}
 }
 
-static void gnss_hold_cpu(void)
+void gnss_hold_cpu(void)
 {
 	u32 value;
 	phys_addr_t base_addr;
@@ -224,6 +224,7 @@ static void gnss_hold_cpu(void)
 			value);
 	msleep(200);
 }
+EXPORT_SYMBOL_GPL(gnss_hold_cpu);
 
 static int wcn_integrated_dump_data_regmap(u32 addr, u32 len, u32 skip)
 {
