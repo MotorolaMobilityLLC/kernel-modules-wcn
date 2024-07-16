@@ -681,7 +681,7 @@ static int mtty_sipc2_rx_cb(int chn, struct mbuf_t *head, struct mbuf_t *tail, i
 //sdio rx_cb
 static int mtty_rx_cb(int chn, struct mbuf_t *head, struct mbuf_t *tail, int num)
 {
-    int ret = 0, block_size, rx_num;
+    int ret = 0 , block_size = 0, rx_num = 0;
     struct rx_data *rx;
     struct mbuf_t *rx_head = head;
 
