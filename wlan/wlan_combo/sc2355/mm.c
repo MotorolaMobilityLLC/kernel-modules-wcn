@@ -34,7 +34,7 @@ static bool mm_check_mh_buffer(struct device *dev, void *buffer, dma_addr_t pa,
 			       __func__, (unsigned long)buffer,
 			       (unsigned long)pa);
 			/* FIXME: Should we delay here? */
-			dma_sync_single_for_device(dev, pa, size, direction);
+			dma_sync_single_for_cpu(dev, pa, size, direction);
 			retry++;
 		}
 	}
@@ -693,7 +693,10 @@ void *sc2355_mm_phys_to_virt(struct device *dev, unsigned long pcie_addr,
 	pa = pcie_addr & (~(SPRD_MH_ADDRESS_BIT) & SPRD_PHYS_MASK);
 	buffer = phys_to_virt(pa);
 
-	dma_sync_single_for_device(dev, pa, size, direction);
+	if (direction == DMA_FROM_DEVICE)
+		dma_sync_single_for_cpu(dev, pa, size, direction);
+	else
+		dma_sync_single_for_device(dev, pa, size, direction);
 
 	if (is_mh) {
 		if (!mm_check_mh_buffer(dev, buffer, pa, size, direction))
