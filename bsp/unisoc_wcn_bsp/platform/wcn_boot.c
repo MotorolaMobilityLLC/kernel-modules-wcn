@@ -3495,7 +3495,15 @@ int start_marlin(enum wcn_sub_sys subsys)
 	}
 
 	if (g_match_config && !g_match_config->unisoc_wcn_pcie)
+	{
 		ret = mem_pd_mgr(subsys, true);
+		if (-1 == ret) {
+			mutex_unlock(&marlin_dev->power_lock);
+			wcn_set_powerdown_flag(2);
+			wcn_assert_interface(WCN_SOURCE_BTWF, "mem_pd error");
+			return ret;
+		}
+	}
 
 	time_end = marlin_get_localtime();
 	delt_time = time_end - time_begin;
