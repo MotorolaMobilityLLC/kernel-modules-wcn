@@ -2963,10 +2963,21 @@ int sc2355_set_vowifi(struct net_device *ndev, void __user *data)
 	    (is_valid_ether_addr(vif->bssid))) {
 		struct sprd_hif *hif = NULL;
 		struct sprd_peer_entry *peer_entry = NULL;
-		struct vowifi_info *info = (struct vowifi_info *)(tlv->data);
+		struct vowifi_info *info = NULL;
+
+		if (priv_cmd.total_len < sizeof(*tlv) + sizeof(struct vowifi_info)) {
+			netdev_info(ndev, "%s: priv cmd total len is invalid: %d\n",
+				    __func__, priv_cmd.total_len);
+			ret = -EINVAL;
+			goto out;
+		}
+
+		info = (struct vowifi_info *)(tlv->data);
 		hif = &vif->priv->hif;
-		if (hif == NULL)
-			return -EINVAL;
+		if (!hif) {
+			ret = -EINVAL;
+			goto out;
+		}
 
 		peer_entry = sc2355_find_peer_entry_using_addr(vif, vif->bssid);
 		if (hif && peer_entry) {
@@ -3049,6 +3060,9 @@ int sc2355_set_sniffer(struct net_device *ndev, void __user *data)
 	if (!strncasecmp(command, CMD_SNIFFER_MODE,
 			 strlen(CMD_SNIFFER_MODE))) {
 		skip = strlen(CMD_SNIFFER_MODE) + 1;
+		if (priv_cmd.total_len <= skip)
+			goto len_err;
+
 		ret = kstrtoint(command + skip, 0, &value);
 		if (ret)
 			goto out;
@@ -3080,6 +3094,9 @@ int sc2355_set_sniffer(struct net_device *ndev, void __user *data)
 	} else if (!strncasecmp(command, CMD_SNIFFER_LISTEN_CHANNEL,
 				strlen(CMD_SNIFFER_LISTEN_CHANNEL))) {
 		skip = strlen(CMD_SNIFFER_LISTEN_CHANNEL) + 1;
+		if (priv_cmd.total_len <= skip)
+			goto len_err;
+
 		ret = kstrtoint(command + skip, 0, &value);
 		if (ret)
 			goto out;
@@ -3108,6 +3125,9 @@ int sc2355_set_sniffer(struct net_device *ndev, void __user *data)
 	} else if (!strncasecmp(command, CMD_SNIFFER_FILTER,
 				strlen(CMD_SNIFFER_FILTER))) {
 		skip = strlen(CMD_SNIFFER_FILTER) + 1;
+		if (priv_cmd.total_len <= skip)
+			goto len_err;
+
 		ret = kstrtoint(command + skip, 0, &value);
 		if (ret)
 			goto out;
@@ -3124,6 +3144,9 @@ int sc2355_set_sniffer(struct net_device *ndev, void __user *data)
 	} else if (!strncasecmp(command, CMD_SNIFFER_BAND,
 				strlen(CMD_SNIFFER_BAND))) {
 		skip = strlen(CMD_SNIFFER_BAND) + 1;
+		if (priv_cmd.total_len <= skip)
+			goto len_err;
+
 		ret = kstrtoint(command + skip, 0, &value);
 		if (ret)
 			goto out;
@@ -3133,10 +3156,9 @@ int sc2355_set_sniffer(struct net_device *ndev, void __user *data)
 			netdev_err(ndev, "%s: set sniffer monitor band not in monitor mode\n",
 				   __func__);
 		ret = cmdevt_set_sniffer(priv, vif, SPRD_SNIFFER_BAND, value);
-		if (ret) {
+		if (ret)
 			netdev_err(ndev, "sniffer set band failed\n");
-			goto out;
-		}
+
 	} else {
 		netdev_err(ndev, "%s command not support\n", __func__);
 		ret = -EOPNOTSUPP;
@@ -3145,10 +3167,17 @@ int sc2355_set_sniffer(struct net_device *ndev, void __user *data)
 out:
 	kfree(command);
 	return ret;
+
+len_err:
+	netdev_err(ndev, "%s: priv cmd total len(%d) is invalid\n",
+		   __func__, priv_cmd.total_len);
+	kfree(command);
+	return -EINVAL;
 }
 
 int sc2355_set_miracast(struct net_device *ndev, void __user *data)
 {
+#define MIN_LEN 8
 	struct sprd_vif *vif = netdev_priv(ndev);
 	struct sprd_priv *priv = vif->priv;
 	struct android_wifi_priv_cmd priv_cmd;
@@ -3163,9 +3192,14 @@ int sc2355_set_miracast(struct net_device *ndev, void __user *data)
 	if (copy_from_user(&priv_cmd, data, sizeof(priv_cmd)))
 		return -EINVAL;
 
-	/* add length check to avoid invalid NULL ptr */
-	if (priv_cmd.total_len <= 0 || priv_cmd.total_len > 4096) {
-		wl_err("%s: priv cmd total len is invalid", __func__);
+	/*
+	 * add length check to avoid invalid NULL ptr
+	 * bug2734787.
+	 * priv_cmd.total_len = sizeof(struct driver_cmd_msg) + sizeof(int);
+	 * sizeof(struct driver_cmd_msg):4bytes
+	 */
+	if (priv_cmd.total_len < MIN_LEN || priv_cmd.total_len > 4096) {
+		wl_err("%s: priv cmd total len(%d) is invalid", __func__, priv_cmd.total_len);
 		return -EINVAL;
 	}
 
@@ -3179,6 +3213,7 @@ int sc2355_set_miracast(struct net_device *ndev, void __user *data)
 
 	subtype = *(unsigned short *)command;
 	if (subtype == 5) {
+		/*refer to struct driver_cmd_msg*/
 		value = *((int *)(command + 2 * sizeof(unsigned short)));
 		wl_debug("%s: set miracast value : %d", __func__, value);
 		/* bug:1807181

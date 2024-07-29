@@ -106,23 +106,6 @@ static struct sprd_priv *iface_get_priv(void)
 	return sprd_prv;
 }
 
-static void iface_str2mac(const char *mac_addr, u8 *mac)
-{
-	unsigned int m[ETH_ALEN];
-
-	if (sscanf(mac_addr, "%02x:%02x:%02x:%02x:%02x:%02x",
-		   &m[0], &m[1], &m[2], &m[3], &m[4], &m[5]) != ETH_ALEN) {
-		wl_err("failed to parse mac address");
-		memset(m, 0, sizeof(unsigned int) * ETH_ALEN);
-	}
-	mac[0] = m[0];
-	mac[1] = m[1];
-	mac[2] = m[2];
-	mac[3] = m[3];
-	mac[4] = m[4];
-	mac[5] = m[5];
-}
-
 static int wlan_open(struct inode *inode, struct file *filep)
 {
 	return 0;
@@ -763,58 +746,6 @@ static void iface_tx_timeout(struct net_device *ndev)
 	netif_wake_queue(ndev);
 }
 
-static int iface_set_blacklist(struct net_device *ndev, char *command,
-			       struct android_wifi_priv_cmd priv_cmd,
-			       u8 sub_type, int skip)
-{
-	struct sprd_vif *vif = netdev_priv(ndev);
-	struct sprd_priv *priv = vif->priv;
-	u8 addr[ETH_ALEN] = { 0 };
-	int ret = 0;
-
-	if (priv_cmd.total_len < skip + MAC_ADDR_STR_LEN)
-		return ret;
-
-	iface_str2mac(command + skip, addr);
-	if (!is_valid_ether_addr(addr))
-		return ret;
-
-	if (sub_type == SUBCMD_ADD)
-		netdev_info(ndev, "%s: block %pM\n", __func__, addr);
-	else if (sub_type == SUBCMD_DEL)
-		netdev_info(ndev, "%s: unblock %pM\n", __func__, addr);
-
-	ret = sprd_set_blacklist(priv, vif, sub_type, 1, addr);
-
-	return ret;
-}
-
-static int iface_set_whitelist(struct net_device *ndev, char *command,
-			       struct android_wifi_priv_cmd priv_cmd,
-			       u8 sub_type, int skip)
-{
-	struct sprd_vif *vif = netdev_priv(ndev);
-	struct sprd_priv *priv = vif->priv;
-	u8 addr[ETH_ALEN] = { 0 };
-	int ret = 0;
-
-	if (priv_cmd.total_len < skip + MAC_ADDR_STR_LEN)
-		return ret;
-
-	iface_str2mac(command + skip, addr);
-	if (!is_valid_ether_addr(addr))
-		return ret;
-
-	if (sub_type == SUBCMD_ADD)
-		netdev_info(ndev, "%s: add whitelist %pM\n", __func__, addr);
-	else if (sub_type == SUBCMD_DEL)
-		netdev_info(ndev, "%s: delete whitelist %pM\n", __func__, addr);
-
-	ret = sprd_set_whitelist(priv, vif, sub_type, 1, addr);
-
-	return ret;
-}
-
 static int iface_get_user_data(void __user *data,
 			       struct android_wifi_priv_cmd *priv_cmd, char **cmd)
 {
@@ -844,142 +775,21 @@ static int iface_get_user_data(void __user *data,
 	return 0;
 }
 
-/* handle enable/disable whitelist */
-static int iface_handle_whitelist(struct net_device *ndev, char *command,
-				  struct android_wifi_priv_cmd priv_cmd,
-				  u8 sub_type, int skip)
+static int iface_priv_cmd_ccn0(struct net_device *ndev,
+			       struct android_wifi_priv_cmd priv_cmd, char *command)
 {
 	struct sprd_vif *vif = netdev_priv(ndev);
 	struct sprd_priv *priv = vif->priv;
-	int ret = 0, counter, index;
-	u8 *mac_addr = NULL, *tmp, *mac_list;
-
-	netdev_info(ndev, "%s: %s whitelist\n", __func__,
-		    (sub_type == SUBCMD_ENABLE)?"enable":"disable");
-	counter = command[skip];
-	if (counter < 0 || counter > 10) {
-		netdev_err(ndev, "%s: whitelist counter is invalid: %d\n",
-			   __func__, counter);
-		ret = -EINVAL;
-		goto out;
-	}
-	netdev_info(ndev, "%s: whitelist counter : %d\n",
-		    __func__, counter);
-	if (!counter) {
-		ret = sprd_set_whitelist(priv, vif,
-					 sub_type, 0, NULL);
-		goto out;
-	}
-	if (priv_cmd.total_len < skip + counter * (MAC_ADDR_STR_LEN + 1)) {
-		ret = -EINVAL;
-		goto out;
-	}
-
-	mac_addr = kmalloc(ETH_ALEN * counter, GFP_KERNEL);
-	if (!mac_addr) {
-		ret = -ENOMEM;
-		goto out;
-	}
-	mac_list = mac_addr;
-
-	tmp = command + skip + 1;
-	for (index = 0; index < counter; index++) {
-		iface_str2mac(tmp, mac_addr);
-		if (!is_valid_ether_addr(mac_addr)) {
-			kfree(mac_addr);
-			ret = -EINVAL;
-			goto out;
-		}
-		netdev_info(ndev, "%s: whitelist %pM\n",
-			    __func__, mac_addr);
-		mac_addr += ETH_ALEN;
-		tmp += 18;
-	}
-	ret = sprd_set_whitelist(priv, vif,
-				 sub_type, counter, mac_list);
-	kfree(mac_list);
-out:
-	return ret;
-}
-
-static int iface_prase_mac_acl(struct net_device *ndev, char *command,
-			       struct android_wifi_priv_cmd priv_cmd,
-			       int *skip_r)
-{
-	int ret = 0, skip = 0;
-	struct sprd_vif *vif = netdev_priv(ndev);
-	struct sprd_priv *priv = vif->priv;
-	char country[SPRD_COUNTRY_CODE_LEN + 1];
-
-	if (!strncasecmp(command, CMD_BLACKLIST_ENABLE,
-			 strlen(CMD_BLACKLIST_ENABLE))) {
-		skip = strlen(CMD_BLACKLIST_ENABLE) + 1;
-		ret = iface_set_blacklist(ndev, command, priv_cmd, SUBCMD_ADD, skip);
-	} else if (!strncasecmp(command, CMD_BLACKLIST_DISABLE,
-				strlen(CMD_BLACKLIST_DISABLE))) {
-		skip = strlen(CMD_BLACKLIST_DISABLE) + 1;
-		ret = iface_set_blacklist(ndev, command, priv_cmd, SUBCMD_DEL, skip);
-	} else if (!strncasecmp(command, CMD_ADD_WHITELIST,
-				strlen(CMD_ADD_WHITELIST))) {
-		skip = strlen(CMD_ADD_WHITELIST) + 1;
-		ret = iface_set_whitelist(ndev, command, priv_cmd, SUBCMD_ADD, skip);
-	} else if (!strncasecmp(command, CMD_DEL_WHITELIST,
-				strlen(CMD_DEL_WHITELIST))) {
-		skip = strlen(CMD_DEL_WHITELIST) + 1;
-		ret = iface_set_whitelist(ndev, command, priv_cmd, SUBCMD_DEL, skip);
-	} else if (!strncasecmp(command, CMD_ENABLE_WHITELIST,
-				strlen(CMD_ENABLE_WHITELIST))) {
-		skip = strlen(CMD_ENABLE_WHITELIST) + 1;
-		ret = iface_handle_whitelist(ndev, command, priv_cmd, SUBCMD_ENABLE, skip);
-	} else if (!strncasecmp(command, CMD_DISABLE_WHITELIST,
-				strlen(CMD_DISABLE_WHITELIST))) {
-		skip = strlen(CMD_DISABLE_WHITELIST) + 1;
-		ret = iface_handle_whitelist(ndev, command, priv_cmd, SUBCMD_DISABLE, skip);
-	} else if (!strncasecmp(command, CMD_SET_COUNTRY,
-				strlen(CMD_SET_COUNTRY))) {
-		skip = strlen(CMD_SET_COUNTRY) + 1;
-		memcpy(country, command + skip, SPRD_COUNTRY_CODE_LEN);
-		country[SPRD_COUNTRY_CODE_LEN] = '\0';
-		if (!is_alpha(country[0]) || !is_alpha(country[1])) {
-			ret = -EINVAL;
-			goto out;
-		}
-		netdev_info(ndev, "%s country code:%c%c\n", __func__,
-			    toupper(country[0]), toupper(country[1]));
-		ret = regulatory_hint(priv->wiphy, country);
-	}
-out:
-	*skip_r = skip;
-
-	return ret;
-}
-
-static int iface_priv_cmd(struct net_device *ndev, void __user *data)
-{
-	int n_clients;
-	struct sprd_vif *vif = netdev_priv(ndev);
-	struct sprd_priv *priv = vif->priv;
-	struct android_wifi_priv_cmd priv_cmd;
-	char *command = NULL;
-	u16 interval = 0;
 	u8 feat = 0, status = 0;
 	int ret = 0, skip;
-
-	ret = iface_get_user_data(data, &priv_cmd, &command);
-	if (ret)
-		return ret;
-
-	ret = iface_prase_mac_acl(ndev, command, priv_cmd, &skip);
-	if (skip)
-		goto out;
+	u16 interval = 0;
 
 	if (!strncasecmp(command, CMD_11V_GET_CFG,
 				strlen(CMD_11V_GET_CFG))) {
 		/* deflaut CP support all featrue */
-		if (priv_cmd.total_len < (strlen(CMD_11V_GET_CFG) + 4)) {
-			ret = -ENOMEM;
-			goto out;
-		}
+		if (priv_cmd.total_len < (strlen(CMD_11V_GET_CFG) + 4))
+			goto len_err;
+
 		memset(command, 0, priv_cmd.total_len);
 		if (priv->fw_std & SPRD_STD_11V)
 			feat = priv->wnm_ft_support;
@@ -989,26 +799,67 @@ static int iface_priv_cmd(struct net_device *ndev, void __user *data)
 		if (copy_to_user(priv_cmd.buf, command, priv_cmd.total_len)) {
 			netdev_err(ndev, "%s: get 11v copy failed\n", __func__);
 			ret = -EFAULT;
-			goto out;
 		}
 	} else if (!strncasecmp(command, CMD_11V_SET_CFG,
 				strlen(CMD_11V_SET_CFG))) {
 		skip = strlen(CMD_11V_SET_CFG) + 1;
+		if (priv_cmd.total_len < skip + 1)
+			goto len_err;
+
 		status = command[skip];
 
 		sprd_set_11v_feature_support(priv, vif, status);
 	} else if (!strncasecmp(command, CMD_11V_WNM_SLEEP,
 				strlen(CMD_11V_WNM_SLEEP))) {
 		skip = strlen(CMD_11V_WNM_SLEEP) + 1;
+		if (priv_cmd.total_len < skip + 1)
+			goto len_err;
 
 		status = command[skip];
-		if (status)
+		if (status) {
+			if (priv_cmd.total_len < skip + 4)
+				goto len_err;
 			interval = command[skip + 1];
-
+		}
+		netdev_info(ndev, "%s: 11v sleep, status %d, interval %d\n",
+			    __func__, status, interval);
 		sprd_set_11v_sleep_mode(priv, vif, status, interval);
+	} else {
+		ret = 1;
+	}
+	return ret;
+
+len_err:
+	netdev_info(ndev, "%s: priv cmd total len is invalid: %d\n",
+		    __func__, priv_cmd.total_len);
+	return -EINVAL;
+}
+
+static int iface_priv_cmd_ccn1(struct net_device *ndev,
+			       struct android_wifi_priv_cmd priv_cmd, char *command)
+{
+	struct sprd_vif *vif = netdev_priv(ndev);
+	struct sprd_priv *priv = vif->priv;
+	int ret = 0, skip, n_clients;
+	char country[SPRD_COUNTRY_CODE_LEN + 1];
+
+	if (!strncasecmp(command, CMD_SET_COUNTRY,
+			 strlen(CMD_SET_COUNTRY))) {
+		skip = strlen(CMD_SET_COUNTRY) + 1;
+		if (priv_cmd.total_len < skip + 2)
+			goto len_err;
+
+		memcpy(country, command + skip, SPRD_COUNTRY_CODE_LEN);
+		country[SPRD_COUNTRY_CODE_LEN] = '\0';
+		netdev_info(ndev, "%s country code:%c%c\n", __func__,
+			    toupper(country[0]), toupper(country[1]));
+		ret = regulatory_hint(priv->wiphy, country);
 	} else if (!strncasecmp(command, CMD_SET_MAX_CLIENTS,
 				strlen(CMD_SET_MAX_CLIENTS))) {
 		skip = strlen(CMD_SET_MAX_CLIENTS) + 1;
+		if (priv_cmd.total_len <= skip)
+			goto len_err;
+
 		ret = kstrtou32(command + skip, 10, &n_clients);
 		if (ret < 0) {
 			ret = -EINVAL;
@@ -1029,7 +880,30 @@ static int iface_priv_cmd(struct net_device *ndev, void __user *data)
 		netdev_err(ndev, "%s command not support\n", __func__);
 		ret = -ENOTSUPP;
 	}
+
 out:
+	return ret;
+
+len_err:
+	netdev_info(ndev, "%s: priv cmd total len is invalid: %d\n",
+		    __func__, priv_cmd.total_len);
+	return -EINVAL;
+}
+
+static int iface_priv_cmd(struct net_device *ndev, void __user *data)
+{
+	struct android_wifi_priv_cmd priv_cmd;
+	char *command = NULL;
+	int ret = 0;
+
+	ret = iface_get_user_data(data, &priv_cmd, &command);
+	if (ret)
+		return ret;
+
+	ret = iface_priv_cmd_ccn0(ndev, priv_cmd, command);
+	if (ret == 1)
+		ret =  iface_priv_cmd_ccn1(ndev, priv_cmd, command);
+
 	kfree(command);
 	return ret;
 }
@@ -1050,7 +924,8 @@ static int iface_set_power_save(struct net_device *ndev, void __user *data)
 			 strlen(CMD_SETSUSPENDMODE))) {
 		skip = strlen(CMD_SETSUSPENDMODE) + 1;
 		if (priv_cmd.total_len <= skip)
-			goto out;
+			goto len_err;
+
 		ret = kstrtoint(command + skip, 0, &value);
 		if (ret)
 			goto out;
@@ -1060,6 +935,9 @@ static int iface_set_power_save(struct net_device *ndev, void __user *data)
 	} else if (!strncasecmp(command, CMD_SET_FCC_CHANNEL,
 				strlen(CMD_SET_FCC_CHANNEL))) {
 		skip = strlen(CMD_SET_FCC_CHANNEL) + 1;
+		if (priv_cmd.total_len <= skip)
+			goto len_err;
+
 		ret = kstrtoint(command + skip, 0, &value);
 		if (ret)
 			goto out;
@@ -1068,6 +946,9 @@ static int iface_set_power_save(struct net_device *ndev, void __user *data)
 	} else if (!strncasecmp(command, CMD_SET_SAR,
 				strlen(CMD_SET_SAR))) {
 		skip = strlen(CMD_SET_SAR) + 1;
+		if (priv_cmd.total_len <= skip)
+			goto len_err;
+
 		ret = kstrtoint(command + skip, 0, &value);
 		if (ret)
 			goto out;
@@ -1077,6 +958,9 @@ static int iface_set_power_save(struct net_device *ndev, void __user *data)
 	} else if (!strncasecmp(command, CMD_REDUCE_TX_POWER,
 				strlen(CMD_REDUCE_TX_POWER))) {
 		skip = strlen(CMD_REDUCE_TX_POWER) + 1;
+		if (priv_cmd.total_len <= skip)
+			goto len_err;
+
 		ret = kstrtoint(command + skip, 0, &value);
 		if (ret)
 			goto out;
@@ -1087,9 +971,16 @@ static int iface_set_power_save(struct net_device *ndev, void __user *data)
 		netdev_err(ndev, "%s command not support\n", __func__);
 		ret = -ENOTSUPP;
 	}
+
 out:
 	kfree(command);
 	return ret;
+
+len_err:
+	netdev_info(ndev, "%s: priv cmd total len is invalid: %d\n",
+		    __func__, priv_cmd.total_len);
+	kfree(command);
+	return -EINVAL;
 }
 
 static int iface_set_p2p_mac(struct net_device *ndev, void __user *data)
