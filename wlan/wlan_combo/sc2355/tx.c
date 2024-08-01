@@ -902,16 +902,19 @@ static int tx_mc_pkt_checksum(struct sk_buff *skb, struct net_device *ndev)
 {
 	struct udphdr *udphdr;
 	struct tcphdr *tcphdr;
-	struct ipv6hdr *ipv6hdr;
+	struct ipv6hdr *ipv6hdr = NULL;
+	struct iphdr *iphdr = NULL;
 	__sum16 checksum = 0;
 	unsigned char iphdrlen = 0;
-	struct sprd_vif *vif;
-	struct sprd_hif *hif;
+	struct ethhdr *ethhdr = (struct ethhdr *)skb->data;
 
-	vif = netdev_priv(ndev);
-	hif = &vif->priv->hif;
-	ipv6hdr = (struct ipv6hdr *)(skb->data + ETHER_HDR_LEN);
-	iphdrlen = sizeof(*ipv6hdr);
+	if (ethhdr->h_proto == htons(ETH_P_IPV6)) {
+		ipv6hdr = (struct ipv6hdr *)(skb->data + ETHER_HDR_LEN);
+		iphdrlen = sizeof(*ipv6hdr);
+	} else {
+		iphdr = (struct iphdr *)(skb->data + ETHER_HDR_LEN);
+		iphdrlen = ip_hdrlen(skb);
+	}
 
 	udphdr = (struct udphdr *)(skb->data + ETHER_HDR_LEN + iphdrlen);
 	tcphdr = (struct tcphdr *)(skb->data + ETHER_HDR_LEN + iphdrlen);
@@ -922,11 +925,13 @@ static int tx_mc_pkt_checksum(struct sk_buff *skb, struct net_device *ndev)
 						iphdrlen,
 						skb->len - ETHER_HDR_LEN -
 						iphdrlen);
-		if (ipv6hdr->nexthdr == IPPROTO_UDP) {
+		if ((ipv6hdr && ipv6hdr->nexthdr == IPPROTO_UDP) ||
+		    (iphdr && iphdr->protocol == IPPROTO_UDP)) {
 			udphdr->check = ~checksum;
 			wl_info("csum:%x,udp check:%x\n",
 				checksum, udphdr->check);
-		} else if (ipv6hdr->nexthdr == IPPROTO_TCP) {
+		} else if ((ipv6hdr && ipv6hdr->nexthdr == IPPROTO_TCP) ||
+			   (iphdr && iphdr->protocol == IPPROTO_TCP)) {
 			tcphdr->check = ~checksum;
 			wl_info("csum:%x,tcp check:%x\n",
 				checksum, tcphdr->check);
@@ -943,21 +948,19 @@ static int tx_mc_pkt(struct sk_buff *skb, struct net_device *ndev)
 {
 	struct sprd_vif *vif;
 	struct sprd_hif *hif;
+	struct ethhdr *ethhdr = (struct ethhdr *)skb->data;
 
 	vif = netdev_priv(ndev);
 	hif = &vif->priv->hif;
 
-	if (skb->data) {
-		memcpy(hif->skb_da, skb->data, ETH_ALEN);
-	} else {
+	if (hif->hw_type == SPRD_HW_SC2355_SIPC &&
+	    ethhdr->h_proto == htons(ETH_P_IP))
 		return 1;
-	}
 
+	memcpy(hif->skb_da, skb->data, ETH_ALEN);
 	if (tx_is_multicast_mac_addr(hif->skb_da) && vif->mode == SPRD_MODE_AP) {
-		wl_debug
-		    ("%s,AP mode, multicast bssid: %02x:%02x:%02x:%02x:%02x:%02x\n",
-		     __func__, hif->skb_da[0], hif->skb_da[1], hif->skb_da[2],
-		     hif->skb_da[3], hif->skb_da[4], hif->skb_da[5]);
+		wl_debug("%s,AP mode, multicast bssid: %pM\n",
+			 __func__, hif->skb_da);
 		tx_mc_pkt_checksum(skb, ndev);
 		sc2355_xmit_data2cmd_wq(skb, ndev);
 		return NETDEV_TX_OK;
@@ -2171,12 +2174,12 @@ int sprd_tx_filter_packet(struct sk_buff *skb, struct net_device *ndev)
 		memcpy(hif->skb_da, skb->data, ETH_ALEN);
 	}
 
-	if (ethhdr->h_proto == htons(ETH_P_IPV6) && !tx_mc_pkt(skb, ndev))
-		return NETDEV_TX_OK;
-
 	if (ethhdr->h_proto == htons(ETH_P_IP) ||
-	    ethhdr->h_proto == htons(ETH_P_IPV6))
+	    ethhdr->h_proto == htons(ETH_P_IPV6)) {
+		if (!tx_mc_pkt(skb, ndev))
+			return NETDEV_TX_OK;
 		return tx_filter_ip_pkt(skb, ndev);
+	}
 	return 1;
 }
 
