@@ -332,6 +332,7 @@ struct sdiohal_data_t {
 	/*SDIO debug control block*/
 	struct sdiohal_debug_t sdcb;
 	spinlock_t debug_spinlock;
+	bool runtime_status;
 };
 
 struct sdiohal_data_t *sdiohal_get_data(void);
@@ -468,6 +469,8 @@ int sdiohal_remove_datalist_invalid_data(struct mchn_ops_t *ops, struct sdiohal_
 void sdiohal_debug_point_show(void);
 void sdiohal_debug_point_store(int type, int channel,
 				int num, struct mbuf_t *head, struct mbuf_t *tail, bool tx_direct);
+void sdiohal_enable_rx_irq(void);
+void sdiohal_disable_rx_irq(int irq);
 
 extern unsigned long long tm_enter_tx_thread;
 extern unsigned long long tm_exit_tx_thread;

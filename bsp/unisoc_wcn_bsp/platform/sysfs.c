@@ -704,6 +704,7 @@ static bool shoudl_do_sdio_block_workround(void)
 		return false;
 
 	if ((now - p_data->last_sdio_blocked_time) < within_blocked_time) {
+		sdiohal_disable_rx_irq(p_data->irq_num);
 		WCN_INFO("force WCN reset\n");
 		return true;
 	}

@@ -224,7 +224,10 @@ int sdiohal_rx_thread(void *data)
 			sdiohal_rx_down();
 		if (p_data->exit_flag)
 			break;
-
+		if (p_data->runtime_status == false) {
+			pr_err("%s has runtime_put, skip!", __func__);
+			continue;
+		}
 		p_data->tm_end_irq = ktime_get_boot_fast_ns();
 		sdiohal_pr_perf("rx sch time:%ld\n",
 				(long)(timespec64_to_ns(&p_data->tm_end_irq) -

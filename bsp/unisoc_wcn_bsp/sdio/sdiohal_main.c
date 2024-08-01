@@ -960,7 +960,7 @@ unsigned int sdiohal_get_carddump_status(void)
 	return p_data->card_dump_flag;
 }
 
-static void sdiohal_disable_rx_irq(int irq)
+void sdiohal_disable_rx_irq(int irq)
 {
 	struct sdiohal_data_t *p_data = sdiohal_get_data();
 
@@ -1290,6 +1290,7 @@ int sdiohal_runtime_get(void)
 	if (!p_data->pwrseq_enable) {
 		if (p_data->irq_num != 0) {
 			enable_irq(p_data->irq_num);
+			p_data->runtime_status = true;
 			pr_info("%s enable irq ok\n", __func__);
 		}
 		return 0;
@@ -1315,6 +1316,7 @@ int sdiohal_runtime_get(void)
 	sdiohal_set_cp_pin_status();
 	sdiohal_enable_slave_irq();
 	enable_irq(p_data->irq_num);
+	p_data->runtime_status = true;
 	pr_info("%s enable device ok\n", __func__);
 
 	return ret;
@@ -1329,9 +1331,10 @@ int sdiohal_runtime_put(void)
 	if (!p_data)
 		return -ENODEV;
 
-	if (p_data->irq_num != 0)
+	if (p_data->irq_num != 0) {
 		disable_irq(p_data->irq_num);
-
+		p_data->runtime_status = false;
+	}
 	if (!p_data->pwrseq_enable)
 		return 0;
 
@@ -1372,6 +1375,7 @@ static int sdiohal_probe(struct sdio_func *func,
 
 	sdiohal_set_cp_pin_status();
 
+	p_data->runtime_status = true;
 	ret = request_irq(p_data->irq_num, sdiohal_irq_handler,
 			  IRQF_TRIGGER_HIGH | IRQF_NO_SUSPEND,
 			  "sdiohal_irq", &func->dev);
@@ -1578,6 +1582,7 @@ int sdiohal_init(void)
 		return -1;
 	}
 
+	p_data->runtime_status = true;
 	sdiohal_launch_thread();
 	sdiohal_host_irq_init(p_data->gpio_num);
 	p_data->flag_init = true;
