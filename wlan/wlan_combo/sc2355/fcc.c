@@ -10,7 +10,7 @@
 /* subtype, channel, bw, {mode(2.4g : b,g,n,ac; 5g : a,n,ac), value} */
 
 #define num_ce 8
-#define num_fcc 14
+#define num_fcc 12
 
 #define power_backoff_ce { \
 	{1, 149, 0, { {0, 127}, {1, 127}, {2, 127}, {3, 127}, {4, 12}, {5, 12}, {6, 12} } }, \
