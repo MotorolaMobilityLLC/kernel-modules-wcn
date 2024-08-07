@@ -162,9 +162,6 @@ int wcn_sipc_chn_status(int index);
 struct sipc_chn_info *wcn_sipc_channel_get(int index);
 void wcn_sipc_chn_set_status_all_false(void);
 
-void sipc_recvseq_debug_show(void);
-int sipc_recvseq_debug_store(u8 channel_index, int index);
-
 #ifdef WCN_SIPC_DBG
 #define WCN_HERE WCN_INFO("[%s] %d\n", __func__, __LINE__)
 #define WCN_HERE_CHN(x) if(x==16) WCN_INFO("[%s] %d chn[%d]\n", __func__, __LINE__, x)

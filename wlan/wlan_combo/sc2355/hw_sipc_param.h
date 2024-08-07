@@ -160,6 +160,11 @@ struct merl_rf_config_t {
 	uint8_t rf_data[1500];
 };
 
+struct merl_ap_config_t {
+	int ap_data_len;
+	uint8_t ap_data[1500];
+};
+
 struct merl_ap_oui_config_t {
 	int ap_oui_num;
 	uint32_t oui_data[50];
@@ -213,6 +218,7 @@ struct merl_wifi_conf_t {
 	struct merl_rf_config_t rf_config;
 	struct merl_wifi_config_param_t wifi_param;
 	struct merl_ap_oui_config_t oui_config;
+	struct merl_ap_config_t ap_config;
 };
 
 int get_wifi_config_param(struct sprd_priv *priv, struct merl_wifi_conf_t *p);

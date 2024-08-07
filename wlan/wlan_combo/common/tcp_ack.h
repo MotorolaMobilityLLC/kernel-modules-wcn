@@ -22,6 +22,9 @@ struct tcp_ack_msg {
 	s32 daddr;
 	u32 seq;
 	u16 win;
+	struct in6_addr ipv6_saddr;
+	struct in6_addr ipv6_daddr;
+	bool is_ipv6;
 };
 
 struct tcp_ack_info {
