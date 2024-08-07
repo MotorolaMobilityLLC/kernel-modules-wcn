@@ -486,6 +486,10 @@ static const struct sprd_npi_ops sc2355_npi_ops[] = {
 		.doit = sprd_npi_get_chipid,
 	},
 	{
+		.cmd = SPRD_NPI_CMD_SET_ADDBA,
+		.doit = sprd_npi_deal_addba,
+	},
+	{
 		.cmd = SPRD_NPI_CMD_SET_CCA_PARAM,
 		.doit = sprd_npi_deal_setcca,
 	},

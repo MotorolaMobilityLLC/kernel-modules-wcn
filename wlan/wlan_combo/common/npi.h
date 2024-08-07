@@ -119,6 +119,8 @@ void sprd_wifi_adaptive_work(struct sprd_priv *priv, struct sprd_vif *vif);
 
 int sprd_npi_get_chipid(struct genl_info *info,
 		unsigned char *s_buf, unsigned short s_len);
+int sprd_npi_deal_addba(struct genl_info *info,
+		unsigned char *s_buf, unsigned short s_len);
 int sprd_npi_deal_setcca(struct genl_info *info,
 		unsigned char *s_buf, unsigned short s_len);
 int sprd_npi_set_random_mac(struct genl_info *info,

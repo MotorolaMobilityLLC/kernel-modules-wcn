@@ -72,6 +72,72 @@ static void npi_post_doit(const struct genl_ops *ops,
 		dev_put(info->user_ptr[0]);
 }
 
+int sprd_npi_deal_addba(struct genl_info *info,
+			    unsigned char *s_buf, unsigned short s_len)
+{
+	struct sprd_peer_entry *peer_entry = NULL;
+	struct sprd_hif *hif = NULL;
+	struct sprd_vif *temp_vif = NULL;
+	struct net_device *ndev = NULL;
+	struct sprd_vif *vif = NULL;
+	struct sprd_npi_cmd_hdr hdr = {0};
+	int ret  = 0;
+	u8 *addr = NULL;
+	u8 i, lut_index;
+	unsigned short r_len = SPRD_NPI_RECV_BUF_LEN;
+	unsigned char *r_buf = NULL;
+
+	ndev = info->user_ptr[0];
+	vif = netdev_priv(ndev);
+	hif = &vif->priv->hif;
+	addr = vif->bssid;
+
+	r_buf = kzalloc(SPRD_NPI_RECV_BUF_LEN, GFP_KERNEL);
+	if (!r_buf)
+		return -ENOMEM;
+
+	/* if current vif->sm_state is not connected, need to find vif with status connected */
+	if (vif->sm_state != SPRD_CONNECTED) {
+		spin_lock_bh(&vif->priv->list_lock);
+		list_for_each_entry(temp_vif, &vif->priv->vif_list, vif_node) {
+			if (temp_vif->sm_state == SPRD_CONNECTED) {
+				addr = temp_vif->bssid;
+				break;
+			}
+		}
+		spin_unlock_bh(&vif->priv->list_lock);
+	}
+
+	/* find peer_entey using bssid */
+	for (i = 0; i < MAX_LUT_NUM; i++) {
+		if (ether_addr_equal(hif->peer_entry[i].tx.da, addr)) {
+			peer_entry = &hif->peer_entry[i];
+			lut_index = peer_entry->lut_index;
+			break;
+		}
+	}
+
+	if (peer_entry) {
+		peer_entry->ip_acquired = 1;
+		pr_info("%s, success set ip_acquired, lut_index: %d\n", __func__, (int)lut_index);
+	} else {
+		pr_err("%s, not set ip_acquired\n", __func__);
+	}
+
+	hdr.len = sizeof(int);
+	hdr.type = SPRD_CP2HT_REPLY;
+	hdr.subtype = SPRD_NPI_CMD_SET_ADDBA;
+	r_len = sizeof(hdr) + hdr.len;
+	memcpy(r_buf, &hdr, sizeof(hdr));
+	memcpy(r_buf + sizeof(hdr), &ret, hdr.len);
+
+	ret = npi_nl_send_generic(info, SPRD_NL_ATTR_CP2AP,
+				  SPRD_NL_CMD_NPI, r_len, r_buf);
+	kfree(r_buf);
+	r_buf = NULL;
+	return ret;
+}
+
 int sprd_npi_deal_setcca(struct genl_info *info,
 			 unsigned char *s_buf, unsigned short s_len)
 {
