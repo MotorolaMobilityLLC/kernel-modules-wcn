@@ -258,6 +258,11 @@ void wcn_debug_bus_show(struct wcn_device *wcn_dev, char *show)
 				sigsel, (0 << 8) | sigsel, sysbase + SYSSEL_CFG5_OFFSET);
 		debugbus_data[i++] = readl(sysbase + PAD_DBUS_DATA_OUT_OFFSET);
 		pr_info("DEBUGBUS:WCN(1-94) debugbus data: 0x%x\n", debugbus_data[i - 1]);
+		if (g_match_config && g_match_config->unisoc_wcn_integrated) {
+			if (sigsel == 19)
+				debugbus_set_value(debugbus_data[i - 1],
+					DEBUGBUS_GNSS_IP_CURRENT_STATE, GNSS_IP_CURRENT_STATE);
+		}
 	}
 	writel((4 << 8) | 0, sysbase + SYSSEL_CFG5_OFFSET);
 	pr_info("DEBUGBUS:(0x%x) Write (REG 0x%p)",
@@ -290,7 +295,8 @@ void wcn_debug_bus_show(struct wcn_device *wcn_dev, char *show)
 
 		if (g_match_config && g_match_config->unisoc_wcn_integrated) {
 			if (sigsel == 1)
-				gnss_set_clk_gate_en(debugbus_data[i - 1]);
+				debugbus_set_value(debugbus_data[i - 1],
+					DEBUGBUS_CGM_GNSS_MTX_GATE_EN, CGM_GNSS_MTX_GATE_EN);
 		}
 	}
 	pr_info("++++++++++++++++++++WCN++++++++++++++++++++");

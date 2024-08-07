@@ -3286,6 +3286,162 @@ static int vendor_set_sae_password(struct wiphy *wiphy,
 	return ret;
 }
 
+static enum nl80211_chan_width vendor_mhz_to_width(u32 width_mhz)
+{
+	enum nl80211_chan_width width;
+
+	switch (width_mhz) {
+	case 20:
+		width = NL80211_CHAN_WIDTH_20;
+		break;
+	case 40:
+		width = NL80211_CHAN_WIDTH_40;
+		break;
+	case 80:
+	case 160:
+		width = NL80211_CHAN_WIDTH_80;
+		break;
+	default:
+		return -1;
+	}
+
+	return width;
+}
+
+static int vendor_put_usable_channels_info(struct wiphy *wiphy,
+		struct sk_buff *reply, int channel_cnt, int freq, u32 iface_mode)
+{
+	struct nlattr *channel_info = NULL;
+	const struct ieee80211_reg_rule *reg_rule;
+	enum nl80211_chan_width width;
+
+	wl_err("%s freq %d, channel_cnt %d, iface_mode %d\n",
+			__func__, freq, channel_cnt, iface_mode);
+
+	channel_info = nla_nest_start(reply, channel_cnt);
+	if (!channel_info)
+		return -EMSGSIZE;
+
+	reg_rule =
+		freq_reg_info(wiphy, MHZ_TO_KHZ(freq));
+	if (IS_ERR(reg_rule))
+		return -EMSGSIZE;
+
+	width = vendor_mhz_to_width(KHZ_TO_MHZ(reg_rule->freq_range.max_bandwidth_khz));
+
+	if (nla_put_u32(reply, ATTR_CHAN_INFO_PRIMARY_FREQ, freq) ||
+		nla_put_u32(reply, ATTR_CHAN_INFO_BANDWIDTH, width) ||
+		nla_put_u32(reply, ATTR_CHAN_INFO_IFACE_MODE_MASK, iface_mode)) {
+		wl_err("failed to put!\n");
+		return -EMSGSIZE;
+	}
+
+	nla_nest_end(reply, channel_info);
+
+	return 0;
+}
+
+static int vendor_usable_channels_reply(struct wiphy *wiphy, u32 band, u32 iface_mode)
+{
+	struct sk_buff *reply = NULL;
+	struct nlattr *channel_list = NULL;
+	int ret = 0, channel_cnt = 0, i = 0;
+	struct sprd_priv *priv = wiphy_priv(wiphy);
+	u32 buf_len = 0;
+
+	buf_len = NLA_HDRLEN + 100;
+	buf_len += (ATTR_USABLE_CHANNELS_MAX + 1) * NLA_ALIGN(sizeof(u32));
+	buf_len += (ATTR_CHAN_INFO_MAX + 1) * NLA_ALIGN(sizeof(u32)) * 39;
+
+	reply = cfg80211_vendor_cmd_alloc_reply_skb(wiphy, buf_len);
+	if (!reply)
+		return -ENOMEM;
+
+	channel_list = nla_nest_start(reply, ATTR_USABLE_CHANNELS_CHAN_INFO);
+	if (!channel_list)
+		goto out_put_fail;
+
+	if (band & BIT(NL80211_BAND_2GHZ)) {
+		for (i = 0; i < priv->ch_2g4_info.num_channels; i++) {
+			ret = vendor_put_usable_channels_info(wiphy, reply, channel_cnt,
+					priv->ch_2g4_info.channels[i], iface_mode);
+			if (ret)
+				goto out_put_fail;
+
+			channel_cnt++;
+		}
+	}
+
+	if (band & BIT(NL80211_BAND_5GHZ)) {
+		for (i = 0; i < priv->ch_5g_without_dfs_info.num_channels; i++) {
+			ret = vendor_put_usable_channels_info(wiphy, reply, channel_cnt,
+					priv->ch_5g_without_dfs_info.channels[i], iface_mode);
+			if (ret)
+				goto out_put_fail;
+
+			channel_cnt++;
+		}
+
+		if (!(iface_mode & BIT(NL80211_IFTYPE_AP)) &&
+			!(iface_mode & BIT(NL80211_IFTYPE_P2P_GO))) {
+			for (i = 0; i < priv->ch_5g_dfs_info.num_channels; i++) {
+				ret = vendor_put_usable_channels_info(wiphy, reply, channel_cnt,
+						priv->ch_5g_dfs_info.channels[i], iface_mode);
+				if (ret)
+					goto out_put_fail;
+
+				channel_cnt++;
+			}
+		}
+	}
+
+	nla_nest_end(reply, channel_list);
+
+	ret = cfg80211_vendor_cmd_reply(reply);
+	if (ret)
+		wl_err("reply cmd error\n");
+	return ret;
+
+out_put_fail:
+	kfree_skb(reply);
+	reply = NULL;
+	WARN_ON(1);
+	return -EMSGSIZE;
+}
+
+static int vendor_usable_channels(struct wiphy *wiphy,
+				   struct wireless_dev *wdev,
+				   const void *data, int len)
+{
+	struct nlattr *tb[ATTR_USABLE_CHANNELS_MAX + 1];
+	u32 band = 0, iface_mode = 0;
+	int ret = 0;
+
+	if (nla_parse(tb, ATTR_USABLE_CHANNELS_MAX, data, len, NULL, NULL)) {
+		wl_err("%s parse attr failed", __func__);
+		return -EINVAL;
+	}
+
+	if (!tb[ATTR_USABLE_CHANNELS_BAND_MASK] ||
+	    !tb[ATTR_USABLE_CHANNELS_IFACE_MODE_MASK]) {
+		wl_err("%s check request id or control failed\n", __func__);
+		return -EINVAL;
+	}
+
+	band = nla_get_u32(tb[ATTR_USABLE_CHANNELS_BAND_MASK]);
+	iface_mode = nla_get_u32(tb[ATTR_USABLE_CHANNELS_IFACE_MODE_MASK]);
+
+	wl_err("%s band = 0x%x, iface_mode = 0x%x\n", __func__, band, iface_mode);
+
+	iface_mode &= (BIT(NL80211_IFTYPE_STATION) | BIT(NL80211_IFTYPE_AP) |
+	    BIT(NL80211_IFTYPE_P2P_GO) | BIT(NL80211_IFTYPE_P2P_CLIENT) |
+	    BIT(NL80211_IFTYPE_P2P_DEVICE));
+
+	ret = vendor_usable_channels_reply(wiphy, band, iface_mode);
+
+	return ret;
+}
+
 static int vendor_apf_req_send_recv(struct sprd_vif *vif,
 			struct apf_request *apf_req, void *src_slice_prog,
 			struct apf_response *apf_rsp, u16 *r_len)
@@ -3825,6 +3981,17 @@ static const struct wiphy_vendor_command vendor_cmd[] = {
 			WIPHY_VENDOR_CMD_NEED_RUNNING,
 		.doit = vendor_get_akm_suite,
 		.policy = VENDOR_CMD_RAW_DATA,
+	},
+	{/* 198 */
+		{
+			.vendor_id = OUI_SPREAD,
+			.subcmd = VENDOR_CMD_USABLE_CHANNELS,
+		},
+		.flags = WIPHY_VENDOR_CMD_NEED_WDEV |
+			WIPHY_VENDOR_CMD_NEED_RUNNING,
+		.doit = vendor_usable_channels,
+		.policy = vendor_usable_channels_policy,
+		.maxattr = ATTR_USABLE_CHANNELS_MAX,
 	},
 	{/* WPA3 softap */
 		{

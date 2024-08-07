@@ -788,9 +788,14 @@ RETRY:
 		return;
 	}
 
-	if (need_polling && polling_times++ < TX_MAX_POLLING) {
-		udelay(TX_POLLING_INTERVAL);
-		goto RETRY;
+	if (need_polling) {
+		if (hif->hw_type == SPRD_HW_SC2355_PCIE || hif->hw_type == SPRD_HW_SC2355_SIPC) {
+			usleep_range(10, 15);
+		} else if (hif->hw_type == SPRD_HW_SC2355_SDIO &&
+			   polling_times++ < TX_MAX_POLLING) {
+			udelay(TX_POLLING_INTERVAL);
+			goto RETRY;
+		}
 	}
 }
 
