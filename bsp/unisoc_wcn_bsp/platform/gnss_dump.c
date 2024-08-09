@@ -32,6 +32,7 @@
 #include "gnss_dump.h"
 #include "wcn_gnss_dump.h"
 #include "sprd_wcn.h"
+#include "wcn_debug_bus.h"
 
 #define DUMP_PACKET_SIZE	(1024)
 
@@ -65,21 +66,23 @@ struct cp_reg_dump {
 	u32 len;
 };
 
+static u32 debugbus_qogirl6[DEBUGBUS_RESERVE] = {0};
 static char gnss_dump_level; /* 0: default, all, 1: only data, pmu, aon */
 static char gnss_pll_switch_flag = 1;/*0:switch fail, 1:switch suc*/
 extern struct wcn_device_manage s_wcn_device;
 
-static u32 cgm_gnss_clk_gate_en = 1;
-#define CGM_GNSS_MTX_GATE_EN 0x2
-void gnss_set_clk_gate_en(u32 flag)
+void debugbus_set_value(u32 flag_debugbus, enum DEBUGBUS_QOGIRL6 flag, int val)
 {
-	cgm_gnss_clk_gate_en = flag;
+	if ((flag_debugbus & val) == val)
+		debugbus_qogirl6[flag] = true;
+	else
+		debugbus_qogirl6[flag] = false;
 }
 
-u32 gnss_get_clk_gate_en(void)
+u32 debugbus_get_value(enum DEBUGBUS_QOGIRL6 flag)
 {
-	GNSSDUMP_INFO("cgm_gnss_clk_gate_en=%x\n", cgm_gnss_clk_gate_en);
-	return cgm_gnss_clk_gate_en;
+	GNSSDUMP_INFO("%s=%x\n", __func__, debugbus_qogirl6[flag]);
+	return debugbus_qogirl6[flag];
 }
 
 static void gnss_write_data_to_phy_addr(phys_addr_t phy_addr,
@@ -108,6 +111,36 @@ static void gnss_read_data_from_phy_addr(phys_addr_t phy_addr,
 	} else
 		GNSSDUMP_ERR("%s shmem_ram_vmap_nocache fail\n", __func__);
 }
+
+u32 gnss_check_stab_dump_status(void)
+{
+	phys_addr_t base_addr;
+	u32 value1 = 0, value2 = 0;
+
+	if (debugbus_get_value(DEBUGBUS_GNSS_IP_CURRENT_STATE)) {
+		GNSSDUMP_INFO("%s GNSS IP is shutdown!\n", __func__);
+		return FALSE;
+	}
+	if ((!debugbus_get_value(DEBUGBUS_CGM_GNSS_MTX_GATE_EN)
+			 && gnss_sys_is_deepsleep_status(s_wcn_device.gnss_device))) {
+		GNSSDUMP_INFO("%s GNSS error in cgm_gnss_mtx_en!\n", __func__);
+		return FALSE;
+	}
+	base_addr = GNSS_SYS_CGM_GNSS_FAKE_SEL + GNSS_AP_ACCESS_CP_OFFSET;
+	gnss_read_data_from_phy_addr(base_addr, (void *)&value1, 4);
+	base_addr = GNSS_SYS_BB_EN + GNSS_AP_ACCESS_CP_OFFSET;
+	gnss_read_data_from_phy_addr(base_addr, (void *)&value2, 4);
+	GNSSDUMP_INFO("%s cgm_gnss_fake_en=%x, gnss_sys_bb_en=%x!\n", __func__, value1, value2);
+	if ((value1 & 0x2) && (!(value2 & 0x8))) {
+		value2 |= 1 << 3;
+		gnss_write_data_to_phy_addr(base_addr, (void *)&value2, 4);
+		GNSSDUMP_INFO("%s after set val=%x\n", __func__, value2);
+	} else if (!(value1 & 0x2) && !(value2 & 0x8))
+		return FALSE;
+
+	return TRUE;
+}
+
 
 static void get_gnss_pll_switch_state(void)
 {
@@ -287,7 +320,7 @@ static int gnss_integrated_dump_mem(void)
 {
 	int i, ret = 0;
 	int skip = 0;
-	uint gnss_sleep_flag = 0;
+	uint gnss_stab_dump_flag = 0;
 
 	GNSSDUMP_INFO("gnss_dump_mem entry\n");
 	wcn_get_gnss_base_addr();
@@ -295,11 +328,11 @@ static int gnss_integrated_dump_mem(void)
 	if (wcn_platform_chip_type() == WCN_PLATFORM_TYPE_QOGIRL6) {
 		get_gnss_pll_switch_state();
 		/*gnss dont dump unless pll switch done*/
+		debug_bus_show("GNSS DUMP READ DEBUGBUS");
 		if (gnss_pll_switch_flag == 0)
 			return ret;
-		gnss_sleep_flag = (!(gnss_get_clk_gate_en()&CGM_GNSS_MTX_GATE_EN))
-			&& (gnss_sys_is_deepsleep_status(s_wcn_device.gnss_device));
-		if (!gnss_sleep_flag)
+		gnss_stab_dump_flag = gnss_check_stab_dump_status();
+		if (gnss_stab_dump_flag)
 			gnss_hold_cpu();
 		else
 			GNSSDUMP_INFO("%s : gnss only dump DDR/SIPC data!!!\n", __func__);
@@ -309,8 +342,8 @@ static int gnss_integrated_dump_mem(void)
 
 	for (i = 0; i < gnss_reg_cnt; i++) {
 		if (wcn_platform_chip_type() == WCN_PLATFORM_TYPE_QOGIRL6) {
-			if (gnss_sleep_flag && i == 2)
-					skip = 1;
+			if (!gnss_stab_dump_flag && i == 2)
+				skip = 1;
 		}
 		if (gnss_reg[i].domain & CP)
 			wcn_integrated_dump_data_regmap(gnss_reg[i].addr + gnss_reg[i].offset,
