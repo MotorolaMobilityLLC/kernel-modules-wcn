@@ -36,6 +36,7 @@
 #define SEC3			3
 #define SEC4			4
 #define SEC5                    5
+#define SEC6                    6
 
 #define FLAG_SIZE		5
 
@@ -1407,7 +1408,8 @@ void sc2355_sipc_download_hw_param(struct sprd_priv *priv)
 		sc2355_assert_cmd(priv, CMD_DOWNLOAD_INI, LOAD_INI_DATA_FAILED);
 		return;
 	}
-	 if (oui_param->ap_oui_num) {
+
+	if (oui_param->ap_oui_num) {
                 wl_info("download the fifth section of config file\n");
                 wl_info("ap_oui_num  = %d\n", oui_param->ap_oui_num);
 		ini_section = SEC5;
@@ -1426,6 +1428,25 @@ void sc2355_sipc_download_hw_param(struct sprd_priv *priv)
                         return;
                 }
         }
+
+	if (wifi_data->ap_config.ap_data_len) {
+                wl_info("download the sixth section of config file\n");
+                ini_section = SEC6;
+                wl_debug("ap_data_len = %d\n", wifi_data->ap_config.ap_data_len);
+                ret = cmdevt_download_ini(priv, wifi_data->ap_config.ap_data,
+                                wifi_data->ap_config.ap_data_len, SEC6);
+                if (ret) {
+                        wl_err("download the sixth section of ini fail,return\n");
+                        kfree(wifi_data);
+                        wifi_data = NULL;
+#ifdef ENABLE_CHR
+                        CHR_OPENERR_FLAGSET(&hif->chr->open_err_flag, OPEN_ERR_DOWNLOAD_INI);
+#endif
+                        sc2355_assert_cmd(priv, CMD_DOWNLOAD_INI, LOAD_INI_DATA_FAILED);
+                        return;
+                }
+        }
+
 
 	kfree(wifi_data);
 	wifi_data = NULL;
@@ -3480,8 +3501,8 @@ static int cmdevt_handle_rsp_status_err(u8 cmd_id, s8 status, enum sprd_hif_type
 
 	if (cmd_id == CMD_DOWNLOAD_INI &&
 	    status == SPRD_CMD_STATUS_INI_INDEX_ERROR &&
-            hw_type == SPRD_HW_SC2355_SIPC &&
-            ini_section == SEC5)
+            hw_type == SPRD_HW_SC2355_SIPC && (
+            ini_section == SEC5 || ini_section == SEC6))
 		flag = 0;
 
 	return flag;
