@@ -318,6 +318,7 @@ static int btwf_dump_mem(enum wcn_source_type type)
 
 	mdbg_hold_cpu(MDBG_CACHE_FLAG_VALUE);
 	msleep(100);
+	mdbg_check_clean_cache_done(MDBG_CACHE_CLEAN_DONE);
 	mdbg_ring_reset(mdev_ring);
 	mdbg_atcmd_clean();
 
