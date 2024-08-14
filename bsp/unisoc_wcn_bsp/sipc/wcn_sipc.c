@@ -971,7 +971,6 @@ static int wcn_sipc_chn_init(struct mchn_ops_t *ops)
 			  sipc_chn->sblk.txblocksize,
 			  sipc_chn->sblk.rxblocknum,
 			  sipc_chn->sblk.rxblocksize);
-
 		/* rx chn record tx chn */
 		sipc_chn->relate_index = sipc_chn->index;
 		if (sipc_chn->chn == 8) {
@@ -981,8 +980,10 @@ static int wcn_sipc_chn_init(struct mchn_ops_t *ops)
 		}
 		/* sblock */
 		if (SIPC_CHN_STATUS(sipc_chn->chn) == SIPC_CHANNEL_UNCREATED) {
-			ret = sblock_create(sipc_chn->dst, sipc_chn->chn, sipc_chn->sblk.txblocknum,	\
-				sipc_chn->sblk.txblocksize, sipc_chn->sblk.rxblocknum, sipc_chn->sblk.rxblocksize);
+			ret = sblock_create_ex(sipc_chn->dst, sipc_chn->chn, 0,
+				sipc_chn->sblk.txblocknum, sipc_chn->sblk.txblocksize,
+				sipc_chn->sblk.rxblocknum, sipc_chn->sblk.rxblocksize,
+				sipc_data_ops[chntype].sipc_notifer, sipc_chn);
 			if (ret < 0) {
 				WCN_ERR("sblock chn[%d] create fail!\n", idx);
 				return ret;
@@ -990,17 +991,6 @@ static int wcn_sipc_chn_init(struct mchn_ops_t *ops)
 			SIPC_CHN_STATUS(sipc_chn->chn) = SIPC_CHANNEL_CREATED;
 		}
 		if (SIPC_CHN_DIR_RX(idx)) {
-			ret = sblock_register_notifier(
-					sipc_chn->dst,
-					sipc_chn->chn,
-					sipc_data_ops[chntype].sipc_notifer,
-					sipc_chn);
-			if (ret < 0) {
-				WCN_ERR("sblock chn[%d] register fail!\n",
-					idx);
-				sblock_destroy(sipc_chn->dst, sipc_chn->chn);
-				return ret;
-			}
 			sipc_chn->relate_index = sipc_chn->index - 1;
 		} else if (SIPC_CHN_DIR_TX(idx)) {
 			/* tx init work task */
