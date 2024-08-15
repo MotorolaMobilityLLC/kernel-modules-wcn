@@ -76,6 +76,7 @@ static unsigned int log_level = MTTY_LOG_LEVEL_NONE;
 #define SDIOM_WR_DIRECT_MOD_ADDR 0x51004000
 #endif
 
+#define SET_BT_VERSION 1
 
 static struct semaphore sem_id;
 struct mchn_ops_t bt_pcie_rx_ops;
@@ -152,6 +153,29 @@ struct dma_buf {
 };
 
 static bool is_dumped = false;
+
+int sprd_bt_read_soc_version(char *op_string){
+    struct device_node *hwf;
+    const char *value;
+
+    hwf = of_find_node_by_path("/hwfeature/auto");
+    if (IS_ERR_OR_NULL(hwf)) {
+        pr_err("NO hwfeature/auto node found\n");
+        return PTR_ERR(hwf);
+    }
+
+    value = of_get_property(hwf, "efuse", NULL);
+    if (strcmp(value, "") == 0) {
+        pr_err("phone soc version is null");
+        return -EINVAL;
+    }
+
+    strncpy(op_string, value, strlen(value)+1);
+    pr_info("phone soc version: %s \n", op_string);
+
+    return 0;
+}
+
 static ssize_t dumpmem_store(struct device *dev,
     struct device_attribute *attr, const char *buf, size_t count)
 {
@@ -1250,6 +1274,7 @@ static int mtty_sipc2_write(struct tty_struct *tty,
     int num = 1, ret;
     struct mbuf_t *tx_head = NULL, *tx_tail = NULL;
     unsigned char *block = NULL;
+    char phone_info[15] = "";
 
     if (log_level == MTTY_LOG_LEVEL_VER) {
         if (buf[0] == COMMAND_HEAD) {
@@ -1289,10 +1314,28 @@ static int mtty_sipc2_write(struct tty_struct *tty,
 
     if (block[BT_SIPC_HEAD_LEN] == ISO_HEAD && (block[BT_SIPC_HEAD_LEN + 4]&0xC0)) {
             block[BT_SIPC_HEAD_LEN + 4] &= 0x3f;
-            dev_unisoc_bt_err(ttyBT_dev,
+            dev_unisoc_bt_info(ttyBT_dev,
                                 "%s dump ISO %02X %02X %02X %02X \n",
                                 __func__, block[0], block[1], block[2],block[3]);
     }
+
+    if (block[BT_SIPC_HEAD_LEN] == COMMAND_HEAD && (block[BT_SIPC_HEAD_LEN + 1]== 0xA1) && (block[BT_SIPC_HEAD_LEN + 2]== 0xFC) && (block[BT_SIPC_HEAD_LEN + 6]== 0x01)) {
+        if (SET_BT_VERSION) {
+            ret = sprd_bt_read_soc_version(phone_info);
+            pr_info("read soc version:%s\n", phone_info);
+            if (ret) {
+                pr_err("can't read soc version, phone info:%s\n", phone_info);
+            } else if (!strcmp(phone_info, "UMS9230") || !strcmp(phone_info, "UMS9230T")) {
+                block[BT_SIPC_HEAD_LEN + 5] = BT_VERSION_5_0;
+            } else if (!strcmp(phone_info, "UMS9230H") || !strcmp(phone_info, "UMS9230E") || !strcmp(phone_info, "UMS9230S")) {
+                block[BT_SIPC_HEAD_LEN + 5] = BT_VERSION_5_2;
+            }
+            dev_unisoc_bt_info(ttyBT_dev,
+                "%s dump enable cmd: %02X %02X %02X %02X %02X %02X %02X\n",
+                __func__, block[0], block[1], block[2],block[3], block[4], block[5], block[6]);
+        }
+    }
+
     tx_head->buf = block;
     tx_head->len = count;
     tx_head->next = NULL;

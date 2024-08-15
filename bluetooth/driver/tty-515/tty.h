@@ -33,6 +33,17 @@ enum mtty_log_level {
     MTTY_LOG_LEVEL_VER,
 };
 
+enum sprd_bt_version {
+    BT_VERSION_4_0 = 6,   //defined by BT SIG
+    BT_VERSION_4_1,
+    BT_VERSION_4_2,
+    BT_VERSION_5_0,
+    BT_VERSION_5_1,
+    BT_VERSION_5_2,
+    BT_VERSION_5_3,
+    BT_VERSION_5_4,
+};
+
 /*struct mtty_init_data {
     char *name;
 };*/
