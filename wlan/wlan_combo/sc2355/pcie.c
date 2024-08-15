@@ -1618,8 +1618,6 @@ int sc2355_pcie_fc_test_send_num(struct sprd_hif *hif,
 
 	free_num = atomic_read(&tx_mgmt->xmit_msg_list.free_num);
 	if (printk_timed_ratelimit(&caller_jiffies, 1000)) {
-		wl_info("%s,%d free_num=%d, data_num=%d\n", __func__,
-			__LINE__, free_num, data_num);
 		if (list_empty(&tx_mgmt->xmit_msg_list.to_free_list))
 			wl_info("%s: to free list empty\n", __func__);
 	}
