@@ -209,7 +209,7 @@ static void loopcheck_work_queue(struct work_struct *work)
 	}
 	if (unlikely(sprdwcn_bus_get_carddump_status())) {
 		WCN_ERR("%s err, wcn in dump or reset\r\n", __func__);
-		return;
+		goto queue_work;
 	}
 
 	sprdwcn_rx_cnt_a = sprdwcn_bus_get_rx_total_cnt();
@@ -254,6 +254,7 @@ static void loopcheck_work_queue(struct work_struct *work)
 			}
 		}
 	}
+queue_work:
 	ret = queue_delayed_work(loopcheck.workqueue, &loopcheck.work,
 				 LOOPCHECK_TIMER_INTERVAL * HZ);
 }

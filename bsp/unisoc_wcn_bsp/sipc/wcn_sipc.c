@@ -12,7 +12,7 @@
 #include "bus_common.h"
 #include "wcn_integrate.h"
 #include "wcn_sipc.h"
-#include "../platform/wcn_procfs.h"
+#include "wcn_procfs.h"
 #include "wcn_pm_qos.h"
 
 #define SIPC_WCN_DST 3
@@ -854,6 +854,8 @@ static int wcn_sipc_push_list(int index, struct mbuf_t *head,
 extern char wcn_assert_str[128];
 static inline unsigned int wcn_sipc_get_status(void)
 {
+	if (g_sipc_info.sipc_chn_status != 0)
+		WCN_ERR("fw assert:%s\n", wcn_assert_str);
 	return g_sipc_info.sipc_chn_status;
 }
 

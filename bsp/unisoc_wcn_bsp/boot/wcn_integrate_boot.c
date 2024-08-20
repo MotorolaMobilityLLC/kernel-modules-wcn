@@ -3814,10 +3814,10 @@ int stop_integrate_wcn_truely(u32 subsys)
 	if (is_marlin)
 		wcn_set_loopcheck_state(false);
 	/* btwf use the send shutdown cp2 cmd way */
-	if (is_marlin && !sprdwcn_bus_get_carddump_status())
+	if (mdbg_assert_flag() || (is_marlin && !sprdwcn_bus_get_carddump_status()))
 		force_sleep = wcn_send_force_sleep_cmd(wcn_dev);
 	/* the last module will stop,AP should wait CP2 sleep */
-	if (unlikely(!wcn_is_assert()))
+	if (mdbg_assert_flag() || (unlikely(!wcn_is_assert())))
 		wcn_wait_wcn_deep_sleep(wcn_dev, force_sleep);
 
 	/* only one module works: stop CPU */

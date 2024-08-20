@@ -45,6 +45,7 @@ static u32 g_dumpmem_switch =  1;
 static u32 g_loopcheck_switch;
 static u32 g_holdcpu_switch = 1;
 static u32 g_assert_cnt;
+static u32 g_assert_flag;
 struct wcn_pcie_info *pcie_dev;
 
 struct mdbg_proc_entry {
@@ -276,16 +277,17 @@ void __wcn_assert_interface(enum wcn_source_type type, char *str)
 	sprdwcn_bus_debug_point_show();
 	/*wcn reset or dump process*/
 	wcn_pm_qos_reset();
-	stop_loopcheck();
 	wcnlog_clear_log();
 	
 	if (reset_prop == WCN_ASSERT_ONLY_DUMP) { /*userdebug version*/
 		wcn_dump_process(type);
 		goto out;
 	} else if (reset_prop == WCN_ASSERT_ONLY_RESET) { /*user version*/
+		stop_loopcheck();
 		wcn_reset_process();
 		goto out;
 	} else if (reset_prop == WCN_ASSERT_BOTH_RESET_DUMP) {
+		stop_loopcheck();
 		/*need to do, please reference androidr_trunk_u01*/
 		wcn_dump_process(type);
 		msleep(2000);
@@ -374,6 +376,11 @@ int mdbg_assert_read(int channel, struct mbuf_t *head,
 	return 0;
 }
 EXPORT_SYMBOL_GPL(mdbg_assert_read);
+
+int mdbg_assert_flag(void)
+{
+	return g_assert_flag;
+}
 
 int mdbg_loopcheck_read(int channel, struct mbuf_t *head,
 			struct mbuf_t *tail, int num)
@@ -1015,7 +1022,17 @@ static ssize_t mdbg_proc_write(struct file *filp,
 				g_holdcpu_switch);
 		return count;
 	}
-
+	if (strncmp(mdbg_proc->write_buf, "at+spatassert=1\r",
+		strlen("at+spatassert=1\r")) == 0) {
+		if (wcn_platform_chip_type() == WCN_PLATFORM_TYPE_SHARKL3) {
+			WCN_INFO("For SharkL3 special assert process!");
+			g_assert_flag = 1;
+			wcn_assert_interface(WCN_SOURCE_BTWF,
+				"WCN Assert in pseudo_atc_cfg_pike2.c line 428, Manual Assert");
+			g_assert_flag = 0;
+			return count;
+		}
+	}
 	if (g_match_config && g_match_config->unisoc_wcn_integrated) {
 		if (strncmp(mdbg_proc->write_buf, "dumpmem", 7) == 0) {
 			mutex_lock(&mdbg_proc->mutex);
