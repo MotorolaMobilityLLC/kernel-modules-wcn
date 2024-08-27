@@ -1153,4 +1153,5 @@ struct sprd_peer_entry
 					unsigned char sta_lut_index);
 void sc2355_add_to_free_list(struct sprd_priv *priv,
 			     struct list_head *tx_list_head, int tx_count);
+void cmdevt_report_fw_power_down_evt(struct sprd_vif *vif, u8 *data, u16 len);
 #endif
