@@ -659,7 +659,7 @@ static ssize_t wcn_sysfs_show_reset_dump(struct device *dev,
 					 char *buf)
 {
 	ssize_t len = PAGE_SIZE;
-	int reset_prop = wcn_sysfs_get_reset_prop();
+	int reset_prop = atomic_read(&sysfs_info.is_reset);
 
 	if (reset_prop == WCN_ASSERT_ONLY_DUMP)
 		len = snprintf(buf, len, "dump\n");
