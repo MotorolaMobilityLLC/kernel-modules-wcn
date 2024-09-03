@@ -66,8 +66,8 @@ struct txrx_stats {
 	/* multicast packets received */
 	unsigned long rx_multicast;
 	unsigned long tx_multicast;
-	unsigned long tx_cost_time;
-	unsigned long tx_avg_time;
+	s64 tx_cost_time;
+	s64 tx_avg_time;
 	unsigned long tx_arp_num;
 	/* qos ac stream1 sent num */
 	unsigned long ac1_num;
@@ -96,7 +96,7 @@ struct sprd_peer_entry {
 	unsigned long ba_tx_done_map;
 	u8 vowifi_enabled;
 	u8 vowifi_pkt_cnt;
-	unsigned long time[6 + 1];
+	s64 time[6 + 1];
 #ifdef ENABLE_PAM_WIFI
 	struct sprd_vif *vif;
 #endif
@@ -199,7 +199,7 @@ struct sprd_hif {
 	loff_t lp;
 	struct file *pfile;
 	/* for suspend resume time count */
-	unsigned long sleep_time;
+	s64 sleep_time;
 
 	/* wifi bt coex mode, 1: BT is on, 0: BT is off */
 	u8 coex_bt_on;

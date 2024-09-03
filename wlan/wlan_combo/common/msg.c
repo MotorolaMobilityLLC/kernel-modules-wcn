@@ -48,7 +48,7 @@ err_alloc_buf:
 	return -ENOMEM;
 }
 
-unsigned long sprd_get_ktime(void)
+s64 sprd_get_ktime(void)
 {
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
 	struct timespec64 ktime;
@@ -67,7 +67,7 @@ void sprd_deinit_msg(struct sprd_msg_list *list)
 {
 	struct sprd_msg *msg;
 	struct sprd_msg *pos;
-	unsigned long txmsgftime1, txmsgftime2;
+	s64 txmsgftime1, txmsgftime2, time_diffms;
 
 	atomic_add(SPRD_MSG_EXIT_VAL, &list->ref);
 	if (atomic_read(&list->ref) > SPRD_MSG_EXIT_VAL)
@@ -76,7 +76,8 @@ void sprd_deinit_msg(struct sprd_msg_list *list)
 	txmsgftime1 = sprd_get_ktime();
 	while (atomic_read(&list->ref) > SPRD_MSG_EXIT_VAL) {
 		txmsgftime2 = sprd_get_ktime();
-		if (((txmsgftime2 - txmsgftime1) / 1000000) > 3000)
+		time_diffms = div_s64((txmsgftime2 - txmsgftime1), 1000000);
+		if (time_diffms > 3000)
 			break;
 		usleep_range(2000, 2500);
 	}

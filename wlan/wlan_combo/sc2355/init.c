@@ -424,6 +424,12 @@ void sc2355_setup_wiphy(struct wiphy *wiphy, struct sprd_priv *priv)
                 wiphy_ext_feature_set(wiphy,
                                       NL80211_EXT_FEATURE_OCE_PROBE_REQ_HIGH_TX_RATE);
 	}
+	/*bug2674658:support cross akm roaming need set max_num_akm_suites to 3*/
+	if (priv->extend_feature & SPRD_EXTEND_CROSS_AKM_ROAMING) {
+		wl_debug("cross akm roaming supported\n");
+		wiphy->max_num_akm_suites = 3;
+	}
+
 #ifdef ENABLE_DFS
 	wiphy->flags |= WIPHY_FLAG_HAS_CHANNEL_SWITCH;
 #endif

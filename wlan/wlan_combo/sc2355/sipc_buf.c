@@ -95,7 +95,7 @@ void sipc_buf_mm_deinit(struct sprd_msg_list *list)
 {
 	struct sipc_buf_node *node;
 	struct sipc_buf_node *pos;
-	unsigned long txmsgftime1, txmsgftime2;
+	s64 txmsgftime1, txmsgftime2, time_diffms;
 
 	atomic_add(SPRDWL_NODE_EXIT_VAL, &list->ref);
 	if (atomic_read(&list->ref) > SPRDWL_NODE_EXIT_VAL)
@@ -104,7 +104,8 @@ void sipc_buf_mm_deinit(struct sprd_msg_list *list)
 	txmsgftime1 = sprd_get_ktime();
 	while (atomic_read(&list->ref) > SPRDWL_NODE_EXIT_VAL) {
 		txmsgftime2 = sprd_get_ktime();
-		if (((txmsgftime2 - txmsgftime1) / 1000000) > 3000)
+		time_diffms = div_s64((txmsgftime2 - txmsgftime1), 1000000);
+		if (time_diffms > 3000)
 			break;
 		usleep_range(2000, 2500);
 	}

@@ -120,6 +120,8 @@ static struct rx_defrag_node
 		node = defrag_init_first_defrag_node(defrag_entry, msdu_desc);
 	}
 
+	if (!node)
+		wl_err("%s, node is null!\n", __func__);
 	return node;
 }
 
@@ -130,9 +132,25 @@ static struct sk_buff
 	struct rx_msdu_desc *msdu_desc = (struct rx_msdu_desc *)pskb->data;
 	unsigned short offset = 0, frag_len = 0, frag_offset = 0;
 	struct sk_buff *skb = NULL, *pos_skb = NULL;
+	u64 pkt_pn;
 
 	node = defrag_get_defrag_node(defrag_entry, msdu_desc);
 	if (node) {
+		/* bug2522383:for FFD-4.5.1 */
+		if (msdu_desc->cipher_type != SPRD_HW_NO_CIPHER) {
+			pkt_pn = ((u64)msdu_desc->pn_h << 32) | msdu_desc->pn_l;
+			if (msdu_desc->frag_num && (node->desc.pn + 1) != pkt_pn) {
+				wl_err("%s, frag encrypted with non-consec PNs(%lld-%lld),drop!\n",
+				       __func__, node->desc.pn, pkt_pn);
+				node->last_frag_num = 0;
+				if (!skb_queue_empty(&node->skb_list))
+					skb_queue_purge(&node->skb_list);
+				dev_kfree_skb(pskb);
+				goto exit;
+			}
+
+			node->desc.pn = pkt_pn;
+		}
 		skb_queue_tail(&node->skb_list, pskb);
 		if (msdu_desc->snap_hdr_present)
 			frag_len = msdu_desc->msdu_len - ETH_HLEN;

@@ -17,6 +17,7 @@ struct rx_defrag_desc {
 	unsigned char tid;
 	unsigned char frag_num;
 	unsigned short seq_num;
+	u64 pn;
 };
 
 struct rx_defrag_node {

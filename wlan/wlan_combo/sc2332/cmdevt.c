@@ -1720,7 +1720,8 @@ int sc2332_xmit_data2cmd(struct sk_buff *skb, struct net_device *ndev)
 	if (vif->mode == SPRD_MODE_P2P_GO || vif->mode == SPRD_MODE_AP) {
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
 		chandef = wdev_chandef(ndev->ieee80211_ptr, 0);
-		channel = chandef->chan->hw_value;
+		if (chandef)
+			channel = chandef->chan->hw_value;
 #else
 		channel = ndev->ieee80211_ptr->chandef.chan->hw_value;
 #endif
@@ -1814,7 +1815,7 @@ int sc2332_set_vowifi(struct net_device *ndev, void __user *data)
 		return -EFAULT;
 
 	/* bug1745380, add length check to avoid invalid NULL ptr */
-	if ((priv_cmd.total_len < sizeof(*vowifi)) ||
+	if ((priv_cmd.total_len < sizeof(*vowifi) + sizeof(value)) ||
 	    (priv_cmd.total_len > SPRD_MAX_CMD_TXLEN)) {
 		netdev_info(ndev, "%s: priv cmd total len is invalid: %d\n",
 			    __func__, priv_cmd.total_len);
@@ -1895,6 +1896,9 @@ int sc2332_set_sniffer(struct net_device *ndev, void __user *data)
 	if (!strncasecmp(command, CMD_SNIFFER_MODE,
 			 strlen(CMD_SNIFFER_MODE))) {
 		skip = strlen(CMD_SNIFFER_MODE) + 1;
+		if (priv_cmd.total_len <= skip)
+			goto len_err;
+
 		ret = kstrtoint(command + skip, 0, &value);
 		if (ret)
 			goto out;
@@ -1932,6 +1936,9 @@ int sc2332_set_sniffer(struct net_device *ndev, void __user *data)
 	} else if (!strncasecmp(command, CMD_SNIFFER_LISTEN_CHANNEL,
 				strlen(CMD_SNIFFER_LISTEN_CHANNEL))) {
 		skip = strlen(CMD_SNIFFER_LISTEN_CHANNEL) + 1;
+		if (priv_cmd.total_len <= skip)
+			goto len_err;
+
 		ret = kstrtoint(command + skip, 0, &value);
 		if (ret)
 			goto out;
@@ -1942,17 +1949,22 @@ int sc2332_set_sniffer(struct net_device *ndev, void __user *data)
 		/*use scan command to set channel*/
 		channel |= (1 << (value - 1));
 		ret = sc2332_cmd_scan(vif->priv, vif, channel, 0, NULL, NULL, 0);
-		if (ret) {
+		if (ret)
 			netdev_err(ndev, "set channel failed\n");
-			goto out;
-		}
 	} else {
 		netdev_err(ndev, "%s command not support\n", __func__);
 		ret = -EOPNOTSUPP;
 	}
+
 out:
 	kfree(command);
 	return ret;
+
+len_err:
+	netdev_err(ndev, "%s: priv cmd total len(%d) is invalid\n",
+		   __func__, priv_cmd.total_len);
+	kfree(command);
+	return -EINVAL;
 }
 
 bool sc2332_do_delay_work(struct sprd_work *work)

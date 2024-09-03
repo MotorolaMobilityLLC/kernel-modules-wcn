@@ -556,7 +556,7 @@ void sc2355_tx_prepare_addba(struct sprd_hif *hif, unsigned char lut_index,
 	    peer_entry->ht_enable &&
 	    peer_entry->vowifi_enabled != 1 &&
 	    !test_bit(tid, &peer_entry->ba_tx_done_map)) {
-		unsigned long time;
+		s64 time, time_diffms;
 		struct sprd_vif *vif;
 
 		vif = sc2355_ctxid_to_vif(hif->priv, peer_entry->ctx_id);
@@ -574,8 +574,9 @@ void sc2355_tx_prepare_addba(struct sprd_hif *hif, unsigned char lut_index,
 		}
 
 		time = sprd_get_ktime();
+		time_diffms = div_s64((time - peer_entry->time[tid]), 1000000);
 		/*need to delay 3s if priv addba failed */
-		if (((time - peer_entry->time[tid]) / 1000000) > 3000 ||
+		if (time_diffms > 3000 ||
 		    peer_entry->time[tid] == 0) {
 			wl_info("%s, %d, tx_addba, tid=%d\n", __func__,
 				__LINE__, tid);
