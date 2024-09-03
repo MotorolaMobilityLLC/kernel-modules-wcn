@@ -57,6 +57,7 @@
 #define ETH_P_PREAUTH		0x88C7
 
 #define DNS_SERVER_PORT		0x0035
+#define RTSP_SERVER_PORT	0x1C44
 
 /* 0 for cmd, 1 for event, 2 for data, 3 for mh data */
 enum sprd_head_type {

@@ -154,12 +154,20 @@ enum REPORT_CHR_LIST {
 };
 
 /*
+ * @chr_sock_status: indicates the status of Wi-Fi Drv chr client
+ *  0 means new chr socket haven't received any messages
+ *  1 is have received messages about start event monitoring
+ *  2 is have received messages about stop all event monitoring
+ */
+enum chr_status {
+	CHR_UNDEFINE = 0,
+	CHR_ENABLE = 1,
+	CHR_DISABLE = 2,
+};
+
+/*
  * struct sprd_chr - this struct is contains most of the variables of CHR modules
  *
- * @sock_flag: indicates the status of Wi-Fi Drv chr client
- *  0 means haven't received any messages,
- *  1 is have received messages about open chr_evt,
- *  2 is have received messages about close all chr_evt
  * @thread_exit: indicates whether the chr_thread should exit
  *  0 means thread keeps running
  *  1 is thread should exit
@@ -183,7 +191,7 @@ enum REPORT_CHR_LIST {
  * @drv_len: the current number of Wi-Fi Drv chr_evt that need to be monitored
  */
 struct sprd_chr {
-	u8 sock_flag;
+	enum chr_status chr_status;
 	u8 thread_exit;
 	u8 open_err_flag;
 	struct completion thread_completed;
@@ -194,6 +202,7 @@ struct sprd_chr {
 	struct task_struct *chr_client_thread;
 	struct chr_refcnt_arr *chr_refcnt;
 	struct socket *chr_sock;
+	struct mutex sock_lock;
 
 	struct chr_cmd fw_cmd_list[CHR_ARR_SIZE];
 	u32 fw_len;

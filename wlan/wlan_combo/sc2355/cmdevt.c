@@ -2808,10 +2808,7 @@ int sc2355_hif_fill_msdu_dscr(struct sprd_vif *vif,
 
 	hif = &vif->priv->hif;
 
-	if (skb->data) {
-		memcpy(hif->skb_da, skb->data, ETH_ALEN);
-	}
-
+	memcpy(hif->skb_da, skb->data, ETH_ALEN);
 	lut_index = sc2355_find_lut_index(hif, vif);
 	if (lut_index < 6 && (!sc2355_is_group(hif->skb_da))) {
 		kfree_skb(skb);
@@ -4383,7 +4380,7 @@ unsigned short sc2355_rx_evt_process(struct sprd_priv *priv, u8 *msg)
 		break;
 #ifdef ENABLE_CHR
 	case EVT_CHR:
-		if (!priv->chr->sock_flag) {
+		if (priv->chr->chr_status == CHR_UNDEFINE) {
 			wl_info("%s, CHR: chr mode is closed, can't upload evt!",
 				__func__);
 			break;

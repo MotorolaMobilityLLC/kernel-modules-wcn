@@ -1324,6 +1324,10 @@ static int vendor_get_cached_gscan_results(struct wiphy *wiphy,
 			break;
 
 		cached_list = nla_nest_start(reply, ATTR_GSCAN_CACHED_RESULTS_LIST);
+		if (!cached_list) {
+			wl_err("%s, %d\n", __func__, __LINE__);
+			goto out_put_fail;
+		}
 		for (n = 0; n < vif->priv->gscan_buckets_num; n++) {
 			res_list = nla_nest_start(reply, n);
 
@@ -1930,8 +1934,11 @@ static int vendor_softap_set_sae_para(struct sprd_vif *vif,
 	memcpy(param->data, data, data_len);
 
 	ret = send_cmd_recv_rsp(vif->priv, msg, NULL, NULL);
-	if (ret)
+	if (ret || (vif->sae_param_status != 0)) {
 		netdev_info(vif->ndev, "set sae para failed, ret=%d\n", ret);
+		vif->sae_param_status = 0;
+		ret = -EINVAL;
+	}
 
 	kfree(data);
 	return ret;
@@ -1946,6 +1953,7 @@ static int vendor_set_sae_password(struct wiphy *wiphy,
 	struct softap_sae_setting sae_para;
 	struct sprd_vif *vif = netdev_priv(wdev->netdev);
 	struct sprd_priv *priv;
+	int ret = 0;
 
 	priv = wiphy_priv(wiphy);
 	if (!(priv->extend_feature & SPRD_EXTEND_SOATAP_WPA3)) {
@@ -2001,8 +2009,8 @@ static int vendor_set_sae_password(struct wiphy *wiphy,
 			break;
 		}
 	}
-	vendor_softap_set_sae_para(vif, &sae_para);
-	return 0;
+	ret = vendor_softap_set_sae_para(vif, &sae_para);
+	return ret;
 }
 
 static int vendor_ftm_get_capabilities(struct wiphy *wiphy,

@@ -25,9 +25,8 @@ static int sprd_chr_sock_sendmsg(struct sprd_chr *chr, u8 *data)
 	wl_debug("CHR: ready to sendmsg: %s\n", data);
 	ret = kernel_sendmsg(chr->chr_sock, &send_msg, &send_vec, 1, CHR_BUF_SIZE);
 	if (ret < 0) {
-		wl_err("%s, CHR: sendmsg failed, release socket", __func__);
-		if (chr->chr_sock)
-			sock_release(chr->chr_sock);
+		wl_err("%s, CHR: sendmsg failed, restore chr status\n", __func__);
+		chr->chr_status = CHR_UNDEFINE;
 		return -EINVAL;
 	}
 
@@ -36,7 +35,7 @@ static int sprd_chr_sock_sendmsg(struct sprd_chr *chr, u8 *data)
 
 /* This function is used to fill chr_driver_params and sendbuf */
 static void sprd_fill_chr_driver(struct chr_driver_params *chr_driver, u16 refcnt, u32 id,
-			  	 u8 version, u8 content_len, u8 *content, u8 *buf)
+				 u8 version, u8 content_len, u8 *content, u8 *buf)
 {
 	char temp[64] = {0};
 	chr_driver->refcnt = refcnt;
@@ -82,6 +81,10 @@ void sprd_chr_report_disconnect(struct sprd_vif *vif, u8 version,
 			link_loss.reason_code == 1 ? "Power off AP" : "Beacon Loss",
 			refcnt);
 	} else if (evt_id == EVT_CHR_DISC_SYS_ERR) {
+		/*
+		 * cp2 does not implement this event, and the driver reserves the
+		 * event interface first.
+		 */
 		refcnt = ++chr->chr_refcnt->disc_systerr_cnt[*pos];
 		memcpy(&system_err.reason_code, pos, sizeof(system_err.reason_code));
 		wl_debug("%s: CHR: SYSTEM_ERR_DISCONNECT, ref_cnt=%u\n", __func__, refcnt);
@@ -90,13 +93,15 @@ void sprd_chr_report_disconnect(struct sprd_vif *vif, u8 version,
 	sprd_fill_chr_driver(&chr_driver, refcnt, evt_id, version,
 			     evt_content_len, evt_content, sendbuf);
 
-	if (chr->chr_sock) {
+	mutex_lock(&chr->sock_lock);
+	if (chr->chr_sock && chr->chr_status == CHR_ENABLE) {
 		ret = sprd_chr_sock_sendmsg(chr, sendbuf);
 		if (ret)
 			wl_err("CHR: wifi_driver_sendmsg failed with 0x%x\n", evt_id);
 	} else {
 		wl_err("CHR: connect been closed, can not send msg to server");
 	}
+	mutex_unlock(&chr->sock_lock);
 
 	return;
 }
@@ -121,13 +126,15 @@ void sprd_chr_report_open_error(struct sprd_chr *chr, u32 evt_id, u8 err_code)
 
 	sprd_fill_chr_driver(&chr_driver, refcnt, evt_id, CHR_VERSION, 1, &err_code, sendbuf);
 
-	if (chr->chr_sock) {
+	mutex_lock(&chr->sock_lock);
+	if (chr->chr_sock && chr->chr_status == CHR_ENABLE) {
 		ret = sprd_chr_sock_sendmsg(chr, sendbuf);
 		if (ret)
 			wl_err("CHR: wifi_driver_sendmsg failed with 0x%x\n", evt_id);
 	} else {
 		wl_err("CHR: connect been closed, can not send msg to server");
 	}
+	mutex_unlock(&chr->sock_lock);
 
 	wl_debug("%s: CHR: %s, ref_cnt=%u\n", __func__,
 		open_error.reason_code == 0 ? "Power_on Err" : "Download_ini Err",
@@ -136,17 +143,18 @@ void sprd_chr_report_open_error(struct sprd_chr *chr, u32 evt_id, u8 err_code)
 }
 
 /* This function is used to get the key val from string */
-static inline void sprd_chr_get_cmdval(u32 *val, u8 *pos, u8 *key, int octal)
+static inline int sprd_chr_get_cmdval(u32 *val, u8 *pos, u8 *key, int octal)
 {
 	u8 *temp = strstr(pos, key);
 
 	if (!temp) {
 		wl_err("%s, CHR: %s failed\n", __func__, key);
-		return;
+		return -1;
 	}
 	temp += strlen(key);
 
 	*val = simple_strtoul(temp, NULL, octal);
+	return 0;
 }
 
 /* this function is used to decode string */
@@ -158,16 +166,21 @@ static int sprd_chr_decode_str(struct chr_cmd *cmd_set, u8 *data)
 	if (strstr(pos, "wcn_chr_set_event")) {
 		memcpy(cmd_set->evt_type, pos, strlen("wcn_chr_set_event"));
 		pos += strlen("wcn_chr_set_event,");
+	} else {
+		return -1;
 	}
 	if (strstr(pos, "module=WIFI")) {
 		memcpy(cmd_set->module, pos + strlen("module="), strlen("WIFI"));
 		pos += strlen("module=WIFI,");
+	} else {
+		return -1;
 	}
 
-	sprd_chr_get_cmdval(&cmd_set->evt_id, pos, "event_id=", 16);
-	sprd_chr_get_cmdval(&cmd_set->set, pos, "set=", 10);
-	sprd_chr_get_cmdval(&cmd_set->maxcount, pos, "maxcount=", 16);
-	sprd_chr_get_cmdval(&cmd_set->timerlimit, pos, "tlimit=", 16);
+	if (sprd_chr_get_cmdval(&cmd_set->evt_id, pos, "event_id=", 16) ||
+	    sprd_chr_get_cmdval(&cmd_set->set, pos, "set=", 10) ||
+	    sprd_chr_get_cmdval(&cmd_set->maxcount, pos, "maxcount=", 16) ||
+	    sprd_chr_get_cmdval(&cmd_set->timerlimit, pos, "tlimit=", 16))
+		return -1;
 
 	snprintf(temp_str, CHR_BUF_SIZE, "wcn_chr_set_event,module=WIFI,"
 		"event_id=0x%x,set=%d,maxcount=0x%x,tlimit=0x%x", cmd_set->evt_id,
@@ -232,17 +245,50 @@ static void sprd_chr_rebuild_cmdlist(struct sprd_chr *chr, struct chr_cmd *cmd_s
 /* this function is used to determing whether CHR is disable*/
 static inline int sprd_chr_set_sockflag(struct sprd_chr *chr, u8 *data)
 {
-	if (!strcmp("wcn_chr_disable", data)) {
+	if (strstr(data, "wcn_chr_disable")) {
 		chr->fw_len = 0;
 		chr->drv_len = 0;
-		chr->sock_flag = 2;
+		chr->chr_status = CHR_DISABLE;
 		memset(&chr->fw_cmd_list, 0, sizeof(chr->fw_cmd_list));
 		memset(&chr->drv_cmd_list, 0, sizeof(chr->drv_cmd_list));
 		return -1;
 	}
-	chr->sock_flag = 1;
 
 	return 0;
+}
+
+static void sprd_send_chr_cmd(struct sprd_priv *priv, struct sprd_chr *chr)
+{
+	struct sprd_vif *chr_vif;
+	bool is_open = false;
+	int ret;
+
+	spin_lock_bh(&priv->list_lock);
+	list_for_each_entry(chr_vif, &priv->vif_list, vif_node) {
+		if (chr_vif->state & VIF_STATE_OPEN) {
+			is_open = true;
+			break;
+		}
+	}
+	spin_unlock_bh(&priv->list_lock);
+
+	/*
+	 * only when cp2 is open state, cmd will be sent to CP2,
+	 * otherwise cmd will be saved.
+	 */
+	if (is_open) {
+		if (chr->fw_len != 0 || chr->drv_len == 0) {
+			ret = sprd_set_chr(chr);
+			if (ret)
+				wl_err("%s, CHR: set chr_cmd to CP2 failed", __func__);
+		} else {
+			wl_debug("%s, CHR: the msg belongs to driver monitoring"
+				 "event, don't set to cp2", __func__);
+		}
+	} else {
+		wl_warn("%s, CHR: Drop set_chr_cmd in case of power off, "
+			"save buf in chr_cmdlist", __func__);
+	}
 }
 
 static int sprd_chr_client_thread(void *params)
@@ -308,11 +354,11 @@ retry:
 	recv_vec.iov_base = recv_buf;
 	recv_vec.iov_len = CHR_BUF_SIZE;
 /*
- * sock_flag = 2 means have recevied disable_chr,
+ * chr_status = CHR_DISABLE means have recevied disable_chr,
  * it will break out here to establish
  * a new connection with upper
  */
-	while (!kthread_should_stop() && chr->sock_flag != 2) {
+	while (chr->chr_status != CHR_DISABLE) {
 		buf_pos = 0;
 		memset(recv_buf, 0, CHR_BUF_SIZE);
 		memset(&recv_msg, 0, sizeof(recv_msg));
@@ -338,39 +384,39 @@ retry:
 				break;
 
 			sbuf_len = sprd_chr_decode_str(&command, recv_buf + buf_pos);
-
+			if (sbuf_len == -1) {
+				wl_err("%s, CHR: msg content error", __func__);
+				goto exit;
+			}
+			chr->chr_status = CHR_ENABLE;
 			sprd_chr_rebuild_cmdlist(chr, &command);
 
 			buf_pos += sbuf_len;
 			memset(&command, 0, sizeof(command));
 		}
-		/*
-		 * only when Wi-Fi is open, will cmd be sent to CP2,
-		 * otherwise cmd will be saved
-		 */
-		if (sprd_hif_is_on(&priv->hif)) {
-			ret = sprd_set_chr(chr);
-			if (ret)
-				wl_err("%s, CHR: set chr_cmd to CP2 failed", __func__);
-		} else {
-			wl_warn("%s, CHR: Drop set_chr_cmd in case of power off"
-				"save buf in chr_cmdlist", __func__);
-		}
+
+		sprd_send_chr_cmd(priv, chr);
 	}
 
-	if (sock)
+	mutex_lock(&chr->sock_lock);
+	if (sock) {
 		sock_release(sock);
-	chr->sock_flag = 0;
+		sock = NULL;
+	}
+	chr->chr_status = CHR_UNDEFINE;
+	mutex_unlock(&chr->sock_lock);
 	wl_debug("%s, CHR: init socket, try to connect server\n", __func__);
 
 	goto retry;
 
 exit:
 
+	chr->chr_status = CHR_UNDEFINE;
 	chr->thread_exit = 0;
-	chr->chr_sock = NULL;
+	mutex_lock(&chr->sock_lock);
 	sock_release(sock);
 	sock = NULL;
+	mutex_unlock(&chr->sock_lock);
 	kfree(recv_buf);
 	recv_buf = NULL;
 	complete(&chr->thread_completed);
@@ -387,7 +433,7 @@ void sprd_chr_handle_power(struct sprd_chr *chr)
  * start reporting the evt when power on err
  */
 	if (chr->open_err_flag) {
-		if (chr->sock_flag == 1 && chr->drv_cmd_list[0].set)
+		if (chr->chr_status == CHR_ENABLE && chr->drv_cmd_list[0].set)
 			sprd_chr_report_open_error(chr, EVT_CHR_OPEN_ERR, chr->open_err_flag - 1);
 		else
 			wl_debug("%s, CHR: open err appears, but chr module is closed\n", __func__);
@@ -467,6 +513,7 @@ int sprd_chr_init(struct sprd_chr *chr)
 
 	chr->chr_client_thread = NULL;
 	chr->chr_sock = NULL;
+	mutex_init(&chr->sock_lock);
 
 	wl_debug("%s, CHR: ready to init the chr_client_thread", __func__);
 	chr->chr_client_thread = kthread_create(sprd_chr_client_thread, chr, "wifi_driver_chr");
@@ -525,6 +572,7 @@ void sprd_chr_deinit(struct sprd_chr *chr, int exit_type)
 	chr->chr_client_thread = NULL;
 
 exit:
+	mutex_destroy(&chr->sock_lock);
 	if (chr->chr_refcnt) {
 		kfree(chr->chr_refcnt);
 		chr->chr_refcnt = NULL;

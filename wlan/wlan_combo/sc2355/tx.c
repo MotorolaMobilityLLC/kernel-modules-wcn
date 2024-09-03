@@ -972,19 +972,42 @@ static int tx_filter_ip_pkt(struct sk_buff *skb, struct net_device *ndev)
 {
 	bool is_data2cmd;
 	bool is_ipv4_dhcp = false, is_ipv6_dhcp = false;
-	bool is_vowifi2cmd;
+	bool is_vowifi2cmd = false;
 	bool is_dns = false;
+	bool is_alive_rtsp = false;
 	unsigned char *dhcpdata = NULL;
 	struct udphdr *udphdr;
+	struct tcphdr *tcphdr;
+	struct iphdr *iphdr;
 	__sum16 checksum = 0;
 	struct ethhdr *ethhdr = (struct ethhdr *)skb->data;
 	unsigned char iphdrlen = 0;
 	unsigned char lut_index;
 	struct sprd_vif *vif;
 	struct sprd_hif *hif;
+	unsigned char *rtsp_get_params = "GET_PARAMETER";
+	unsigned int total_hdr_len = 0;
 
 	vif = netdev_priv(ndev);
 	hif = &vif->priv->hif;
+
+	if (ethhdr->h_proto == htons(ETH_P_IP)) {
+		iphdr = (struct iphdr *)(skb->data + ETHER_HDR_LEN);
+		iphdrlen = ip_hdrlen(skb);
+		if (iphdr->protocol == IPPROTO_TCP) {
+			tcphdr = (struct tcphdr *)(skb->data +
+						   ETHER_HDR_LEN + iphdrlen);
+			total_hdr_len = ETHER_HDR_LEN + iphdrlen + tcp_hdrlen(skb);
+			if (tcphdr->source == htons(RTSP_SERVER_PORT) &&
+			    !memcmp((skb->data + total_hdr_len), rtsp_get_params, 13)) {
+				is_alive_rtsp = true;
+				wl_info("tx rtsp keep-alive data packet\n");
+				goto next;
+			} else {
+				return 1;
+			}
+		}
+	}
 
 	udphdr = sprd_get_udphdr(skb, &iphdrlen);
 	if (!udphdr)
@@ -1038,7 +1061,9 @@ static int tx_filter_ip_pkt(struct sk_buff *skb, struct net_device *ndev)
 			udphdr->check, skb->ip_summed);
 	}
 
-	is_data2cmd = (is_ipv4_dhcp || is_ipv6_dhcp || is_vowifi2cmd || is_dns);
+next:
+	is_data2cmd = (is_ipv4_dhcp || is_ipv6_dhcp || is_vowifi2cmd ||
+		       is_dns || is_alive_rtsp);
 	/*as CP request, send data with CMD */
 	if (is_data2cmd) {
 		if (skb->ip_summed == CHECKSUM_PARTIAL) {
@@ -1049,8 +1074,14 @@ static int tx_filter_ip_pkt(struct sk_buff *skb, struct net_device *ndev)
 							skb->len -
 							ETHER_HDR_LEN -
 							iphdrlen);
-			udphdr->check = ~checksum;
-			wl_debug("csum:%x,check:%x\n", checksum, udphdr->check);
+			if ((ethhdr->h_proto == htons(ETH_P_IP)) &&
+			    (iphdr->protocol == IPPROTO_TCP)) {
+				tcphdr->check = ~checksum;
+				wl_debug("csum:%x,check:%x\n", checksum, tcphdr->check);
+			} else {
+				udphdr->check = ~checksum;
+				wl_debug("csum:%x,check:%x\n", checksum, udphdr->check);
+			}
 			skb->ip_summed = CHECKSUM_NONE;
 		}
 

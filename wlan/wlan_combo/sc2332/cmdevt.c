@@ -427,6 +427,7 @@ int sc2332_send_cmd_recv_rsp(struct sprd_priv *priv, struct sprd_msg *msg,
 		}
 	}
 
+	reinit_completion(&cmd->completed);
 	ret = cmdevt_send_cmd(priv, msg);
 	if (ret) {
 		cmdevt_unlock_cmd(cmd);
@@ -2407,6 +2408,7 @@ unsigned short sc2332_rx_rsp_process(struct sprd_priv *priv, u8 *msg,
 	struct sprd_cmd_hdr *hdr;
 	const char *cmd_str = NULL, *err_str = NULL;
 	u32 hdr_mstime;
+	struct sprd_vif *vif = NULL;
 
 	if (unlikely(!cmd->init_ok)) {
 		wl_err("%s cmd coming too early, drop it\n", __func__);
@@ -2454,6 +2456,14 @@ unsigned short sc2332_rx_rsp_process(struct sprd_priv *priv, u8 *msg,
 			if (cmd->cmd_id == CMD_TX_MGMT) {
 				wl_err("tx mgmt status : %d\n", hdr->status);
 				priv->tx_mgmt_status = hdr->status;
+			}
+
+			if (cmd->cmd_id == CMD_SET_SAE_PARAM) {
+				vif = sprd_mode_to_vif(priv, mode);
+				if (vif) {
+					vif->sae_param_status = hdr->status;
+					sprd_put_vif(vif);
+				}
 			}
 		}
 		cmd->data = data;
