@@ -24,11 +24,9 @@
 #include <linux/version.h>
 #include <linux/wireless.h>
 #include <linux/workqueue.h>
-#include <linux/kernel.h>
 #include <net/addrconf.h>
 #include <net/cfg80211.h>
 #include <net/if_inet6.h>
-#include <net/genetlink.h>
 
 #include "cfg80211.h"
 #include "cmd.h"
@@ -39,7 +37,9 @@
 #include "vendor.h"
 #include "npi.h"
 #include "apf.h"
+#ifdef ENABLE_CHR
 #include "chr.h"
+#endif
 
 #define SPRD_DRIVER_VERSION		"v1.0"
 
@@ -179,7 +179,6 @@ struct sprd_chip {
 
 struct sprd_wlan_dt_config {
 	bool enable_n79;
-	bool enable_chr;
 };
 
 struct sprd_priv {
@@ -300,8 +299,10 @@ struct sprd_priv {
 	/*dt config */
 	struct sprd_wlan_dt_config dt_configs;
 
+#ifdef ENABLE_CHR
 	/* chr struct */
 	struct sprd_chr *chr;
+#endif
 };
 
 extern unsigned int wfa_cap;

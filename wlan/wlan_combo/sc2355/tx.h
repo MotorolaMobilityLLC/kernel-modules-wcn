@@ -52,7 +52,7 @@
 #define MAX_CHN_NUM	16
 
 #define DSCR_LEN	sizeof(struct tx_msdu_dscr)
-#define MSG_PTR_LEN	sizeof(struct sprd_msg *)
+#define MSG_PTR_LEN	8
 
 #define GET_MSG_BUF(ptr) \
 	((struct sprd_msg *) \
@@ -253,7 +253,7 @@ struct sprd_msg *sc2355_tx_get_msg(struct sprd_chip *chip,
 				   enum sprd_head_type type,
 				   enum sprd_mode mode);
 void sc2355_tx_free_msg(struct sprd_chip *chip, struct sprd_msg *msg);
-int sc2355_tx_prepare(struct sprd_chip *chip, struct sk_buff **skb);
+int sc2355_tx_prepare(struct sprd_chip *chip, struct sk_buff *skb);
 int sc2355_tx(struct sprd_chip *chip, struct sprd_msg *msg);
 int sc2355_tx_force_exit(struct sprd_chip *chip);
 int sc2355_tx_is_exit(struct sprd_chip *chip);
@@ -278,7 +278,6 @@ void sc2355_flush_tx_qoslist(struct tx_mgmt *tx_mgmt, int mode, int ac_index,
 void sc2355_flush_mode_txlist(struct tx_mgmt *tx_mgmt, enum sprd_mode mode);
 void sc2355_flush_tosendlist(struct tx_mgmt *tx_mgmt);
 bool sc2355_is_vowifi_pkt(struct sk_buff *skb, bool *b_cmd_path);
-void sc2355_dequeue_tofreelist_buf(struct sprd_hif *hif, struct sprd_msg *msg);
 void sc2355_tx_flush(struct sprd_hif *hif, struct sprd_vif *vif);
 int sc2355_tx_special_data(struct sk_buff *skb, struct net_device *ndev);
 int sc2355_send_data(struct sprd_vif *vif, struct sprd_msg *msg,

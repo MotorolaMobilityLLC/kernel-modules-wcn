@@ -84,8 +84,6 @@
 
 #define SPRD_AP_HIDDEN_FLAG_LEN		(1)
 #define SPRD_AP_SSID_LEN_OFFSET		(37)
-/* ds params ie len:u8 type,u8 len,u8 value */
-#define SPRD_DS_PARAMS_LEN		(3)
 /* set wfa_cap a specified value to pass WFA Certification */
 #define SPRD_WFA_CAP_11R		(BIT(0))
 #define SPRD_WFA_CAP_11K		(BIT(1))

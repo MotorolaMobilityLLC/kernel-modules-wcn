@@ -41,7 +41,6 @@
 #define SPRD_EXTEND_FEATURE_OCE			BIT(4)
 #define SPRD_EXTEND_FEATURE_LLSTATE		BIT(5)
 #define SPRD_EXTEND_SOATAP_WPA3			BIT(6)
-#define SPRD_EXTEND_CROSS_AKM_ROAMING	 BIT(10)
 #define SPRD_SET_SAR	0x05
 #define SPRD_EARLY_RSP9_0			0x90
 #define SPRD_IE_BEACON				0
@@ -79,13 +78,8 @@
 #define CMD_SNIFFER_LISTEN_CHANNEL        "LISTEN_CHANNEL"
 #endif
 
-#define RESET_CMD_ALLOW(cmd_id)		\
-	((cmd_id) == CMD_GET_INFO ||		\
-	 (cmd_id) == CMD_OPEN)
-
 enum CMD_LIST {
 	CMD_MIN = 0,
-	CMD_ERR = CMD_MIN,
 	/* All Interface */
 	CMD_GET_INFO = 1,
 	CMD_SET_REGDOM,

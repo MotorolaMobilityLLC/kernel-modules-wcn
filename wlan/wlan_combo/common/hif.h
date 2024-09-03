@@ -66,8 +66,8 @@ struct txrx_stats {
 	/* multicast packets received */
 	unsigned long rx_multicast;
 	unsigned long tx_multicast;
-	s64 tx_cost_time;
-	s64 tx_avg_time;
+	unsigned long tx_cost_time;
+	unsigned long tx_avg_time;
 	unsigned long tx_arp_num;
 	/* qos ac stream1 sent num */
 	unsigned long ac1_num;
@@ -96,7 +96,7 @@ struct sprd_peer_entry {
 	unsigned long ba_tx_done_map;
 	u8 vowifi_enabled;
 	u8 vowifi_pkt_cnt;
-	s64 time[6 + 1];
+	unsigned long time[6 + 1];
 #ifdef ENABLE_PAM_WIFI
 	struct sprd_vif *vif;
 #endif
@@ -112,7 +112,9 @@ struct sprd_hif {
 	const struct sprd_hif_ops *ops;
 	struct sprd_priv *priv;
 	netdev_features_t feature;
+#ifdef ENABLE_CHR
 	struct sprd_chr *chr;
+#endif
 
 	int exit;
 	atomic_t power_cnt;
@@ -199,7 +201,7 @@ struct sprd_hif {
 	loff_t lp;
 	struct file *pfile;
 	/* for suspend resume time count */
-	s64 sleep_time;
+	unsigned long sleep_time;
 
 	/* wifi bt coex mode, 1: BT is on, 0: BT is off */
 	u8 coex_bt_on;
@@ -234,10 +236,12 @@ struct sprd_hif_ops {
 			       struct net_device *ndev);
 	void (*free_msg_content)(struct sprd_msg *msg);
 	int (*tx_free_data)(struct sprd_priv *priv, unsigned char *data);
-	int (*tx_addr_trans)(void *rx_port_mgmt,
+	int (*tx_addr_trans)(struct sprd_hif *hif,
 			     unsigned char *data, int len,
 			     bool send_now);
 	int (*reset)(struct sprd_hif *hif);
+	void (*tp_ctl_pd)(void);
+	void (*tp_ctl_uclamp)(struct sprd_hif *hif);
 #ifdef DRV_RESET_SELF
 	int (*reset_self)(struct sprd_priv *priv);
 #endif
@@ -257,6 +261,18 @@ static inline void sprd_hif_post_deinit(struct sprd_hif *hif)
 {
 	if (hif->ops->post_deinit)
 		hif->ops->post_deinit(hif);
+}
+
+static inline void sprd_hif_tp_ctl_pd(struct sprd_hif *hif)
+{
+	if (hif->ops->tp_ctl_pd)
+		hif->ops->tp_ctl_pd();
+}
+
+static inline void sprd_hif_tp_ctl_uclamp(struct sprd_hif *hif)
+{
+	if (hif->ops->tp_ctl_uclamp)
+		hif->ops->tp_ctl_uclamp(hif);
 }
 
 static inline bool sprd_hif_is_on(struct sprd_hif *hif)

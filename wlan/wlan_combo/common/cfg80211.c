@@ -582,51 +582,6 @@ int sprd_cfg80211_set_default_mgmt_key(struct wiphy *wiphy,
 	return 0;
 }
 
-/*
- * check whether beacon head carries ds params
- * return value, 0: beacon head carried ds params;
- * 1: beacon head didn't carry ds params, driver need add ds params
- */
-static u8 sprd_find_no_ds_ie(struct cfg80211_beacon_data *beacon)
-{
-	const u8 *tmp;
-	u16 ielen, var_offset;
-	struct ieee80211_mgmt *mgmt;
-
-	mgmt = (struct ieee80211_mgmt *)beacon->head;
-	var_offset = offsetof(struct ieee80211_mgmt, u.beacon.variable);
-	ielen = beacon->head_len - var_offset;
-	tmp = cfg80211_find_ie(WLAN_EID_DS_PARAMS, mgmt->u.beacon.variable, ielen);
-	if (tmp)
-		return 0;
-	return 1;
-}
-
-/*
- * wifi driver add ds params for mac that acquire chan info.
- * for more information,please ref to bug 2722816 and 2652217
- */
-static void sprd_add_ds_params(struct cfg80211_ap_settings *settings, u8 *data, u16 *index)
-{
-	struct ieee80211_channel *chan;
-	u8 channel;
-
-	if (sprd_find_no_ds_ie(&settings->beacon)) {
-		chan = settings->chandef.chan;
-		channel =  ieee80211_frequency_to_channel(chan->center_freq);
-		/* ie type */
-		*(data + *index) = WLAN_EID_DS_PARAMS;
-		*index += 1;
-		/* ie len */
-		*(data + *index) = 1;
-		*index += 1;
-		/* ie value */
-		*(data + *index) = channel;
-		*index += 1;
-		wl_info("%s, add ds params, chan = %u", __func__, channel);
-	}
-}
-
 int sprd_cfg80211_start_ap(struct wiphy *wiphy, struct net_device *ndev,
 			   struct cfg80211_ap_settings *settings)
 {
@@ -660,9 +615,6 @@ int sprd_cfg80211_start_ap(struct wiphy *wiphy, struct net_device *ndev,
 		hidden_len += settings->ssid_len;
 	mgmt_len += hidden_len;
 
-	if (sprd_find_no_ds_ie(beacon))
-		mgmt_len += SPRD_DS_PARAMS_LEN;
-
 	if (beacon->tail)
 		mgmt_len += beacon->tail_len;
 
@@ -692,12 +644,10 @@ int sprd_cfg80211_start_ap(struct wiphy *wiphy, struct net_device *ndev,
 	memcpy(data + index, beacon->head + hidden_index - 1,
 	       beacon->head_len + 1 - hidden_index);
 
-	/*bug 2722816 ,2652217*/
-	index = beacon->head_len + hidden_len;
-	sprd_add_ds_params(settings, data, &index);
-
 	if (beacon->tail)
-		memcpy(data + index, beacon->tail, beacon->tail_len);
+		memcpy(data + beacon->head_len + hidden_len, beacon->tail,
+		       beacon->tail_len);
+
 	ret = sprd_start_ap(vif->priv, vif, (unsigned char *)mgmt, mgmt_len, settings);
 	if (ret)
 		netdev_err(ndev, "%s failed to start AP!\n", __func__);
@@ -753,7 +703,8 @@ int sprd_cfg80211_stop_ap(struct wiphy *wiphy, struct net_device *ndev)
 #endif
 	sprd_fcc_reset_bo(vif->priv);
 
-	sprd_5g_sar_info_reset(vif->priv);
+	if (hif->hw_type == SPRD_HW_SC2355_SIPC)
+		sprd_5g_sar_info_reset();
 
 	return 0;
 }
@@ -813,70 +764,6 @@ int sprd_cfg80211_change_station(struct wiphy *wiphy, struct net_device *ndev,
 	return 0;
 }
 
-static void
-sprd_cfg80211_get_station_tx_rate(struct station_info *sinfo,
-				  struct sprd_rate_info *tx_rate)
-{
-	/* fill rate info if bit 2,3,4 not set */
-	if (!(tx_rate->flags & 0x1c))
-		sinfo->txrate.bw = RATE_INFO_BW_20;
-
-	if (tx_rate->flags & BIT(2))
-		sinfo->txrate.bw = RATE_INFO_BW_40;
-
-	if (tx_rate->flags & BIT(3))
-		sinfo->txrate.bw = RATE_INFO_BW_80;
-
-	if (tx_rate->flags & BIT(4) || tx_rate->flags & BIT(5))
-		sinfo->txrate.bw = RATE_INFO_BW_160;
-
-	if (tx_rate->flags & BIT(6))
-		sinfo->txrate.flags |= RATE_INFO_FLAGS_SHORT_GI;
-
-	if (tx_rate->flags & RATE_INFO_FLAGS_MCS ||
-	    tx_rate->flags & RATE_INFO_FLAGS_VHT_MCS) {
-		sinfo->txrate.flags |= (tx_rate->flags & 0x3);
-		sinfo->txrate.mcs = tx_rate->mcs;
-
-		if (tx_rate->flags & RATE_INFO_FLAGS_VHT_MCS && tx_rate->nss)
-			sinfo->txrate.nss = tx_rate->nss;
-	} else {
-		sinfo->txrate.legacy = tx_rate->legacy;
-	}
-}
-
-static void
-sprd_cfg80211_get_station_rx_rate(struct station_info *sinfo,
-				  struct sprd_rate_info *rx_rate)
-{
-	/* rx rate */
-	if (!(rx_rate->flags & 0x1c))
-		sinfo->rxrate.bw = RATE_INFO_BW_20;
-
-	if (rx_rate->flags & BIT(2))
-		sinfo->rxrate.bw = RATE_INFO_BW_40;
-
-	if (rx_rate->flags & BIT(3))
-		sinfo->rxrate.bw = RATE_INFO_BW_80;
-
-	if (rx_rate->flags & BIT(4) || rx_rate->flags & BIT(5))
-		sinfo->rxrate.bw = RATE_INFO_BW_160;
-
-	if (rx_rate->flags & BIT(6))
-		sinfo->rxrate.flags |= RATE_INFO_FLAGS_SHORT_GI;
-
-	if (rx_rate->flags & RATE_INFO_FLAGS_MCS ||
-	    rx_rate->flags & RATE_INFO_FLAGS_VHT_MCS) {
-		sinfo->rxrate.flags |= (rx_rate->flags & 0x3);
-		sinfo->rxrate.mcs = rx_rate->mcs;
-
-		if (rx_rate->flags & RATE_INFO_FLAGS_VHT_MCS && rx_rate->nss)
-			sinfo->rxrate.nss = rx_rate->nss;
-	} else {
-		sinfo->rxrate.legacy = rx_rate->legacy;
-	}
-}
-
 int sprd_cfg80211_get_station(struct wiphy *wiphy, struct net_device *ndev,
 			      const u8 *mac, struct station_info *sinfo)
 {
@@ -911,8 +798,59 @@ int sprd_cfg80211_get_station(struct wiphy *wiphy, struct net_device *ndev,
 
 	sinfo->filled |= BIT(NL80211_STA_INFO_RX_BITRATE);
 
-	sprd_cfg80211_get_station_tx_rate(sinfo, tx_rate);
-	sprd_cfg80211_get_station_rx_rate(sinfo, rx_rate);
+	/* fill rate info if bit 2,3,4 not set */
+	if (!(tx_rate->flags & 0x1c))
+		sinfo->txrate.bw = RATE_INFO_BW_20;
+
+	if (tx_rate->flags & BIT(2))
+		sinfo->txrate.bw = RATE_INFO_BW_40;
+
+	if (tx_rate->flags & BIT(3))
+		sinfo->txrate.bw = RATE_INFO_BW_80;
+
+	if (tx_rate->flags & BIT(4) || tx_rate->flags & BIT(5))
+		sinfo->txrate.bw = RATE_INFO_BW_160;
+
+	if (tx_rate->flags & BIT(6))
+		sinfo->txrate.flags |= RATE_INFO_FLAGS_SHORT_GI;
+
+	if (tx_rate->flags & RATE_INFO_FLAGS_MCS ||
+	    tx_rate->flags & RATE_INFO_FLAGS_VHT_MCS) {
+		sinfo->txrate.flags |= (tx_rate->flags & 0x3);
+		sinfo->txrate.mcs = tx_rate->mcs;
+
+		if (tx_rate->flags & RATE_INFO_FLAGS_VHT_MCS && tx_rate->nss)
+			sinfo->txrate.nss = tx_rate->nss;
+	} else {
+		sinfo->txrate.legacy = tx_rate->legacy;
+	}
+
+	/* rx rate */
+	if (!(rx_rate->flags & 0x1c))
+		sinfo->rxrate.bw = RATE_INFO_BW_20;
+
+	if (rx_rate->flags & BIT(2))
+		sinfo->rxrate.bw = RATE_INFO_BW_40;
+
+	if (rx_rate->flags & BIT(3))
+		sinfo->rxrate.bw = RATE_INFO_BW_80;
+
+	if (rx_rate->flags & BIT(4) || rx_rate->flags & BIT(5))
+		sinfo->rxrate.bw = RATE_INFO_BW_160;
+
+	if (rx_rate->flags & BIT(6))
+		sinfo->rxrate.flags |= RATE_INFO_FLAGS_SHORT_GI;
+
+	if (rx_rate->flags & RATE_INFO_FLAGS_MCS ||
+	    rx_rate->flags & RATE_INFO_FLAGS_VHT_MCS) {
+		sinfo->rxrate.flags |= (rx_rate->flags & 0x3);
+		sinfo->rxrate.mcs = rx_rate->mcs;
+
+		if (rx_rate->flags & RATE_INFO_FLAGS_VHT_MCS && rx_rate->nss)
+			sinfo->rxrate.nss = rx_rate->nss;
+	} else {
+		sinfo->rxrate.legacy = rx_rate->legacy;
+	}
 
 	netdev_info(ndev,
 		    "%s signal %d noise=%d, txlegacy %d txmcs:%d txflags:0x:%x, \
@@ -965,18 +903,33 @@ int sprd_cfg80211_disconnect(struct wiphy *wiphy, struct net_device *ndev,
 	return ret;
 }
 
-static int
-sprd_cfg80211_connect_ccn0(struct wiphy *wiphy, struct net_device *ndev,
-			   struct cmd_connect *con, struct cfg80211_connect_params *sme)
+int sprd_cfg80211_connect(struct wiphy *wiphy, struct net_device *ndev,
+			  struct cfg80211_connect_params *sme)
 {
 	struct sprd_vif *vif = netdev_priv(ndev);
+	struct cmd_connect con = { 0 };
+	enum sprd_sm_state old_state = vif->sm_state;
+	bool ie_set_flag = false;
 	u16 center_freq = 0;
+	int is_wep = (sme->crypto.cipher_group == WLAN_CIPHER_SUITE_WEP40) ||
+	    (sme->crypto.cipher_group == WLAN_CIPHER_SUITE_WEP104);
+	int ret, i;
+	struct sprd_priv *priv = vif->priv;
+	bool n79_flag = sprd_hif_modemn79_is_enable(&priv->hif);
+	struct sprd_wlan_dt_config *dt_configs = &vif->priv->dt_configs;
+	struct timespec64 ts;
+	struct rtc_time tm;
+
+	ktime_get_real_ts64(&ts);
+	//ts.tv_sec -= sys_tz.tz_minuteswest * 60;
+	rtc_time64_to_tm(ts.tv_sec, &tm);
 
 	/* workround for bug 795430 */
 	if (!(vif->state & VIF_STATE_OPEN)) {
 		wl_err("%s, error! mode%d connect after closed not allowed",
 		       __func__, vif->mode);
-		return -EACCES;
+		ret = -EACCES;
+		goto err;
 	}
 
 	/* workround for bug 771600 */
@@ -990,31 +943,29 @@ sprd_cfg80211_connect_ccn0(struct wiphy *wiphy, struct net_device *ndev,
 	/* Set channel */
 	if (sme->channel) {
 		center_freq = sme->channel->center_freq;
-		con->channel =
+		con.channel =
 		    ieee80211_frequency_to_channel(sme->channel->center_freq);
 		netdev_info(ndev, "channel %d, band %d, center_freq %u.\n",
-			con->channel, sme->channel->band, sme->channel->center_freq);
+			con.channel, sme->channel->band, sme->channel->center_freq);
 	} else if (sme->channel_hint) {
 		center_freq = sme->channel_hint->center_freq;
-		con->channel =
+		con.channel =
 		    ieee80211_frequency_to_channel(sme->
 						   channel_hint->center_freq);
-		netdev_info(ndev, "channel_hint %d, band %d, center_freq %u.\n", con->channel,
+		netdev_info(ndev, "channel_hint %d, band %d, center_freq %u.\n", con.channel,
 			sme->channel_hint->band, sme->channel_hint->center_freq);
 	} else {
 		netdev_info(ndev, "No channel specified!\n");
 	}
 
-	return 0;
-}
-
-static int
-sprd_cfg80211_connect_ccn1(struct net_device *ndev, struct cmd_connect *con,
-			   struct cfg80211_connect_params *sme)
-{
-	struct sprd_vif *vif = netdev_priv(ndev);
-	bool ie_set_flag = false;
-	int ret, i;
+	if (dt_configs->enable_n79 && n79_flag && con.channel > SPRD_2G_CHAN_NR) {
+		cfg80211_connect_result(ndev, vif->bssid, NULL, 0, NULL, 0,
+					WLAN_REASON_QSTA_TIMEOUT, GFP_KERNEL);
+		netdev_info(ndev, "%s %s, can't connect 5g %s, n79 is enable!\n",
+			__func__, vif->ssid, vif->mode == SPRD_MODE_STATION ? "AP" : "GO");
+		ret = -EACCES;
+		goto err;
+	}
 
 	/* Set WPS ie and SAE ie */
 	if (sme->ie_len > SPRD_MIN_IE_LEN) {
@@ -1026,13 +977,13 @@ sprd_cfg80211_connect_ccn1(struct net_device *ndev, struct cmd_connect *con,
 				ret = sprd_set_assocreq_ie(vif->priv, vif,
 							   sme->ie, i);
 				if (ret)
-					return ret;
+					goto err;
 
 				ret = sprd_set_sae_ie(vif->priv, vif,
 						      sme->ie + i,
 						      (sme->ie_len - i));
 				if (ret)
-					return ret;
+					goto err;
 			}
 		}
 
@@ -1043,7 +994,7 @@ sprd_cfg80211_connect_ccn1(struct net_device *ndev, struct cmd_connect *con,
 			ret = sprd_set_assocreq_ie(vif->priv, vif, sme->ie,
 						   sme->ie_len);
 			if (ret)
-				return ret;
+				goto err;
 		}
 	} else {
 		netdev_info(ndev, "set assoc req ie, len %zx\n", sme->ie_len);
@@ -1051,42 +1002,23 @@ sprd_cfg80211_connect_ccn1(struct net_device *ndev, struct cmd_connect *con,
 					   sme->ie_len);
 
 		if (ret)
-			return ret;
+			goto err;
 	}
 
-	con->wpa_versions = sprd_convert_wpa_version(sme->crypto.wpa_versions);
+	con.wpa_versions = sprd_convert_wpa_version(sme->crypto.wpa_versions);
 	netdev_info(ndev, "sme wpa_version:%#x, con.wpa_version:%#x, "
 		"management frame protection %#x, auth type %#x, group cipher %#x.\n",
-		sme->crypto.wpa_versions, con->wpa_versions, sme->mfp, sme->auth_type,
+		sme->crypto.wpa_versions, con.wpa_versions, sme->mfp, sme->auth_type,
 		sme->crypto.cipher_group);
-	con->mfp_enable = sme->mfp;
-
-	return 0;
-}
-
-static void
-sprd_cfg80211_connect_set_auth_type(struct cmd_connect *con,
-				    struct cfg80211_connect_params *sme)
-{
-	int is_wep = (sme->crypto.cipher_group == WLAN_CIPHER_SUITE_WEP40) ||
-	    (sme->crypto.cipher_group == WLAN_CIPHER_SUITE_WEP104);
-
+	con.mfp_enable = sme->mfp;
 	if (sme->auth_type == NL80211_AUTHTYPE_OPEN_SYSTEM ||
 	    (sme->auth_type == NL80211_AUTHTYPE_AUTOMATIC && !is_wep))
-		con->auth_type = SPRD_AUTH_OPEN;
+		con.auth_type = SPRD_AUTH_OPEN;
 	else if (sme->auth_type == NL80211_AUTHTYPE_SHARED_KEY ||
 		 (sme->auth_type == NL80211_AUTHTYPE_AUTOMATIC && is_wep))
-		con->auth_type = SPRD_AUTH_SHARED;
+		con.auth_type = SPRD_AUTH_SHARED;
 	else if (sme->auth_type == NL80211_AUTHTYPE_SAE)
-		con->auth_type = SPRD_AUTH_SAE;
-}
-
-static int
-sprd_cfg80211_connect_ccn2(struct net_device *ndev, struct cmd_connect *con,
-			   struct cfg80211_connect_params *sme)
-{
-	struct sprd_vif *vif = netdev_priv(ndev);
-	int ret;
+		con.auth_type = SPRD_AUTH_SAE;
 
 	/* Set pairewise cipher */
 	if (sme->crypto.n_ciphers_pairwise) {
@@ -1094,7 +1026,7 @@ sprd_cfg80211_connect_ccn2(struct net_device *ndev, struct cmd_connect *con,
 			    sme->crypto.ciphers_pairwise[0]);
 		vif->prwise_crypto =
 		    sprd_parse_cipher(sme->crypto.ciphers_pairwise[0]);
-		con->pairwise_cipher = vif->prwise_crypto | SPRD_VALID_CONFIG;
+		con.pairwise_cipher = vif->prwise_crypto | SPRD_VALID_CONFIG;
 	} else {
 		netdev_dbg(ndev, "No pairewise cipher specified!\n");
 		vif->prwise_crypto = SPRD_CIPHER_NONE;
@@ -1102,14 +1034,14 @@ sprd_cfg80211_connect_ccn2(struct net_device *ndev, struct cmd_connect *con,
 
 	/* Set group cipher */
 	vif->grp_crypto = sprd_parse_cipher(sme->crypto.cipher_group);
-	con->group_cipher = vif->grp_crypto | SPRD_VALID_CONFIG;
+	con.group_cipher = vif->grp_crypto | SPRD_VALID_CONFIG;
 
 	/* Set auth key management (akm) */
 	if (sme->crypto.n_akm_suites) {
 		netdev_info(ndev, "akm suites %#x\n",
 			    sme->crypto.akm_suites[0]);
-		con->key_mgmt = sprd_parse_akm(sme->crypto.akm_suites[0]);
-		con->key_mgmt |= SPRD_VALID_CONFIG;
+		con.key_mgmt = sprd_parse_akm(sme->crypto.akm_suites[0]);
+		con.key_mgmt |= SPRD_VALID_CONFIG;
 	} else {
 		netdev_dbg(ndev, "No akm suites specified!\n");
 	}
@@ -1119,7 +1051,8 @@ sprd_cfg80211_connect_ccn2(struct net_device *ndev, struct cmd_connect *con,
 		if (sme->key_len > WLAN_MAX_KEY_LEN) {
 			netdev_err(ndev, "%s invalid key len: %d\n", __func__,
 				   sme->key_len);
-			return -EINVAL;
+			ret = -EINVAL;
+			goto err;
 		} else if (sme->crypto.cipher_group == WLAN_CIPHER_SUITE_WEP40 ||
 		    sme->crypto.cipher_group == WLAN_CIPHER_SUITE_WEP104 ||
 		    sme->crypto.ciphers_pairwise[0] ==
@@ -1135,32 +1068,26 @@ sprd_cfg80211_connect_ccn2(struct net_device *ndev, struct cmd_connect *con,
 						    sme->crypto.ciphers_pairwise[0],
 						    NULL, NULL);
 			if (ret)
-				return ret;
+				goto err;
 		} else {
 			netdev_info(ndev, "PSK %s\n", sme->key);
-			con->psk_len = sme->key_len;
-			memcpy(con->psk, sme->key, sme->key_len);
+			con.psk_len = sme->key_len;
+			memcpy(con.psk, sme->key, sme->key_len);
 		}
 	}
 
-	return 0;
-}
-
-static int
-sprd_cfg80211_connect_ccn3(struct net_device *ndev, struct cmd_connect *con,
-			   struct cfg80211_connect_params *sme)
-{
-	struct sprd_vif *vif = netdev_priv(ndev);
-	int ret;
+	/* workround for bug 2242556/2262885, enable ACS before connect CMD */
+	if (priv->hif.hw_type == SPRD_HW_SC2355_SDIO)
+		sprd_npi_set_cca_param(priv, vif, SPRD_NPI_CMD_SET_FLAG_ACS);
 
 	/* Set BSSID */
 	if (sme->bssid) {
 		netdev_info(ndev, "bssid %pM\n", sme->bssid);
-		memcpy(con->bssid, sme->bssid, sizeof(con->bssid));
+		memcpy(con.bssid, sme->bssid, sizeof(con.bssid));
 		memcpy(vif->bssid, sme->bssid, sizeof(vif->bssid));
 	} else if (sme->bssid_hint) {
 		netdev_info(ndev, "bssid_hint %pM\n", sme->bssid_hint);
-		memcpy(con->bssid, sme->bssid_hint, sizeof(con->bssid));
+		memcpy(con.bssid, sme->bssid_hint, sizeof(con.bssid));
 		memcpy(vif->bssid, sme->bssid_hint, sizeof(vif->bssid));
 	} else {
 		netdev_info(ndev, "No BSSID specified!\n");
@@ -1178,65 +1105,15 @@ sprd_cfg80211_connect_ccn3(struct net_device *ndev, struct cmd_connect *con,
 			    sme->key_len != WLAN_KEY_LEN_WEP40) {
 				netdev_err(ndev, "%s invalid WEP key length!\n",
 					   __func__);
-				return -EINVAL;
+				ret = -EINVAL;
+				goto err;
 			}
 
 			ret = sprd_set_def_key(vif->priv, vif, sme->key_idx);
 			if (ret)
-				return ret;
+				goto err;
 		}
 	}
-
-	return 0;
-}
-
-int sprd_cfg80211_connect(struct wiphy *wiphy, struct net_device *ndev,
-			  struct cfg80211_connect_params *sme)
-{
-	struct sprd_vif *vif = netdev_priv(ndev);
-	struct cmd_connect con = { 0 };
-	enum sprd_sm_state old_state = vif->sm_state;
-	int ret;
-	struct sprd_priv *priv = vif->priv;
-	bool n79_flag = sprd_hif_modemn79_is_enable(&priv->hif);
-	struct sprd_wlan_dt_config *dt_configs = &vif->priv->dt_configs;
-	struct timespec64 ts;
-	struct rtc_time tm;
-
-	ktime_get_real_ts64(&ts);
-	//ts.tv_sec -= sys_tz.tz_minuteswest * 60;
-	rtc_time64_to_tm(ts.tv_sec, &tm);
-
-	ret = sprd_cfg80211_connect_ccn0(wiphy, ndev, &con, sme);
-	if (ret)
-		goto err;
-
-	if (dt_configs->enable_n79 && n79_flag && con.channel > SPRD_2G_CHAN_NR) {
-		cfg80211_connect_result(ndev, vif->bssid, NULL, 0, NULL, 0,
-					WLAN_REASON_QSTA_TIMEOUT, GFP_KERNEL);
-		netdev_info(ndev, "%s %s, can't connect 5g %s, n79 is enable!\n",
-			__func__, vif->ssid, vif->mode == SPRD_MODE_STATION ? "AP" : "GO");
-		ret = -EACCES;
-		goto err;
-	}
-
-	ret = sprd_cfg80211_connect_ccn1(ndev, &con, sme);
-	if (ret)
-		goto err;
-
-	sprd_cfg80211_connect_set_auth_type(&con, sme);
-
-	ret = sprd_cfg80211_connect_ccn2(ndev, &con, sme);
-	if (ret)
-		goto err;
-
-	/* workround for bug 2242556/2262885, enable ACS before connect CMD */
-	if (priv->hif.hw_type == SPRD_HW_SC2355_SDIO)
-		sprd_npi_set_cca_param(priv, vif, SPRD_NPI_CMD_SET_FLAG_ACS);
-
-	ret = sprd_cfg80211_connect_ccn3(ndev, &con, sme);
-	if (ret)
-		goto err;
 
 	/* Set ESSID */
 	if (!sme->ssid) {
@@ -1378,13 +1255,12 @@ int sprd_cfg80211_mgmt_tx(struct wiphy *wiphy, struct wireless_dev *wdev,
 				   ieee80211_frequency_to_channel
 				   (chan->center_freq), dont_wait_for_ack,
 				   wait, cookie, buf, len);
-		if (ret || vif->priv->tx_mgmt_status) {
+		if (ret || vif->priv->tx_mgmt_status)
 			if (!dont_wait_for_ack) {
 				cfg80211_mgmt_tx_status(wdev, *cookie, buf, len,
 							0, GFP_KERNEL);
+				vif->priv->tx_mgmt_status = 0;
 			}
-			vif->priv->tx_mgmt_status = 0;
-		}
 	}
 
 	return ret;
@@ -1664,52 +1540,14 @@ int sprd_cfg80211_channel_switch(struct wiphy *wiphy, struct net_device *ndev,
 }
 #endif
 
-static int sprd_init_fw_ccn(struct sprd_vif *vif)
+int sprd_init_fw(struct sprd_vif *vif)
 {
 	struct sprd_priv *priv = vif->priv;
 	enum nl80211_iftype type = vif->wdev.iftype;
+	enum sprd_mode mode;
 	const u8 *mac;
 	int ret;
 	char country_alpha[3] = "00";
-
-	if (!vif->ndev)
-		mac = vif->wdev.address;
-	else
-		mac = vif->ndev->dev_addr;
-
-	if (vif->mode == SPRD_MODE_AP || vif->mode == SPRD_MODE_P2P_GO) {
-		if (vif->has_rand_mac) {
-			netdev_info(vif->ndev, "use random mac addr:%pM\n",
-				    vif->random_mac);
-			mac = vif->random_mac;
-		}
-	}
-
-	if (sprd_open_fw(priv, vif, mac)) {
-		netdev_err(vif->ndev, "%s failed!\n", __func__);
-		vif->mode = SPRD_MODE_NONE;
-		return -EIO;
-	}
-	vif->state |= VIF_STATE_OPEN;
-	sprd_hif_fill_all_buffer(&priv->hif);
-
-	if (vif->mode == SPRD_MODE_AP || vif->mode == SPRD_MODE_STATION) {
-		ret = regulatory_hint(priv->wiphy, country_alpha);
-		netdev_dbg(vif->ndev, "%s type %d, mode %d, name %s, regulatory_hint ret = %d.\n",
-			   __func__, type, vif->mode, vif->name, ret);
-	}
-
-	return 0;
-}
-
-int sprd_init_fw(struct sprd_vif *vif)
-{
-#ifdef ENABLE_PAM_WIFI
-	struct sprd_priv *priv = vif->priv;
-#endif
-	enum nl80211_iftype type = vif->wdev.iftype;
-	enum sprd_mode mode;
-	int ret;
 
 	vif->ctx_id = 0;
 
@@ -1736,6 +1574,10 @@ int sprd_init_fw(struct sprd_vif *vif)
 	}
 
 	vif->mode = mode;
+	if (!vif->ndev)
+		mac = vif->wdev.address;
+	else
+		mac = vif->ndev->dev_addr;
 #ifdef ENABLE_PAM_WIFI
 	if (vif->mode == SPRD_MODE_AP && sprd_pamwifi_supported(priv->hif.pdev)) {
 		/*init pamwifi*/
@@ -1749,9 +1591,27 @@ int sprd_init_fw(struct sprd_vif *vif)
 		}
 	}
 #endif
-	ret = sprd_init_fw_ccn(vif);
-	if (ret)
-		return ret;
+	if (vif->mode == SPRD_MODE_AP || vif->mode == SPRD_MODE_P2P_GO) {
+		if (vif->has_rand_mac) {
+			netdev_info(vif->ndev, "use random mac addr:%pM\n",
+				    vif->random_mac);
+			mac = vif->random_mac;
+		}
+	}
+
+	if (sprd_open_fw(priv, vif, mac)) {
+		netdev_err(vif->ndev, "%s failed!\n", __func__);
+		vif->mode = SPRD_MODE_NONE;
+		return -EIO;
+	}
+	vif->state |= VIF_STATE_OPEN;
+	sprd_hif_fill_all_buffer(&priv->hif);
+
+	if (vif->mode == SPRD_MODE_AP || vif->mode == SPRD_MODE_STATION) {
+		ret = regulatory_hint(priv->wiphy, country_alpha);
+		netdev_dbg(vif->ndev, "%s type %d, mode %d, name %s, regulatory_hint ret = %d.\n",
+			   __func__, type, vif->mode, vif->name, ret);
+	}
 
 	return 0;
 }

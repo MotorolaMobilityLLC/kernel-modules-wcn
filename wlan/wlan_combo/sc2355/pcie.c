@@ -65,20 +65,20 @@ static void pcie_clear_stats(struct sprd_hif *hif)
  *from network stack to freed by HIF every STATS_COUNT packets
  */
 static void pcie_get_tx_avg_time(struct sprd_hif *hif,
-				 s64 tx_start_time)
+				 unsigned long tx_start_time)
 {
-	s64 tx_end;
+	unsigned long tx_end;
 
 	tx_end = sprd_get_ktime();
 	hif->stats.tx_cost_time += tx_end - tx_start_time;
 
 	if (hif->stats.gap_num >= STATS_COUNT) {
 		hif->stats.tx_avg_time =
-		    div_s64(hif->stats.tx_cost_time, hif->stats.gap_num);
+		    hif->stats.tx_cost_time / hif->stats.gap_num;
 		pcie_dump_stats(hif);
 		hif->stats.gap_num = 0;
 		hif->stats.tx_cost_time = 0;
-		wl_info("%s:%d packets avg cost time: %lld\n",
+		wl_info("%s:%d packets avg cost time: %lu\n",
 			__func__, __LINE__, hif->stats.tx_avg_time);
 	}
 }
@@ -524,7 +524,7 @@ static int pcie_suspend_resume_handle(int chn, int mode)
 	struct tx_mgmt *tx_mgmt = (struct tx_mgmt *)hif->tx_mgmt;
 	int ret;
 	struct sprd_vif *vif = NULL, *tmp_vif;
-	s64 time;
+	unsigned long time;
 
 	spin_lock_bh(&priv->list_lock);
 	list_for_each_entry(tmp_vif, &priv->vif_list, vif_node) {
@@ -573,8 +573,8 @@ static int pcie_suspend_resume_handle(int chn, int mode)
 		hif->sleep_time = time - hif->sleep_time;
 
 		ret = sprd_power_save(priv, vif, SPRD_SUSPEND_RESUME, 1);
-		wl_info("%s, %d,resume ret=%d, resume after %lld ms\n",
-			__func__, __LINE__, ret, div_s64(hif->sleep_time, 1000000));
+		wl_info("%s, %d,resume ret=%d, resume after %lu ms\n",
+			__func__, __LINE__, ret, hif->sleep_time / 1000000);
 		return ret;
 	}
 	return -EBUSY;
@@ -588,15 +588,15 @@ struct mchn_ops_t sc2355_pcie_hif_ops[] = {
 	INIT_INTF_SC2355(PCIE_RX_CMD_PORT, 1, 0, 0, SPRD_MAX_CMD_RXLEN,
 			10, 0, 0, 0, 1, 32, pcie_rx_handle,
 			pcie_rx_cmd_push, NULL, NULL),
-	INIT_INTF_SC2355(PCIE_RX_DATA_PORT, 1, 0, 0, SPRD_MAX_DATA_RXLEN,
+	INIT_INTF_SC2355(PCIE_RX_DATA_PORT, 1, 0, 0, SPRD_MAX_CMD_RXLEN,
 			100, 0, 0, 0, 1, 32, pcie_rx_handle,
 			pcie_rx_data_push, NULL, NULL),
 #ifdef PCIE_DEBUG
-	INIT_INTF_SC2355(PCIE_RX_ADDR_DATA_PORT, 1, 0, 0, SPRDWL_MAX_DATA_RXLEN,
+	INIT_INTF_SC2355(PCIE_RX_ADDR_DATA_PORT, 1, 0, 0, SPRDWL_MAX_CMD_RXLEN,
 			100, 0, 0, 0, 1, 32, sprdwl_sc2355_rx_handle_for_debug,
 			sprdwl_rx_data_push, NULL, NULL),
 #else
-	INIT_INTF_SC2355(PCIE_RX_ADDR_DATA_PORT, 1, 0, 0, SPRD_MAX_DATA_RXLEN,
+	INIT_INTF_SC2355(PCIE_RX_ADDR_DATA_PORT, 1, 0, 0, SPRD_MAX_CMD_RXLEN,
 			100, 0, 0, 0, 1, 32, pcie_rx_handle,
 			pcie_rx_data_push, NULL, NULL),
 #endif
@@ -604,10 +604,10 @@ struct mchn_ops_t sc2355_pcie_hif_ops[] = {
 	INIT_INTF_SC2355(PCIE_RX_CMD_PORT, 1, 0, 0, SPRDWL_MAX_CMD_RXLEN,
 			10, 0, 0, 0, 1, 32, sprdwl_sc2355_rx_handle_no_loop,
 			sprdwl_rx_cmd_push, NULL, NULL),
-	INIT_INTF_SC2355(PCIE_RX_DATA_PORT, 1, 0, 0, SPRDWL_MAX_DATA_RXLEN,
+	INIT_INTF_SC2355(PCIE_RX_DATA_PORT, 1, 0, 0, SPRDWL_MAX_CMD_RXLEN,
 			100, 0, 0, 0, 1, 32, sprdwl_sc2355_rx_handle_no_loop,
 			sprdwl_rx_data_push, NULL, NULL),
-	INIT_INTF_SC2355(PCIE_RX_ADDR_DATA_PORT, 1, 0, 0, SPRDWL_MAX_DATA_RXLEN,
+	INIT_INTF_SC2355(PCIE_RX_ADDR_DATA_PORT, 1, 0, 0, SPRDWL_MAX_CMD_RXLEN,
 			100, 0, 0, 0, 1, 32, sprdwl_sc2355_rx_handle_no_loop,
 			sprdwl_rx_data_push, NULL, NULL),
 #endif
@@ -615,10 +615,10 @@ struct mchn_ops_t sc2355_pcie_hif_ops[] = {
 	INIT_INTF_SC2355(PCIE_TX_CMD_PORT, 1, 1, 0, SPRD_MAX_CMD_TXLEN,
 			10, 0, 0, 0, 1, 32, sc2355_pcie_tx_cmd_pop_list,
 			NULL, NULL, pcie_suspend_resume_handle),
-	INIT_INTF_SC2355(PCIE_TX_DATA_PORT, 1, 1, 0, SPRD_MAX_DATA_TXLEN,
+	INIT_INTF_SC2355(PCIE_TX_DATA_PORT, 1, 1, 0, SPRD_MAX_CMD_TXLEN,
 			300, 0, 0, 0, 1, 32, sc2355_pcie_tx_data_pop_list,
 			NULL, NULL, NULL),
-	INIT_INTF_SC2355(PCIE_TX_ADDR_DATA_PORT, 1, 1, 0, SPRD_MAX_DATA_TXLEN,
+	INIT_INTF_SC2355(PCIE_TX_ADDR_DATA_PORT, 1, 1, 0, SPRD_MAX_CMD_TXLEN,
 			300, 0, 0, 0, 1, 4, sc2355_pcie_tx_data_pop_list,
 			NULL, NULL, NULL),
 };
@@ -638,12 +638,11 @@ inline int sc2355_pcie_tx_cmd(struct sprd_hif *hif, unsigned char *data, int len
 	return pcie_tx_one(hif, data, len, hif->tx_cmd_port);
 }
 
-inline int sc2355_tx_addr_trans_pcie(void *p_rx_mgmt,
+inline int sc2355_tx_addr_trans_pcie(struct sprd_hif *hif,
 				     unsigned char *data, int len,
 				     bool send_now)
 {
-	struct rx_mgmt *rx_mgmt = (struct rx_mgmt *)p_rx_mgmt;
-	struct sprd_hif *hif = rx_mgmt->hif;
+	struct rx_mgmt *rx_mgmt = (struct rx_mgmt *)hif->rx_mgmt;
 	struct mbuf_t *head = NULL, *tail = NULL, *mbuf = NULL;
 	int num = 1, ret = 0;
 
@@ -1361,7 +1360,7 @@ void sc2355_pcie_event_sta_lut(struct sprd_vif *vif, u8 *data, u16 len)
 			hif->peer_entry[i].ba_tx_done_map = 0;
 			/*sc2355_tx_delba(hif, hif->peer_entry + i);*/
 		}
-		sc2355_defrag_recover(vif, i);
+		sc2355_defrag_recover(vif);
 		sc2355_peer_entry_delba(hif, i);
 		memset(&hif->peer_entry[i], 0x00,
 		       sizeof(struct sprd_peer_entry));
@@ -1618,6 +1617,8 @@ int sc2355_pcie_fc_test_send_num(struct sprd_hif *hif,
 
 	free_num = atomic_read(&tx_mgmt->xmit_msg_list.free_num);
 	if (printk_timed_ratelimit(&caller_jiffies, 1000)) {
+		wl_info("%s,%d free_num=%d, data_num=%d\n", __func__,
+			__LINE__, free_num, data_num);
 		if (list_empty(&tx_mgmt->xmit_msg_list.to_free_list))
 			wl_info("%s: to free list empty\n", __func__);
 	}

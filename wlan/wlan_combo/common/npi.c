@@ -18,9 +18,13 @@
 #include "iface.h"
 #include "npi.h"
 #include "delay_work.h"
+#include "../sc2355/cpu_performance.h"
 
 struct sprd_wlan_adap_param adap_info;
 struct set_5g_sar_info g_set_5g_sar_info;
+
+static int npi_nl_send_generic(struct genl_info *info, u8 attr, u8 cmd,
+			       u32 len, u8 *data);
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0))
 static int npi_pre_doit(const struct genl_split_ops *ops,
@@ -72,97 +76,140 @@ static void npi_post_doit(const struct genl_ops *ops,
 		dev_put(info->user_ptr[0]);
 }
 
-int sprd_npi_deal_addba(struct genl_info *info,
-			    unsigned char *s_buf, unsigned short s_len)
+static int npi_nl_handler(struct sk_buff *skb_2, struct genl_info *info)
 {
-	struct sprd_peer_entry *peer_entry = NULL;
-	struct sprd_hif *hif = NULL;
-	struct sprd_vif *temp_vif = NULL;
 	struct net_device *ndev = NULL;
 	struct sprd_vif *vif = NULL;
-	struct sprd_npi_cmd_hdr hdr = {0};
-	int ret  = 0;
-	u8 *addr = NULL;
-	u8 i, lut_index;
-	unsigned short r_len = SPRD_NPI_RECV_BUF_LEN;
-	unsigned char *r_buf = NULL;
+	struct sprd_priv *priv = NULL;
+	struct sprd_npi_cmd_hdr *hdr = NULL;
+	unsigned short s_len = 0, r_len = SPRD_NPI_RECV_BUF_LEN;
+	unsigned char *s_buf = NULL, *r_buf = NULL, *value = NULL;
+	unsigned char dbgstr[SPRD_NPI_DEBUG_STR_LEN] = { 0 };
+	int ret = 0;
+	const char *id_name = NULL;
+	unsigned char status = 0;
+	const char *vendor = "UniSoC,";
+	u8 sar_value;
 
 	ndev = info->user_ptr[0];
 	vif = netdev_priv(ndev);
-	hif = &vif->priv->hif;
-	addr = vif->bssid;
+	priv = info->user_ptr[1];
+	if (!info->attrs[SPRD_NL_ATTR_AP2CP]) {
+		wl_err("%s: invalid content\n", __func__);
+		return -EPERM;
+	}
+
+	s_buf = nla_data(info->attrs[SPRD_NL_ATTR_AP2CP]);
+	s_len = nla_len(info->attrs[SPRD_NL_ATTR_AP2CP]);
+	if (s_len < sizeof(struct sprd_npi_cmd_hdr)) {
+		wl_err("%s: invalid hdr\n", __func__);
+		return -EPERM;
+	}
 
 	r_buf = kzalloc(SPRD_NPI_RECV_BUF_LEN, GFP_KERNEL);
 	if (!r_buf)
 		return -ENOMEM;
 
-	/* if current vif->sm_state is not connected, need to find vif with status connected */
-	if (vif->sm_state != SPRD_CONNECTED) {
-		spin_lock_bh(&vif->priv->list_lock);
-		list_for_each_entry(temp_vif, &vif->priv->vif_list, vif_node) {
-			if (temp_vif->sm_state == SPRD_CONNECTED) {
-				addr = temp_vif->bssid;
-				break;
-			}
-		}
-		spin_unlock_bh(&vif->priv->list_lock);
-	}
+	snprintf(dbgstr, sizeof(dbgstr), "[iwnpi][SEND][%d]:", s_len);
+	hdr = (struct sprd_npi_cmd_hdr *)s_buf;
+	wl_info("%s type is %d, subtype %d\n", dbgstr, hdr->type, hdr->subtype);
 
-	/* find peer_entey using bssid */
-	for (i = 0; i < MAX_LUT_NUM; i++) {
-		if (ether_addr_equal(hif->peer_entry[i].tx.da, addr)) {
-			peer_entry = &hif->peer_entry[i];
-			lut_index = peer_entry->lut_index;
-			break;
-		}
-	}
+	if (hdr->subtype == SPRD_NPI_CMD_SET_COUNTRY) {
+		char *country;
 
-	if (peer_entry) {
-		peer_entry->ip_acquired = 1;
-		pr_info("%s, success set ip_acquired, lut_index: %d\n", __func__, (int)lut_index);
+		if (s_len < (sizeof(struct sprd_npi_cmd_hdr) + 2 * sizeof(char)))
+			goto out;
+		country = s_buf + sizeof(struct sprd_npi_cmd_hdr);
+		wl_info("%s show country code : %c%c\n", __func__, country[0], country[1]);
+
+		ret = regulatory_hint(priv->wiphy, country);
+		hdr->len = sizeof(int);
+		hdr->type = SPRD_CP2HT_REPLY;
+		r_len = sizeof(*hdr) + hdr->len;
+		memcpy(r_buf, hdr, sizeof(*hdr));
+		memcpy(r_buf + sizeof(*hdr), &ret, hdr->len);
+	} else if (hdr->subtype == SPRD_NPI_CMD_GET_CHIPID) {
+		id_name = (char *)wcn_get_chip_name();
+
+		snprintf(r_buf, SPRD_NPI_RECV_BUF_LEN, "%d", status);
+		strcat(r_buf, vendor);
+		strcat(r_buf, id_name);
+		r_len = strlen(r_buf);
+		wl_info("%s show chip name: %s\n", __func__, r_buf);
+	} else if (hdr->subtype == SPRD_NPI_CMD_SET_RANDOM_MAC) {
+		char *rand_mac;
+
+		if (s_len < (sizeof(struct sprd_npi_cmd_hdr) + sizeof(char)))
+			goto out;
+		rand_mac = s_buf + sizeof(struct sprd_npi_cmd_hdr);
+		priv->rand_mac_flag = *((unsigned int *)rand_mac);
+		wl_info("%s NPI random mac flag %d\n", __func__, priv->rand_mac_flag);
+
+		hdr->len = sizeof(int);
+		hdr->type = SPRD_CP2HT_REPLY;
+		r_len = sizeof(*hdr) + hdr->len;
+		memcpy(r_buf, hdr, sizeof(*hdr));
+		memcpy(r_buf + sizeof(*hdr), &ret, hdr->len);
+	} else if (hdr->subtype == SPRD_NPI_CMD_5GPW_BACKOFF) {
+		if (s_len < (sizeof(struct sprd_npi_cmd_hdr) + sizeof(char)))
+			goto out;
+
+		value = s_buf + sizeof(struct sprd_npi_cmd_hdr);
+		sprd_5g_sar_info_set(value);
+		sar_value = sprd_pw_backoff_band2value(g_set_5g_sar_info.channel);
+		if (sar_value) {
+			ret = sprd_set_sar(vif->priv, vif, SPRD_SET_SAR_RELATIVE, sar_value);
+			if (ret)
+				goto out;
+		}
+
+		hdr->len = sizeof(int);
+		hdr->type = SPRD_CP2HT_REPLY;
+		r_len = sizeof(*hdr) + hdr->len;
+		memcpy(r_buf, hdr, sizeof(*hdr));
+		memcpy(r_buf + sizeof(*hdr), &ret, hdr->len);
+	} else if (hdr->subtype == SPRD_NPI_CMD_SET_CCA_PARAM) {
+		if (s_len < (sizeof(struct sprd_npi_cmd_hdr) + 2 * sizeof(char)))
+			goto out;
+		sprd_npi_cmd_set_cca_param(vif, s_buf, s_len, r_buf, r_len);
+	} else if (hdr->subtype == SPRD_NPI_CMD_SET_CPU_PARAM) {
+		if (s_len < (sizeof(struct sprd_npi_cmd_hdr) + 6 * sizeof(int)))
+			goto out;
+
+		value = s_buf + sizeof(struct sprd_npi_cmd_hdr);
+		sc2355_set_cpu_param(value);
+		hdr->len = sizeof(int);
+		hdr->type = SPRD_CP2HT_REPLY;
+		r_len = sizeof(*hdr) + hdr->len;
+		memcpy(r_buf, hdr, sizeof(*hdr));
+		memcpy(r_buf + sizeof(*hdr), &ret, hdr->len);
+
 	} else {
-		pr_err("%s, not set ip_acquired\n", __func__);
-	}
+		sprd_npi_send_recv(priv, vif, s_buf, s_len, r_buf, &r_len);
 
-	hdr.len = sizeof(int);
-	hdr.type = SPRD_CP2HT_REPLY;
-	hdr.subtype = SPRD_NPI_CMD_SET_ADDBA;
-	r_len = sizeof(hdr) + hdr.len;
-	memcpy(r_buf, &hdr, sizeof(hdr));
-	memcpy(r_buf + sizeof(hdr), &ret, hdr.len);
+		snprintf(dbgstr, sizeof(dbgstr), "[iwnpi][RECV][%d]:", r_len);
+		hdr = (struct sprd_npi_cmd_hdr *)r_buf;
+		wl_info("%s type is %d, subtype %d\n", dbgstr, hdr->type,
+			hdr->subtype);
+	}
 
 	ret = npi_nl_send_generic(info, SPRD_NL_ATTR_CP2AP,
 				  SPRD_NL_CMD_NPI, r_len, r_buf);
+
+out:
 	kfree(r_buf);
 	r_buf = NULL;
 	return ret;
 }
 
-int sprd_npi_deal_setcca(struct genl_info *info,
-			 unsigned char *s_buf, unsigned short s_len)
+void sprd_npi_cmd_set_cca_param(struct sprd_vif *vif, u8 *s_buf,
+					 u16 s_len, u8 *r_buf, u16 r_len)
 {
-	unsigned char dbgstr[SPRD_NPI_DEBUG_STR_LEN] = {0};
-	char *cca_param = NULL;
-	int ret  = 0;
-	struct net_device *ndev = NULL;
-	struct sprd_vif *vif = NULL;
-	struct sprd_priv *priv = NULL;
-	struct sprd_npi_cmd_hdr *p_hdr = NULL, hdr = {0};
-	unsigned short r_len = SPRD_NPI_RECV_BUF_LEN;
-	unsigned char *r_buf = NULL;
-
-	ndev = info->user_ptr[0];
-	vif = netdev_priv(ndev);
-	priv = info->user_ptr[1];
-
-	if (s_len < (sizeof(struct sprd_npi_cmd_hdr) + 2 * sizeof(char))) {
-		wl_err("%s, s_len is invalid, return", __func__);
-		return -EINVAL;
-	}
-
-	r_buf = kzalloc(SPRD_NPI_RECV_BUF_LEN, GFP_KERNEL);
-	if (!r_buf)
-		return -ENOMEM;
+	struct sprd_priv *priv = vif->priv;
+	struct sprd_npi_cmd_hdr *hdr = NULL;
+	int ret = 0;
+	unsigned char dbgstr[SPRD_NPI_DEBUG_STR_LEN] = { 0 };
+	char *cca_param;
 
 	cca_param = s_buf + sizeof(struct sprd_npi_cmd_hdr);
 	/*
@@ -200,329 +247,25 @@ int sprd_npi_deal_setcca(struct genl_info *info,
 
 			sprd_npi_send_recv(priv, vif, s_buf, s_len, r_buf, &r_len);
 			snprintf(dbgstr, sizeof(dbgstr), "[iwnpi][RECV][%d]:", r_len);
-			p_hdr = (struct sprd_npi_cmd_hdr *)r_buf;
-			wl_info("%s type is %d, subtype %d\n", dbgstr, p_hdr->type,
-				p_hdr->subtype);
+			hdr = (struct sprd_npi_cmd_hdr *)r_buf;
+			wl_info("%s type is %d, subtype %d\n", dbgstr, hdr->type,
+				hdr->subtype);
 		} else {
 			/* reply npi status, avoid err */
-			hdr.len = sizeof(int);
-			hdr.type = SPRD_CP2HT_REPLY;
-			hdr.subtype = SPRD_NPI_CMD_SET_CCA_PARAM;
-			r_len = sizeof(hdr) + hdr.len;
-			memcpy(r_buf, &hdr, sizeof(hdr));
-			memcpy(r_buf + sizeof(hdr), &ret, hdr.len);
+			hdr = (struct sprd_npi_cmd_hdr *)s_buf;
+			hdr->len = sizeof(int);
+			hdr->type = SPRD_CP2HT_REPLY;
+			r_len = sizeof(*hdr) + hdr->len;
+			memcpy(r_buf, hdr, sizeof(*hdr));
+			memcpy(r_buf + sizeof(*hdr), &ret, hdr->len);
 		}
 	} else {
 		sprd_npi_send_recv(priv, vif, s_buf, s_len, r_buf, &r_len);
 		snprintf(dbgstr, sizeof(dbgstr), "[iwnpi][RECV][%d]:", r_len);
-		p_hdr = (struct sprd_npi_cmd_hdr *)r_buf;
-		wl_info("%s type is %d, subtype %d\n", dbgstr, p_hdr->type,
-			p_hdr->subtype);
+		hdr = (struct sprd_npi_cmd_hdr *)r_buf;
+		wl_info("%s type is %d, subtype %d\n", dbgstr, hdr->type,
+			hdr->subtype);
 	}
-
-	ret = npi_nl_send_generic(info, SPRD_NL_ATTR_CP2AP,
-				  SPRD_NL_CMD_NPI, r_len, r_buf);
-	kfree(r_buf);
-	return ret;
-}
-
-int sprd_npi_get_chipid(struct genl_info *info,
-			unsigned char *s_buf, unsigned short s_len)
-{
-	int ret = 0;
-	const char *id_name = NULL;
-	const char *vendor = "UniSoC,";
-	struct sprd_npi_cmd_hdr hdr = {0};
-	unsigned short r_len = SPRD_NPI_RECV_BUF_LEN;
-	unsigned char *r_buf = NULL;
-
-	r_buf = kzalloc(SPRD_NPI_RECV_BUF_LEN, GFP_KERNEL);
-	if (!r_buf)
-		return -ENOMEM;
-
-	id_name = (char *)wcn_get_chip_name();
-	hdr.len = sizeof(int) + strlen(vendor) + strlen(id_name);
-	hdr.type = SPRD_CP2HT_REPLY;
-	hdr.subtype = SPRD_NPI_CMD_GET_CHIPID;
-	r_len = sizeof(hdr) + hdr.len;
-	memcpy(r_buf, &hdr, sizeof(hdr));
-	memcpy(r_buf + sizeof(hdr), &ret, sizeof(ret));
-	memcpy(r_buf + sizeof(hdr) + sizeof(ret), vendor, strlen(vendor));
-	memcpy(r_buf + sizeof(hdr) + sizeof(ret) + strlen(vendor), id_name,
-	       strlen(id_name));
-	wl_info("%s show chip name: %s\n", __func__, id_name);
-
-	ret = npi_nl_send_generic(info, SPRD_NL_ATTR_CP2AP,
-				  SPRD_NL_CMD_NPI, r_len, r_buf);
-	kfree(r_buf);
-	return ret;
-}
-
-int sprd_npi_set_random_mac(struct genl_info *info,
-			    unsigned char *s_buf, unsigned short s_len)
-{
-	int ret = 0;
-	char *rand_mac = NULL;
-	struct net_device *ndev = NULL;
-	struct sprd_vif *vif = NULL;
-	struct sprd_priv *priv = NULL;
-	struct sprd_npi_cmd_hdr hdr = {0};
-	unsigned short r_len = SPRD_NPI_RECV_BUF_LEN;
-	unsigned char *r_buf = NULL;
-
-	ndev = info->user_ptr[0];
-	vif = netdev_priv(ndev);
-	priv = info->user_ptr[1];
-	if (s_len < (sizeof(struct sprd_npi_cmd_hdr) + sizeof(char))) {
-		wl_err("%s, s_len is invalid, return", __func__);
-		return -EINVAL;
-	}
-
-	r_buf = kzalloc(SPRD_NPI_RECV_BUF_LEN, GFP_KERNEL);
-	if (!r_buf)
-		return -ENOMEM;
-
-	rand_mac = s_buf + sizeof(struct sprd_npi_cmd_hdr);
-	priv->rand_mac_flag = *((unsigned int *)rand_mac);
-	wl_info("%s NPI random mac flag %d\n", __func__, priv->rand_mac_flag);
-
-	hdr.len = sizeof(int);
-	hdr.type = SPRD_CP2HT_REPLY;
-	hdr.subtype = SPRD_NPI_CMD_SET_RANDOM_MAC;
-	r_len = sizeof(hdr) + hdr.len;
-	memcpy(r_buf, &hdr, sizeof(hdr));
-	memcpy(r_buf + sizeof(hdr), &ret, hdr.len);
-
-	ret = npi_nl_send_generic(info, SPRD_NL_ATTR_CP2AP,
-				  SPRD_NL_CMD_NPI, r_len, r_buf);
-	kfree(r_buf);
-	return ret;
-}
-
-int sprd_npi_set_country(struct genl_info *info,
-			 unsigned char *s_buf, unsigned short s_len)
-{
-	int ret = 0;
-	char *country = NULL;
-	struct net_device *ndev = NULL;
-	struct sprd_vif *vif = NULL;
-	struct sprd_priv *priv = NULL;
-	struct sprd_npi_cmd_hdr hdr = {0};
-	unsigned short r_len = SPRD_NPI_RECV_BUF_LEN;
-	unsigned char *r_buf = NULL;
-
-	ndev = info->user_ptr[0];
-	vif = netdev_priv(ndev);
-	priv = info->user_ptr[1];
-
-	if (s_len < (sizeof(struct sprd_npi_cmd_hdr) + 2 * sizeof(char))) {
-		wl_err("%s, s_len is invalid, return", __func__);
-		return -EINVAL;
-	}
-
-	r_buf = kzalloc(SPRD_NPI_RECV_BUF_LEN, GFP_KERNEL);
-	if (!r_buf)
-		return -ENOMEM;
-
-	country = s_buf + sizeof(struct sprd_npi_cmd_hdr);
-	wl_info("%s show country code : %c%c\n", __func__, country[0], country[1]);
-
-	ret = regulatory_hint(priv->wiphy, country);
-	hdr.len = sizeof(int);
-	hdr.type = SPRD_CP2HT_REPLY;
-	hdr.subtype = SPRD_NPI_CMD_SET_COUNTRY;
-	r_len = sizeof(hdr) + hdr.len;
-	memcpy(r_buf, &hdr, sizeof(hdr));
-	memcpy(r_buf + sizeof(hdr), &ret, hdr.len);
-
-	ret = npi_nl_send_generic(info, SPRD_NL_ATTR_CP2AP,
-				  SPRD_NL_CMD_NPI, r_len, r_buf);
-	kfree(r_buf);
-	return ret;
-}
-
-int sprd_npi_5gpw_backoff(struct genl_info *info,
-			  unsigned char *s_buf, unsigned short s_len)
-{
-	int ret = 0;
-	struct net_device *ndev = NULL;
-	struct sprd_vif *vif = NULL;
-	struct sprd_priv *priv = NULL;
-	struct sprd_npi_cmd_hdr hdr = {0};
-	unsigned short r_len = SPRD_NPI_RECV_BUF_LEN;
-	unsigned char *r_buf = NULL, *value = NULL;
-	u8 sar_value;
-
-	ndev = info->user_ptr[0];
-	vif = netdev_priv(ndev);
-	priv = info->user_ptr[1];
-
-	if (s_len < (sizeof(struct sprd_npi_cmd_hdr) + sizeof(char))) {
-		wl_err("%s, s_len is invalid, return", __func__);
-		return -EINVAL;
-	}
-
-	r_buf = kzalloc(SPRD_NPI_RECV_BUF_LEN, GFP_KERNEL);
-	if (!r_buf)
-		return -ENOMEM;
-
-	value = s_buf + sizeof(struct sprd_npi_cmd_hdr);
-	sprd_5g_sar_info_set(priv, value);
-	sar_value = sprd_pw_backoff_band2value(priv, g_set_5g_sar_info.channel);
-	if (sar_value) {
-		ret = sprd_set_sar(vif->priv, vif, SPRD_SET_SAR_RELATIVE, sar_value);
-		if (ret)
-			goto out;
-	}
-
-	hdr.len = sizeof(int);
-	hdr.type = SPRD_CP2HT_REPLY;
-	hdr.subtype = SPRD_NPI_CMD_5GPW_BACKOFF;
-	r_len = sizeof(hdr) + hdr.len;
-	memcpy(r_buf, &hdr, sizeof(hdr));
-	memcpy(r_buf + sizeof(hdr), &ret, hdr.len);
-
-	ret = npi_nl_send_generic(info, SPRD_NL_ATTR_CP2AP,
-				  SPRD_NL_CMD_NPI, r_len, r_buf);
-
-out:
-	kfree(r_buf);
-	return ret;
-}
-
-/* match npi command processed by driver */
-static const struct sprd_npi_ops *npi_match_cmd(struct sprd_priv *priv,
-						unsigned char cmd)
-{
-	const struct sprd_npi_ops *npi_cmd = NULL;
-	u32 i;
-
-	for (i = 0; i < priv->chip.ops->n_npi_ops; i++) {
-		if (priv->chip.ops->npi_ops[i].cmd != cmd)
-			continue;
-
-		npi_cmd = &priv->chip.ops->npi_ops[i];
-		break;
-	}
-
-	return npi_cmd;
-}
-
-static int npi_match_cmd_doit(struct genl_info *info,
-			      const struct sprd_npi_ops *npi_cmd,
-			      unsigned char *s_buf, unsigned short s_len)
-{
-	struct sprd_npi_cmd_hdr hdr = {0};
-	unsigned short r_len = SPRD_NPI_RECV_BUF_LEN;
-	unsigned char *r_buf = NULL;
-	int ret = 0;
-
-	if (!npi_cmd->doit) {
-		wl_err("%s: doit is NULL\n", __func__);
-		ret = -EOPNOTSUPP;
-		goto out;
-	}
-	ret = npi_cmd->doit(info, s_buf, s_len);
-	if (ret != 0) {
-		wl_info("%s: doit error %d\n", __func__, ret);
-		goto out;
-	}
-
-	/* npi_cmd->doit successfully */
-	return 0;
-
-out:
-	r_buf = kzalloc(SPRD_NPI_RECV_BUF_LEN, GFP_KERNEL);
-	if (!r_buf)
-		return -ENOMEM;
-
-	hdr.len = sizeof(int);
-	hdr.type = SPRD_CP2HT_REPLY;
-	hdr.subtype = npi_cmd->cmd;
-	r_len = sizeof(struct sprd_npi_cmd_hdr) + hdr.len;
-	memcpy(r_buf, &hdr, sizeof(struct sprd_npi_cmd_hdr));
-	memcpy(r_buf + sizeof(struct sprd_npi_cmd_hdr), &ret, hdr.len);
-
-	ret = npi_nl_send_generic(info, SPRD_NL_ATTR_CP2AP,
-				  SPRD_NL_CMD_NPI, r_len, r_buf);
-	kfree(r_buf);
-	return ret;
-}
-
-static int sprd_npi_cp2_proc(struct genl_info *info,
-			     unsigned char *s_buf, unsigned short s_len)
-{
-	int ret = 0;
-	struct net_device *ndev = NULL;
-	struct sprd_vif *vif = NULL;
-	struct sprd_priv *priv = NULL;
-	struct sprd_npi_cmd_hdr *hdr = NULL;
-	unsigned short r_len = SPRD_NPI_RECV_BUF_LEN;
-	unsigned char *r_buf = NULL;
-	unsigned char dbgstr[SPRD_NPI_DEBUG_STR_LEN] = {0};
-
-	ndev = info->user_ptr[0];
-	vif = netdev_priv(ndev);
-	priv = info->user_ptr[1];
-
-	r_buf = kzalloc(SPRD_NPI_RECV_BUF_LEN, GFP_KERNEL);
-	if (!r_buf)
-		return -ENOMEM;
-
-	sprd_npi_send_recv(priv, vif, s_buf, s_len, r_buf, &r_len);
-
-	snprintf(dbgstr, sizeof(dbgstr), "[iwnpi][RECV][%d]:", r_len);
-	hdr = (struct sprd_npi_cmd_hdr *)r_buf;
-	wl_info("%s type is %d, subtype %d\n", dbgstr, hdr->type,
-		hdr->subtype);
-
-	ret = npi_nl_send_generic(info, SPRD_NL_ATTR_CP2AP,
-				  SPRD_NL_CMD_NPI, r_len, r_buf);
-	kfree(r_buf);
-	return ret;
-}
-
-static int npi_nl_handler(struct sk_buff *skb_2, struct genl_info *info)
-{
-	struct net_device *ndev = NULL;
-	struct sprd_vif *vif = NULL;
-	struct sprd_priv *priv = NULL;
-	struct sprd_npi_cmd_hdr *hdr = NULL;
-	unsigned short s_len = 0;
-	unsigned char *s_buf = NULL;
-	unsigned char dbgstr[SPRD_NPI_DEBUG_STR_LEN] = {0};
-	const struct sprd_npi_ops *npi_cmd = NULL;
-	int ret = 0;
-
-	ndev = info->user_ptr[0];
-	vif = netdev_priv(ndev);
-	priv = info->user_ptr[1];
-	if (!info->attrs[SPRD_NL_ATTR_AP2CP]) {
-		wl_err("%s: invalid content\n", __func__);
-		return -EPERM;
-	}
-
-	s_buf = nla_data(info->attrs[SPRD_NL_ATTR_AP2CP]);
-	s_len = nla_len(info->attrs[SPRD_NL_ATTR_AP2CP]);
-	if (s_len < sizeof(struct sprd_npi_cmd_hdr)) {
-		wl_err("%s: invalid hdr\n", __func__);
-		return -EPERM;
-	}
-
-	snprintf(dbgstr, sizeof(dbgstr), "[iwnpi][SEND][%d]:", s_len);
-	hdr = (struct sprd_npi_cmd_hdr *)s_buf;
-	wl_info("%s type is %d, subtype %d, mode %d\n", dbgstr,
-		hdr->type, hdr->subtype, vif->mode);
-
-	npi_cmd = npi_match_cmd(priv, hdr->subtype);
-
-	if (npi_cmd)
-		ret = npi_match_cmd_doit(info, npi_cmd, s_buf, s_len);
-	else
-		ret = sprd_npi_cp2_proc(info, s_buf, s_len);
-
-	wl_debug("%s ret %d.\n", __func__, ret);
-	return ret;
 }
 
 static int npi_nl_get_info_handler(struct sk_buff *skb_2,
@@ -576,8 +319,8 @@ static struct genl_family sprd_nl_genl_family = {
 	.n_ops = ARRAY_SIZE(sprd_nl_ops),
 };
 
-int npi_nl_send_generic(struct genl_info *info, u8 attr, u8 cmd,
-			u32 len, u8 *data)
+static int npi_nl_send_generic(struct genl_info *info, u8 attr, u8 cmd,
+			       u32 len, u8 *data)
 {
 	struct sk_buff *skb = NULL;
 	void *hdr = NULL;

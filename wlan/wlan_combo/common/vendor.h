@@ -61,30 +61,6 @@ enum vendor_wifi_error {
 	VENDOR_WIFI_ERROR_BUSY = -10,
 };
 
-enum vendor_event_nan {
-	VENDOR_EVENT_NAN_MONITOR_RSSI = 0,
-	/* NAN */
-	VENDOR_EVENT_NAN = 0x1400,
-};
-
-/* link layer stats */
-enum vendor_attr {
-	ATTR_UNSPEC,
-	ATTR_GET_LLSTAT,
-	ATTR_CLR_LLSTAT,
-	/* NAN */
-	ATTR_NAN,
-	ATTR_ROAMING_POLICY = 5,
-	ATTR_VENDOR_AFTER_LAST,
-	ATTR_VENDOR_MAX =
-		ATTR_VENDOR_AFTER_LAST - 1,
-};
-
-static const struct nla_policy
-	roaming_policy[ATTR_VENDOR_MAX + 1] = {
-	[ATTR_ROAMING_POLICY] = {.type = NLA_U32},
-};
-
 enum vendor_cmd_id {
 	VENDOR_CMD_ROAMING = 9,
 	VENDOR_CMD_NAN = 12,
@@ -127,8 +103,6 @@ enum vendor_cmd_id {
 	VENDOR_CMD_PNO_SET_PASSPOINT_LIST = 70,
 	VENDOR_CMD_PNO_RESET_PASSPOINT_LIST = 71,
 	VENDOR_CMD_PNO_NETWORK_FOUND = 72,
-	VENDOR_CMD_SET_WIFI_CONFIG = 74,
-	VENDOR_CMD_GET_WIFI_CONFIG = 75,
 	VENDOR_CMD_GET_LOGGER_FEATURE_SET = 76,
 	VENDOR_CMD_GET_RING_DATA = 77,
 	VENDOR_CMD_OFFLOADED_PACKETS = 79,
@@ -618,8 +592,6 @@ static const struct nla_policy
 #define WIFI_FEATURE_SCAN_RAND          0x2000000
 /*Support TX power limit function */
 #define WIFI_FEATURE_SET_SAR_LIMIT	0x4000000
-/* Support Latency mode setting */
-#define WIFI_FEATURE_SET_LATENCY_MODE   0x40000000
 
 /* start of get supported feature---CMD ID:42 */
 
@@ -1297,59 +1269,6 @@ enum vendor_attr_pno_config_params {
 	/* keep last */
 	ATTR_PNO_AFTER_LAST,
 	ATTR_PNO_MAX = ATTR_PNO_AFTER_LAST - 1,
-};
-
-/* Attributes for data used by
- * VENDOR_SUBCMD_SET_WIFI_CONFIGURATION and
- * VENDOR_SUBCMD_GET_WIFI_CONFIGURATION subcommands.
- */
-enum sprd_wlan_vendor_attr_config {
-	ATTR_WLAN_CONFIG_INVALID = 0,
-
-	/* unsigned value to configure the level of WLAN latency
-	 * module. See enum sprd_wlan_attr_config_latency_level.
-	 */
-	ATTR_WLAN_CONFIG_LATENCY_LEVEL = 55,
-
-	/* keep last */
-	ATTR_WLAN_CONFIG_AFTER_LAST = 77,
-	ATTR_WLAN_CONFIG_MAX =
-	ATTR_WLAN_CONFIG_AFTER_LAST - 1,
-};
-
-static const struct nla_policy wifi_config_policy[ATTR_WLAN_CONFIG_MAX + 1] = {
-	[ATTR_WLAN_CONFIG_INVALID] = {.type = NLA_U32},
-	[ATTR_WLAN_CONFIG_LATENCY_LEVEL] = {.type = NLA_U32},
-};
-
-/**
- * enum wlan_vendor_attr_config_latency_level - Level for
- * wlan latency module, sync from wifi hal.
- *
- * currently only use LATENCY_LEVEL_NORMAL and LATENCY_LEVEL_LOW.
- *
- * @ATTR_CONFIG_LATENCY_LEVEL_NORMAL:
- *	Default WLAN operation level which throughput orientated.
- * @ATTR_CONFIG_LATENCY_LEVEL_MODERATE:
- *	Use moderate level to improve latency by limit scan duration.
- * @ATTR_CONFIG_LATENCY_LEVEL_LOW:
- *	Use low latency level to benifit application like concurrent
- *	downloading or video streaming via constraint scan/adaptive PS.
- * @ATTR_CONFIG_LATENCY_LEVEL_ULTRALOW:
- *	Use ultra low latency level to benefit for gaming/voice
- *	application via constraint scan/roaming/adaptive PS.
- */
-enum sprd_wlan_attr_config_latency_level {
-	ATTR_CONFIG_LATENCY_LEVEL_INVALID = 0,
-	ATTR_CONFIG_LATENCY_LEVEL_NORMAL = 1,
-	ATTR_CONFIG_LATENCY_LEVEL_MODERATE = 2,
-	ATTR_CONFIG_LATENCY_LEVEL_LOW = 3,
-	ATTR_CONFIG_LATENCY_LEVEL_ULTRALOW = 4,
-
-	/* keep last */
-	ATTR_CONFIG_LATENCY_LEVEL_AFTER_LAST,
-	ATTR_CONFIG_LATENCY_LEVEL_MAX =
-	ATTR_CONFIG_LATENCY_LEVEL_AFTER_LAST - 1,
 };
 
 static const struct nla_policy

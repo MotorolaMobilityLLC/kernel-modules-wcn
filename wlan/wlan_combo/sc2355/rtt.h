@@ -11,14 +11,13 @@
 #define RTT_MAX_CONFIG		5
 #define LCI_MAX_LEN		200
 #define LCR_MAX_LEN		200
-#define RTT_MAX_RESULT_SUPPORT	30
-#define RTT_MAX_PEER_NUM	10
+#define RTT_MAX_RESULT_SUPPORT	100
 
 /* FTM/indoor location subcommands */
 enum rtt_subcmds {
-	SPRD_NL80211_SUBCMD_RTT_START_SESSION = 0x1100,
-	SPRD_NL80211_SUBCMD_RTT_ABORT_SESSION = 0x1101,
-	SPRD_NL80211_SUBCMD_LOC_GET_CAPA = 0x1102,
+	SPRD_NL80211_SUBCMD_LOC_GET_CAPA = 128,
+	SPRD_NL80211_SUBCMD_RTT_START_SESSION = 129,
+	SPRD_NL80211_SUBCMD_RTT_ABORT_SESSION = 130,
 	SPRD_NL80211_SUBCMD_RTT_MEAS_RESULT = 131,
 	SPRD_NL80211_SUBCMD_RTT_SESSION_DONE = 132,
 	SPRD_NL80211_SUBCMD_RTT_CFG_RESPONDER = 133,
@@ -410,8 +409,7 @@ enum rtt_cap_index {
 };
 
 enum rtt_attribute {
-	SPRD_RTT_ATTRIBUTE_TARGET_INVALID = 0,
-	SPRD_RTT_ATTRIBUTE_TARGET_CNT,
+	SPRD_RTT_ATTRIBUTE_TARGET_CNT = 0,
 	SPRD_RTT_ATTRIBUTE_TARGET_INFO,
 	SPRD_RTT_ATTRIBUTE_TARGET_MAC,
 	SPRD_RTT_ATTRIBUTE_TARGET_TYPE,
@@ -428,11 +426,31 @@ enum rtt_attribute {
 	SPRD_RTT_ATTRIBUTE_TARGET_PREAMBLE,
 	SPRD_RTT_ATTRIBUTE_TARGET_BW,
 	SPRD_RTT_ATTRIBUTE_TARGET_RESPONDER_INFO,
+	SPRD_RTT_ATTRIBUTE_MAX
+};
+
+enum rtt_result_attribute {
+	SPRD_RTT_ATTRIBUTE_RESULT_CNT = 0,
+	SPRD_RTT_ATTRIBUTE_RESULT_INFO,
+	SPRD_RTT_ATTRIBUTE_RESULT_MAC,
+	SPRD_RTT_ATTRIBUTE_RESULT_TYPE,
+	SPRD_RTT_ATTRIBUTE_RESULT_PEER,
+	SPRD_RTT_ATTRIBUTE_RESULT_CHAN,
+	SPRD_RTT_ATTRIBUTE_RESULT_PERIOD,
+	SPRD_RTT_ATTRIBUTE_RESULT_NUM_BURST,
+	SPRD_RTT_ATTRIBUTE_RESULT_NUM_FTM_BURST,
+	SPRD_RTT_ATTRIBUTE_RESULT_NUM_RETRY_FTM,
+	SPRD_RTT_ATTRIBUTE_RESULT_NUM_RETRY_FTMR,
+	SPRD_RTT_ATTRIBUTE_RESULT_LCI,
+	SPRD_RTT_ATTRIBUTE_RESULT_LCR,
+	SPRD_RTT_ATTRIBUTE_RESULT_BURST_DURATION,
+	SPRD_RTT_ATTRIBUTE_RESULT_PREAMBLE,
+	SPRD_RTT_ATTRIBUTE_RESULT_BW,
+	SPRD_RTT_ATTRIBUTE_RESULT_RESPONDER_INFO,
 	SPRD_RTT_ATTRIBUTE_RESULTS_COMPLETE = 30,
 	SPRD_RTT_ATTRIBUTE_RESULTS_PER_TARGET,
-	SPRD_RTT_ATTRIBUTE_RESULT_CNT,
-	SPRD_RTT_ATTRIBUTE_RESULT,
-	SPRD_RTT_ATTRIBUTE_MAX
+	SPRD_RTT_ATTRIBUTE_RESULT_CNT_CNT,
+	SPRD_RTT_ATTRIBUTE_RESULT
 };
 
 /* measurement parameters. Specified for each peer as part
@@ -440,39 +458,25 @@ enum rtt_attribute {
  * results for peer in case peer overridden parameters
  */
 struct rtt_meas_params {
-	u8 meas_per_burst;     //num of ftm per burst
-	u8 num_of_bursts_exp;  //Total number of RTT bursts, 2^n
+	u8 meas_per_burst;
+	u8 num_of_bursts_exp;
 	u8 burst_duration;
 	u16 burst_period;
-}__packed;
-
-struct rtt_meas_cancel_peer_info {
-	u8 n_peers;
-	u8 mac_addr[][ETH_ALEN];
-}__packed;
+};
 
 /* measurement request for a single peer */
 struct rtt_meas_peer_info {
 	u8 mac_addr[ETH_ALEN];
-	u8 wifi_rtt_type;
-	u32 rtt_peer_type;
-	struct wifi_channel_info channel;
-	u32 burst_period;			//range 0-31
-	u16 num_burst_exponent;			//range 0-15
-	u16 num_burst;				//2^num_burst_exponent
-	u32 num_frames_per_burst;		//range 0-31
-	u32 num_retries_per_rtt_frame;		//0-3
-	u32 num_retries_per_ftmr;
-	u8 LCI_request;
-	u8 LCR_request;
-	u32 burst_duration;
-	u8 preamble;				//wifi_rtt_preamble
-	u8 bw;					//wifi_rtt_bw
-}__packed;
+	u32 freq;
+	u32 flags;
+	struct rtt_meas_params params;
+	u8 secure_token_id;
+};
 
-/* session request */
+/* session request, passed to wil_ftm_cfg80211_start_session */
 struct rtt_session_request {
-	u8 n_peers;
+	u64 session_cookie;
+	u32 n_peers;
 	/* keep last, variable size according to n_peers */
 	struct rtt_meas_peer_info peers[];
 };
@@ -480,7 +484,7 @@ struct rtt_session_request {
 /* single measurement for a peer */
 struct rtt_peer_meas {
 	u64 t1, t2, t3, t4;
-}__packed;
+};
 
 /* measurement results for a single peer */
 struct rtt_peer_meas_res {
@@ -632,34 +636,6 @@ struct rtt_wifi_result {
 	struct rtt_peer_meas meas[RTT_MAX_RESULT_SUPPORT];
 } __packed;
 
-
-static const struct nla_policy rtt_policy[SPRD_RTT_ATTRIBUTE_MAX + 1] = {
-	[SPRD_RTT_ATTRIBUTE_TARGET_CNT] = { .type = NLA_U8 },
-	[SPRD_RTT_ATTRIBUTE_TARGET_INFO] = { .type = NLA_NESTED },
-	[SPRD_RTT_ATTRIBUTE_TARGET_MAC] = { .type = NLA_BINARY, .len = ETH_ALEN },
-	[SPRD_RTT_ATTRIBUTE_TARGET_TYPE] = { .type = NLA_U8 },
-	[SPRD_RTT_ATTRIBUTE_TARGET_PEER] = { .type = NLA_U8 },
-	[SPRD_RTT_ATTRIBUTE_TARGET_CHAN] = { .type = NLA_BINARY,
-					     .len = sizeof(struct wifi_channel_info) },
-	[SPRD_RTT_ATTRIBUTE_TARGET_PERIOD] = { .type = NLA_U32 },
-	[SPRD_RTT_ATTRIBUTE_TARGET_NUM_BURST] = { .type = NLA_U32 },
-	[SPRD_RTT_ATTRIBUTE_TARGET_NUM_FTM_BURST] = { .type = NLA_U32 },
-	[SPRD_RTT_ATTRIBUTE_TARGET_NUM_RETRY_FTM] = { .type = NLA_U32 },
-	[SPRD_RTT_ATTRIBUTE_TARGET_NUM_RETRY_FTMR] = { .type = NLA_U32 },
-	[SPRD_RTT_ATTRIBUTE_TARGET_LCI] = { .type = NLA_U8 },
-	[SPRD_RTT_ATTRIBUTE_TARGET_LCR] = { .type = NLA_U8 },
-	[SPRD_RTT_ATTRIBUTE_TARGET_BURST_DURATION] = { .type = NLA_U32 },
-	[SPRD_RTT_ATTRIBUTE_TARGET_PREAMBLE] = { .type = NLA_U8 },
-	[SPRD_RTT_ATTRIBUTE_TARGET_BW] = { .type = NLA_U8 },
-	[SPRD_RTT_ATTRIBUTE_TARGET_RESPONDER_INFO] = { .type = NLA_BINARY,
-						       .len = sizeof(struct rtt_responder) },
-	[SPRD_RTT_ATTRIBUTE_RESULTS_COMPLETE] = { .type = NLA_U32 },
-	[SPRD_RTT_ATTRIBUTE_RESULTS_PER_TARGET] = { .type = NLA_NESTED },
-	[SPRD_RTT_ATTRIBUTE_RESULT_CNT] = { .type = NLA_U32 },
-	[SPRD_RTT_ATTRIBUTE_RESULT] = { .type = NLA_BINARY,
-					.len = sizeof(struct rtt_wifi_hal_result) },
-};
-
 int sc2355_rtt_get_capabilities(struct wiphy *wiphy, struct wireless_dev *wdev,
 				const void *data, int data_len);
 int sc2355_rtt_start_session(struct wiphy *wiphy, struct wireless_dev *wdev,
@@ -673,6 +649,8 @@ int sc2355_rtt_configure_responder(struct wiphy *wiphy,
 				   struct wireless_dev *wdev,
 				   const void *data, int data_len);
 int sc2355_rtt_event(struct sprd_vif *vif, u8 *data, u16 len);
+void sc2355_rtt_stop_operations(struct sprd_priv *priv);
+
 void sc2355_rtt_init(struct sprd_priv *priv);
 void sc2355_rtt_deinit(struct sprd_priv *priv);
 

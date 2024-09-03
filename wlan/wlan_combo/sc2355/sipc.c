@@ -27,6 +27,7 @@
 #include "txrx.h"
 #include "sipc_buf.h"
 #include "defrag.h"
+#include "cpu_performance.h"
 
 #define SPRD_NORMAL_MEM	0
 #define SPRD_DEFRAG_MEM	1
@@ -70,18 +71,18 @@ static void sipc_clear_stats(struct sprd_hif *hif)
 static void sipc_get_tx_avg_time(struct sprd_hif *hif,
 				 unsigned long tx_start_time)
 {
-	s64 tx_end;
+	unsigned long tx_end;
 
 	tx_end = sprd_get_ktime();
 	hif->stats.tx_cost_time += tx_end - tx_start_time;
 
 	if (hif->stats.gap_num >= STATS_COUNT) {
 		hif->stats.tx_avg_time =
-		    div_s64(hif->stats.tx_cost_time, hif->stats.gap_num);
+		    hif->stats.tx_cost_time / hif->stats.gap_num;
 		sipc_dump_stats(hif);
 		hif->stats.gap_num = 0;
 		hif->stats.tx_cost_time = 0;
-		wl_info("%s:%d packets avg cost time: %lld\n",
+		wl_info("%s:%d packets avg cost time: %lu\n",
 			__func__, __LINE__, hif->stats.tx_avg_time);
 	}
 }
@@ -261,7 +262,6 @@ sipc_list_cut_to_free_list(struct list_head *tx_list_head,
 		wl_err("%s: fail to alloc tx move misc work\n", __func__);
 		ret = -1;
 	}
-
 	return ret;
 }
 
@@ -377,9 +377,7 @@ static int sipc_rx_handle(int chn, struct mbuf_t *head,
 	if (!ret)
 		sprdwcn_bus_push_list(chn, head, tail, num);
 
-	if (!work_pending(&rx_mgmt->rx_work))
-		queue_work(rx_mgmt->rx_queue, &rx_mgmt->rx_work);
-
+	sc2355_rx_up(rx_mgmt);
 	return 0;
 }
 
@@ -438,7 +436,7 @@ static int sipc_suspend_resume_handle(int chn, int mode)
 	struct tx_mgmt *tx_mgmt = (struct tx_mgmt *)hif->tx_mgmt;
 	int ret;
 	struct sprd_vif *vif = NULL, *tmp_vif;
-	s64 time;
+	unsigned long time;
 
 	spin_lock_bh(&priv->list_lock);
 	list_for_each_entry(tmp_vif, &priv->vif_list, vif_node) {
@@ -482,34 +480,36 @@ static int sipc_suspend_resume_handle(int chn, int mode)
 		hif->sleep_time = time - hif->sleep_time;
 
 		ret = sprd_power_save(priv, vif, SPRD_SUSPEND_RESUME, 1);
-		wl_info("%s, %d,resume ret=%d, resume after %lld ms\n",
-			__func__, __LINE__, ret, div_s64(hif->sleep_time, 1000000));
+		wl_info("%s, %d,resume ret=%d, resume after %lu ms\n",
+			__func__, __LINE__, ret, hif->sleep_time / 1000000);
 		return ret;
 	}
 	return -EBUSY;
 }
 
 struct mchn_ops_t sc2355_sipc_hif_ops[] = {
-	/* RX channels */
-	INIT_INTF_SC2355(SIPC_WIFI_CMD_RX, 2, 0, 0, SPRD_MAX_CMD_RXLEN,
-			64, 0, 0, 0, 1, 32, sipc_rx_handle,
-			sipc_rx_cmd_push, NULL, NULL),
-	INIT_INTF_SC2355(SIPC_WIFI_DATA0_RX, 2, 0, 0, SPRD_MAX_DATA_RXLEN,
-			64, 0, 0, 0, 1, 32, sipc_rx_handle,
-			sipc_rx_data_push, NULL, NULL),
-	INIT_INTF_SC2355(SIPC_WIFI_DATA1_RX, 2, 0, 0, SPRD_MAX_DATA_RXLEN,
-			64, 0, 0, 0, 1, 32, sipc_rx_handle,
-			sipc_rx_data_push, NULL, NULL),
-	/* TX channels */
-	INIT_INTF_SC2355(SIPC_WIFI_CMD_TX, 2, 1, 0, SPRD_MAX_CMD_TXLEN,
-			64, 0, 0, 0, 1, 32, sc2355_sipc_tx_cmd_pop_list,
-			NULL, NULL, sipc_suspend_resume_handle),
-	INIT_INTF_SC2355(SIPC_WIFI_DATA0_TX, 1, 1, 0, SPRD_MAX_DATA_TXLEN,
-			64, 0, 0, 0, 1, 32, sc2355_sipc_tx_data_pop_list,
-			NULL, NULL, NULL),
-	INIT_INTF_SC2355(SIPC_WIFI_DATA1_TX, 1, 1, 0, SPRD_MAX_DATA_TXLEN,
-			64, 0, 0, 0, 1, 4, sc2355_sipc_tx_data_pop_list,
-			NULL, NULL, NULL),
+
+        /* RX channels */
+        INIT_INTF_SC2355(SIPC_WIFI_CMD_RX, 2, 0, 0, SPRD_MAX_CMD_RXLEN,
+                        64, 0, 0, 0, 1, 32, sipc_rx_handle,
+                        sipc_rx_cmd_push, NULL, NULL),
+        INIT_INTF_SC2355(SIPC_WIFI_DATA0_RX, 2, 0, 0, SPRD_MAX_CMD_RXLEN,
+                        64, 0, 0, 0, 1, 32, sipc_rx_handle,
+                        sipc_rx_data_push, NULL, NULL),
+
+        INIT_INTF_SC2355(SIPC_WIFI_DATA1_RX, 2, 0, 0, SPRD_MAX_CMD_RXLEN,
+                        64, 0, 0, 0, 1, 32, sipc_rx_handle,
+                        sipc_rx_data_push, NULL, NULL),
+        /* TX channels */
+        INIT_INTF_SC2355(SIPC_WIFI_CMD_TX, 2, 1, 0, SPRD_MAX_CMD_TXLEN,
+                        64, 0, 0, 0, 1, 32, sc2355_sipc_tx_cmd_pop_list,
+                        NULL, NULL, sipc_suspend_resume_handle),
+        INIT_INTF_SC2355(SIPC_WIFI_DATA0_TX, 1, 1, 0, SPRD_MAX_CMD_TXLEN,
+                        64, 0, 0, 0, 1, 32, sc2355_sipc_tx_data_pop_list,
+                        NULL, NULL, NULL),
+        INIT_INTF_SC2355(SIPC_WIFI_DATA1_TX, 1, 1, 0, SPRD_MAX_CMD_TXLEN,
+                        64, 0, 0, 0, 1, 4, sc2355_sipc_tx_data_pop_list,
+                        NULL, NULL, NULL),
 };
 
 void sc2355_sipc_set_coex_bt_on_off(u8 action)
@@ -524,12 +524,11 @@ inline int sc2355_sipc_tx_cmd(struct sprd_hif *hif, unsigned char *data, int len
 	return sipc_tx_one(hif, data, len, hif->tx_cmd_port);
 }
 
-inline int sc2355_tx_addr_trans_sipc(void *p_rx_mgmt,
+inline int sc2355_tx_addr_trans_sipc(struct sprd_hif *hif,
 				     unsigned char *data, int len,
 				     bool send_now)
 {
-	struct rx_mgmt *rx_mgmt = (struct rx_mgmt *)p_rx_mgmt;
-	struct sprd_hif *hif = rx_mgmt->hif;
+	struct rx_mgmt *rx_mgmt = (struct rx_mgmt *)hif->rx_mgmt;
 	struct mbuf_t *head = NULL, *tail = NULL, *mbuf = NULL;
 	int num = 1, ret = 0;
 
@@ -636,7 +635,6 @@ int sc2355_sipc_hif_tx_list(struct sprd_hif *hif,
 	wl_all("%s:%d tx_count is %d\n", __func__, __LINE__, tx_count);
 
 	tx_mgmt = (struct tx_mgmt *)hif->tx_mgmt;
-
 
 	cnt = tx_count;
 	while (cnt > SIPC_TX_NUM) {
@@ -1190,7 +1188,7 @@ void sc2355_sipc_event_sta_lut(struct sprd_vif *vif, u8 *data, u16 len)
 			hif->peer_entry[i].ba_tx_done_map = 0;
 			/*sc2355_tx_delba(hif, hif->peer_entry + i);*/
 		}
-		sc2355_defrag_recover(vif, i);
+		sc2355_defrag_recover(vif);
 		sc2355_peer_entry_delba(hif, i);
 		memset(&hif->peer_entry[i], 0x00,
 		       sizeof(struct sprd_peer_entry));
@@ -1273,7 +1271,7 @@ void sc2355_sipc_handle_tx_return(struct sprd_hif *hif,
 	}
 }
 
-void sc2355_sipc_rx_work_queue(struct work_struct *work)
+int sc2355_sipc_rx_work_queue(void *data)
 {
 	struct sprd_msg *msg;
 	struct sprd_priv *priv;
@@ -1281,84 +1279,95 @@ void sc2355_sipc_rx_work_queue(struct work_struct *work)
 	struct sprd_hif *hif;
 	int print_len;
 
-	rx_mgmt = container_of(work, struct rx_mgmt, rx_work);
+	rx_mgmt = (struct rx_mgmt *)data;
 	hif = rx_mgmt->hif;
 	priv = hif->priv;
+	set_user_nice(current, -20);
 
-	if (!hif->exit && !sprd_peek_msg(&rx_mgmt->rx_list))
-		sc2355_rx_process(rx_mgmt, NULL);
+	while (1) {
+		if (hif->exit) {
+			if (kthread_should_stop())
+				return 0;
+			usleep_range(50, 100);
+			continue;
+		} else
+			sc2355_rx_down(rx_mgmt);
 
-	while ((msg = sprd_peek_msg(&rx_mgmt->rx_list))) {
-		if (hif->exit)
-			goto next;
-		wl_all("%s: rx type:%d\n",  __func__, SPRD_HEAD_GET_TYPE(msg->data));
 
-		if (msg->len > 400)
-			print_len = 400;
-		else
-			print_len = msg->len;
+		sc2355_sipc_rx_process(rx_mgmt, NULL);
 
-		print_hex_dump_debug("rx data: ", DUMP_PREFIX_OFFSET,
-				     16, 1, msg->data, print_len, 0);
+		while ((msg = sprd_peek_msg(&rx_mgmt->rx_list))) {
+			if (hif->exit)
+				goto next;
+			wl_all("%s: rx type:%d\n",  __func__, SPRD_HEAD_GET_TYPE(msg->data));
 
-		switch (SPRD_HEAD_GET_TYPE(msg->data)) {
-		case SPRD_TYPE_DATA:
+			if (msg->len > 400)
+				print_len = 400;
+			else
+				print_len = msg->len;
+
+			print_hex_dump_debug("rx data: ", DUMP_PREFIX_OFFSET,
+					16, 1, msg->data, print_len, 0);
+
+			switch (SPRD_HEAD_GET_TYPE(msg->data)) {
+			case SPRD_TYPE_DATA:
 #if defined FPGA_LOOPBACK_TEST
-			if (hif->loopback_n < 500) {
-				unsigned char *r_buf;
-				r_buf = (unsigned char *)msg->data;
-				sprdwl_intf_tx_data_fpga_test(hif, r_buf, msg->len);
-			}
+				if (hif->loopback_n < 500) {
+					unsigned char *r_buf;
+					r_buf = (unsigned char *)msg->data;
+					sprdwl_intf_tx_data_fpga_test(hif, r_buf, msg->len);
+				}
 #else
-			if (msg->len > SPRD_MAX_DATA_RXLEN)
-				wl_err("err rx data too long:%d > %d\n", msg->len,
-				SPRD_MAX_DATA_RXLEN);
-			rx_data_process(priv, msg->data);
-#endif
-			break;
-		case SPRD_TYPE_CMD:
-			if (msg->len > SPRD_MAX_CMD_RXLEN)
-				wl_err("err rx cmd too long:%d > %d\n",
-					msg->len, SPRD_MAX_CMD_RXLEN);
-			sc2355_rx_rsp_process(priv, msg->data);
-			break;
-		case SPRD_TYPE_EVENT:
-			if (msg->len > SPRD_MAX_CMD_RXLEN)
-				wl_err("err rx event too long:%d > %d\n", msg->len,
-					SPRD_MAX_CMD_RXLEN);
-			sc2355_rx_evt_process(priv, msg->data);
-			break;
-		case SPRD_TYPE_DATA_SPECIAL:
-			if (msg->len > SPRD_MAX_DATA_RXLEN)
-				wl_err("err data trans too long:%d > %d\n", msg->len,
-					SPRD_MAX_CMD_RXLEN);
-
-			sc2355_mm_mh_data_process(&rx_mgmt->mm_entry, msg->tran_data,
-							msg->len, msg->buffer_type);
-			msg->tran_data = NULL;
-			msg->data = NULL;
-			break;
-		case SPRD_TYPE_DATA_PCIE_ADDR:
-			if (msg->len > SPRD_MAX_CMD_RXLEN)
-				wl_err("err rx mh data too long:%d > %d\n", msg->len,
+				if (msg->len > SPRD_MAX_DATA_RXLEN)
+					wl_err("err rx data too long:%d > %d\n", msg->len,
 					SPRD_MAX_DATA_RXLEN);
+				rx_data_process(priv, msg->data);
+#endif
+				break;
+			case SPRD_TYPE_CMD:
+				if (msg->len > SPRD_MAX_CMD_RXLEN)
+					wl_err("err rx cmd too long:%d > %d\n",
+						msg->len, SPRD_MAX_CMD_RXLEN);
+				sc2355_rx_rsp_process(priv, msg->data);
+				break;
+			case SPRD_TYPE_EVENT:
+				if (msg->len > SPRD_MAX_CMD_RXLEN)
+					wl_err("err rx event too long:%d > %d\n", msg->len,
+						SPRD_MAX_CMD_RXLEN);
+				sc2355_rx_evt_process(priv, msg->data);
+				break;
+			case SPRD_TYPE_DATA_SPECIAL:
+				if (msg->len > SPRD_MAX_DATA_RXLEN)
+					wl_err("err data trans too long:%d > %d\n", msg->len,
+						SPRD_MAX_CMD_RXLEN);
 
-			sc2355_rx_mh_addr_process(rx_mgmt, msg->tran_data, msg->len,
+				sc2355_mm_mh_data_process(&rx_mgmt->mm_entry, msg->tran_data,
+								msg->len, msg->buffer_type);
+				msg->tran_data = NULL;
+				msg->data = NULL;
+				break;
+			case SPRD_TYPE_DATA_PCIE_ADDR:
+				if (msg->len > SPRD_MAX_CMD_RXLEN)
+					wl_err("err rx mh data too long:%d > %d\n", msg->len,
+						SPRD_MAX_DATA_RXLEN);
+
+				sc2355_rx_mh_addr_process(rx_mgmt, msg->tran_data, msg->len,
 						msg->buffer_type);
-			msg->tran_data = NULL;
-			msg->data = NULL;
-			break;
-		default:
-			wl_err("rx unknown type:%d\n", SPRD_HEAD_GET_TYPE(msg->data));
-			break;
-		}
+				msg->tran_data = NULL;
+				msg->data = NULL;
+				break;
+			default:
+				wl_err("rx unknown type:%d\n", SPRD_HEAD_GET_TYPE(msg->data));
+				break;
+			}
 next:
-		if (msg->tran_data) {
-			sc2355_free_data(msg->tran_data, msg->buffer_type);
-			msg->tran_data = NULL;
-			msg->data = NULL;
+			if (msg->tran_data) {
+				sc2355_free_data(msg->tran_data, msg->buffer_type);
+				msg->tran_data = NULL;
+				msg->data = NULL;
+			}
+			sprd_dequeue_msg(msg, &rx_mgmt->rx_list);
 		}
-		sprd_dequeue_msg(msg, &rx_mgmt->rx_list);
 	}
 }
 
@@ -1470,7 +1479,7 @@ int sc2355_sipc_init(struct sprd_hif *hif)
 	}
 	adjust_max_fw_tx_dscr("max_fw_tx_dscr=1024", strlen("max_fw_tx_dscr="));
 
-	ret = sc2355_rx_init(hif);
+	ret = sc2355_sipc_rx_init(hif);
 	if (ret) {
 		wl_err("%s rx init failed: %d\n", __func__, ret);
 		goto err_rx_init;
@@ -1482,6 +1491,7 @@ int sc2355_sipc_init(struct sprd_hif *hif)
 		goto err_tx_init;
 	}
 
+	sc2355_tp_static_init();
 	sc2355_hif.mchn_ops = sc2355_sipc_hif_ops;
 	sc2355_hif.max_num =
 		    sizeof(sc2355_sipc_hif_ops) / sizeof(struct mchn_ops_t);
@@ -1489,7 +1499,7 @@ int sc2355_sipc_init(struct sprd_hif *hif)
 	return 0;
 
 err_tx_init:
-	sc2355_rx_deinit(hif);
+	sc2355_sipc_rx_deinit(hif);
 err_rx_init:
 	sipc_txrx_buf_deinit(hif);
 
@@ -1499,7 +1509,6 @@ err_rx_init:
 int sipc_post_init(struct sprd_hif *hif)
 {
 	int ret = -EINVAL, chn = 0;
-
 	sc2355_hif.hif = (void *)hif;
 	sc2355_hif.max_num =
 		sizeof(sc2355_sipc_hif_ops) / sizeof(struct mchn_ops_t);
@@ -1556,8 +1565,9 @@ void sipc_post_deinit(struct sprd_hif *hif)
 
 void sc2355_sipc_deinit(struct sprd_hif *hif)
 {
+	sc2355_tp_static_deinit();
 	sc2355_tx_deinit(hif);
-	sc2355_rx_deinit(hif);
+	sc2355_sipc_rx_deinit(hif);
 	sipc_txrx_buf_deinit(hif);
 }
 static struct sprd_hif_ops sc2355_sipc_ops = {

@@ -57,7 +57,6 @@
 #define ETH_P_PREAUTH		0x88C7
 
 #define DNS_SERVER_PORT		0x0035
-#define RTSP_SERVER_PORT	0x1C44
 
 /* 0 for cmd, 1 for event, 2 for data, 3 for mh data */
 enum sprd_head_type {
@@ -201,7 +200,7 @@ struct sprd_msg {
 	struct sprd_xmit_msg_list *xmit_msg_list;
 	unsigned char msg_type;
 #if defined(MORE_DEBUG)
-	s64 tx_start_time;
+	unsigned long tx_start_time;
 #endif
 	unsigned long last_time;
 	struct sprd_msg *next;
@@ -229,5 +228,5 @@ void sprd_free_msg(struct sprd_msg *msg, struct sprd_msg_list *list);
 void sprd_queue_msg(struct sprd_msg *msg, struct sprd_msg_list *list);
 struct sprd_msg *sprd_peek_msg(struct sprd_msg_list *list);
 void sprd_dequeue_msg(struct sprd_msg *msg, struct sprd_msg_list *list);
-s64 sprd_get_ktime(void);
+unsigned long sprd_get_ktime(void);
 #endif

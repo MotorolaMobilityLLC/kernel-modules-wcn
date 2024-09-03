@@ -29,6 +29,12 @@
 
 #define SPRD_RX_MODE_MULTICAST		1
 
+#define CMD_BLACKLIST_ENABLE		"BLOCK"
+#define CMD_BLACKLIST_DISABLE		"UNBLOCK"
+#define CMD_ADD_WHITELIST		"WHITE_ADD"
+#define CMD_DEL_WHITELIST		"WHITE_DEL"
+#define CMD_ENABLE_WHITELIST		"WHITE_EN"
+#define CMD_DISABLE_WHITELIST		"WHITE_DIS"
 #define CMD_SETSUSPENDMODE		"SETSUSPENDMODE"
 #define CMD_SET_FCC_CHANNEL		"SET_FCC_CHANNEL"
 #define CMD_SET_COUNTRY			"COUNTRY"
@@ -41,6 +47,8 @@
 #define CMD_SET_SAR			"SET_SAR"
 #define CMD_BT_COEX_MODE		"BTCOEXMODE"
 #define CMD_BT_COEX_SCAN		"BTCOEXSCAN"
+
+#define MAC_ADDR_STR_LEN		strlen("00:11:22:33:44:55")
 
 #define IPV4_DHCP(ethhdr, udphdr)				\
 	((ethhdr->h_proto == htons(ETH_P_IP)) &&		\
@@ -107,7 +115,6 @@ struct sprd_vif {
 	u8 random_mac[ETH_ALEN];
 	bool has_rand_mac;
 	u8 wps_flag;
-	s8 sae_param_status;
 #ifdef ENABLE_DFS
 	/* dfs master mode */
 	struct workqueue_struct *dfs_cac_workqueue;
@@ -128,7 +135,7 @@ struct sprd_vif *sprd_mode_to_vif(struct sprd_priv *priv, u8 vif_mode);
 
 void sprd_net_flowcontrl(struct sprd_priv *priv, enum sprd_mode mode,
 			 bool state);
-void sprd_netif_rx(struct sk_buff *skb);
+void sprd_netif_rx(struct net_device *ndev, struct sk_buff *skb);
 void sprd_rx_monitor_process(struct sprd_vif *vif,
 			     unsigned char *data, unsigned int len);
 struct wireless_dev *sprd_add_iface(struct sprd_priv *priv, const char *name,

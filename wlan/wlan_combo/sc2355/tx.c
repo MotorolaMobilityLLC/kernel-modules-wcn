@@ -7,12 +7,12 @@
 
 #include "common/chip_ops.h"
 #include "common/common.h"
-#include "common/cpu_performance.h"
 #include "cmdevt.h"
 #include "qos.h"
 #include "rx.h"
 #include "tx.h"
 #include "txrx.h"
+#include "cpu_performance.h"
 #include "wcn_bus.h"
 
 #define MAX_FW_TX_DSCR	(1024)
@@ -84,8 +84,10 @@ static void tx_flush_data_txlist(struct tx_mgmt *tx_mgmt)
 			spin_lock_irqsave(&tx_mgmt->xmit_msg_list.free_lock,
 					  lockflag_txfree);
 			list_for_each_entry_safe(pos_buf, temp_buf,
-						 data_list, list)
-				sc2355_dequeue_tofreelist_buf(tx_mgmt->hif, pos_buf);
+						 data_list, list) {
+				tx_dequeue_data_msg(tx_mgmt->hif, pos_buf);
+				atomic_dec(&tx_mgmt->xmit_msg_list.free_num);
+			}
 			spin_unlock_irqrestore(&tx_mgmt->xmit_msg_list.free_lock,
 					       lockflag_txfree);
 			goto out;
@@ -257,8 +259,7 @@ static int tx_handle_timeout(struct tx_mgmt *tx_mgmt,
 	u8 mode;
 	char *pinfo;
 	spinlock_t *lock;
-	int i, del_list_num;
-	unsigned long cnt;
+	int cnt, i, del_list_num;
 	struct list_head *tx_list;
 	struct sprd_msg *pos_buf, *temp_buf, *tailbuf;
 	struct sprd_priv *priv = tx_mgmt->hif->priv;
@@ -286,13 +287,12 @@ static int tx_handle_timeout(struct tx_mgmt *tx_mgmt,
 		    atomic_read(&p_list->l_num) / 100;
 		if (del_list_num >= atomic_read(&p_list->l_num))
 			del_list_num = atomic_read(&p_list->l_num);
-		wl_err("tx timeout drop num:%d, l_num:%d. STA/AP-P2P total drop cnt:%lu-%lu\n",
-		       del_list_num, atomic_read(&p_list->l_num),
-		       tx_mgmt->drop_data1_cnt, tx_mgmt->drop_data2_cnt);
+		wl_err("tx timeout drop num:%d, l_num:%d",
+			del_list_num, atomic_read(&p_list->l_num));
 		list_for_each_entry_safe(pos_buf, temp_buf, tx_list, list) {
 			if (i >= del_list_num)
 				break;
-
+			wl_err("%s:%d buf->timeout\n", __func__, __LINE__);
 			if (pos_buf->mode <= SPRD_MODE_AP) {
 				pinfo = "STA/AP mode";
 				cnt = tx_mgmt->drop_data1_cnt++;
@@ -300,8 +300,7 @@ static int tx_handle_timeout(struct tx_mgmt *tx_mgmt,
 				pinfo = "P2P mode";
 				cnt = tx_mgmt->drop_data2_cnt++;
 			}
-			wl_all("%s:%d buf timeout, %s tx drop cnt:%lu\n",
-			       __func__, __LINE__, pinfo, cnt);
+			wl_err("tx drop %s, dropcnt:%u\n", pinfo, cnt);
 			tx_dequeue_data_msg(tx_mgmt->hif, pos_buf);
 			atomic_dec(&tx_mgmt->tx_list[mode]->mode_list_num);
 #if defined(MORE_DEBUG)
@@ -309,8 +308,6 @@ static int tx_handle_timeout(struct tx_mgmt *tx_mgmt,
 #endif
 			i++;
 		}
-		wl_err("%s:%d after drop, STA/AP-P2P total drop data cnt:%lu-%lu\n",
-		       __func__, __LINE__, tx_mgmt->drop_data1_cnt, tx_mgmt->drop_data2_cnt);
 		atomic_sub(del_list_num, &p_list->l_num);
 		spin_unlock_bh(lock);
 		return -ENOMEM;
@@ -559,7 +556,7 @@ void sc2355_tx_prepare_addba(struct sprd_hif *hif, unsigned char lut_index,
 	    peer_entry->ht_enable &&
 	    peer_entry->vowifi_enabled != 1 &&
 	    !test_bit(tid, &peer_entry->ba_tx_done_map)) {
-		s64 time, time_diffms;
+		unsigned long time;
 		struct sprd_vif *vif;
 
 		vif = sc2355_ctxid_to_vif(hif->priv, peer_entry->ctx_id);
@@ -577,9 +574,8 @@ void sc2355_tx_prepare_addba(struct sprd_hif *hif, unsigned char lut_index,
 		}
 
 		time = sprd_get_ktime();
-		time_diffms = div_s64((time - peer_entry->time[tid]), 1000000);
 		/*need to delay 3s if priv addba failed */
-		if (time_diffms > 3000 ||
+		if (((time - peer_entry->time[tid]) / 1000000) > 3000 ||
 		    peer_entry->time[tid] == 0) {
 			wl_info("%s, %d, tx_addba, tid=%d\n", __func__,
 				__LINE__, tid);
@@ -636,31 +632,31 @@ static int tx_prepare_tx_msg(struct sprd_hif *hif, struct sprd_msg *msg)
 	return 0;
 }
 
-static void tx_get_pcie_dma_addr(struct sprd_hif *hif, struct sk_buff **skb)
+static void tx_get_pcie_dma_addr(struct sprd_hif *hif, struct sk_buff *skb)
 {
 	struct sk_buff *tmp_skb = NULL;
 	dma_addr_t dma_addr = 0;
 
-	dma_addr = PFN_PHYS(virt_to_pfn((*skb)->head)) + offset_in_page((*skb)->head);
+	dma_addr = PFN_PHYS(virt_to_pfn(skb->head)) + offset_in_page(skb->head);
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
 #ifdef CONFIG_64BIT
-	if (!dma_capable(wiphy_dev(hif->priv->wiphy), dma_addr, (*skb)->len, true)) {
+	if (!dma_capable(wiphy_dev(hif->priv->wiphy), dma_addr, skb->len, true)) {
 #else
 	{
 		wl_err("FIXME: dma_capble can't used by 32bit-ARCH!\n");
 #endif  //CONFIG_64BIT
 #else
-	if (!dma_capable(wiphy_dev(hif->priv->wiphy), dma_addr, (*skb)->len)) {
+	if (!dma_capable(wiphy_dev(hif->priv->wiphy), dma_addr, skb->len)) {
 #endif
 		/* current pa is lagrer than device dma mask
 		 * need to use dma buffer
 		 */
 		wl_err("skb copy from dma addr(%lx)\n",
 		       (unsigned long)dma_addr);
-		tmp_skb = skb_copy(*skb, (GFP_DMA | GFP_ATOMIC));
-		dev_kfree_skb(*skb);
-		*skb = tmp_skb;
+		tmp_skb = skb_copy(skb, (GFP_DMA | GFP_ATOMIC));
+		dev_kfree_skb(skb);
+		skb = tmp_skb;
 	}
 }
 
@@ -813,7 +809,11 @@ static int sc2355_tx_thread(void *data)
 		if (unlikely(tx_mgmt->tx_thread_exit))
 			goto exit;
 
-		sprd_tp_ctl_uclamp(tx_mgmt->hif, tx_mgmt->tx_thread);
+		sprd_hif_tp_ctl_uclamp(tx_mgmt->hif);
+#ifndef CONFIG_SPRD_WLAN_DEBUG
+		if (tx_mgmt->hif->hw_type == SPRD_HW_SC2355_SIPC)
+			sc2355_tp_modify_cpu_usage(tx_mgmt->tx_thread, "TX");
+#endif
 		tx_work_queue(tx_mgmt);
 	}
 
@@ -972,42 +972,19 @@ static int tx_filter_ip_pkt(struct sk_buff *skb, struct net_device *ndev)
 {
 	bool is_data2cmd;
 	bool is_ipv4_dhcp = false, is_ipv6_dhcp = false;
-	bool is_vowifi2cmd = false;
+	bool is_vowifi2cmd;
 	bool is_dns = false;
-	bool is_alive_rtsp = false;
 	unsigned char *dhcpdata = NULL;
 	struct udphdr *udphdr;
-	struct tcphdr *tcphdr;
-	struct iphdr *iphdr;
 	__sum16 checksum = 0;
 	struct ethhdr *ethhdr = (struct ethhdr *)skb->data;
 	unsigned char iphdrlen = 0;
 	unsigned char lut_index;
 	struct sprd_vif *vif;
 	struct sprd_hif *hif;
-	unsigned char *rtsp_get_params = "GET_PARAMETER";
-	unsigned int total_hdr_len = 0;
 
 	vif = netdev_priv(ndev);
 	hif = &vif->priv->hif;
-
-	if (ethhdr->h_proto == htons(ETH_P_IP)) {
-		iphdr = (struct iphdr *)(skb->data + ETHER_HDR_LEN);
-		iphdrlen = ip_hdrlen(skb);
-		if (iphdr->protocol == IPPROTO_TCP) {
-			tcphdr = (struct tcphdr *)(skb->data +
-						   ETHER_HDR_LEN + iphdrlen);
-			total_hdr_len = ETHER_HDR_LEN + iphdrlen + tcp_hdrlen(skb);
-			if (tcphdr->source == htons(RTSP_SERVER_PORT) &&
-			    !memcmp((skb->data + total_hdr_len), rtsp_get_params, 13)) {
-				is_alive_rtsp = true;
-				wl_info("tx rtsp keep-alive data packet\n");
-				goto next;
-			} else {
-				return 1;
-			}
-		}
-	}
 
 	udphdr = sprd_get_udphdr(skb, &iphdrlen);
 	if (!udphdr)
@@ -1061,9 +1038,7 @@ static int tx_filter_ip_pkt(struct sk_buff *skb, struct net_device *ndev)
 			udphdr->check, skb->ip_summed);
 	}
 
-next:
-	is_data2cmd = (is_ipv4_dhcp || is_ipv6_dhcp || is_vowifi2cmd ||
-		       is_dns || is_alive_rtsp);
+	is_data2cmd = (is_ipv4_dhcp || is_ipv6_dhcp || is_vowifi2cmd || is_dns);
 	/*as CP request, send data with CMD */
 	if (is_data2cmd) {
 		if (skb->ip_summed == CHECKSUM_PARTIAL) {
@@ -1074,14 +1049,8 @@ next:
 							skb->len -
 							ETHER_HDR_LEN -
 							iphdrlen);
-			if ((ethhdr->h_proto == htons(ETH_P_IP)) &&
-			    (iphdr->protocol == IPPROTO_TCP)) {
-				tcphdr->check = ~checksum;
-				wl_debug("csum:%x,check:%x\n", checksum, tcphdr->check);
-			} else {
-				udphdr->check = ~checksum;
-				wl_debug("csum:%x,check:%x\n", checksum, udphdr->check);
-			}
+			udphdr->check = ~checksum;
+			wl_debug("csum:%x,check:%x\n", checksum, udphdr->check);
 			skb->ip_summed = CHECKSUM_NONE;
 		}
 
@@ -1111,13 +1080,26 @@ void sc2355_free_cmd_buf(struct sprd_msg *msg, struct sprd_msg_list *list)
 	sprd_free_msg(msg, list);
 }
 
-void sc2355_dequeue_tofreelist_buf(struct sprd_hif *hif, struct sprd_msg *msg)
+void sc2355_flush_mode_tofreelist(struct sprd_hif *hif, struct sprd_vif *vif)
 {
+	struct tx_mgmt *tx_mgmt = NULL;
+	struct sprd_msg *pos_buf = NULL, *temp_buf = NULL;
+	unsigned long lockflag_txfree = 0;
+	struct list_head *data_list = NULL;
 
-	if (hif->ops->free_msg_content)
-		hif->ops->free_msg_content(msg);
-	list_del(&msg->list);
-	sprd_free_msg(msg, msg->msglist);
+	tx_mgmt = (struct tx_mgmt *)hif->tx_mgmt;
+	data_list = &tx_mgmt->xmit_msg_list.to_free_list;
+
+	spin_lock_irqsave(&tx_mgmt->xmit_msg_list.free_lock, lockflag_txfree);
+	list_for_each_entry_safe(pos_buf, temp_buf, data_list, list) {
+		if (pos_buf->mode == vif->mode) {
+			wl_info("%s: msg_buf %lx, pcie_addr %lx\n",
+					__func__, pos_buf, pos_buf->pcie_addr);
+			tx_dequeue_data_msg(tx_mgmt->hif, pos_buf);
+			atomic_dec(&tx_mgmt->xmit_msg_list.free_num);
+		}
+	}
+	spin_unlock_irqrestore(&tx_mgmt->xmit_msg_list.free_lock, lockflag_txfree);
 }
 
 void sc2355_flush_tx_qoslist(struct tx_mgmt *tx_mgmt, int mode,
@@ -1310,6 +1292,10 @@ void sc2355_handle_tx_status_after_close(struct sprd_vif *vif)
 		     0))
 			sc2355_flush_mode_txlist(tx_mgmt, vif->mode);
 	}
+
+	if (!(vif->state & VIF_STATE_OPEN) && ((priv->hif.hw_type == SPRD_HW_SC2355_PCIE)
+		   || (priv->hif.hw_type == SPRD_HW_SC2355_SIPC)))
+		sc2355_flush_mode_tofreelist(hif, vif);
 }
 
 unsigned int sc2355_queue_is_empty(struct tx_mgmt *tx_mgmt, enum sprd_mode mode)
@@ -1557,7 +1543,7 @@ void sc2355_tx_free_msg(struct sprd_chip *chip, struct sprd_msg *msg)
 	sprd_free_msg(msg, msg->msglist);
 }
 
-int sc2355_tx_prepare(struct sprd_chip *chip, struct sk_buff **skb)
+int sc2355_tx_prepare(struct sprd_chip *chip, struct sk_buff *skb)
 {
 	struct sprd_priv *priv = chip->priv;
 	struct sprd_hif *hif = &priv->hif;
@@ -1567,7 +1553,7 @@ int sc2355_tx_prepare(struct sprd_chip *chip, struct sk_buff **skb)
 		    sprdwcn_bus_get_status() == WCN_BUS_DOWN) {
 			wl_err("%s, suspend(%d) or bus down, drop skb!\n",
 			       __func__, hif->suspend_mode);
-			dev_kfree_skb(*skb);
+			dev_kfree_skb(skb);
 			return -1;
 		}
 		tx_get_pcie_dma_addr(hif, skb);
@@ -1721,9 +1707,9 @@ int sc2355_reset(struct sprd_hif *hif)
 		if (vif->mode != SPRD_MODE_NONE) {
 			wl_debug("need reset mode to none: %d\n", vif->mode);
 			vif->state &= ~VIF_STATE_OPEN;
+			sc2355_handle_tx_status_after_close(vif);
 			vif->mode = SPRD_MODE_NONE;
 			vif->ctx_id = 0;
-			sc2355_handle_tx_status_after_close(vif);
 		}
 
 		/* reset ssid & bssid */
@@ -1857,9 +1843,9 @@ int sc2355_reset_self(struct sprd_priv *priv)
 		if (vif->mode != SPRD_MODE_NONE) {
 			wl_all("need reset mode to none: %d\n", vif->mode);
 			vif->state &= ~VIF_STATE_OPEN;
+			sc2355_handle_tx_status_after_close(vif);
 			vif->mode = SPRD_MODE_NONE;
 			vif->ctx_id = 0;
-			sc2355_handle_tx_status_after_close(vif);
 		}
 		/* reset ssid & bssid */
 		memset(vif->bssid, 0, sizeof(vif->bssid));
@@ -2240,11 +2226,15 @@ int sc2355_send_data(struct sprd_vif *vif, struct sprd_msg *msg,
 		     struct sk_buff *skb, u8 type, u8 offset, bool flag)
 {
 	int ret;
-	unsigned char *buf = skb->data;
-	struct sprd_hif *hif = &vif->priv->hif;
+	unsigned char *buf = NULL;
+	struct sprd_hif *hif;
 	unsigned int plen = cpu_to_le16(skb->len);
 
-	sprd_tp_ctl_core_pd(hif, skb->len);
+	hif = &vif->priv->hif;
+
+	buf = skb->data;
+	sc2355_tx_tp_statistic(skb->len);
+	sprd_hif_tp_ctl_pd(hif);
 
 	if (sc2355_hif_fill_msdu_dscr(vif, skb, SPRD_TYPE_DATA, offset)) {
 		sprd_free_msg(msg, msg->msglist);

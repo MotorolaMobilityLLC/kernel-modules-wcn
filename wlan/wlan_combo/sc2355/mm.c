@@ -209,7 +209,7 @@ static inline int mm_do_addr_buf(struct mem_mgmt *mm_entry)
 		/* TODO: How to do with tx fail? */
 		if (hif->ops->tx_addr_trans == NULL)
 			return -EIO;
-		if ((hif->ops->tx_addr_trans((void *)rx_mgmt, mm_entry->hdr,
+		if ((hif->ops->tx_addr_trans(hif, mm_entry->hdr,
 					  addr_trans_len, false) >= 0)) {
 			mm_alloc_addr_buf(mm_entry, hif);
 			if (unlikely(!mm_entry->addr_trans)) {
@@ -502,10 +502,14 @@ static int mm_buffer_unlink(struct mem_mgmt *mm_entry,
 			/* TODO: Check whether prefetch work */
 			prefetch(skb->data);
 
-			if (likely(sc2355_fill_skb_csum(skb, csum) >= 0))
-				sc2355_rx_process(rx_mgmt, skb);
-			else	/* checksum error, free skb */
+			if (likely(sc2355_fill_skb_csum(skb, csum) >= 0)) {
+				if (hif->hw_type != SPRD_HW_SC2355_SIPC)
+					sc2355_rx_process(rx_mgmt, skb);
+				else
+					sc2355_sipc_rx_process(rx_mgmt, skb);
+			}  else	{/* checksum error, free skb */
 				dev_kfree_skb(skb);
+			}
 
 		} else {
 			wl_err("%s: unlink skb fail!\n", __func__);
@@ -528,6 +532,7 @@ mm_compound_data_process(struct mem_mgmt *mm_entry, void *compound_data,
 	struct sk_buff *skb = NULL;
 	struct rx_mgmt *rx_mgmt =
 	    container_of(mm_entry, struct rx_mgmt, mm_entry);
+	struct sprd_hif *hif = rx_mgmt->hif;
 
 	wl_all("%s: num: %d, total_len: %d\n", __func__, num, total_len);
 
@@ -554,7 +559,10 @@ mm_compound_data_process(struct mem_mgmt *mm_entry, void *compound_data,
 			break;
 		}
 
-		sc2355_rx_process(rx_mgmt, skb);
+		if (hif->hw_type != SPRD_HW_SC2355_SIPC)
+			sc2355_rx_process(rx_mgmt, skb);
+		else
+			sc2355_sipc_rx_process(rx_mgmt, skb);
 
 		pos_data = (unsigned char *)pos_data +
 		    ALIGN_8BYTE(msdu_len + sizeof(struct rx_mh_desc));
@@ -607,10 +615,15 @@ static void mm_normal_data_process(struct mem_mgmt *mm_entry,
 		} else {
 			skb_reserve(skb, mm_entry->hif_offset);
 
-			if (likely(sc2355_fill_skb_csum(skb, csum) >= 0))
-				sc2355_rx_process(rx_mgmt, skb);
-			else	/* checksum error, free skb */
+			if (likely(sc2355_fill_skb_csum(skb, csum) >= 0)) {
+
+				if (hif->hw_type != SPRD_HW_SC2355_SIPC)
+					sc2355_rx_process(rx_mgmt, skb);
+				else
+					sc2355_sipc_rx_process(rx_mgmt, skb);
+			 } else	 {/* checksum error, free skb */
 				dev_kfree_skb(skb);
+			}
 		}
 	}
 

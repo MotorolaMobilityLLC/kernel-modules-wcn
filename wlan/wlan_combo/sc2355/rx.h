@@ -54,6 +54,7 @@ struct rx_mgmt {
 
 	struct work_struct rx_work;
 	struct workqueue_struct *rx_queue;
+	struct task_struct *rx_thread;
 
 	struct mem_mgmt mm_entry;
 	struct rx_ba_entry ba_entry;
@@ -65,8 +66,10 @@ struct rx_mgmt {
 
 	struct work_struct rx_net_work;
 	struct workqueue_struct *rx_net_workq;
+	struct task_struct *rx_net_thread;
 
 	struct completion rx_completed;
+	struct completion rx_net_completed;
 	unsigned long rx_total_len;
 	ktime_t rxtimebegin;
 	ktime_t rxtimeend;
@@ -235,6 +238,7 @@ static inline unsigned short rx_data_process(struct sprd_priv *priv,
 
 int sc2355_fill_skb_csum(struct sk_buff *skb, unsigned short csum);
 void sc2355_rx_process(struct rx_mgmt *rx_mgmt, struct sk_buff *pskb);
+void sc2355_sipc_rx_process(struct rx_mgmt *rx_mgmt, struct sk_buff *pskb);
 void sc2355_rx_send_cmd(struct sprd_hif *hif, void *data, int len,
 			unsigned char id, unsigned char ctx_id);
 void sc2355_queue_rx_buff_work(struct sprd_priv *priv, unsigned char id);
@@ -244,8 +248,12 @@ void sc2355_rx_flush_buffer(void *hif);
 void sc2355_rx_up(struct rx_mgmt *rx_mgmt);
 int sc2355_rx_init(struct sprd_hif *hif);
 int sc2355_rx_deinit(struct sprd_hif *hif);
+int sc2355_sipc_rx_init(struct sprd_hif *hif);
+int sc2355_sipc_rx_deinit(struct sprd_hif *hif);
 void sc2355_rx_mh_addr_process(struct rx_mgmt *rx_mgmt, void *data,
 		   int len, int buffer_type);
 void sc2355_count_rx_tp(struct sprd_hif *hif, int len);
-
+void sc2355_rx_down(struct rx_mgmt *tx_mgmt);
+void sc2355_rx_net_down(struct rx_mgmt *tx_mgmt);
+void sc2355_rx_net_up(struct rx_mgmt *tx_mgmt);
 #endif

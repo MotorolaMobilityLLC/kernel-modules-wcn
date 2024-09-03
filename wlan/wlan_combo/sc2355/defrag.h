@@ -17,7 +17,6 @@ struct rx_defrag_desc {
 	unsigned char tid;
 	unsigned char frag_num;
 	unsigned short seq_num;
-	u64 pn;
 };
 
 struct rx_defrag_node {
@@ -38,6 +37,6 @@ int sc2355_defrag_init(struct rx_defrag_entry *defrag_entry);
 void sc2355_defrag_deinit(struct rx_defrag_entry *defrag_entry);
 struct sk_buff *sc2355_defrag_data_process(struct rx_defrag_entry *defrag_entry,
 					   struct sk_buff *pskb);
-void sc2355_defrag_recover(struct sprd_vif *vif, unsigned char lut_index);
+void sc2355_defrag_recover(struct sprd_vif *vif);
 
 #endif

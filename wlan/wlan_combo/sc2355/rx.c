@@ -11,10 +11,10 @@
 #include "common/delay_work.h"
 #include "common/msg.h"
 #include "common/chip_ops.h"
-#include "common/cpu_performance.h"
 #include "rx.h"
 #include "txrx.h"
 #include "sipc_buf.h"
+#include "cpu_performance.h"
 
 static bool rx_mh_ipv6_ext_hdr(unsigned char nexthdr)
 {
@@ -115,7 +115,7 @@ int sprd_rx_defragment_attack_check(struct sprd_priv *priv, struct sk_buff *skb)
 		wl_err("%s snaphdr attect flag %d %d %d\n", __func__,
 			msdu_desc->seq_num,
 			msdu_desc->sta_lut_index, msdu_desc->tid);
-		if (msdu_desc->last_msdu_of_mpdu == 1) {
+		if (msdu_desc->last_buff_of_mpdu == 1) {
 			rx_mgmt->rx_snaphdr_flag = 0;
 			wl_err("%s snaphdr attect over %d last %d %d %d\n", __func__,
 				msdu_desc->snap_hdr_present,
@@ -133,7 +133,7 @@ int sprd_rx_defragment_attack_check(struct sprd_priv *priv, struct sk_buff *skb)
 			wl_err("%s snaphdr attect %d %d %d\n", __func__,
 			       msdu_desc->seq_num,
 			       msdu_desc->sta_lut_index, msdu_desc->tid);
-			if (msdu_desc->last_msdu_of_mpdu == 1) {
+			if (msdu_desc->last_buff_of_mpdu == 1) {
 				rx_mgmt->rx_snaphdr_flag = 0;
 				wl_err("%s snaphdr attect over %d %d %d %d last %d %d %d\n",
 				       __func__, msdu_desc->snap_hdr_present,
@@ -149,52 +149,24 @@ int sprd_rx_defragment_attack_check(struct sprd_priv *priv, struct sk_buff *skb)
 	return 0;
 }
 
-static void rx_mode_deliver_skb(struct sprd_vif *vif, struct sk_buff *skb,
-				struct rx_msdu_desc *msdu_desc)
-{
-	struct sprd_priv *priv = vif->priv;
-	struct sprd_hif *hif = &priv->hif;
-	struct sk_buff *tx_skb = NULL;
-	struct ethhdr *eth = (struct ethhdr *)skb->data;
-
-	if (vif->mode == SPRD_MODE_AP ||
-	    vif->mode == SPRD_MODE_P2P_GO) {
-		if (msdu_desc->uc_w2w_flag) {
-			dev_queue_xmit(skb);
-			return;
-		}
-		if (msdu_desc->bc_mc_w2w_flag &&
-		    eth->h_proto != ETH_P_IP &&
-		    eth->h_proto != ETH_P_IPV6) {
-			tx_skb = pskb_copy(skb, GFP_ATOMIC);
-			if (likely(tx_skb))
-				dev_queue_xmit(tx_skb);
-		}
-	}
-	/* skb->data MUST point to ETH HDR */
-	sc2355_tcp_ack_filter_rx(priv, skb->data, msdu_desc->msdu_len);
-
-	if (hif->hw_type == SPRD_HW_SC2355_PCIE ||
-	    hif->hw_type == SPRD_HW_SC2355_SIPC)
-		sc2355_count_rx_tp(hif, msdu_desc->msdu_len);
-	sprd_netif_rx(skb);
-}
-
 static void rx_skb_process(struct sprd_priv *priv, struct sk_buff *skb)
 {
 	struct sprd_vif *vif = NULL;
+	struct net_device *ndev = NULL;
 	struct rx_msdu_desc *msdu_desc = NULL;
+	struct sk_buff *tx_skb = NULL;
 	struct sprd_hif *hif;
 	struct ethhdr *eth;
 	int ret = 0;
+
+	hif = &priv->hif;
+	msdu_desc = (struct rx_msdu_desc *)skb->data;
 
 	if (unlikely(!priv)) {
 		wl_err("%s priv not init.\n", __func__);
 		goto err;
 	}
 
-	hif = &priv->hif;
-	msdu_desc = (struct rx_msdu_desc *)skb->data;
 	ret = sprd_rx_defragment_attack_check(priv, skb);
 	if (ret == -1)
 		goto err;
@@ -212,28 +184,67 @@ static void rx_skb_process(struct sprd_priv *priv, struct sk_buff *skb)
 		BUG_ON(1);
 	}
 
-	skb->dev = vif->ndev;
+	ndev = vif->ndev;
 	skb_reserve(skb, msdu_desc->msdu_offset);
 	skb_put(skb, msdu_desc->msdu_len);
 
 	eth = (struct ethhdr *)skb->data;
-	if (eth->h_proto == htons(ETH_P_IPV6) &&
-	    ether_addr_equal(skb->data, skb->data + ETH_ALEN)) {
-		wl_err("%s, drop loopback pkt, macaddr: %pM\n",
-		       __func__, skb->data);
-		sprd_put_vif(vif);
-		goto err;
-	}
+	if (eth->h_proto == htons(ETH_P_IPV6))
+		if (ether_addr_equal(skb->data, skb->data + ETH_ALEN)) {
+			wl_err
+			    ("%s, drop loopback pkt, macaddr:%02x:%02x:%02x:%02x:%02x:%02x\n",
+			     __func__, skb->data[0], skb->data[1], skb->data[2],
+			     skb->data[3], skb->data[4], skb->data[5]);
+			sprd_put_vif(vif);
+			goto err;
+		}
 
 	if (hif->tdls_flow_count_enable == 1)
 		sc2355_tdls_count_flow(vif, skb->data + ETH_ALEN,
 				       skb->len - ETH_ALEN);
+	sc2355_rx_tp_statistic(skb->len);
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+	if (hif->hw_type == SPRD_HW_SC2355_SDIO)
+		sc2355_set_wcn_thread_uclamp();
+#endif
 
-	sprd_rx_tp_statistic(hif, skb->len);
-	sprd_set_wcn_thread_uclamp(hif);
+#ifndef CONFIG_SPRD_WLAN_DEBUG
+	if (hif->hw_type == SPRD_HW_SC2355_SIPC) {
+		sc2355_tp_modify_cpu_usage(((struct rx_mgmt *)hif->rx_mgmt)->rx_thread, "RX");
+		sc2355_tp_modify_cpu_usage(((struct rx_mgmt *)hif->rx_mgmt)->rx_net_thread, "RX");
+	}
+#endif
+	if ((vif->mode == SPRD_MODE_AP ||
+	     vif->mode == SPRD_MODE_P2P_GO) && msdu_desc->uc_w2w_flag) {
+		skb->dev = ndev;
+		dev_queue_xmit(skb);
+	} else {
+		if ((vif->mode == SPRD_MODE_AP ||
+		     vif->mode == SPRD_MODE_P2P_GO) &&
+		    msdu_desc->bc_mc_w2w_flag) {
+			struct ethhdr *eth = (struct ethhdr *)skb->data;
 
-	rx_mode_deliver_skb(vif, skb, msdu_desc);
+			if (eth->h_proto != ETH_P_IP &&
+			    eth->h_proto != ETH_P_IPV6) {
+				tx_skb = pskb_copy(skb, GFP_ATOMIC);
+				if (likely(tx_skb)) {
+					tx_skb->dev = ndev;
+					dev_queue_xmit(tx_skb);
+				}
+			}
+		}
+
+		/* skb->data MUST point to ETH HDR */
+		sc2355_tcp_ack_filter_rx(priv, skb->data, msdu_desc->msdu_len);
+
+		if (hif->hw_type == SPRD_HW_SC2355_PCIE ||
+			hif->hw_type == SPRD_HW_SC2355_SIPC)
+			sc2355_count_rx_tp(hif, msdu_desc->msdu_len);
+		sprd_netif_rx(ndev, skb);
+	}
+
 	sprd_put_vif(vif);
+
 	return;
 
 err:
@@ -269,6 +280,7 @@ void sc2355_count_rx_tp(struct sprd_hif *hif, int len)
 {
 	unsigned long long timeus = 0;
 	struct rx_mgmt *rx_mgmt = (struct rx_mgmt *)hif->rx_mgmt;
+	struct sprd_msg *drop_msg;
 
 	rx_mgmt->rx_total_len += len;
 	if (rx_mgmt->rx_total_len == len) {
@@ -284,12 +296,20 @@ void sc2355_count_rx_tp(struct sprd_hif *hif, int len)
 	    timeus > hif->priv->debug.tcpack_time_in_ms * USEC_PER_MSEC) {
 		rx_mgmt->rx_total_len = 0;
 		adjust_tcp_ack("tcpack_delay_en=1", strlen("tcpack_delay_en="));
+		drop_msg = tcp_ack_delay(&hif->priv->ack_m);
+
+		if (drop_msg)
+			sprd_chip_drop_tcp_msg(&hif->priv->chip, drop_msg);
 	} else if (div_u64((rx_mgmt->rx_total_len * 8), timeus) <
 		   hif->priv->debug.tcpack_delay_th_in_mb &&
 		   timeus >
 		   hif->priv->debug.tcpack_time_in_ms * USEC_PER_MSEC) {
 		rx_mgmt->rx_total_len = 0;
-		adjust_tcp_ack("tcpack_delay_en=0", strlen("tcpack_delay_en="));
+		adjust_tcp_ack("tcpack_delay_en=1", strlen("tcpack_delay_en="));
+		drop_msg = tcp_ack_delay(&hif->priv->ack_m);
+
+		if (drop_msg)
+			sprd_chip_drop_tcp_msg(&hif->priv->chip, drop_msg);
 	}
 }
 
@@ -357,7 +377,35 @@ static void rx_net_work_queue(struct work_struct *work)
 	}
 }
 
+static int  sipc_rx_net_work_queue(void *data)
+{
+	struct rx_mgmt *rx_mgmt;
+	struct sprd_priv *priv;
+	struct sk_buff *reorder_skb = NULL, *skb = NULL;
 
+	rx_mgmt = (struct rx_mgmt *)data;
+	priv = rx_mgmt->hif->priv;
+
+	set_user_nice(current, -20);
+	while (1) {
+		if (rx_mgmt->hif->exit) {
+			if (kthread_should_stop())
+				return 0;
+			usleep_range(50, 100);
+		        continue;
+		} else
+			sc2355_rx_net_down(rx_mgmt);
+
+		reorder_skb = sc2355_reorder_get_skb_list(&rx_mgmt->ba_entry);
+		while (reorder_skb) {
+			SPRD_GET_FIRST_SKB(skb, reorder_skb);
+			skb = sc2355_defrag_data_process(&rx_mgmt->defrag_entry, skb);
+			if (skb)
+				rx_skb_process(priv, skb);
+		}
+	}
+	return 0;
+}
 
 inline int sc2355_fill_skb_csum(struct sk_buff *skb, unsigned short csum)
 {
@@ -418,9 +466,24 @@ void sc2355_queue_rx_buff_work(struct sprd_priv *priv, unsigned char id)
 	}
 }
 
+void sc2355_rx_down(struct rx_mgmt *rx_mgmt)
+{
+	wait_for_completion(&rx_mgmt->rx_completed);
+}
+
 void sc2355_rx_up(struct rx_mgmt *rx_mgmt)
 {
 	complete(&rx_mgmt->rx_completed);
+}
+
+void sc2355_rx_net_down(struct rx_mgmt *rx_mgmt)
+{
+	wait_for_completion(&rx_mgmt->rx_net_completed);
+}
+
+void sc2355_rx_net_up(struct rx_mgmt *rx_mgmt)
+{
+	complete(&rx_mgmt->rx_net_completed);
 }
 
 void sc2355_rx_process(struct rx_mgmt *rx_mgmt, struct sk_buff *pskb)
@@ -431,6 +494,12 @@ void sc2355_rx_process(struct rx_mgmt *rx_mgmt, struct sk_buff *pskb)
 		queue_work(rx_mgmt->rx_net_workq, &rx_mgmt->rx_net_work);
 }
 
+void sc2355_sipc_rx_process(struct rx_mgmt *rx_mgmt, struct sk_buff *pskb)
+{
+        sc2355_reorder_data_process(&rx_mgmt->ba_entry, pskb);
+	sc2355_rx_net_up(rx_mgmt);
+}
+
 int sc2355_mm_fill_buffer(struct sprd_hif *hif)
 {
 	struct rx_mgmt *rx_mgmt =
@@ -438,23 +507,9 @@ int sc2355_mm_fill_buffer(struct sprd_hif *hif)
 	struct mem_mgmt *mm_entry = &rx_mgmt->mm_entry;
 	unsigned int num = 0, alloc_num = 0;
 	unsigned char sprd_max_add_mh_buf_once;
-	struct sprd_priv *priv = hif->priv;
-	struct sprd_vif *vif = NULL, *tmp_vif;
 
-	spin_lock_bh(&priv->list_lock);
-	list_for_each_entry(tmp_vif, &priv->vif_list, vif_node) {
-		if (tmp_vif->state & VIF_STATE_OPEN) {
-			vif = tmp_vif;
-			break;
-		}
-	}
-	spin_unlock_bh(&priv->list_lock);
-
-
-	if (unlikely(hif->exit) || unlikely(hif->cp_asserted) || !vif
-		|| (hif->suspend_mode != SPRD_PS_RESUMED)) {
-		wl_err("%s exit=%d, cp_asserted=%d, suspend_mode=%d", __func__,
-			    hif->exit, hif->cp_asserted, hif->suspend_mode);
+	if (unlikely(hif->exit) || unlikely(hif->cp_asserted)){
+		wl_err("%s hif->exit=%d, hif->cp_asserted=%d", __func__, hif->exit, hif->cp_asserted);
 		return -EINVAL;
 	}
 
@@ -469,7 +524,7 @@ int sc2355_mm_fill_buffer(struct sprd_hif *hif)
 
 	num = sc2355_mm_buffer_alloc(&rx_mgmt->mm_entry, alloc_num);
 	if (hif->ops->tx_addr_trans)
-		hif->ops->tx_addr_trans((void *)rx_mgmt, NULL, 0, true);
+		hif->ops->tx_addr_trans(hif, NULL, 0, true);
 	if (num)
 		num = atomic_add_return(num, &mm_entry->alloc_num);
 
@@ -555,8 +610,6 @@ int sc2355_rx_init(struct sprd_hif *hif)
 	/*init rx_queue*/
 	if (hif->hw_type == SPRD_HW_SC2355_PCIE) {
 		INIT_WORK(&rx_mgmt->rx_work, sc2355_pcie_rx_work_queue);
-	} else if (hif->hw_type == SPRD_HW_SC2355_SIPC) {
-		INIT_WORK(&rx_mgmt->rx_work, sc2355_sipc_rx_work_queue);
 	} else {
 		INIT_WORK(&rx_mgmt->rx_work, sc2355_rx_work_queue);
 	}
@@ -608,6 +661,78 @@ err_rx_mgmt:
 	return ret;
 }
 
+int sc2355_sipc_rx_init(struct sprd_hif *hif)
+{
+	int ret = 0;
+	struct rx_mgmt *rx_mgmt = NULL;
+
+	rx_mgmt = kzalloc(sizeof(*rx_mgmt), GFP_KERNEL);
+	if (!rx_mgmt) {
+		ret = -ENOMEM;
+		goto err_rx_mgmt;
+	}
+
+	/* init rx_list */
+	ret = sprd_init_msg(SPRD_RX_MSG_NUM, &rx_mgmt->rx_list);
+	if (ret) {
+		wl_err("%s tx_buf create failed: %d\n", __func__, ret);
+		goto err_rx_list;
+	}
+
+	/* init rx_thread */
+	rx_mgmt->rx_thread =
+		kthread_create(sc2355_sipc_rx_work_queue,
+		(void *)rx_mgmt, "RX_THREAD");
+	if (!rx_mgmt->rx_thread) {
+		wl_err("%s RX_THREAD create failed\n", __func__);
+		ret = -ENOMEM;
+		goto err_rx_thread;
+	}
+
+
+	rx_mgmt->rx_net_thread =
+		kthread_create(sipc_rx_net_work_queue,
+			(void *)rx_mgmt, "RX_NET_THREAD");
+	if (!rx_mgmt->rx_net_thread) {
+		wl_err("%s RX_NET_THREAD create failed\n", __func__);
+		ret = -ENOMEM;
+		goto err_rx_thread;
+	}
+
+	ret = sc2355_defrag_init(&rx_mgmt->defrag_entry);
+	if (ret) {
+		wl_err("%s init defrag fail: %d\n", __func__, ret);
+		goto err_rx_thread;
+	}
+
+	ret = sc2355_mm_init(&rx_mgmt->mm_entry, (void *)hif);
+	if (ret) {
+		wl_err("%s init mm fail: %d\n", __func__, ret);
+		goto err_rx_mm;
+	}
+
+	sc2355_reorder_init(&rx_mgmt->ba_entry);
+
+	hif->lp = 0;
+	hif->rx_mgmt = (void *)rx_mgmt;
+	rx_mgmt->hif = hif;
+
+	init_completion(&rx_mgmt->rx_completed);
+	wake_up_process(rx_mgmt->rx_thread);
+	init_completion(&rx_mgmt->rx_net_completed);
+	wake_up_process(rx_mgmt->rx_net_thread);
+	return ret;
+
+err_rx_mm:
+	sc2355_defrag_deinit(&rx_mgmt->defrag_entry);
+err_rx_thread:
+	sprd_deinit_msg(&rx_mgmt->rx_list);
+err_rx_list:
+	kfree(rx_mgmt);
+err_rx_mgmt:
+        return ret;
+}
+
 int sc2355_rx_deinit(struct sprd_hif *hif)
 {
 	struct rx_mgmt *rx_mgmt = (struct rx_mgmt *)hif->rx_mgmt;
@@ -617,6 +742,34 @@ int sc2355_rx_deinit(struct sprd_hif *hif)
 
 	flush_workqueue(rx_mgmt->rx_net_workq);
 	destroy_workqueue(rx_mgmt->rx_net_workq);
+
+	sprd_deinit_msg(&rx_mgmt->rx_list);
+
+	sc2355_defrag_deinit(&rx_mgmt->defrag_entry);
+	sc2355_mm_deinit(&rx_mgmt->mm_entry, hif);
+	sc2355_reorder_deinit(&rx_mgmt->ba_entry);
+
+	kfree(rx_mgmt);
+	hif->rx_mgmt = NULL;
+
+	return 0;
+}
+
+int sc2355_sipc_rx_deinit(struct sprd_hif *hif)
+{
+	struct rx_mgmt *rx_mgmt = (struct rx_mgmt *)hif->rx_mgmt;
+
+	if (rx_mgmt->rx_thread) {
+		sc2355_rx_up(rx_mgmt);
+		kthread_stop(rx_mgmt->rx_thread);
+		rx_mgmt->rx_thread = NULL;
+	}
+
+	if (rx_mgmt->rx_net_thread) {
+		sc2355_rx_net_up(rx_mgmt);
+		kthread_stop(rx_mgmt->rx_net_thread);
+		rx_mgmt->rx_net_thread = NULL;
+	}
 
 	sprd_deinit_msg(&rx_mgmt->rx_list);
 

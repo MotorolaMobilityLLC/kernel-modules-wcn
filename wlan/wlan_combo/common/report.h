@@ -22,6 +22,5 @@ void sprd_report_mgmt(struct sprd_vif *vif, u8 chan, const u8 *buf, size_t len);
 void sprd_report_mgmt_deauth(struct sprd_vif *vif, const u8 *buf, size_t len);
 void sprd_report_mgmt_disassoc(struct sprd_vif *vif, const u8 *buf, size_t len);
 void sprd_report_cqm(struct sprd_vif *vif, u8 rssi_event);
-void sprd_report_mgmt_probe_req(struct sprd_vif *vif, u8 chan, const u8 *buf, size_t len);
 
 #endif

@@ -11,13 +11,4 @@ config UNISOC_WLAN_COMBO
 
 	  If you choose to build a module, it will be called sprd_wlan_combo.ko.
 
-config UNISOC_WLAN_DEBUG
-	tristate "UNISOC_WLAN_DEBUG"
-	default n
-	help
-	  This config use to control debug functions for wlan.
-	  For example,turn on debug message in wlan.debug version will print more log.
-	  and cp2 will use some buf that used to send data in use version to store debug info.
-	  you need config y in soc_debug.fragment.
-
 endmenu

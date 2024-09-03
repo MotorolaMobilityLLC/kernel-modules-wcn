@@ -253,6 +253,8 @@ static struct merl_nvm_name_table g_config_table[] = {
 	CF_TAB("roaming_trigger", wifi_param.roaming_param.trigger, 1),
 	CF_TAB("roaming_delta", wifi_param.roaming_param.delta, 1),
 	CF_TAB("roaming_5g_prefer", wifi_param.roaming_param.band_5g_prefer, 1),
+	CF_TAB("oui_config", oui_config.oui_data, 4),
+	CF_TAB("ap_config", ap_config.ap_data, 1),
 };
 
 static int find_type(char key, char *str, int *index_ptr)
@@ -418,6 +420,23 @@ static int wifi_nvm_buf_operate(char *pBuf, int file_len, void *p_data)
 					if (strcmp(pTable->itm, "rf_config") == 0) {
 						conf = (struct merl_wifi_conf_t *)p_data;
 						conf->rf_config.rf_data_len = cmd->num;
+					}
+					if (strcmp(pTable->itm, "oui_config") == 0) {
+						conf = (struct merl_wifi_conf_t *)p_data;
+						conf->oui_config.ap_oui_num = cmd->num;
+					}
+
+					if (strcmp(pTable->itm, "ap_config") == 0) {
+						conf = (struct merl_wifi_conf_t *)p_data;
+						conf->ap_config.ap_data_len = cmd->num;
+					}
+
+					if (strcmp(pTable->itm, "value") == 0) {
+						spin_lock_bh(&adap_info.adap_lock);
+						adap_info.special_data_flag = cmd->par[4];
+						wl_info("%s special_data_flag: %d\n",
+							__func__, adap_info.special_data_flag);
+						spin_unlock_bh(&adap_info.adap_lock);
 					}
 				}
 			}

@@ -12,12 +12,12 @@
 #include "common/chip_ops.h"
 #include "common/common.h"
 #include "common/iface.h"
-#include "common/cpu_performance.h"
 #include "qos.h"
 #include "rx.h"
 #include "sdio.h"
 #include "tx.h"
 #include "txrx.h"
+#include "cpu_performance.h"
 #include "defrag.h"
 
 #define SPRD_NORMAL_MEM	0
@@ -57,19 +57,19 @@ static void sdio_dump_stats(struct sprd_hif *hif)
 static void sdio_get_tx_avg_time(struct sprd_hif *hif,
 				 unsigned long tx_start_time)
 {
-	s64 tx_end;
+	unsigned long tx_end;
 
 	tx_end = sprd_get_ktime();
 	hif->stats.tx_cost_time += tx_end - tx_start_time;
 
 	if (hif->stats.gap_num >= STATS_COUNT) {
 		hif->stats.tx_avg_time =
-		    div_s64(hif->stats.tx_cost_time, hif->stats.gap_num);
+		    hif->stats.tx_cost_time / hif->stats.gap_num;
 		sdio_dump_stats(hif);
 		hif->stats.gap_num = 0;
 		hif->stats.tx_cost_time = 0;
-		wl_debug("%s:%d packets avg cost time: %lld\n",
-			 __func__, __LINE__, hif->stats.tx_avg_time);
+		wl_debug("%s:%d packets avg cost time: %lu\n",
+			__func__, __LINE__, hif->stats.tx_avg_time);
 	}
 }
 #endif
@@ -232,9 +232,10 @@ static int sdio_suspend_resume_handle(int chn, int mode)
 	struct tx_mgmt *tx_mgmt = (struct tx_mgmt *)hif->tx_mgmt;
 	int ret;
 	struct sprd_vif *vif = NULL, *tmp_vif;
-	s64 time;
+	unsigned long time;
 	struct sprd_cmd *cmd = &priv->cmd;
 
+	sc2355_reset_cpu_prf_param(hif);
 	spin_lock_bh(&priv->list_lock);
 	list_for_each_entry(tmp_vif, &priv->vif_list, vif_node) {
 		if (tmp_vif->state & VIF_STATE_OPEN) {
@@ -253,8 +254,6 @@ static int sdio_suspend_resume_handle(int chn, int mode)
 		       __LINE__);
 		return 0;
 	}
-
-	sprd_reset_cpu_prf_param(tx_mgmt->tx_thread);
 
 	if (mode == 0) {
 		if (atomic_read(&tx_mgmt->tx_list_qos_pool.ref) > 0 ||
@@ -285,8 +284,8 @@ static int sdio_suspend_resume_handle(int chn, int mode)
 		hif->sleep_time = time - hif->sleep_time;
 
 		ret = sprd_power_save(priv, vif, SPRD_SUSPEND_RESUME, 1);
-		wl_info("%s, %d,resume ret=%d, resume after %lld ms\n",
-			__func__, __LINE__, ret, div_s64(hif->sleep_time, 1000000));
+		wl_info("%s, %d,resume ret=%d, resume after %lu ms\n",
+			__func__, __LINE__, ret, hif->sleep_time / 1000000);
 		return ret;
 	}
 	return -EBUSY;
@@ -772,7 +771,7 @@ void sc2355_event_sta_lut(struct sprd_vif *vif, u8 *data, u16 len)
 			hif->peer_entry[i].ba_tx_done_map = 0;
 			/*sc2355_tx_delba(hif, hif->peer_entry + i);*/
 		}
-		sc2355_defrag_recover(vif, i);
+		sc2355_defrag_recover(vif);
 		sc2355_peer_entry_delba(hif, i);
 		memset(&hif->peer_entry[i], 0x00,
 		       sizeof(struct sprd_peer_entry));
@@ -854,38 +853,6 @@ void sc2355_handle_tx_return(struct sprd_hif *hif,
 	}
 }
 
-static void rx_work_check_rsp_cnt(struct rx_mgmt *rx_mgmt, void *data)
-{
-	struct sprd_priv *priv;
-	struct sprd_cmd_hdr *hdr;
-
-	hdr = (struct sprd_cmd_hdr *)data;
-	priv = rx_mgmt->hif->priv;
-
-	if ((SPRD_HEAD_GET_TYPE(data) != SPRD_TYPE_CMD &&
-	     SPRD_HEAD_GET_TYPE(data) != SPRD_TYPE_EVENT))
-		return;
-
-	if (rx_mgmt->rsp_event_cnt != hdr->rsp_cnt) {
-		wl_err("%s, %d, rsp_event_cnt=%d, hdr->cnt=%d\n",
-		       __func__, __LINE__, rx_mgmt->rsp_event_cnt,
-		       hdr->rsp_cnt);
-
-		if (hdr->rsp_cnt == 0) {
-			rx_mgmt->rsp_event_cnt = 0;
-			wl_info("%s reset rsp_event_cnt", __func__);
-		}
-		/* hdr->rsp_cnt=0 means it's a old version CP2,
-		 * so do not assert. vif=NULL means driver not init ok,
-		 * send cmd may cause crash
-		 */
-		if (hdr->rsp_cnt != 0)
-			sc2355_assert_cmd(priv, hdr->cmd_id, RSP_CNT_ERROR);
-	}
-
-	rx_mgmt->rsp_event_cnt++;
-}
-
 void sc2355_rx_work_queue(struct work_struct *work)
 {
 	struct sprd_msg *msg;
@@ -894,6 +861,7 @@ void sc2355_rx_work_queue(struct work_struct *work)
 	struct sprd_hif *hif;
 	void *pos = NULL, *data = NULL, *tran_data = NULL;
 	int len = 0, num = 0;
+	struct sprd_cmd_hdr *hdr;
 
 	rx_mgmt = container_of(work, struct rx_mgmt, rx_work);
 	hif = rx_mgmt->hif;
@@ -921,44 +889,74 @@ void sc2355_rx_work_queue(struct work_struct *work)
 			 * if not equal, must be lost on SDIOHAL/PCIE.
 			 * assert to warn CP2
 			 */
-			rx_work_check_rsp_cnt(rx_mgmt, data);
+			hdr = (struct sprd_cmd_hdr *)data;
+			if ((SPRD_HEAD_GET_TYPE(data) == SPRD_TYPE_CMD ||
+			     SPRD_HEAD_GET_TYPE(data) == SPRD_TYPE_EVENT)) {
+				if (rx_mgmt->rsp_event_cnt != hdr->rsp_cnt) {
+					wl_err
+					    ("%s, %d, rsp_event_cnt=%d, hdr->cnt=%d\n",
+					     __func__, __LINE__,
+					     rx_mgmt->rsp_event_cnt,
+					     hdr->rsp_cnt);
+
+					if (hdr->rsp_cnt == 0) {
+						rx_mgmt->rsp_event_cnt = 0;
+						wl_info
+						    ("%s reset rsp_event_cnt",
+						     __func__);
+					}
+					/* hdr->rsp_cnt=0 means it's a
+					 * old version CP2,
+					 * so do not assert.
+					 * vif=NULL means driver not init ok,
+					 * send cmd may cause crash
+					 */
+					if (hdr->rsp_cnt != 0)
+						sc2355_assert_cmd(priv, hdr->cmd_id, RSP_CNT_ERROR);
+				}
+
+				rx_mgmt->rsp_event_cnt++;
+			}
 
 			switch (SPRD_HEAD_GET_TYPE(data)) {
 			case SPRD_TYPE_DATA:
-				wl_true((msg->len > SPRD_MAX_DATA_RXLEN),
-					"err rx data too long:%d > %d\n",
-					len, SPRD_MAX_DATA_RXLEN);
+				if (msg->len > SPRD_MAX_DATA_RXLEN)
+					wl_err("err rx data too long:%d > %d\n",
+					       len, SPRD_MAX_DATA_RXLEN);
 				rx_data_process(priv, data);
 				break;
 			case SPRD_TYPE_CMD:
-				wl_true((msg->len > SPRD_MAX_CMD_RXLEN),
-					"err rx cmd too long:%d > %d\n",
-					len, SPRD_MAX_CMD_RXLEN);
+				if (msg->len > SPRD_MAX_CMD_RXLEN)
+					wl_err("err rx cmd too long:%d > %d\n",
+					       len, SPRD_MAX_CMD_RXLEN);
 				sc2355_rx_rsp_process(priv, data);
 				break;
 
 			case SPRD_TYPE_EVENT:
-				wl_true((msg->len > SPRD_MAX_CMD_RXLEN),
-					"err rx event too long:%d > %d\n",
-					len, SPRD_MAX_CMD_RXLEN);
+				if (msg->len > SPRD_MAX_CMD_RXLEN)
+					wl_err
+					    ("err rx event too long:%d > %d\n",
+					     len, SPRD_MAX_CMD_RXLEN);
 				sc2355_rx_evt_process(priv, data);
 				break;
 			case SPRD_TYPE_DATA_SPECIAL:
 				sprd_debug_ts_leave(RX_SDIO_PORT);
 				sprd_debug_ts_enter(RX_SDIO_PORT);
 
-				wl_true((msg->len > SPRD_MAX_DATA_RXLEN),
-					"err data trans too long:%d > %d\n",
-					len, SPRD_MAX_CMD_RXLEN);
+				if (msg->len > SPRD_MAX_DATA_RXLEN)
+					wl_err
+					    ("err data trans too long:%d > %d\n",
+					     len, SPRD_MAX_CMD_RXLEN);
 				sc2355_mm_mh_data_process(&rx_mgmt->mm_entry, tran_data, len,
 						   msg->buffer_type);
 				tran_data = NULL;
 				data = NULL;
 				break;
 			case SPRD_TYPE_DATA_PCIE_ADDR:
-				wl_true((msg->len > SPRD_MAX_CMD_RXLEN),
-					"err rx mh data too long:%d > %d\n",
-					len, SPRD_MAX_DATA_RXLEN);
+				if (msg->len > SPRD_MAX_CMD_RXLEN)
+					wl_err
+					    ("err rx mh data too long:%d > %d\n",
+					     len, SPRD_MAX_DATA_RXLEN);
 				sc2355_rx_mh_addr_process(rx_mgmt, tran_data, len,
 						   msg->buffer_type);
 				tran_data = NULL;
@@ -1094,7 +1092,6 @@ int sc2355_sdio_init(struct sprd_hif *hif)
 {
 	u8 i;
 	int ret = -EINVAL, chn = 0;
-	struct tx_mgmt *tx_mgmt = NULL;
 
 	hif->hw_type = SPRD_HW_SC2355_SDIO;
 
@@ -1120,10 +1117,7 @@ int sc2355_sdio_init(struct sprd_hif *hif)
 		goto err_tx_init;
 	}
 
-	sprd_tp_static_init();
-	tx_mgmt = (struct tx_mgmt *)hif->tx_mgmt;
-	//reset thread uclamp param
-	sprd_set_thread_uclamp(tx_mgmt->tx_thread, 0);
+	sc2355_tp_static_init();
 
 	sc2355_hif.mchn_ops = sdio_hif_ops;
 	sc2355_hif.max_num =
@@ -1155,7 +1149,7 @@ err:
 		sprdwcn_bus_chn_deinit(&sc2355_hif.mchn_ops[chn]);
 	sc2355_hif.mchn_ops = NULL;
 	sc2355_hif.max_num = 0;
-	sprd_tp_static_deinit();
+
 	sc2355_tx_deinit(hif);
 err_tx_init:
 	sc2355_rx_deinit(hif);
@@ -1172,7 +1166,7 @@ void sc2355_sdio_deinit(struct sprd_hif *hif)
 	sc2355_hif.hif = NULL;
 	sc2355_hif.max_num = 0;
 
-	sprd_tp_static_deinit();
+	sc2355_tp_static_deinit();
 	sc2355_tx_deinit(hif);
 	sc2355_rx_deinit(hif);
 }
@@ -1187,7 +1181,8 @@ void sdio_post_deinit(struct sprd_hif *hif)
 	tx_mgmt->hang_recovery_status = HANG_RECOVERY_END;
 	tx_mgmt->thermal_status = THERMAL_TX_RESUME;
 	hif->suspend_mode = SPRD_PS_RESUMED;
-	sprd_reset_cpu_prf_param(tx_mgmt->tx_thread);
+	sc2355_reset_cpu_prf_param(hif);
+
 }
 
 static struct sprd_hif_ops sc2355_sdio_ops = {
@@ -1201,6 +1196,8 @@ static struct sprd_hif_ops sc2355_sdio_ops = {
 #ifdef DRV_RESET_SELF
 	.reset_self = sc2355_reset_self,
 #endif
+	.tp_ctl_pd = sc2355_tp_ctl_core_pd,
+	.tp_ctl_uclamp = sc2355_tp_ctl_uclamp,
 	.tx_flush = sc2355_tx_flush,
 };
 

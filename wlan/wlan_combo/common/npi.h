@@ -6,21 +6,17 @@
 #ifndef __NPI_H__
 #define __NPI_H__
 
-#include <net/genetlink.h>
-
 /*
 #define SPRD_NPI_CMD_SET_PROTECTION_MODE  (50)
 #define SPRD_NPI_CMD_GET_PROTECTION_MODE  (51)
 #define SPRD_NPI_CMD_SET_RTS_THRESHOLD    (52)
 */
 #define SPRD_NPI_CMD_GET_CHIPID           (136)
-#define SPRD_NPI_CMD_SET_DBUF             (189)
-#define SPRD_NPI_CMD_DOWNLOAD_INI         (196)
-#define SPRD_NPI_CMD_SET_ADDBA            (197)
 #define SPRD_NPI_CMD_SET_CCA_PARAM        (198)
 #define SPRD_NPI_CMD_SET_RANDOM_MAC       (199)
 #define SPRD_NPI_CMD_SET_COUNTRY          (200)
 #define SPRD_NPI_CMD_5GPW_BACKOFF         (201)
+#define SPRD_NPI_CMD_SET_CPU_PARAM            (202)
 /*
 #define SPRD_NPI_CMD_START                (0)
 #define SPRD_NPI_CMD_SET_WLAN_CAP         (40)
@@ -116,31 +112,11 @@ void sprd_npi_set_cca_param(struct sprd_priv *priv, struct sprd_vif *vif,
 			    enum sprd_npi_cmd_set_cca_flag flag);
 void sprd_evt_adaptive(struct sprd_vif *vif);
 void sprd_wifi_adaptive_work(struct sprd_priv *priv, struct sprd_vif *vif);
-
-int sprd_npi_get_chipid(struct genl_info *info,
-		unsigned char *s_buf, unsigned short s_len);
-int sprd_npi_deal_addba(struct genl_info *info,
-		unsigned char *s_buf, unsigned short s_len);
-int sprd_npi_deal_setcca(struct genl_info *info,
-		unsigned char *s_buf, unsigned short s_len);
-int sprd_npi_set_random_mac(struct genl_info *info,
-		unsigned char *s_buf, unsigned short s_len);
-int sprd_npi_set_country(struct genl_info *info,
-		unsigned char *s_buf, unsigned short s_len);
-int sprd_npi_5gpw_backoff(struct genl_info *info,
-		unsigned char *s_buf, unsigned short s_len);
-
-/**
- * struct sprd_npi_ops - npi operations
- * @cmd: npi command identifier
- * @doit: npi command callback processed by driver
- */
-struct sprd_npi_ops {
-	unsigned char cmd;
-	int (*doit)(struct genl_info *info, unsigned char *s_buf, unsigned short s_len);
-} __packed;
-
-int npi_nl_send_generic(struct genl_info *info, u8 attr,
-			u8 cmd, u32 len, u8 *data);
+void sprd_5g_sar_info_init(void);
+void sprd_5g_sar_info_reset(void);
+void sprd_5g_sar_info_set(unsigned char *data);
+u8 sprd_pw_backoff_band2value(u8 channel);
+void sprd_npi_cmd_set_cca_param(struct sprd_vif *vif, u8 *s_buf,
+			 u16 s_len, u8 *r_buf, u16 r_len);
 
 #endif

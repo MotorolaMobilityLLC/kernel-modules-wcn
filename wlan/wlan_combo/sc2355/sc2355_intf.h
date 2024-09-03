@@ -27,8 +27,7 @@
 /* tx len less than cp len 4 byte as sdiom 4 bytes align */
 /* set MAX CMD length to 1600 on firmware side*/
 #define SPRD_MAX_CMD_TXLEN	1596
-/* 2490390: mac max cmd rsp/evt len is 1576 */
-#define SPRD_MAX_CMD_RXLEN	1576
+#define SPRD_MAX_CMD_RXLEN	1092
 #define SPRD_MAX_DATA_TXLEN	1672
 #define SPRD_MAX_DATA_RXLEN	1676
 
@@ -115,7 +114,7 @@ void sc2355_pcie_tx_addr_trans_free(struct sprd_hif *hif);
 void sc2355_sipc_tx_addr_trans_free(struct sprd_hif *hif);
 void sc2355_rx_work_queue(struct work_struct *work);
 void sc2355_pcie_rx_work_queue(struct work_struct *work);
-void sc2355_sipc_rx_work_queue(struct work_struct *work);
+int sc2355_sipc_rx_work_queue(void *data);
 void sc2355_handle_tx_return(struct sprd_hif *hif,
 			     struct sprd_msg_list *list, int send_num, int ret);
 void sc2355_pcie_handle_tx_return(struct sprd_hif *hif,

@@ -33,9 +33,6 @@
 
 static struct sprd_priv *sprd_prv;
 
-#define is_alpha(key)    \
-	((key >= 'a' && key <= 'z') || (key >= 'A' && key <= 'Z') || (key == '0'))
-
 const char *dhcp_str_info[] = {
 	"INVALID DHCP",
 	"DHCP DISCOVER",
@@ -58,13 +55,12 @@ int sprd_wlan_parse_dt(struct sprd_priv *priv)
 		goto exit;
 	}
 
-	dt_configs->enable_n79 = of_property_read_bool(pdev->dev.of_node,
-						       "sprd,enable-n79");
-	dt_configs->enable_chr = of_property_read_bool(pdev->dev.of_node,
-						       "sprd,enable-chr");
+	if (of_property_read_bool(pdev->dev.of_node, "enable-n79"))
+		dt_configs->enable_n79 = true;
+	else
+		dt_configs->enable_n79 = false;
 
-	wl_info("%s n79_en:%d chr_en:%d\n", __func__,
-		dt_configs->enable_n79, dt_configs->enable_chr);
+	wl_info("%s n79_en %d.\n", __func__, dt_configs->enable_n79);
 
 exit:
 	return ret;
@@ -104,6 +100,23 @@ static void iface_set_priv(struct sprd_priv *priv)
 static struct sprd_priv *iface_get_priv(void)
 {
 	return sprd_prv;
+}
+
+static void iface_str2mac(const char *mac_addr, u8 *mac)
+{
+	unsigned int m[ETH_ALEN];
+
+	if (sscanf(mac_addr, "%02x:%02x:%02x:%02x:%02x:%02x",
+		   &m[0], &m[1], &m[2], &m[3], &m[4], &m[5]) != ETH_ALEN) {
+		wl_err("failed to parse mac address");
+		memset(m, 0, sizeof(unsigned int) * ETH_ALEN);
+	}
+	mac[0] = m[0];
+	mac[1] = m[1];
+	mac[2] = m[2];
+	mac[3] = m[3];
+	mac[4] = m[4];
+	mac[5] = m[5];
 }
 
 static int wlan_open(struct inode *inode, struct file *filep)
@@ -249,7 +262,6 @@ static void iface_set_mac_addr(struct sprd_vif *vif, u8 *pending_addr,
 int sprd_iface_set_power(struct sprd_hif *hif, int val)
 {
 	int ret = 0;
-	struct sprd_wlan_dt_config *dt_configs = &hif->priv->dt_configs;
 
 	if (val) {
 		wl_info("%s Power on WCN (%d time)\n", __func__,
@@ -262,9 +274,9 @@ int sprd_iface_set_power(struct sprd_hif *hif, int val)
 				wl_err("failed to power on WCN!\n");
 			else if (ret == -EIO)
 				wl_err("SYNC cmd error!\n");
-			if (dt_configs->enable_chr)
-				CHR_OPENERR_FLAGSET(&hif->chr->open_err_flag,
-						    OPEN_ERR_POWER_ON);
+#ifdef ENABLE_CHR
+			CHR_OPENERR_FLAGSET(&hif->chr->open_err_flag, OPEN_ERR_POWER_ON);
+#endif
 			return ret;
 		}
 		if (atomic_read(&hif->power_cnt) == 1)
@@ -324,7 +336,6 @@ static int iface_open(struct net_device *ndev)
 {
 	struct sprd_vif *vif = netdev_priv(ndev);
 	struct sprd_hif *hif = &vif->priv->hif;
-	struct sprd_wlan_dt_config *dt_configs = &vif->priv->dt_configs;
 	int ret;
 	int count = 0;
 
@@ -346,8 +357,9 @@ static int iface_open(struct net_device *ndev)
 		atomic_set(&hif->block_cmd_after_close, 0);
 
 	ret = sprd_iface_set_power(hif, true);
-	if (dt_configs->enable_chr)
-		sprd_chr_handle_power(hif->chr);
+#ifdef ENABLE_CHR
+	sprd_chr_handle_power(hif->chr);
+#endif
 	if (ret)
 		return ret;
 
@@ -358,8 +370,9 @@ static int iface_open(struct net_device *ndev)
 	}
 	netif_start_queue(ndev);
 
-	if (dt_configs->enable_chr)
-		sprd_chr_handle_open(hif->chr);
+#ifdef ENABLE_CHR
+	sprd_chr_handle_open(hif->chr);
+#endif
 
 	return 0;
 }
@@ -514,13 +527,13 @@ void sprd_filter_data_debug(struct sk_buff *skb, struct net_device *ndev, const 
 		return;
 }
 
-void sprd_netif_rx(struct sk_buff *skb)
+void sprd_netif_rx(struct net_device *ndev, struct sk_buff *skb)
 {
 	struct sprd_vif *vif;
 	struct sprd_hif *hif;
 	int print_len;
 
-	vif = netdev_priv(skb->dev);
+	vif = netdev_priv(ndev);
 	hif = &vif->priv->hif;
 	print_len = skb->len > 64 ? 64 : skb->len;
 
@@ -531,14 +544,15 @@ void sprd_netif_rx(struct sk_buff *skb)
 
 		wl_debug("sniffer data cnt: %lu\n", vif->priv->monitor_data_cnt++);
 
+		skb->dev = ndev;
 		/* report data for sniffer mode */
 		skb_set_mac_header(skb, 0);
 		skb->ip_summed = CHECKSUM_UNNECESSARY;
 		skb->pkt_type = PACKET_OTHERHOST;
 		skb->protocol = htons(ETH_P_802_2);
 
-		skb->dev->stats.rx_packets++;
-		skb->dev->stats.rx_bytes += skb->len;
+		ndev->stats.rx_packets++;
+		ndev->stats.rx_bytes += skb->len;
 
 		local_bh_disable();
 		netif_receive_skb(skb);
@@ -547,10 +561,11 @@ void sprd_netif_rx(struct sk_buff *skb)
 		return;
 	}
 
-	sprd_filter_data_debug(skb, skb->dev, "RX");
+	sprd_filter_data_debug(skb, ndev, "RX");
 	print_hex_dump_debug("RX packet: ", DUMP_PREFIX_OFFSET,
 			     16, 1, skb->data, print_len, 0);
-	skb->protocol = eth_type_trans(skb, skb->dev);
+	skb->dev = ndev;
+	skb->protocol = eth_type_trans(skb, ndev);
 	/* CHECKSUM_UNNECESSARY not supported by our hardware */
 	/* skb->ip_summed = CHECKSUM_UNNECESSARY; */
 
@@ -559,8 +574,8 @@ void sprd_netif_rx(struct sk_buff *skb)
 	else if (skb->protocol == cpu_to_be16(WAPI_TYPE))
 		wl_info("RX special data: WAPI\n");
 
-	skb->dev->stats.rx_packets++;
-	skb->dev->stats.rx_bytes += skb->len;
+	ndev->stats.rx_packets++;
+	ndev->stats.rx_bytes += skb->len;
 #if defined(MORE_DEBUG)
 	hif->stats.rx_packets++;
 	hif->stats.rx_bytes += skb->len;
@@ -634,7 +649,7 @@ static int iface_prepare_xmit(struct sprd_vif *vif, struct net_device *ndev,
 		return -1;
 	}
 
-	ret = sprd_chip_tx_prepare(&vif->priv->chip, &skb);
+	ret = sprd_chip_tx_prepare(&vif->priv->chip, skb);
 	if (ret)
 		return ret;
 
@@ -665,7 +680,6 @@ static netdev_tx_t iface_start_xmit(struct sk_buff *skb, struct net_device *ndev
 	struct sprd_msg *msg = NULL;
 	unsigned int skb_len;
 	int print_len;
-	bool xmit_flag = false;
 
 	ret = iface_prepare_xmit(vif, ndev, &skb);
 	if (-1 == ret)
@@ -682,16 +696,16 @@ static netdev_tx_t iface_start_xmit(struct sk_buff *skb, struct net_device *ndev
 	if (ret == NETDEV_TX_OK || ret == NETDEV_TX_BUSY)
 		return ret;
 
-	xmit_flag = (vif->mode == SPRD_MODE_STATION ||
-		     vif->mode == SPRD_MODE_STATION_SECOND) ?
-		    (vif->sm_state == SPRD_CONNECTED) : (vif->state & VIF_STATE_OPEN);
-	if (!xmit_flag) {
+	/* do not send packet before connected */
+	if (((vif->mode == SPRD_MODE_STATION || vif->mode == SPRD_MODE_STATION_SECOND) &&
+	     vif->sm_state != SPRD_CONNECTED) ||
+	    ((vif->mode != SPRD_MODE_STATION && vif->mode != SPRD_MODE_STATION_SECOND) &&
+	     !(vif->state & VIF_STATE_OPEN))) {
 		printk_ratelimited("%s, %d, error! should not send this data\n",
 				   __func__, __LINE__);
 		dev_kfree_skb(skb);
 		return NETDEV_TX_OK;
 	}
-
 	/*to improve tx throughput at start */
 	if(skb->sk)
 		sk_pacing_shift_update(skb->sk, 7);
@@ -746,50 +760,195 @@ static void iface_tx_timeout(struct net_device *ndev)
 	netif_wake_queue(ndev);
 }
 
-static int iface_get_user_data(void __user *data,
-			       struct android_wifi_priv_cmd *priv_cmd, char **cmd)
-{
-	char *command = NULL;
-
-	if (!data)
-		return -EINVAL;
-
-	if (copy_from_user(priv_cmd, data, sizeof(*priv_cmd)))
-		return -EFAULT;
-
-	/* add length check to avoid invalid NULL ptr */
-	if (priv_cmd->total_len <= 0 || priv_cmd->total_len > 4096) {
-		wl_err("%s: priv cmd total len is invalid\n", __func__);
-		return -EINVAL;
-	}
-
-	command = kzalloc(priv_cmd->total_len + 4, GFP_KERNEL);
-	if (!command)
-		return -ENOMEM;
-
-	if (copy_from_user(command, priv_cmd->buf, priv_cmd->total_len)) {
-		kfree(command);
-		return -EFAULT;
-	}
-	*cmd = command;
-	return 0;
-}
-
-static int iface_priv_cmd_ccn0(struct net_device *ndev,
-			       struct android_wifi_priv_cmd priv_cmd, char *command)
+static int iface_set_blacklist(struct net_device *ndev, char *command,
+			       struct android_wifi_priv_cmd priv_cmd,
+			       u8 sub_type, int skip)
 {
 	struct sprd_vif *vif = netdev_priv(ndev);
 	struct sprd_priv *priv = vif->priv;
-	u8 feat = 0, status = 0;
-	int ret = 0, skip;
-	u16 interval = 0;
+	u8 addr[ETH_ALEN] = { 0 };
+	int ret = 0;
 
-	if (!strncasecmp(command, CMD_11V_GET_CFG,
+	if (priv_cmd.total_len < skip + MAC_ADDR_STR_LEN)
+		return ret;
+
+	iface_str2mac(command + skip, addr);
+	if (!is_valid_ether_addr(addr))
+		return ret;
+
+	if (sub_type == SUBCMD_ADD)
+		netdev_info(ndev, "%s: block %pM\n", __func__, addr);
+	else if (sub_type == SUBCMD_DEL)
+		netdev_info(ndev, "%s: unblock %pM\n", __func__, addr);
+
+	ret = sprd_set_blacklist(priv, vif, sub_type, 1, addr);
+
+	return ret;
+}
+
+static int iface_set_whitelist(struct net_device *ndev, char *command,
+			       struct android_wifi_priv_cmd priv_cmd,
+			       u8 sub_type, int skip)
+{
+	struct sprd_vif *vif = netdev_priv(ndev);
+	struct sprd_priv *priv = vif->priv;
+	u8 addr[ETH_ALEN] = { 0 };
+	int ret = 0;
+
+	if (priv_cmd.total_len < skip + MAC_ADDR_STR_LEN)
+		return ret;
+
+	iface_str2mac(command + skip, addr);
+	if (!is_valid_ether_addr(addr))
+		return ret;
+
+	if (sub_type == SUBCMD_ADD)
+		netdev_info(ndev, "%s: add whitelist %pM\n", __func__, addr);
+	else if (sub_type == SUBCMD_DEL)
+		netdev_info(ndev, "%s: delete whitelist %pM\n", __func__, addr);
+
+	ret = sprd_set_whitelist(priv, vif, sub_type, 1, addr);
+
+	return ret;
+}
+
+static int iface_priv_cmd(struct net_device *ndev, void __user *data)
+{
+	int n_clients;
+	struct sprd_vif *vif = netdev_priv(ndev);
+	struct sprd_priv *priv = vif->priv;
+	struct android_wifi_priv_cmd priv_cmd;
+	char *command = NULL, *country = NULL;
+	u16 interval = 0;
+	u8 feat = 0, status = 0;
+	u8 *mac_addr = NULL, *tmp, *mac_list;
+	int ret = 0, skip, counter, index;
+
+	if (!data)
+		return -EINVAL;
+	if (copy_from_user(&priv_cmd, data, sizeof(priv_cmd)))
+		return -EFAULT;
+
+	/* add length check to avoid invalid NULL ptr */
+	if (priv_cmd.total_len <= 0 || priv_cmd.total_len > 4096) {
+		netdev_info(ndev, "%s: priv cmd total len is invalid\n",
+			    __func__);
+		return -EINVAL;
+	}
+
+	command = kzalloc(priv_cmd.total_len + 4, GFP_KERNEL);
+	if (!command)
+		return -ENOMEM;
+	if (copy_from_user(command, priv_cmd.buf, priv_cmd.total_len)) {
+		ret = -EFAULT;
+		goto out;
+	}
+
+	if (!strncasecmp(command, CMD_BLACKLIST_ENABLE,
+			 strlen(CMD_BLACKLIST_ENABLE))) {
+		skip = strlen(CMD_BLACKLIST_ENABLE) + 1;
+		ret = iface_set_blacklist(ndev, command, priv_cmd, SUBCMD_ADD, skip);
+	} else if (!strncasecmp(command, CMD_BLACKLIST_DISABLE,
+				strlen(CMD_BLACKLIST_DISABLE))) {
+		skip = strlen(CMD_BLACKLIST_DISABLE) + 1;
+		ret = iface_set_blacklist(ndev, command, priv_cmd, SUBCMD_DEL, skip);
+	} else if (!strncasecmp(command, CMD_ADD_WHITELIST,
+				strlen(CMD_ADD_WHITELIST))) {
+		skip = strlen(CMD_ADD_WHITELIST) + 1;
+		ret = iface_set_whitelist(ndev, command, priv_cmd, SUBCMD_ADD, skip);
+	} else if (!strncasecmp(command, CMD_DEL_WHITELIST,
+				strlen(CMD_DEL_WHITELIST))) {
+		skip = strlen(CMD_DEL_WHITELIST) + 1;
+		ret = iface_set_whitelist(ndev, command, priv_cmd, SUBCMD_DEL, skip);
+	} else if (!strncasecmp(command, CMD_ENABLE_WHITELIST,
+				strlen(CMD_ENABLE_WHITELIST))) {
+		skip = strlen(CMD_ENABLE_WHITELIST) + 1;
+		counter = command[skip];
+		if (counter < 0 || counter > 10) {
+			netdev_err(ndev, "%s: enable whitelist counter is invalid: %d\n",
+				   __func__, counter);
+			goto out;
+		}
+		netdev_info(ndev, "%s: enable whitelist counter : %d\n",
+			    __func__, counter);
+		if (!counter) {
+			ret = sprd_set_whitelist(priv, vif,
+						 SUBCMD_ENABLE, 0, NULL);
+			goto out;
+		}
+		if (priv_cmd.total_len < skip + counter * (MAC_ADDR_STR_LEN + 1))
+			goto out;
+
+		mac_addr = kmalloc(ETH_ALEN * counter, GFP_KERNEL);
+		if (!mac_addr) {
+			ret = -ENOMEM;
+			goto out;
+		}
+		mac_list = mac_addr;
+
+		tmp = command + skip + 1;
+		for (index = 0; index < counter; index++) {
+			iface_str2mac(tmp, mac_addr);
+			if (!is_valid_ether_addr(mac_addr)) {
+				kfree(mac_addr);
+				goto out;
+			}
+			netdev_info(ndev, "%s: enable whitelist %pM\n",
+				    __func__, mac_addr);
+			mac_addr += ETH_ALEN;
+			tmp += 18;
+		}
+		ret = sprd_set_whitelist(priv, vif,
+					 SUBCMD_ENABLE, counter, mac_list);
+		kfree(mac_list);
+	} else if (!strncasecmp(command, CMD_DISABLE_WHITELIST,
+				strlen(CMD_DISABLE_WHITELIST))) {
+		skip = strlen(CMD_DISABLE_WHITELIST) + 1;
+		counter = command[skip];
+		if (counter < 0 || counter > 10) {
+			netdev_err(ndev, "%s: disable whitelist counter is invalid: %d\n",
+				   __func__, counter);
+			goto out;
+		}
+		netdev_info(ndev, "%s: disable whitelist counter : %d\n",
+			    __func__, counter);
+		if (!counter) {
+			ret = sprd_set_whitelist(priv, vif,
+						 SUBCMD_DISABLE, 0, NULL);
+			goto out;
+		}
+		if (priv_cmd.total_len < skip + counter * (MAC_ADDR_STR_LEN + 1))
+			goto out;
+
+		mac_addr = kmalloc(ETH_ALEN * counter, GFP_KERNEL);
+		if (!mac_addr) {
+			ret = -ENOMEM;
+			goto out;
+		}
+		mac_list = mac_addr;
+
+		tmp = command + skip + 1;
+		for (index = 0; index < counter; index++) {
+			iface_str2mac(tmp, mac_addr);
+			if (!is_valid_ether_addr(mac_addr)) {
+				kfree(mac_addr);
+				goto out;
+			}
+			netdev_info(ndev, "%s: disable whitelist %pM\n",
+				    __func__, mac_addr);
+			mac_addr += ETH_ALEN;
+			tmp += 18;
+		}
+		ret = sprd_set_whitelist(priv, vif,
+					 SUBCMD_DISABLE, counter, mac_list);
+		kfree(mac_list);
+	} else if (!strncasecmp(command, CMD_11V_GET_CFG,
 				strlen(CMD_11V_GET_CFG))) {
 		/* deflaut CP support all featrue */
-		if (priv_cmd.total_len < (strlen(CMD_11V_GET_CFG) + 4))
-			goto len_err;
-
+		if (priv_cmd.total_len < (strlen(CMD_11V_GET_CFG) + 4)) {
+			ret = -ENOMEM;
+			goto out;
+		}
 		memset(command, 0, priv_cmd.total_len);
 		if (priv->fw_std & SPRD_STD_11V)
 			feat = priv->wnm_ft_support;
@@ -799,67 +958,39 @@ static int iface_priv_cmd_ccn0(struct net_device *ndev,
 		if (copy_to_user(priv_cmd.buf, command, priv_cmd.total_len)) {
 			netdev_err(ndev, "%s: get 11v copy failed\n", __func__);
 			ret = -EFAULT;
+			goto out;
 		}
 	} else if (!strncasecmp(command, CMD_11V_SET_CFG,
 				strlen(CMD_11V_SET_CFG))) {
 		skip = strlen(CMD_11V_SET_CFG) + 1;
-		if (priv_cmd.total_len < skip + 1)
-			goto len_err;
-
 		status = command[skip];
 
 		sprd_set_11v_feature_support(priv, vif, status);
 	} else if (!strncasecmp(command, CMD_11V_WNM_SLEEP,
 				strlen(CMD_11V_WNM_SLEEP))) {
 		skip = strlen(CMD_11V_WNM_SLEEP) + 1;
-		if (priv_cmd.total_len < skip + 1)
-			goto len_err;
 
 		status = command[skip];
-		if (status) {
-			if (priv_cmd.total_len < skip + 4)
-				goto len_err;
+		if (status)
 			interval = command[skip + 1];
-		}
-		netdev_info(ndev, "%s: 11v sleep, status %d, interval %d\n",
-			    __func__, status, interval);
+
 		sprd_set_11v_sleep_mode(priv, vif, status, interval);
-	} else {
-		ret = 1;
-	}
-	return ret;
-
-len_err:
-	netdev_info(ndev, "%s: priv cmd total len is invalid: %d\n",
-		    __func__, priv_cmd.total_len);
-	return -EINVAL;
-}
-
-static int iface_priv_cmd_ccn1(struct net_device *ndev,
-			       struct android_wifi_priv_cmd priv_cmd, char *command)
-{
-	struct sprd_vif *vif = netdev_priv(ndev);
-	struct sprd_priv *priv = vif->priv;
-	int ret = 0, skip, n_clients;
-	char country[SPRD_COUNTRY_CODE_LEN + 1];
-
-	if (!strncasecmp(command, CMD_SET_COUNTRY,
-			 strlen(CMD_SET_COUNTRY))) {
+	} else if (!strncasecmp(command, CMD_SET_COUNTRY,
+				strlen(CMD_SET_COUNTRY))) {
 		skip = strlen(CMD_SET_COUNTRY) + 1;
-		if (priv_cmd.total_len < skip + 2)
-			goto len_err;
+		country = command + skip;
 
-		memcpy(country, command + skip, SPRD_COUNTRY_CODE_LEN);
-		country[SPRD_COUNTRY_CODE_LEN] = '\0';
-		netdev_info(ndev, "%s country code:%c%c\n", __func__,
-			    toupper(country[0]), toupper(country[1]));
+		if (!country || strlen(country) != SPRD_COUNTRY_CODE_LEN) {
+			netdev_err(ndev, "%s: invalid country code\n",
+				   __func__);
+			ret = -EINVAL;
+			goto out;
+		}
+
 		ret = regulatory_hint(priv->wiphy, country);
 	} else if (!strncasecmp(command, CMD_SET_MAX_CLIENTS,
 				strlen(CMD_SET_MAX_CLIENTS))) {
 		skip = strlen(CMD_SET_MAX_CLIENTS) + 1;
-		if (priv_cmd.total_len <= skip)
-			goto len_err;
-
 		ret = kstrtou32(command + skip, 10, &n_clients);
 		if (ret < 0) {
 			ret = -EINVAL;
@@ -880,30 +1011,7 @@ static int iface_priv_cmd_ccn1(struct net_device *ndev,
 		netdev_err(ndev, "%s command not support\n", __func__);
 		ret = -ENOTSUPP;
 	}
-
 out:
-	return ret;
-
-len_err:
-	netdev_info(ndev, "%s: priv cmd total len is invalid: %d\n",
-		    __func__, priv_cmd.total_len);
-	return -EINVAL;
-}
-
-static int iface_priv_cmd(struct net_device *ndev, void __user *data)
-{
-	struct android_wifi_priv_cmd priv_cmd;
-	char *command = NULL;
-	int ret = 0;
-
-	ret = iface_get_user_data(data, &priv_cmd, &command);
-	if (ret)
-		return ret;
-
-	ret = iface_priv_cmd_ccn0(ndev, priv_cmd, command);
-	if (ret == 1)
-		ret =  iface_priv_cmd_ccn1(ndev, priv_cmd, command);
-
 	kfree(command);
 	return ret;
 }
@@ -916,16 +1024,31 @@ static int iface_set_power_save(struct net_device *ndev, void __user *data)
 	char *command = NULL;
 	int ret = 0, skip, value;
 
-	ret = iface_get_user_data(data, &priv_cmd, &command);
-	if (ret)
-		return ret;
+	if (!data)
+		return -EINVAL;
+	if (copy_from_user(&priv_cmd, data, sizeof(priv_cmd)))
+		return -EFAULT;
+
+	/* add length check to avoid invalid NULL ptr */
+	if (priv_cmd.total_len <= 0 || priv_cmd.total_len > 4096) {
+		netdev_err(ndev, "%s: priv cmd total len is invalid\n",
+			   __func__);
+		return -EINVAL;
+	}
+
+	command = kzalloc(priv_cmd.total_len + 4, GFP_KERNEL);
+	if (!command)
+		return -ENOMEM;
+	if (copy_from_user(command, priv_cmd.buf, priv_cmd.total_len)) {
+		ret = -EFAULT;
+		goto out;
+	}
 
 	if (!strncasecmp(command, CMD_SETSUSPENDMODE,
 			 strlen(CMD_SETSUSPENDMODE))) {
 		skip = strlen(CMD_SETSUSPENDMODE) + 1;
 		if (priv_cmd.total_len <= skip)
-			goto len_err;
-
+			goto out;
 		ret = kstrtoint(command + skip, 0, &value);
 		if (ret)
 			goto out;
@@ -935,9 +1058,6 @@ static int iface_set_power_save(struct net_device *ndev, void __user *data)
 	} else if (!strncasecmp(command, CMD_SET_FCC_CHANNEL,
 				strlen(CMD_SET_FCC_CHANNEL))) {
 		skip = strlen(CMD_SET_FCC_CHANNEL) + 1;
-		if (priv_cmd.total_len <= skip)
-			goto len_err;
-
 		ret = kstrtoint(command + skip, 0, &value);
 		if (ret)
 			goto out;
@@ -946,9 +1066,6 @@ static int iface_set_power_save(struct net_device *ndev, void __user *data)
 	} else if (!strncasecmp(command, CMD_SET_SAR,
 				strlen(CMD_SET_SAR))) {
 		skip = strlen(CMD_SET_SAR) + 1;
-		if (priv_cmd.total_len <= skip)
-			goto len_err;
-
 		ret = kstrtoint(command + skip, 0, &value);
 		if (ret)
 			goto out;
@@ -958,9 +1075,6 @@ static int iface_set_power_save(struct net_device *ndev, void __user *data)
 	} else if (!strncasecmp(command, CMD_REDUCE_TX_POWER,
 				strlen(CMD_REDUCE_TX_POWER))) {
 		skip = strlen(CMD_REDUCE_TX_POWER) + 1;
-		if (priv_cmd.total_len <= skip)
-			goto len_err;
-
 		ret = kstrtoint(command + skip, 0, &value);
 		if (ret)
 			goto out;
@@ -971,16 +1085,9 @@ static int iface_set_power_save(struct net_device *ndev, void __user *data)
 		netdev_err(ndev, "%s command not support\n", __func__);
 		ret = -ENOTSUPP;
 	}
-
 out:
 	kfree(command);
 	return ret;
-
-len_err:
-	netdev_info(ndev, "%s: priv cmd total len is invalid: %d\n",
-		    __func__, priv_cmd.total_len);
-	kfree(command);
-	return -EINVAL;
 }
 
 static int iface_set_p2p_mac(struct net_device *ndev, void __user *data)
@@ -992,7 +1099,6 @@ static int iface_set_p2p_mac(struct net_device *ndev, void __user *data)
 	int ret = 0;
 	struct sprd_vif *tmp1, *tmp2;
 	u8 addr[ETH_ALEN] = { 0 };
-	bool is_found = false;
 	#define P2P_MAC_SKIP_LEN 11
 
 	if (!data)
@@ -1033,13 +1139,12 @@ static int iface_set_p2p_mac(struct net_device *ndev, void __user *data)
 			netdev_info(ndev,
 				    "get p2p device, set addr for wdev\n");
 			memcpy(tmp1->wdev.address, addr, ETH_ALEN);
-			is_found = true;
 			break;
 		}
 	}
 	spin_unlock_bh(&priv->list_lock);
 
-	if (!is_found) {
+	if (!tmp1) {
 		netdev_err(ndev, "%s Can not find p2p device\n", __func__);
 		ret = -EFAULT;
 		goto out;
@@ -1687,7 +1792,8 @@ static int iface_core_init(struct device *dev, struct sprd_priv *priv)
 	sprd_init_npi();
 
 	hif = &priv->hif;
-	sprd_5g_sar_info_init(priv);
+	if (hif->hw_type == SPRD_HW_SC2355_SIPC)
+		sprd_5g_sar_info_init();
 
 	sprd_qos_enable(priv, 1);
 
@@ -1718,8 +1824,9 @@ int sprd_iface_probe(struct platform_device *pdev,
 {
 	struct sprd_priv *priv;
 	struct sprd_hif *hif;
+#ifdef ENABLE_CHR
 	struct sprd_chr *chr;
-	struct sprd_wlan_dt_config *dt_configs = NULL;
+#endif
 	int ret = 0;
 
 	wl_info("Spreadtrum WLAN Driver (Ver. %s, %s)\n",
@@ -1739,7 +1846,6 @@ int sprd_iface_probe(struct platform_device *pdev,
 	hif->pdev = pdev;
 	hif->ops = hif_ops;
 	sprd_wlan_parse_dt(priv);
-	dt_configs = &priv->dt_configs;
 
 	ret = sprd_hif_init(hif);
 	if (ret) {
@@ -1747,15 +1853,14 @@ int sprd_iface_probe(struct platform_device *pdev,
 		goto err_hif_init;
 	}
 
-	if (dt_configs->enable_chr) {
-		chr = sprd_chr_handle_probe(hif);
-		if (!chr) {
-			wl_err("%s, CHR: chr struct malloc failed", __func__);
-			ret = -ENOMEM;
-			goto err_chr_probe;
-		}
+#ifdef ENABLE_CHR
+	chr = sprd_chr_handle_probe(hif);
+	if (!chr) {
+		wl_err("%s, CHR: chr struct malloc failed", __func__);
+		ret = -ENOMEM;
+		goto err_chr_probe;
 	}
-
+#endif
 	ret = sprd_iface_set_power(hif, true);
 	if (ret) {
 		wl_err("%s iface_set_power failed : %d", __func__, ret);
@@ -1785,9 +1890,10 @@ err_notify_init:
 err_core_init:
 	sprd_iface_set_power(hif, false);
 err_power_on:
-	if (dt_configs->enable_chr)
-		sprd_chr_deinit(chr, PROBE_DEINIT);
+#ifdef ENABLE_CHR
+	sprd_chr_deinit(chr, PROBE_DEINIT);
 err_chr_probe:
+#endif
 	sprd_hif_deinit(hif);
 err_hif_init:
 	sprd_core_free(priv);
@@ -1798,7 +1904,7 @@ int sprd_iface_remove(struct platform_device *pdev)
 {
 	struct sprd_priv *priv = platform_get_drvdata(pdev);
 	struct sprd_hif *hif = &priv->hif;
-	struct sprd_wlan_dt_config *dt_configs = &priv->dt_configs;
+
 	int ret;
 
 	ret = sprd_iface_set_power(hif, true);
@@ -1808,8 +1914,9 @@ int sprd_iface_remove(struct platform_device *pdev)
 	iface_notify_deinit(priv);
 	iface_core_deinit(priv);
 	sprd_iface_set_power(hif, false);
-	if (dt_configs->enable_chr)
-		sprd_chr_deinit(hif->chr, REMOVE_DEINIT);
+#ifdef ENABLE_CHR
+	sprd_chr_deinit(hif->chr, REMOVE_DEINIT);
+#endif
 	sprd_hif_deinit(hif);
 	sprd_core_free(priv);
 	iface_set_priv(NULL);

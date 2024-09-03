@@ -18,341 +18,122 @@
 #include "txrx.h"
 
 static int bss_count;
-static struct sprd_api_version_t api_array[] = {
-	[0]{	/*ID:0*/
-		.cmd_id = CMD_ERR,
-		.drv_version = 1,
-		.name = "CMD_ERR",
-	},
-	{	/*ID:1*/
-		.cmd_id = CMD_GET_INFO,
-		.drv_version = 2,
-		.name = "CMD_GET_INFO",
-	},
-	{	/*ID:2*/
-		.cmd_id = CMD_SET_REGDOM,
-		.drv_version = 1,
-		.name = "CMD_SET_REGDOM",
-	},
-	{	/*ID:3*/
-		.cmd_id = CMD_OPEN,
-		.drv_version = 1,
-		.name = "CMD_OPEN",
-	},
-	{	/*ID:4*/
-		.cmd_id = CMD_CLOSE,
-		.drv_version = 1,
-		.name = "CMD_CLOSE",
-	},
-	{	/*ID:5*/
-		.cmd_id = CMD_POWER_SAVE,
-		.drv_version = 1,
-		.name = "CMD_POWER_SAVE",
-	},
-	{	/*ID:6*/
-		.cmd_id = CMD_SET_PARAM,
-		.drv_version = 1,
-		.name = "CMD_SET_PARAM",
-	},
-	{	/*ID:7*/
-		.cmd_id = CMD_SET_CHANNEL,
-		.drv_version = 1,
-		.name = "CMD_SET_CHANNEL",
-	},
-	{	/*ID:8*/
-		.cmd_id = CMD_REQ_LTE_CONCUR,
-		.drv_version = 1,
-		.name = "CMD_REQ_LTE_CONCUR",
-	},
-	[10]{	/*ID:10*/
-		.cmd_id = CMD_CONNECT,
-		.drv_version = 1,
-		.name = "CMD_CONNECT",
-	},
-	{	/*ID:11*/
-		.cmd_id = CMD_SCAN,
-		.drv_version = 3,
-		.name = "CMD_SCAN",
-	},
-	{	/*ID:12*/
-		.cmd_id = CMD_SCHED_SCAN,
-		.drv_version = 1,
-		.name = "CMD_SCHED_SCAN",
-	},
-	{	/*ID:13*/
-		.cmd_id = CMD_DISCONNECT,
-		.drv_version = 1,
-		.name = "CMD_DISCONNECT",
-	},
-	{	/*ID:14*/
-		.cmd_id = CMD_KEY,
-		.drv_version = 1,
-		.name = "CMD_KEY",
-	},
-	{	/*ID:15*/
-		.cmd_id = CMD_SET_PMKSA,
-		.drv_version = 1,
-		.name = "CMD_SET_PMKSA",
-	},
-	{	/*ID:16*/
-		.cmd_id = CMD_GET_STATION,
-		.drv_version = 1,
-		.name = "CMD_GET_STATION",
-	},
-	{	/*ID:17*/
-		.cmd_id = CMD_START_AP,
-		.drv_version = 1,
-		.name = "CMD_START_AP",
-	},
-	{	/*ID:18*/
-		.cmd_id = CMD_DEL_STATION,
-		.drv_version = 1,
-		.name = "CMD_DEL_STATION",
-	},
-	{	/*ID:19*/
-		.cmd_id = CMD_SET_BLACKLIST,
-		.drv_version = 1,
-		.name = "CMD_SET_BLACKLIST",
-	},
-	{	/*ID:20*/
-		.cmd_id = CMD_SET_WHITELIST,
-		.drv_version = 1,
-		.name = "CMD_SET_WHITELIST",
-	},
-	{	/*ID:21*/
-		.cmd_id = CMD_TX_MGMT,
-		.drv_version = 1,
-		.name = "CMD_TX_MGMT",
-	},
-	{	/*ID:22*/
-		.cmd_id = CMD_REGISTER_FRAME,
-		.drv_version = 1,
-		.name = "CMD_REGISTER_FRAME",
-	},
-	{	/*ID:23*/
-		.cmd_id = CMD_REMAIN_CHAN,
-		.drv_version = 1,
-		.name = "CMD_REMAIN_CHAN",
-	},
-	{	/*ID:24*/
-		.cmd_id = CMD_CANCEL_REMAIN_CHAN,
-		.drv_version = 1,
-		.name = "CMD_CANCEL_REMAIN_CHAN",
-	},
-	{	/*ID:25*/
-		.cmd_id = CMD_SET_IE,
-		.drv_version = 1,
-		.name = "CMD_SET_IE",
-	},
-	{	/*ID:26*/
-		.cmd_id = CMD_NOTIFY_IP_ACQUIRED,
-		.drv_version = 1,
-		.name = "CMD_NOTIFY_IP_ACQUIRED",
-	},
-	{	/*ID:27*/
-		.cmd_id = CMD_SET_CQM,
-		.drv_version = 1,
-		.name = "CMD_SET_CQM",
-	},
-	{	/*ID:28*/
-		.cmd_id = CMD_SET_ROAM_OFFLOAD,
-		.drv_version = 1,
-		.name = "CMD_SET_ROAM_OFFLOAD",
-	},
-	{	/*ID:29*/
-		.cmd_id = CMD_SET_MEASUREMENT,
-		.drv_version = 1,
-		.name = "CMD_SET_MEASUREMENT",
-	},
-	{	/*ID:30*/
-		.cmd_id = CMD_SET_QOS_MAP,
-		.drv_version = 1,
-		.name = "CMD_SET_QOS_MAP",
-	},
-	{	/*ID:31*/
-		.cmd_id = CMD_TDLS,
-		.drv_version = 1,
-		.name = "CMD_TDLS",
-	},
-	{	/*ID:32*/
-		.cmd_id = CMD_11V,
-		.drv_version = 1,
-		.name = "CMD_11V",
-	},
-	{	/*ID:33*/
-		.cmd_id = CMD_NPI_MSG,
-		.drv_version = 1,
-		.name = "CMD_NPI_MSG",
-	},
-	{	/*ID:34*/
-		.cmd_id = CMD_NPI_GET,
-		.drv_version = 1,
-		.name = "CMD_NPI_GET",
-	},
-	{	/*ID:35*/
-		.cmd_id = CMD_ASSERT,
-		.drv_version = 1,
-		.name = "CMD_ASSERT",
-	},
-	{	/*ID:36*/
-		.cmd_id = CMD_FLUSH_SDIO,
-		.drv_version = 1,
-		.name = "CMD_FLUSH_SDIO",
-	},
-	{	/*ID:37*/
-		.cmd_id = CMD_ADD_TX_TS,
-		.drv_version = 1,
-		.name = "CMD_ADD_TX_TS",
-	},
-	{	/*ID:38*/
-		.cmd_id = CMD_DEL_TX_TS,
-		.drv_version = 1,
-		.name = "CMD_DEL_TX_TS",
-	},
-	{	/*ID:39*/
-		.cmd_id = CMD_MULTICAST_FILTER,
-		.drv_version = 1,
-		.name = "CMD_MULTICAST_FILTER",
-	},
-	[56]{	/*ID:56*/
-		.cmd_id = CMD_LLSTAT,
-		.drv_version = 1,
-		.name = "CMD_LLSTAT",
-	},
-	{	/*ID:57*/
-		.cmd_id = CMD_GSCAN,
-		.drv_version = 1,
-		.name = "CMD_GSCAN",
-	},
-	{	/*ID:58*/
-		.cmd_id = CMD_PRE_CLOSE,
-		.drv_version = 1,
-		.name = "CMD_PRE_CLOSE",
-	},
-	{	/*ID:59*/
-		.cmd_id = CMD_SET_VOWIFI,
-		.drv_version = 1,
-		.name = "CMD_SET_VOWIFI",
-	},
-	{	/*ID:60*/
-		.cmd_id = CMD_MIRACAST,
-		.drv_version = 1,
-		.name = "CMD_MIRACAST",
-	},
-	{	/*ID:61*/
-		.cmd_id = CMD_MAX_STA,
-		.drv_version = 1,
-		.name = "CMD_MAX_STA",
-	},
-	{	/*ID:62*/
-		.cmd_id = CMD_SET_SNIFFER,
-		.drv_version = 1,
-		.name = "CMD_SET_SNIFFER",
-	},
-	{	/*ID:63*/
-		.cmd_id = CMD_RANDOM_MAC,
-		.drv_version = 1,
-		.name = "CMD_RANDOM_MAC",
-	},
-	{	/*ID:64*/
-		.cmd_id = CMD_PACKET_OFFLOAD,
-		.drv_version = 1,
-		.name = "CMD_PACKET_OFFLOAD",
-	},
-	{	/*ID:65*/
-		.cmd_id = CMD_SET_SAE_PARAM,
-		.drv_version = 1,
-		.name = "CMD_SET_SAE_PARAM",
-	},
-	{	/*ID:66*/
-		.cmd_id = CMD_EXTENDED_LLSTAT,
-		.drv_version = 1,
-		.name = "CMD_EXTENDED_LLSTAT",
-	},
-	[68]{	/*ID:68*/
-		.cmd_id = CMD_PACKET_FILTER,
-		.drv_version = 1,
-		.name = "CMD_PACKET_FILTER",
-	},
-	[128]{	/*ID:0x80*/
-		.cmd_id = EVT_CONNECT,
-		.name = "EVT_CONNECT",
-	},
-	[129]{	/*ID:0x81*/
-		.cmd_id = EVT_DISCONNECT,
-		.name = "EVT_DISCONNECT",
-	},
-	[130]{	/*ID:0x82*/
-		.cmd_id = EVT_SCAN_DONE,
-		.name = "EVT_SCAN_DONE",
-	},
-	[131]{	/*ID:0x83*/
-		.cmd_id = EVT_MGMT_FRAME,
-		.name = "EVT_MGMT_FRAME",
-	},
-	[132]{	/*ID:0x84*/
-		.cmd_id = EVT_MGMT_TX_STATUS,
-		.name = "EVT_MGMT_TX_STATUS",
-	},
-	[133]{	/*ID:0x85*/
-		.cmd_id = EVT_REMAIN_CHAN_EXPIRED,
-		.name = "EVT_REMAIN_CHAN_EXPIRED",
-	},
-	[134]{	/*ID:0x86*/
-		.cmd_id = EVT_MIC_FAIL,
-		.name = "EVT_MIC_FAIL",
-	},
-	[136]{	/*ID:0x88*/
-		.cmd_id = EVT_GSCAN_FRAME,
-		.name = "EVT_GSCAN_FRAME",
-	},
-	[160]{	/*ID:0xa0*/
-		.cmd_id = EVT_NEW_STATION,
-		.name = "EVT_NEW_STATION",
-	},
-	[176]{	/*ID:0xb0*/
-		.cmd_id = EVT_CQM,
-		.name = "EVT_CQM",
-	},
-	[177]{	/*ID:0xb1*/
-		.cmd_id = EVT_MEASUREMENT,
-		.name = "EVT_MEASUREMENT",
-	},
-	[178]{	/*ID:0xb2*/
-		.cmd_id = EVT_TDLS,
-		.name = "EVT_TDLS",
-	},
-	[179]{	/*ID:0xb3*/
-		.cmd_id = EVT_SDIO_FLOWCON,
-		.name = "EVT_SDIO_FLOWCON",
-	},
-	[180]{	/*ID:0xb4*/
-		.cmd_id = EVT_WMM_REPORT,
-		.name = "EVT_WMM_REPORT",
-	},
-	[181]{	/*ID:0xb5*/
-		.cmd_id = EVT_ACS_REPORT,
-		.name = "EVT_ACS_REPORT",
-	},
-	[182]{	/*ID:0xb6*/
-		.cmd_id = EVT_ACS_LTE_CONFLICT_EVENT,
-		.name = "EVT_ACS_LTE_CONFLICT_EVENT",
-	},
-	[224]{	/*ID:0xe0*/
-		.cmd_id = EVT_SDIO_SEQ_NUM,
-		.name = "EVT_SDIO_SEQ_NUM",
-	},
-	[255]{
-		.drv_version = 0,
-	}
-};
 
 static const char *cmdevt_cmd2str(u8 cmd)
 {
-	if (cmd < CMD_MAX && api_array[cmd].name)
-		return api_array[cmd].name;
+	switch (cmd) {
+	case CMD_GET_INFO:
+		return "CMD_GET_INFO";
+	case CMD_SET_REGDOM:
+		return "CMD_SET_REGDOM";
+	case CMD_OPEN:
+		return "CMD_OPEN";
+	case CMD_CLOSE:
+		return "CMD_CLOSE";
+	case CMD_POWER_SAVE:
+		return "CMD_POWER_SAVE";
+	case CMD_SET_PARAM:
+		return "CMD_SET_PARAM";
+	case CMD_REQ_LTE_CONCUR:
+		return "CMD_REQ_LTE_CONCUR";
 
-	return "CMD_UNKNOWN";
+	case CMD_CONNECT:
+		return "CMD_CONNECT";
+
+	case CMD_SCAN:
+		return "CMD_SCAN";
+	case CMD_SCHED_SCAN:
+		return "CMD_SCHED_SCAN";
+	case CMD_DISCONNECT:
+		return "CMD_DISCONNECT";
+	case CMD_KEY:
+		return "CMD_KEY";
+	case CMD_SET_PMKSA:
+		return "CMD_SET_PMKSA";
+	case CMD_GET_STATION:
+		return "CMD_GET_STATION";
+	case CMD_SET_CHANNEL:
+		return "CMD_SET_CHANNEL";
+
+	case CMD_START_AP:
+		return "CMD_START_AP";
+	case CMD_DEL_STATION:
+		return "CMD_DEL_STATION";
+	case CMD_SET_BLACKLIST:
+		return "CMD_SET_BLACKLIST";
+	case CMD_SET_WHITELIST:
+		return "CMD_SET_WHITELIST";
+	case CMD_MULTICAST_FILTER:
+		return "CMD_MULTICAST_FILTER";
+
+	case CMD_TX_MGMT:
+		return "CMD_TX_MGMT";
+	case CMD_REGISTER_FRAME:
+		return "CMD_REGISTER_FRAME";
+	case CMD_REMAIN_CHAN:
+		return "CMD_REMAIN_CHAN";
+	case CMD_CANCEL_REMAIN_CHAN:
+		return "CMD_CANCEL_REMAIN_CHAN";
+
+	case CMD_SET_IE:
+		return "CMD_SET_IE";
+	case CMD_NOTIFY_IP_ACQUIRED:
+		return "CMD_NOTIFY_IP_ACQUIRED";
+
+	case CMD_SET_CQM:
+		return "CMD_SET_CQM";
+	case CMD_SET_ROAM_OFFLOAD:
+		return "CMD_SET_ROAM_OFFLOAD";
+	case CMD_SET_MEASUREMENT:
+		return "CMD_SET_MEASUREMENT";
+	case CMD_SET_QOS_MAP:
+		return "CMD_SET_QOS_MAP";
+	case CMD_TDLS:
+		return "CMD_TDLS";
+	case CMD_11V:
+		return "CMD_11V";
+	case CMD_NPI_MSG:
+		return "CMD_NPI_MSG";
+	case CMD_NPI_GET:
+		return "CMD_NPI_GET";
+
+	case CMD_ASSERT:
+		return "CMD_ASSERT";
+	case CMD_FLUSH_SDIO:
+		return "CMD_FLUSH_SDIO";
+	case CMD_ADD_TX_TS:
+		return "CMD_ADD_TX_TS";
+	case CMD_DEL_TX_TS:
+		return "CMD_DEL_TX_TS";
+	case CMD_LLSTAT:
+		return "CMD_LLSTAT";
+
+	case CMD_GSCAN:
+		return "CMD_GSCAN";
+	case CMD_PRE_CLOSE:
+		return "CMD_PRE_CLOSE";
+
+	case CMD_SET_VOWIFI:
+		return "CMD_SET_VOWIFI";
+	case CMD_MIRACAST:
+		return "CMD_MIRACAST";
+	case CMD_MAX_STA:
+		return "CMD_MAX_STA";
+	case CMD_SET_SNIFFER:
+		return "CMD_SET_SNIFFER";
+	case CMD_RANDOM_MAC:
+		return "CMD_RANDOM_MAC";
+	case CMD_PACKET_OFFLOAD:
+		return "CMD_PACKET_OFFLOAD";
+	case CMD_SET_SAE_PARAM:
+		return "CMD_SET_SAE_PARAM";
+	case CMD_EXTENDED_LLSTAT:
+		return "CMD_EXTENDED_LLSTAT";
+	case CMD_PACKET_FILTER:
+		return "CMD_PACKET_FILTER";
+	default:
+		return "CMD_UNKNOWN";
+	}
 }
 
 static const char *cmdevt_err2str(s8 error)
@@ -399,10 +180,44 @@ static const char *cmdevt_err2str(s8 error)
 
 static const char *cmdevt_evt2str(u8 evt)
 {
-	if (evt >= EVT_MIN && evt < EVT_MAX && api_array[evt].name)
-		return api_array[evt].name;
-
-	return "WIFI_EVENT_UNKNOWN";
+	switch (evt) {
+	case EVT_CONNECT:
+		return "EVT_CONNECT";
+	case EVT_DISCONNECT:
+		return "EVT_DISCONNECT";
+	case EVT_SCAN_DONE:
+		return "EVT_SCAN_DONE";
+	case EVT_MGMT_FRAME:
+		return "EVT_MGMT_FRAME";
+	case EVT_MGMT_TX_STATUS:
+		return "EVT_MGMT_TX_STATUS";
+	case EVT_REMAIN_CHAN_EXPIRED:
+		return "EVT_REMAIN_CHAN_EXPIRED";
+	case EVT_MIC_FAIL:
+		return "EVT_MIC_FAIL";
+	case EVT_NEW_STATION:
+		return "EVT_NEW_STATION";
+	case EVT_CQM:
+		return "EVT_CQM";
+	case EVT_MEASUREMENT:
+		return "EVT_MEASUREMENT";
+	case EVT_TDLS:
+		return "EVT_TDLS";
+	case EVT_SDIO_SEQ_NUM:
+		return "EVT_SDIO_SEQ_NUM";
+	case EVT_SDIO_FLOWCON:
+		return "EVT_SDIO_FLOWCON";
+	case EVT_WMM_REPORT:
+		return "EVT_WMM_REPORT";
+	case EVT_GSCAN_FRAME:
+		return "EVT_GSCAN_FRAME";
+	case EVT_ACS_REPORT:
+		return "EVT_ACS_REPORT";
+	case EVT_ACS_LTE_CONFLICT_EVENT:
+		return "EVT_ACS_LTE_CONFLICT_EVENT";
+	default:
+		return "WIFI_EVENT_UNKNOWN";
+	}
 }
 
 static void cmdevt_set_cmd(struct sprd_cmd *cmd, struct sprd_cmd_hdr *hdr)
@@ -510,26 +325,6 @@ static int cmdevt_recv_rsp_timeout(struct sprd_priv *priv, unsigned int timeout)
 	return ret;
 }
 
-static int sc2332_get_cmdbuf_check_status(struct sprd_priv *priv,  u8 cmd_id)
-{
-	const char *cmd_str = cmdevt_cmd2str(cmd_id);
-
-	if (!sprd_hif_is_on(&priv->hif)) {
-		wl_err("%s Drop command %s in case of power off\n",
-		       __func__, cmd_str);
-		return -1;
-	}
-#ifdef DRV_RESET_SELF
-	if (priv->hif.drv_resetting == 1 &&
-	    !RESET_CMD_ALLOW(cmd_id)) {
-		wl_err("%s:wifi resetting, cannot send [%s]",
-			__func__, cmd_str);
-		return -1;
-	}
-#endif
-	return 0;
-}
-
 struct sprd_msg *sc2332_get_cmdbuf(struct sprd_priv *priv, struct sprd_vif *vif,
 				   u16 len, u8 cmd_id, enum sprd_head_rsp rsp)
 {
@@ -537,13 +332,26 @@ struct sprd_msg *sc2332_get_cmdbuf(struct sprd_priv *priv, struct sprd_vif *vif,
 	struct sprd_cmd_hdr *hdr;
 	u16 plen = sizeof(*hdr) + len;
 	u8 mode = SPRD_MODE_NONE;
+	const char *cmd_str = cmdevt_cmd2str(cmd_id);
 
-	if (sc2332_get_cmdbuf_check_status(priv, cmd_id))
+	if (!sprd_hif_is_on(&priv->hif)) {
+		wl_err("%s Drop command %s in case of power off\n",
+		       __func__, cmd_str);
+
 		return NULL;
+	}
 
 	if (vif)
 		mode = vif->mode;
-
+#ifdef DRV_RESET_SELF
+	if (priv->hif.drv_resetting == 1 &&
+	   !(cmd_id == CMD_GET_INFO ||
+	    cmd_id == CMD_OPEN)) {
+		wl_err("%s:wifi resetting, cannot send [%s]",
+			__func__, cmd_str);
+		return NULL;
+	}
+#endif
 	msg = sprd_chip_get_msg(&priv->chip, SPRD_TYPE_CMD, mode);
 	if (!msg)
 		return NULL;
@@ -618,8 +426,6 @@ int sc2332_send_cmd_recv_rsp(struct sprd_priv *priv, struct sprd_msg *msg,
 			goto out;
 		}
 	}
-
-	reinit_completion(&cmd->completed);
 
 	ret = cmdevt_send_cmd(priv, msg);
 	if (ret) {
@@ -1913,8 +1719,7 @@ int sc2332_xmit_data2cmd(struct sk_buff *skb, struct net_device *ndev)
 	if (vif->mode == SPRD_MODE_P2P_GO || vif->mode == SPRD_MODE_AP) {
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
 		chandef = wdev_chandef(ndev->ieee80211_ptr, 0);
-		if (chandef)
-			channel = chandef->chan->hw_value;
+		channel = chandef->chan->hw_value;
 #else
 		channel = ndev->ieee80211_ptr->chandef.chan->hw_value;
 #endif
@@ -2008,7 +1813,7 @@ int sc2332_set_vowifi(struct net_device *ndev, void __user *data)
 		return -EFAULT;
 
 	/* bug1745380, add length check to avoid invalid NULL ptr */
-	if ((priv_cmd.total_len < sizeof(*vowifi) + sizeof(value)) ||
+	if ((priv_cmd.total_len < sizeof(*vowifi)) ||
 	    (priv_cmd.total_len > SPRD_MAX_CMD_TXLEN)) {
 		netdev_info(ndev, "%s: priv cmd total len is invalid: %d\n",
 			    __func__, priv_cmd.total_len);
@@ -2089,9 +1894,6 @@ int sc2332_set_sniffer(struct net_device *ndev, void __user *data)
 	if (!strncasecmp(command, CMD_SNIFFER_MODE,
 			 strlen(CMD_SNIFFER_MODE))) {
 		skip = strlen(CMD_SNIFFER_MODE) + 1;
-		if (priv_cmd.total_len <= skip)
-			goto len_err;
-
 		ret = kstrtoint(command + skip, 0, &value);
 		if (ret)
 			goto out;
@@ -2129,9 +1931,6 @@ int sc2332_set_sniffer(struct net_device *ndev, void __user *data)
 	} else if (!strncasecmp(command, CMD_SNIFFER_LISTEN_CHANNEL,
 				strlen(CMD_SNIFFER_LISTEN_CHANNEL))) {
 		skip = strlen(CMD_SNIFFER_LISTEN_CHANNEL) + 1;
-		if (priv_cmd.total_len <= skip)
-			goto len_err;
-
 		ret = kstrtoint(command + skip, 0, &value);
 		if (ret)
 			goto out;
@@ -2142,22 +1941,17 @@ int sc2332_set_sniffer(struct net_device *ndev, void __user *data)
 		/*use scan command to set channel*/
 		channel |= (1 << (value - 1));
 		ret = sc2332_cmd_scan(vif->priv, vif, channel, 0, NULL, NULL, 0);
-		if (ret)
+		if (ret) {
 			netdev_err(ndev, "set channel failed\n");
+			goto out;
+		}
 	} else {
 		netdev_err(ndev, "%s command not support\n", __func__);
 		ret = -EOPNOTSUPP;
 	}
-
 out:
 	kfree(command);
 	return ret;
-
-len_err:
-	netdev_err(ndev, "%s: priv cmd total len(%d) is invalid\n",
-		   __func__, priv_cmd.total_len);
-	kfree(command);
-	return -EINVAL;
 }
 
 bool sc2332_do_delay_work(struct sprd_work *work)
@@ -2613,7 +2407,6 @@ unsigned short sc2332_rx_rsp_process(struct sprd_priv *priv, u8 *msg,
 	struct sprd_cmd_hdr *hdr;
 	const char *cmd_str = NULL, *err_str = NULL;
 	u32 hdr_mstime;
-	struct sprd_vif *vif = NULL;
 
 	if (unlikely(!cmd->init_ok)) {
 		wl_err("%s cmd coming too early, drop it\n", __func__);
@@ -2661,14 +2454,6 @@ unsigned short sc2332_rx_rsp_process(struct sprd_priv *priv, u8 *msg,
 			if (cmd->cmd_id == CMD_TX_MGMT) {
 				wl_err("tx mgmt status : %d\n", hdr->status);
 				priv->tx_mgmt_status = hdr->status;
-			}
-
-			if (cmd->cmd_id == CMD_SET_SAE_PARAM) {
-				vif = sprd_mode_to_vif(priv, mode);
-				if (vif) {
-					vif->sae_param_status = hdr->status;
-					sprd_put_vif(vif);
-				}
 			}
 		}
 		cmd->data = data;

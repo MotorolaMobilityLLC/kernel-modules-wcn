@@ -17,7 +17,7 @@ struct sprd_chip_ops {
 				    enum sprd_head_type type,
 				    enum sprd_mode mode);
 	void (*free_msg)(struct sprd_chip *chip, struct sprd_msg *msg);
-	int (*tx_prepare)(struct sprd_chip *chip, struct sk_buff **skb);
+	int (*tx_prepare)(struct sprd_chip *chip, struct sk_buff *skb);
 	int (*tx)(struct sprd_chip *chip, struct sprd_msg *msg);
 	int (*force_exit)(struct sprd_chip *chip);
 	int (*is_exit)(struct sprd_chip *chip);
@@ -135,9 +135,6 @@ struct sprd_chip_ops {
 			   int idx, struct survey_info *s_info);
 	int (*npi_send_recv)(struct sprd_priv *priv, struct sprd_vif *vif,
 			     u8 *s_buf, u16 s_len, u8 *r_buf, u16 *r_len);
-	const struct sprd_npi_ops *npi_ops;
-	u32 n_npi_ops;
-
 	void (*qos_init_default_map)(void);
 	void (*qos_enable)(int flag);
 	void (*qos_wmm_ac_init)(struct sprd_priv *priv);
@@ -162,7 +159,9 @@ struct sprd_chip_ops {
 	int (*needed_headroom)(struct sprd_priv *priv);
 	void (*fc_add_share_credit)(struct sprd_vif *vif);
 	int (*set_sniffer)(struct net_device *ndev, void __user *data);
+#ifdef ENABLE_CHR
 	int (*set_chr)(struct sprd_chr *chr);
+#endif
 #ifdef ENABLE_DFS
 	int (*init_dfs_master)(struct sprd_vif *vif);
 	void (*deinit_dfs_master)(struct sprd_vif *vif);
@@ -175,10 +174,6 @@ struct sprd_chip_ops {
 	int (*reset_beacon)(struct sprd_priv *priv,
 			    struct sprd_vif *vif, const u8 *beacon, u16 len);
 #endif
-	void (*reset_5g_sar_info)(void);
-	void (*init_5g_sar_info)(void);
-	void (*set_5g_sar_info)(unsigned char *data);
-	u8 (*pw_backoff_band2value)(u8 channel);
 };
 
 static
@@ -196,7 +191,7 @@ static inline void sprd_chip_free_msg(struct sprd_chip *chip,
 }
 
 static inline int sprd_chip_tx_prepare(struct sprd_chip *chip,
-				       struct sk_buff **skb)
+				       struct sk_buff *skb)
 {
 	if (chip->ops->tx_prepare)
 		return chip->ops->tx_prepare(chip, skb);
@@ -912,6 +907,7 @@ static inline int sprd_set_sniffer(struct sprd_priv *priv,
 	return 0;
 }
 
+#ifdef ENABLE_CHR
 static inline int sprd_set_chr(struct sprd_chr *chr)
 {
 	struct sprd_priv *priv= chr->priv;
@@ -921,6 +917,7 @@ static inline int sprd_set_chr(struct sprd_chr *chr)
 
 	return 0;
 }
+#endif
 
 #ifdef ENABLE_DFS
 static inline int sprd_start_radar_detection(struct sprd_priv *priv,
@@ -978,31 +975,5 @@ static inline void sprd_deinit_dfs_master(struct sprd_priv *priv,
 		priv->chip.ops->deinit_dfs_master(vif);
 }
 #endif
-
-static inline void sprd_5g_sar_info_reset(struct sprd_priv *priv)
-{
-	if (priv->chip.ops->reset_5g_sar_info)
-		priv->chip.ops->reset_5g_sar_info();
-}
-
-static inline void sprd_5g_sar_info_init(struct sprd_priv *priv)
-{
-	if (priv->chip.ops->init_5g_sar_info)
-		priv->chip.ops->init_5g_sar_info();
-}
-
-static inline void sprd_5g_sar_info_set(struct sprd_priv *priv, unsigned char *data)
-{
-	if (priv->chip.ops->set_5g_sar_info)
-		priv->chip.ops->set_5g_sar_info(data);
-}
-
-static inline u8 sprd_pw_backoff_band2value(struct sprd_priv *priv, u8 channel)
-{
-	if (priv->chip.ops->pw_backoff_band2value)
-		return priv->chip.ops->pw_backoff_band2value(channel);
-
-	return 0;
-}
 
 #endif

@@ -166,19 +166,6 @@ static void scan_acs_result(struct sprd_vif *vif, u16 chan,
 {
 	struct survey_info_node *info = NULL;
 	struct bssid_node *bssid = NULL;
-	struct sprd_priv *priv = vif->priv;
-	struct sprd_api_version_t *api = (&priv->sync_api)->api_array;
-	u8 fw_ver = 0;
-
-	fw_ver = (api + CMD_SCAN)->fw_version;
-	if (priv->hif.hw_type == SPRD_HW_SC2355_PCIE) {
-		u8 drv_ver = 0;
-
-		drv_ver = (api + CMD_SCAN)->drv_version;
-		fw_ver = min(fw_ver, drv_ver);
-	}
-	if (vif->mode != SPRD_MODE_AP || fw_ver != 1)
-		return;
 
 	info = scan_find_survey_info(vif, chan);
 	if (info) {
@@ -282,130 +269,26 @@ void sc2355_scan_timeout(struct timer_list *t)
 	spin_unlock_bh(&priv->scan_lock);
 }
 
-static void scan_set_rand_mac(struct sprd_vif *vif, u32 flags)
-{
-	struct sprd_priv *priv = vif->priv;
-	u8 rand_addr[ETH_ALEN];
-	int random_mac_flag;
-
-	if (vif->mode != SPRD_MODE_STATION &&
-	    vif->mode != SPRD_MODE_STATION_SECOND)
-		return;
-
-	sc2355_random_mac_addr(rand_addr);
-	if ((flags & NL80211_SCAN_FLAG_RANDOM_ADDR) && (priv->rand_mac_flag == 0)) {
-		random_mac_flag = SPRD_ENABLE_SCAN_RANDOM_ADDR;
-		wl_info("random mac addr: %pM\n", rand_addr);
-	} else {
-		wl_debug("random mac feature disabled\n");
-		random_mac_flag = SPRD_DISABLE_SCAN_RANDOM_ADDR;
-	}
-	if (sprd_set_random_mac(vif->priv, vif, random_mac_flag, rand_addr))
-		wl_err("Failed to set random mac to STA!\n");
-}
-
-static int scan_set_wps_ie(struct sprd_vif *vif, struct cfg80211_scan_request *request)
-{
-	struct sprd_priv *priv = vif->priv;
-
-	/* set WPS ie */
-	if (request->ie_len > 0) {
-		if (request->ie_len > SPRD_MAX_SCAN_REQ_IE_LEN) {
-			netdev_err(vif->ndev, "%s invalid len: %zu\n", __func__,
-				   request->ie_len);
-			return -EOPNOTSUPP;
-		}
-
-		return sprd_set_probereq_ie(priv, vif, request->ie,
-					    request->ie_len);
-	}
-
-	return 0;
-}
-
-static int scan_set_survey_info(struct sprd_vif *vif, int index, unsigned short chan)
-{
-	struct sprd_priv *priv = vif->priv;
-	struct sprd_api_version_t *api = (&priv->sync_api)->api_array;
-	u8 fw_ver = 0;
-
-	fw_ver = (api + CMD_SCAN)->fw_version;
-	if (priv->hif.hw_type == SPRD_HW_SC2355_PCIE) {
-		u8 drv_ver = 0;
-
-		drv_ver = (api + CMD_SCAN)->drv_version;
-		fw_ver = min(fw_ver, drv_ver);
-	}
-	if (vif->mode == SPRD_MODE_AP && fw_ver == 1) {
-		struct survey_info_node *info = NULL;
-
-		if (!index && !list_empty(&vif->survey_info_list)) {
-			netdev_err(vif->ndev,
-				   "%s survey info list is not empty!\n",
-				   __func__);
-			clean_survey_info_list(vif);
-		}
-
-		info = kmalloc(sizeof(*info), GFP_KERNEL);
-		if (!info)
-			return -ENOMEM;
-
-		INIT_LIST_HEAD(&info->bssid_list);
-		info->chan = chan;
-		info->beacon_num = 0;
-		info->channel = NULL;
-		list_add_tail(&info->survey_list,
-			      &vif->survey_info_list);
-	}
-	return 0;
-}
-
-static int scan_prase_ssids_param(struct cfg80211_scan_request *request,
-				  u8 **ssids_ptr_r, int *ssids_len_r)
-{
-	struct cfg80211_ssid *ssids = request->ssids;
-	const int ssids_bufsize = 512;
-	struct sprd_scan_ssid *scan_ssids;
-	unsigned int i, n;
-	u8 *ssids_ptr = NULL;
-	int ssids_len = 0;
-
-	n = min(request->n_ssids, SPRD_TOTAL_SSID_NR);
-	if (n) {
-		ssids_ptr = kzalloc(ssids_bufsize, GFP_KERNEL);
-		if (!ssids_ptr)
-			return -ENOMEM;
-
-		scan_ssids = (struct sprd_scan_ssid *)ssids_ptr;
-		for (i = 0; i < n; i++) {
-			if (!ssids[i].ssid_len || ssids[i].ssid_len > IEEE80211_MAX_SSID_LEN)
-				continue;
-			scan_ssids->len = ssids[i].ssid_len;
-			memcpy(scan_ssids->ssid, ssids[i].ssid,
-			       ssids[i].ssid_len);
-			ssids_len += (ssids[i].ssid_len
-				      + sizeof(scan_ssids->len));
-			scan_ssids = (struct sprd_scan_ssid *)
-			    (ssids_ptr + ssids_len);
-		}
-		*ssids_ptr_r = ssids_ptr;
-		*ssids_len_r = ssids_len;
-	}
-	return 0;
-}
-
 int sc2355_scan(struct wiphy *wiphy, struct cfg80211_scan_request *request)
 {
 	struct sprd_priv *priv = wiphy_priv(wiphy);
 	struct sprd_vif *vif =
 	    container_of(request->wdev, struct sprd_vif, wdev);
+	struct cfg80211_ssid *ssids = request->ssids;
+	struct sprd_scan_ssid *scan_ssids;
 	u8 *ssids_ptr = NULL;
 	int ssids_len = 0;
 	u32 channels = 0;
-	unsigned int i;
+	const int ssids_bufsize = 512;
+	unsigned int i, n;
 	int ret;
 	u16 n_5g_chn = 0, chns_5g[64];
 
+	u32 flags = request->flags;
+	int random_mac_flag;
+	u8 rand_addr[ETH_ALEN];
+	struct sprd_api_version_t *api = (&priv->sync_api)->api_array;
+	u8 fw_ver = 0;
 	bool n79_flag = sprd_hif_modemn79_is_enable(&priv->hif);
 	struct sprd_wlan_dt_config *dt_configs = &priv->dt_configs;
 
@@ -415,13 +298,34 @@ int sc2355_scan(struct wiphy *wiphy, struct cfg80211_scan_request *request)
 	if (priv->scan_request)
 		netdev_err(vif->ndev, "%s error scan %p running [%p, %p]\n",
 			   __func__, priv->scan_request, priv->scan_vif, vif);
-
-	scan_set_rand_mac(vif, request->flags);
+	if (vif->mode == SPRD_MODE_STATION ||
+		vif->mode == SPRD_MODE_STATION_SECOND) {
+		sc2355_random_mac_addr(rand_addr);
+		if ((flags & NL80211_SCAN_FLAG_RANDOM_ADDR) && (priv->rand_mac_flag == 0)) {
+			random_mac_flag = SPRD_ENABLE_SCAN_RANDOM_ADDR;
+			wl_info("random mac addr: %pM\n", rand_addr);
+		} else {
+			wl_debug("random mac feature disabled\n");
+			random_mac_flag = SPRD_DISABLE_SCAN_RANDOM_ADDR;
+		}
+		if (sprd_set_random_mac(vif->priv, vif, random_mac_flag, rand_addr))
+			wl_err("Failed to set random mac to STA!\n");
+	}
 
 	/* set WPS ie */
-	ret = scan_set_wps_ie(vif, request);
-	if (ret)
-		goto err;
+	if (request->ie_len > 0) {
+		if (request->ie_len > SPRD_MAX_SCAN_REQ_IE_LEN) {
+			netdev_err(vif->ndev, "%s invalid len: %zu\n", __func__,
+				   request->ie_len);
+			ret = -EOPNOTSUPP;
+			goto err;
+		}
+
+		ret = sprd_set_probereq_ie(priv, vif, request->ie,
+					   request->ie_len);
+		if (ret)
+			goto err;
+	}
 
 	for (i = 0; i < request->n_channels; i++) {
 		switch (request->channels[i]->hw_value) {
@@ -439,15 +343,59 @@ int sc2355_scan(struct wiphy *wiphy, struct cfg80211_scan_request *request)
 			n_5g_chn++;
 			break;
 		}
+		fw_ver = (api + CMD_SCAN)->fw_version;
+		if (priv->hif.hw_type == SPRD_HW_SC2355_PCIE) {
+			u8 drv_ver = 0;
 
-		ret = scan_set_survey_info(vif, i, request->channels[i]->hw_value);
-		if (ret)
-			goto err;
+			drv_ver = (api + CMD_SCAN)->drv_version;
+			fw_ver = min(fw_ver, drv_ver);
+		}
+		if (vif->mode == SPRD_MODE_AP && fw_ver == 1) {
+			struct survey_info_node *info = NULL;
+
+			if (!i && !list_empty(&vif->survey_info_list)) {
+				netdev_err(vif->ndev,
+					   "%s survey info list is not empty!\n",
+					   __func__);
+				clean_survey_info_list(vif);
+			}
+
+			info = kmalloc(sizeof(*info), GFP_KERNEL);
+			if (!info) {
+				ret = -ENOMEM;
+				goto err;
+			}
+
+			INIT_LIST_HEAD(&info->bssid_list);
+			info->chan = request->channels[i]->hw_value;
+			info->beacon_num = 0;
+			info->channel = NULL;
+			list_add_tail(&info->survey_list,
+				      &vif->survey_info_list);
+		}
 	}
 
-	ret = scan_prase_ssids_param(request, &ssids_ptr, &ssids_len);
-	if (ret)
-		goto err;
+	n = min(request->n_ssids, SPRD_TOTAL_SSID_NR);
+	if (n) {
+		ssids_ptr = kzalloc(ssids_bufsize, GFP_KERNEL);
+		if (!ssids_ptr) {
+			ret = -ENOMEM;
+			goto err;
+		}
+
+		scan_ssids = (struct sprd_scan_ssid *)ssids_ptr;
+		for (i = 0; i < n; i++) {
+			if (!ssids[i].ssid_len || ssids[i].ssid_len > IEEE80211_MAX_SSID_LEN)
+				continue;
+			scan_ssids->len = ssids[i].ssid_len;
+			strncpy(scan_ssids->ssid, ssids[i].ssid,
+				ssids[i].ssid_len);
+			ssids_len += (ssids[i].ssid_len
+				      + sizeof(scan_ssids->len));
+			scan_ssids = (struct sprd_scan_ssid *)
+			    (ssids_ptr + ssids_len);
+		}
+	}
 
 	/*init scan list*/
 	scan_init_list(vif);
@@ -521,9 +469,25 @@ void sc2355_abort_scan(struct wiphy *wiphy, struct wireless_dev *wdev)
 	sc2355_cmd_abort_scan(priv, vif);
 }
 
-static int sched_scan_check_param(struct sprd_vif *vif, int *rssi_thold,
-				  struct cfg80211_sched_scan_request *request)
+int sc2355_sched_scan_start(struct wiphy *wiphy, struct net_device *ndev,
+			    struct cfg80211_sched_scan_request *request)
 {
+	struct sprd_priv *priv = wiphy_priv(wiphy);
+	struct cfg80211_sched_scan_plan *scan_plans = NULL;
+	struct sprd_sched_scan *sscan_buf = NULL;
+	struct sprd_vif *vif = NULL;
+	struct cfg80211_ssid *ssid_tmp = NULL;
+	struct cfg80211_match_set *match_ssid_tmp = NULL;
+	int ret = 0;
+	int i = 0, j = 0;
+	bool n79_flag = sprd_hif_modemn79_is_enable(&priv->hif);
+	struct sprd_wlan_dt_config *dt_configs = &priv->dt_configs;
+
+	if (!ndev) {
+		netdev_err(ndev, "%s NULL ndev\n", __func__);
+		return ret;
+	}
+	vif = netdev_priv(ndev);
 	/*scan not allowed if closed*/
 	if (!(vif->state & VIF_STATE_OPEN)) {
 		wl_err("%s, %d, error!mode%d scan after closed not allowed\n",
@@ -532,10 +496,9 @@ static int sched_scan_check_param(struct sprd_vif *vif, int *rssi_thold,
 	}
 
 	if (vif->priv->sched_scan_request) {
-		netdev_err(vif->ndev, "%s schedule scan is running\n", __func__);
+		netdev_err(ndev, "%s  schedule scan is running\n", __func__);
 		return 0;
 	}
-
 	/*to protect the size of struct sprd_sched_scan*/
 	if (request->n_channels > SPRD_TOTAL_CHAN_NR) {
 		wl_err("%s, %d, error! request->n_channels=%d\n",
@@ -552,36 +515,31 @@ static int sched_scan_check_param(struct sprd_vif *vif, int *rssi_thold,
 		       __func__, __LINE__, request->n_match_sets);
 		request->n_match_sets = SPRD_TOTAL_SSID_NR;
 	}
+	sscan_buf = kzalloc(sizeof(*sscan_buf), GFP_KERNEL);
+	if (!sscan_buf)
+		return -ENOMEM;
+
+	scan_plans = request->scan_plans;
+	sscan_buf->interval = scan_plans->interval;
+	sscan_buf->flags = request->flags;
 
 	if (request->min_rssi_thold <= NL80211_SCAN_RSSI_THOLD_OFF)
-		*rssi_thold = 0;
+		sscan_buf->rssi_thold = 0;
 	else if (request->min_rssi_thold < SPRD_MIN_RSSI_THOLD)
-		*rssi_thold = SPRD_MIN_RSSI_THOLD;
+		sscan_buf->rssi_thold = SPRD_MIN_RSSI_THOLD;
 	else
-		*rssi_thold = request->min_rssi_thold;
-
-	return 1;
-}
-
-static void sched_scan_prase_param(struct sprd_vif *vif, struct sprd_sched_scan *sscan_buf,
-				   struct cfg80211_sched_scan_request *request)
-{
-	struct sprd_priv *priv = vif->priv;
-	struct cfg80211_ssid *ssid_tmp = NULL;
-	struct cfg80211_match_set *match_ssid_tmp = NULL;
-	bool n79_flag = sprd_hif_modemn79_is_enable(&priv->hif);
-	struct sprd_wlan_dt_config *dt_configs = &priv->dt_configs;
-	int i = 0, j = 0;
+		sscan_buf->rssi_thold = request->min_rssi_thold;
 
 	for (i = 0, j = 0; i < request->n_channels; i++) {
 		u16 ch = cpu_to_le16(request->channels[i]->hw_value);
 		if (ch == 0 || (dt_configs->enable_n79 && n79_flag && ch > SPRD_2G_CHAN_NR)) {
-			netdev_info(vif->ndev, "%s unknown frequency %dMhz\n",
-				    __func__, request->channels[i]->center_freq);
+			netdev_info(ndev, "%s  unknown frequency %dMhz\n",
+				    __func__,
+				    request->channels[i]->center_freq);
 			continue;
 		}
 
-		netdev_info(vif->ndev, "%s: channel is %d\n", __func__, ch);
+		netdev_info(ndev, "%s: channel is %d\n", __func__, ch);
 		if ((j + 1) < SPRD_TOTAL_CHAN_NR)
 			sscan_buf->channel[j + 1] = ch;
 		j++;
@@ -605,46 +563,12 @@ static void sched_scan_prase_param(struct sprd_vif *vif, struct sprd_sched_scan 
 			sscan_buf->mssid[i] = match_ssid_tmp->ssid.ssid;
 		}
 	}
-}
-
-int sc2355_sched_scan_start(struct wiphy *wiphy, struct net_device *ndev,
-			    struct cfg80211_sched_scan_request *request)
-{
-	struct sprd_priv *priv = wiphy_priv(wiphy);
-	struct cfg80211_sched_scan_plan *scan_plans = NULL;
-	struct sprd_sched_scan *sscan_buf = NULL;
-	struct sprd_vif *vif = NULL;
-	int ret = 0;
-	int rssi_thold = 0;
-
-	if (!ndev) {
-		netdev_err(ndev, "%s NULL ndev\n", __func__);
-		return ret;
-	}
-	vif = netdev_priv(ndev);
-	ret = sched_scan_check_param(vif, &rssi_thold, request);
-	if (ret <= 0)
-		return ret;
-
-	sscan_buf = kzalloc(sizeof(*sscan_buf), GFP_KERNEL);
-	if (!sscan_buf)
-		return -ENOMEM;
-
-	scan_plans = request->scan_plans;
-	sscan_buf->interval = scan_plans->interval;
-	sscan_buf->flags = request->flags;
-
-	sscan_buf->rssi_thold = rssi_thold;
-
-	/* prase request channels/ssids/msets */
-	sched_scan_prase_param(vif, sscan_buf, request);
-
 	sscan_buf->ie_len = request->ie_len;
 	sscan_buf->ie = request->ie;
 
 	spin_lock_bh(&priv->sched_scan_lock);
-	priv->sched_scan_request = request;
-	priv->sched_scan_vif = vif;
+	vif->priv->sched_scan_request = request;
+	vif->priv->sched_scan_vif = vif;
 	spin_unlock_bh(&priv->sched_scan_lock);
 
 	ret = sc2355_cmd_sched_scan_start(priv, vif, sscan_buf);
@@ -679,28 +603,6 @@ int sc2355_sched_scan_stop(struct wiphy *wiphy, struct net_device *ndev,
 	return ret;
 }
 
-
-static void scan_handle_beacon_loss(struct wiphy *wiphy, struct sprd_vif *vif)
-{
-	struct cfg80211_bss *bss = NULL;
-
-	if (!vif->beacon_loss)
-		return;
-
-	bss = cfg80211_get_bss(wiphy, NULL, vif->bssid,
-			       vif->ssid, vif->ssid_len,
-			       IEEE80211_BSS_TYPE_ESS,
-			       IEEE80211_PRIVACY_ANY);
-	if (bss) {
-		netdev_info(vif->ndev,
-			    "unlink %pM due to beacon loss\n",
-			    bss->bssid);
-		cfg80211_unlink_bss(wiphy, bss);
-		cfg80211_put_bss(wiphy, bss);
-		vif->beacon_loss = 0;
-	}
-}
-
 void sc2355_report_scan_result(struct sprd_vif *vif, u16 chan, s16 rssi,
 			       u8 *frame, u16 len)
 {
@@ -716,6 +618,8 @@ void sc2355_report_scan_result(struct sprd_vif *vif, u16 chan, s16 rssi,
 	u64 tsf;
 	u8 *ie;
 	size_t ielen;
+	struct sprd_api_version_t *api = (&priv->sync_api)->api_array;
+	u8 fw_ver = 0;
 	const u8 *ssidie = NULL, *tmp;
 	u8 ssid_len = 0, ssid[IEEE80211_MAX_SSID_LEN + 1] = {0};
 	int ie_channel_number = -1;
@@ -740,9 +644,15 @@ void sc2355_report_scan_result(struct sprd_vif *vif, u16 chan, s16 rssi,
 
 	signal = rssi * 100;
 	/*signal level enhance*/
+	fw_ver = (api + CMD_SCAN)->fw_version;
+	if (priv->hif.hw_type == SPRD_HW_SC2355_PCIE) {
+		u8 drv_ver = 0;
 
-	/* only ap mode use it */
-	scan_acs_result(vif, chan, mgmt);
+		drv_ver = (api + CMD_SCAN)->drv_version;
+		fw_ver = min(fw_ver, drv_ver);
+	}
+	if (vif->mode == SPRD_MODE_AP && fw_ver == 1)
+		scan_acs_result(vif, chan, mgmt);
 
 	ie = mgmt->u.probe_resp.variable;
 	if (IS_ERR_OR_NULL(ie)) {
@@ -785,5 +695,18 @@ void sc2355_report_scan_result(struct sprd_vif *vif, u16 chan, s16 rssi,
 	else
 		cfg80211_put_bss(wiphy, bss);
 
-	scan_handle_beacon_loss(wiphy, vif);
+	if (vif->beacon_loss) {
+		bss = cfg80211_get_bss(wiphy, NULL, vif->bssid,
+				       vif->ssid, vif->ssid_len,
+				       IEEE80211_BSS_TYPE_ESS,
+				       IEEE80211_PRIVACY_ANY);
+		if (bss) {
+			netdev_info(vif->ndev,
+				    "unlink %pM due to beacon loss\n",
+				    bss->bssid);
+			cfg80211_unlink_bss(wiphy, bss);
+			cfg80211_put_bss(wiphy, bss);
+			vif->beacon_loss = 0;
+		}
+	}
 }

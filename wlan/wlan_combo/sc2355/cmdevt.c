@@ -35,6 +35,8 @@
 #define SEC2			2
 #define SEC3			3
 #define SEC4			4
+#define SEC5                    5
+#define SEC6                    6
 
 #define FLAG_SIZE		5
 
@@ -65,6 +67,7 @@ const char *sc2355_cmdevt_cmd2str(u8 cmd)
 }
 
 
+#ifdef ENABLE_CHR
 static void cmdevt_report_chr_evt(struct sprd_vif *vif, u8 *data, u16 len)
 {
 	struct evt_chr echr = {0};
@@ -120,6 +123,7 @@ static void cmdevt_report_chr_evt(struct sprd_vif *vif, u8 *data, u16 len)
 
 	return;
 }
+#endif
 
 int cmdevt_report_ip_addr(struct sprd_vif *vif, u8 *data, u16 len)
 {
@@ -451,45 +455,6 @@ int sc2355_assert_cmd(struct sprd_priv *priv, u8 cmd_id,
 #undef ASSERT_INFO_BUF_SIZE
 }
 
-static int sc2355_get_cmdbuf_check_status(struct sprd_priv *priv,
-					  struct sprd_vif *vif, u8 cmd_id)
-{
-	const char *cmd_str = cmdevt_cmd2str(cmd_id);
-
-	if (!sprd_hif_is_on(&priv->hif)) {
-		wl_err("%s Drop command %s in case of power off\n",
-		       __func__, cmd_str);
-		return -1;
-	}
-
-	if (cmd_id == CMD_POWER_SAVE &&
-	    (!atomic_read(&priv->power_back_off)) &&
-	    (!vif || !(vif->state & VIF_STATE_OPEN))) {
-		wl_err("%s:send [%s] fail because mode close",
-		       __func__, cmd_str);
-		return -1;
-	}
-
-	if (priv->hif.hw_type == SPRD_HW_SC2355_PCIE) {
-		if (cmd_id != CMD_POWER_SAVE &&
-		    sprdwcn_bus_get_status() == WCN_BUS_DOWN) {
-			wl_err("%s:send [%s] fail because bus done",
-			       __func__, cmd_str);
-			return -1;
-		}
-	}
-
-#ifdef DRV_RESET_SELF
-	if (priv->hif.drv_resetting == 1 &&
-	    !RESET_CMD_ALLOW(cmd_id)) {
-		wl_err("%s:wifi resetting, cannot send [%s]",
-		       __func__, cmd_str);
-		return -1;
-	}
-#endif
-	return 0;
-}
-
 struct sprd_msg *sc2355_get_cmdbuf(struct sprd_priv *priv, struct sprd_vif *vif,
 				   u16 len, u8 cmd_id, enum sprd_head_rsp rsp,
 				   gfp_t flags)
@@ -499,10 +464,16 @@ struct sprd_msg *sc2355_get_cmdbuf(struct sprd_priv *priv, struct sprd_vif *vif,
 	u16 plen = sizeof(*hdr) + len;
 	enum sprd_mode mode = SPRD_MODE_NONE;	/*default to open new device*/
 	u8 ctx_id;
+	const char *cmd_str = NULL;
 	void *data = NULL;
 
-	if (sc2355_get_cmdbuf_check_status(priv, vif, cmd_id))
+	cmd_str = cmdevt_cmd2str(cmd_id);
+	if (!sprd_hif_is_on(&priv->hif)) {
+		wl_err("%s Drop command %s in case of power off\n",
+		       __func__, cmd_str);
+
 		return NULL;
+	}
 
 	if (!vif) {
 		mode = SPRD_MODE_NONE;
@@ -512,6 +483,35 @@ struct sprd_msg *sc2355_get_cmdbuf(struct sprd_priv *priv, struct sprd_vif *vif,
 		ctx_id = vif->ctx_id;
 	}
 
+	if (cmd_id >= CMD_OPEN) {
+
+		if (cmd_id == CMD_POWER_SAVE &&
+		    (!atomic_read(&priv->power_back_off)) &&
+		    (!vif || !(vif->state & VIF_STATE_OPEN))) {
+			wl_err("%s:send [%s] fail because mode close",
+			       __func__, cmd_str);
+			return NULL;
+		}
+		if (priv->hif.hw_type == SPRD_HW_SC2355_PCIE) {
+			if (cmd_id != CMD_POWER_SAVE &&
+			    sprdwcn_bus_get_status() == WCN_BUS_DOWN) {
+				wl_err("%s:send [%s] fail because bus done",
+				       __func__, cmd_str);
+				return NULL;
+			}
+		}
+	}
+#ifdef DRV_RESET_SELF
+	if (priv->hif.drv_resetting == 1 &&
+	   !(cmd_id == CMD_SYNC_VERSION ||
+	    cmd_id == CMD_DOWNLOAD_INI ||
+	    cmd_id == CMD_GET_INFO ||
+	    cmd_id == CMD_OPEN)) {
+		wl_err("%s:wifi resetting, cannot send [%s]",
+			__func__, cmd_str);
+		return NULL;
+	}
+#endif
 	msg = sprd_chip_get_msg(&priv->chip, SPRD_TYPE_CMD, mode);
 	if (!msg) {
 		wl_err("%s, %d, fail to get msg, mode=%d\n",
@@ -656,9 +656,9 @@ int sc2355_send_cmd_recv_rsp(struct sprd_priv *priv, struct sprd_msg *msg, u8 *r
 	cmdevt_unlock_cmd(cmd, hif);
 	return ret;
 out:
-	sprd_chip_free_msg(&priv->chip, msg);
 	kfree(msg->tran_data);
 	msg->tran_data = NULL;
+	sprd_chip_free_msg(&priv->chip, msg);
 	if (rlen)
 		*rlen = 0;
 	return ret;
@@ -1205,7 +1205,6 @@ void sc2355_download_hw_param(struct sprd_priv *priv)
 	struct wifi_conf_sec2_t *sec2;
 	struct wifi_config_param_t *wifi_param;
 	struct sprd_hif *hif = &priv->hif;
-	struct sprd_wlan_dt_config *dt_configs = &priv->dt_configs;
 
 	if (hif->hw_type != SPRD_HW_SC2355_PCIE) {
 		if (!cali_ini_need_download(MARLIN_WIFI)) {
@@ -1246,9 +1245,9 @@ void sc2355_download_hw_param(struct sprd_priv *priv)
 		wl_err("download the first section of ini fail,ret=%d\n", ret);
 		kfree(wifi_data);
 		wifi_data = NULL;
-		if (dt_configs->enable_chr)
-			CHR_OPENERR_FLAGSET(&hif->chr->open_err_flag,
-					    OPEN_ERR_DOWNLOAD_INI);
+#ifdef ENABLE_CHR
+		CHR_OPENERR_FLAGSET(&hif->chr->open_err_flag, OPEN_ERR_DOWNLOAD_INI);
+#endif
 		sc2355_assert_cmd(priv, CMD_DOWNLOAD_INI,
 				  DOWNLOAD_INI_DATA_FAILED);
 		return;
@@ -1260,9 +1259,9 @@ void sc2355_download_hw_param(struct sprd_priv *priv)
 		wl_err("download the second section of ini fail,ret=%d\n", ret);
 		kfree(wifi_data);
 		wifi_data = NULL;
-		if (dt_configs->enable_chr)
-			CHR_OPENERR_FLAGSET(&hif->chr->open_err_flag,
-					    OPEN_ERR_DOWNLOAD_INI);
+#ifdef ENABLE_CHR
+		CHR_OPENERR_FLAGSET(&hif->chr->open_err_flag, OPEN_ERR_DOWNLOAD_INI);
+#endif
 		sc2355_assert_cmd(priv, CMD_DOWNLOAD_INI,
 				  DOWNLOAD_INI_DATA_FAILED);
 		return;
@@ -1278,9 +1277,9 @@ void sc2355_download_hw_param(struct sprd_priv *priv)
 			    ("download the third section of ini fail,ret=%d\n", ret);
 			kfree(wifi_data);
 			wifi_data = NULL;
-			if (dt_configs->enable_chr)
-				CHR_OPENERR_FLAGSET(&hif->chr->open_err_flag,
-						    OPEN_ERR_DOWNLOAD_INI);
+#ifdef ENABLE_CHR
+			CHR_OPENERR_FLAGSET(&hif->chr->open_err_flag, OPEN_ERR_DOWNLOAD_INI);
+#endif
 			sc2355_assert_cmd(priv, CMD_DOWNLOAD_INI,
 					  DOWNLOAD_INI_DATA_FAILED);
 			return;
@@ -1297,9 +1296,9 @@ void sc2355_download_hw_param(struct sprd_priv *priv)
 		wl_err("download the 4th section of ini fail,ret=%d\n", ret);
 		kfree(wifi_data);
 		wifi_data = NULL;
-		if (dt_configs->enable_chr)
-			CHR_OPENERR_FLAGSET(&hif->chr->open_err_flag,
-					    OPEN_ERR_DOWNLOAD_INI);
+#ifdef ENABLE_CHR
+		CHR_OPENERR_FLAGSET(&hif->chr->open_err_flag, OPEN_ERR_DOWNLOAD_INI);
+#endif
 		sc2355_assert_cmd(priv, CMD_DOWNLOAD_INI,
 				  DOWNLOAD_INI_DATA_FAILED);
 		return;
@@ -1310,6 +1309,7 @@ void sc2355_download_hw_param(struct sprd_priv *priv)
 	return;
 }
 
+static u8 ini_section = 0;
 void sc2355_sipc_download_hw_param(struct sprd_priv *priv)
 {
 	int ret;
@@ -1317,8 +1317,10 @@ void sc2355_sipc_download_hw_param(struct sprd_priv *priv)
 	struct merl_wifi_conf_sec1_t *sec1;
 	struct merl_wifi_conf_sec2_t *sec2;
 	struct merl_wifi_config_param_t *wifi_param;
+	struct merl_ap_oui_config_t *oui_param;
+#ifdef ENABLE_CHR
 	struct sprd_hif *hif = &priv->hif;
-	struct sprd_wlan_dt_config *dt_configs = &priv->dt_configs;
+#endif
 
 	wifi_data = kzalloc(sizeof( *wifi_data), GFP_KERNEL);
 
@@ -1344,37 +1346,41 @@ void sc2355_sipc_download_hw_param(struct sprd_priv *priv)
 	sec1 = (struct merl_wifi_conf_sec1_t *)wifi_data;
 	sec2 = (struct merl_wifi_conf_sec2_t *)(&wifi_data->tx_scale);
 	wifi_param = (struct merl_wifi_config_param_t *)(&wifi_data->wifi_param);
+	oui_param = (struct merl_ap_oui_config_t *)(&wifi_data->oui_config);
 	wl_debug("total config len:%ld,sec1 len:%ld, sec2 len:%ld, sec4 len:%ld\n",
 		(long unsigned int)sizeof(*wifi_data), (long unsigned int)sizeof(*sec1),
 		(long unsigned int)sizeof(*sec2), (long unsigned int)sizeof(*wifi_param));
 	wl_info("download the first section of config file\n");
+	ini_section = SEC1;
 	ret = cmdevt_download_ini(priv, (uint8_t *)sec1, sizeof(*sec1), SEC1);
 	if (ret) {
 		wl_err("download the first section of ini fail,return\n");
 		kfree(wifi_data);
 		wifi_data = NULL;
-		if (dt_configs->enable_chr)
-			CHR_OPENERR_FLAGSET(&hif->chr->open_err_flag,
-					    OPEN_ERR_DOWNLOAD_INI);
+#ifdef ENABLE_CHR
+		CHR_OPENERR_FLAGSET(&hif->chr->open_err_flag, OPEN_ERR_DOWNLOAD_INI);
+#endif
 		sc2355_assert_cmd(priv, CMD_DOWNLOAD_INI, LOAD_INI_DATA_FAILED);
 		return;
 	}
 
 	wl_info("download the second section of config file\n");
+	ini_section = SEC2;
 	ret = cmdevt_download_ini(priv, (uint8_t *)sec2, sizeof(*sec2), SEC2);
 	if (ret) {
 		wl_err("download the second section of ini fail,return\n");
 		kfree(wifi_data);
 		wifi_data = NULL;
-		if (dt_configs->enable_chr)
-			CHR_OPENERR_FLAGSET(&hif->chr->open_err_flag,
-					    OPEN_ERR_DOWNLOAD_INI);
+#ifdef ENABLE_CHR
+		CHR_OPENERR_FLAGSET(&hif->chr->open_err_flag, OPEN_ERR_DOWNLOAD_INI);
+#endif
 		sc2355_assert_cmd(priv, CMD_DOWNLOAD_INI, LOAD_INI_DATA_FAILED);
 		return;
 	}
 
 	if (wifi_data->rf_config.rf_data_len) {
 		wl_info("download the third section of config file\n");
+		ini_section = SEC3;
 		wl_debug("rf_data_len = %d\n", wifi_data->rf_config.rf_data_len);
 		ret = cmdevt_download_ini(priv, wifi_data->rf_config.rf_data,
 				wifi_data->rf_config.rf_data_len, SEC3);
@@ -1382,9 +1388,9 @@ void sc2355_sipc_download_hw_param(struct sprd_priv *priv)
 			wl_err("download the third section of ini fail,return\n");
 			kfree(wifi_data);
 			wifi_data = NULL;
-			if (dt_configs->enable_chr)
-				CHR_OPENERR_FLAGSET(&hif->chr->open_err_flag,
-						    OPEN_ERR_DOWNLOAD_INI);
+#ifdef ENABLE_CHR
+			CHR_OPENERR_FLAGSET(&hif->chr->open_err_flag, OPEN_ERR_DOWNLOAD_INI);
+#endif
 			sc2355_assert_cmd(priv, CMD_DOWNLOAD_INI, LOAD_INI_DATA_FAILED);
 			return;
 		}
@@ -1392,17 +1398,58 @@ void sc2355_sipc_download_hw_param(struct sprd_priv *priv)
 	wl_info("download the 4th section of config file\n");
 	wl_debug("trigger = %d, delta = %d, prefer = %d\n", wifi_param->roaming_param.trigger,
 		wifi_param->roaming_param.delta, wifi_param->roaming_param.band_5g_prefer);
+	ini_section = SEC4;
 	ret = cmdevt_download_ini(priv, (uint8_t *)wifi_param, sizeof(*wifi_param), SEC4);
 	if (ret) {
 		wl_err("download the 4th section of ini fail,return\n");
 		kfree(wifi_data);
 		wifi_data = NULL;
-		if (dt_configs->enable_chr)
-			CHR_OPENERR_FLAGSET(&hif->chr->open_err_flag,
-					    OPEN_ERR_DOWNLOAD_INI);
+#ifdef ENABLE_CHR
+		CHR_OPENERR_FLAGSET(&hif->chr->open_err_flag, OPEN_ERR_DOWNLOAD_INI);
+#endif
 		sc2355_assert_cmd(priv, CMD_DOWNLOAD_INI, LOAD_INI_DATA_FAILED);
 		return;
 	}
+
+	if (oui_param->ap_oui_num) {
+                wl_info("download the fifth section of config file\n");
+                wl_info("ap_oui_num  = %d\n", oui_param->ap_oui_num);
+		ini_section = SEC5;
+		if (oui_param->ap_oui_num > 10)
+			oui_param->ap_oui_num = 10;
+                ret = cmdevt_download_ini(priv,(uint8_t *)oui_param,
+                                (oui_param->ap_oui_num + 1) * 4, SEC5);
+                if (ret) {
+                        wl_err("download the fifth section of ini fail,return\n");
+                        kfree(wifi_data);
+                        wifi_data = NULL;
+#ifdef ENABLE_CHR
+                        CHR_OPENERR_FLAGSET(&hif->chr->open_err_flag, OPEN_ERR_DOWNLOAD_INI);
+#endif
+                        sc2355_assert_cmd(priv, CMD_DOWNLOAD_INI, LOAD_INI_DATA_FAILED);
+                        return;
+                }
+        }
+
+	if (wifi_data->ap_config.ap_data_len) {
+                wl_info("download the sixth section of config file\n");
+                ini_section = SEC6;
+                wl_debug("ap_data_len = %d\n", wifi_data->ap_config.ap_data_len);
+                ret = cmdevt_download_ini(priv, wifi_data->ap_config.ap_data,
+                                wifi_data->ap_config.ap_data_len, SEC6);
+                if (ret) {
+                        wl_err("download the sixth section of ini fail,return\n");
+                        kfree(wifi_data);
+                        wifi_data = NULL;
+#ifdef ENABLE_CHR
+                        CHR_OPENERR_FLAGSET(&hif->chr->open_err_flag, OPEN_ERR_DOWNLOAD_INI);
+#endif
+                        sc2355_assert_cmd(priv, CMD_DOWNLOAD_INI, LOAD_INI_DATA_FAILED);
+                        return;
+                }
+        }
+
+
 	kfree(wifi_data);
 	wifi_data = NULL;
 	return;
@@ -1436,7 +1483,7 @@ int sc2355_get_fw_info(struct sprd_priv *priv)
 	 * user version:cp has 124 buf for tx;
 	 * userdebug version: cp has 85 buf for tx.
 	 */
-#ifdef CONFIG_UNISOC_WLAN_DEBUG
+#ifdef CONFIG_SPRD_WLAN_DEBUG
 	u8 ap_version = NOTIFY_AP_VERSION_USER_DEBUG;
 #else
 	u8 ap_version = NOTIFY_AP_VERSION_USER;
@@ -1770,9 +1817,9 @@ int sc2355_enable_miracast(struct sprd_priv *priv,
 	return send_cmd_recv_rsp(priv, msg, NULL, NULL);
 }
 
-int sc2355_add_key_data(struct sprd_priv *priv, struct sprd_vif *vif,
-			const u8 *key_data, u8 key_len, bool pairwise, u8 key_index,
-			const u8 *key_seq, u8 cypher_type, const u8 *mac_addr)
+int sc2355_add_key(struct sprd_priv *priv, struct sprd_vif *vif,
+		   const u8 *key_data, u8 key_len, bool pairwise, u8 key_index,
+		   const u8 *key_seq, u8 cypher_type, const u8 *mac_addr)
 {
 	struct sprd_msg *msg;
 	struct cmd_add_key *p;
@@ -2299,7 +2346,7 @@ out:
 int sc2355_send_tdls_cmd(struct sprd_vif *vif, const u8 *peer, int oper)
 {
 	struct sprd_work *misc_work;
-	struct sprd_tdls_work tdls = { 0 };
+	struct sprd_tdls_work tdls;
 	u8 *data = NULL;
 
 	tdls.vif_ctx_id = vif->ctx_id;
@@ -2761,7 +2808,10 @@ int sc2355_hif_fill_msdu_dscr(struct sprd_vif *vif,
 
 	hif = &vif->priv->hif;
 
-	memcpy(hif->skb_da, skb->data, ETH_ALEN);
+	if (skb->data) {
+		memcpy(hif->skb_da, skb->data, ETH_ALEN);
+	}
+
 	lut_index = sc2355_find_lut_index(hif, vif);
 	if (lut_index < 6 && (!sc2355_is_group(hif->skb_da))) {
 		kfree_skb(skb);
@@ -2862,6 +2912,7 @@ int sc2355_xmit_data2cmd_wq(struct sk_buff *skb, struct net_device *ndev)
 	return 0;
 }
 
+#ifdef ENABLE_CHR
 int sc2355_set_chr(struct sprd_chr *chr)
 {
 	struct sprd_msg *msg;
@@ -2892,6 +2943,7 @@ int sc2355_set_chr(struct sprd_chr *chr)
 
 	return send_cmd_recv_rsp(priv, msg, NULL, NULL);
 }
+#endif
 
 int sc2355_set_random_mac(struct sprd_priv *priv, struct sprd_vif *vif,
 			  u8 random_mac_flag, u8 *addr)
@@ -2963,21 +3015,10 @@ int sc2355_set_vowifi(struct net_device *ndev, void __user *data)
 	    (is_valid_ether_addr(vif->bssid))) {
 		struct sprd_hif *hif = NULL;
 		struct sprd_peer_entry *peer_entry = NULL;
-		struct vowifi_info *info = NULL;
-
-		if (priv_cmd.total_len < sizeof(*tlv) + sizeof(struct vowifi_info)) {
-			netdev_info(ndev, "%s: priv cmd total len is invalid: %d\n",
-				    __func__, priv_cmd.total_len);
-			ret = -EINVAL;
-			goto out;
-		}
-
-		info = (struct vowifi_info *)(tlv->data);
+		struct vowifi_info *info = (struct vowifi_info *)(tlv->data);
 		hif = &vif->priv->hif;
-		if (!hif) {
-			ret = -EINVAL;
-			goto out;
-		}
+		if (hif == NULL)
+			return -EINVAL;
 
 		peer_entry = sc2355_find_peer_entry_using_addr(vif, vif->bssid);
 		if (hif && peer_entry) {
@@ -3060,9 +3101,6 @@ int sc2355_set_sniffer(struct net_device *ndev, void __user *data)
 	if (!strncasecmp(command, CMD_SNIFFER_MODE,
 			 strlen(CMD_SNIFFER_MODE))) {
 		skip = strlen(CMD_SNIFFER_MODE) + 1;
-		if (priv_cmd.total_len <= skip)
-			goto len_err;
-
 		ret = kstrtoint(command + skip, 0, &value);
 		if (ret)
 			goto out;
@@ -3094,9 +3132,6 @@ int sc2355_set_sniffer(struct net_device *ndev, void __user *data)
 	} else if (!strncasecmp(command, CMD_SNIFFER_LISTEN_CHANNEL,
 				strlen(CMD_SNIFFER_LISTEN_CHANNEL))) {
 		skip = strlen(CMD_SNIFFER_LISTEN_CHANNEL) + 1;
-		if (priv_cmd.total_len <= skip)
-			goto len_err;
-
 		ret = kstrtoint(command + skip, 0, &value);
 		if (ret)
 			goto out;
@@ -3125,9 +3160,6 @@ int sc2355_set_sniffer(struct net_device *ndev, void __user *data)
 	} else if (!strncasecmp(command, CMD_SNIFFER_FILTER,
 				strlen(CMD_SNIFFER_FILTER))) {
 		skip = strlen(CMD_SNIFFER_FILTER) + 1;
-		if (priv_cmd.total_len <= skip)
-			goto len_err;
-
 		ret = kstrtoint(command + skip, 0, &value);
 		if (ret)
 			goto out;
@@ -3144,9 +3176,6 @@ int sc2355_set_sniffer(struct net_device *ndev, void __user *data)
 	} else if (!strncasecmp(command, CMD_SNIFFER_BAND,
 				strlen(CMD_SNIFFER_BAND))) {
 		skip = strlen(CMD_SNIFFER_BAND) + 1;
-		if (priv_cmd.total_len <= skip)
-			goto len_err;
-
 		ret = kstrtoint(command + skip, 0, &value);
 		if (ret)
 			goto out;
@@ -3156,9 +3185,10 @@ int sc2355_set_sniffer(struct net_device *ndev, void __user *data)
 			netdev_err(ndev, "%s: set sniffer monitor band not in monitor mode\n",
 				   __func__);
 		ret = cmdevt_set_sniffer(priv, vif, SPRD_SNIFFER_BAND, value);
-		if (ret)
+		if (ret) {
 			netdev_err(ndev, "sniffer set band failed\n");
-
+			goto out;
+		}
 	} else {
 		netdev_err(ndev, "%s command not support\n", __func__);
 		ret = -EOPNOTSUPP;
@@ -3167,17 +3197,10 @@ int sc2355_set_sniffer(struct net_device *ndev, void __user *data)
 out:
 	kfree(command);
 	return ret;
-
-len_err:
-	netdev_err(ndev, "%s: priv cmd total len(%d) is invalid\n",
-		   __func__, priv_cmd.total_len);
-	kfree(command);
-	return -EINVAL;
 }
 
 int sc2355_set_miracast(struct net_device *ndev, void __user *data)
 {
-#define MIN_LEN 8
 	struct sprd_vif *vif = netdev_priv(ndev);
 	struct sprd_priv *priv = vif->priv;
 	struct android_wifi_priv_cmd priv_cmd;
@@ -3192,14 +3215,9 @@ int sc2355_set_miracast(struct net_device *ndev, void __user *data)
 	if (copy_from_user(&priv_cmd, data, sizeof(priv_cmd)))
 		return -EINVAL;
 
-	/*
-	 * add length check to avoid invalid NULL ptr
-	 * bug2734787.
-	 * priv_cmd.total_len = sizeof(struct driver_cmd_msg) + sizeof(int);
-	 * sizeof(struct driver_cmd_msg):4bytes
-	 */
-	if (priv_cmd.total_len < MIN_LEN || priv_cmd.total_len > 4096) {
-		wl_err("%s: priv cmd total len(%d) is invalid", __func__, priv_cmd.total_len);
+	/* add length check to avoid invalid NULL ptr */
+	if (priv_cmd.total_len <= 0 || priv_cmd.total_len > 4096) {
+		wl_err("%s: priv cmd total len is invalid", __func__);
 		return -EINVAL;
 	}
 
@@ -3213,7 +3231,6 @@ int sc2355_set_miracast(struct net_device *ndev, void __user *data)
 
 	subtype = *(unsigned short *)command;
 	if (subtype == 5) {
-		/*refer to struct driver_cmd_msg*/
 		value = *((int *)(command + 2 * sizeof(unsigned short)));
 		wl_debug("%s: set miracast value : %d", __func__, value);
 		/* bug:1807181
@@ -3468,7 +3485,7 @@ bool sc2355_do_delay_work(struct sprd_work *work)
 	return true;
 }
 
-static int cmdevt_handle_rsp_status_err(u8 cmd_id, s8 status)
+static int cmdevt_handle_rsp_status_err(u8 cmd_id, s8 status, enum sprd_hif_type hw_type)
 {
 	int flag = 0;
 
@@ -3483,6 +3500,12 @@ static int cmdevt_handle_rsp_status_err(u8 cmd_id, s8 status)
 		flag = 0;
 		break;
 	}
+
+	if (cmd_id == CMD_DOWNLOAD_INI &&
+	    status == SPRD_CMD_STATUS_INI_INDEX_ERROR &&
+            hw_type == SPRD_HW_SC2355_SIPC && (
+            ini_section == SEC5 || ini_section == SEC6))
+		flag = 0;
 
 	return flag;
 }
@@ -3643,9 +3666,6 @@ static void cmdevt_report_frame_evt(struct sprd_vif *vif, u8 *data, u16 len, int
 		sc2355_report_scan_result(vif, channel, frame->signal,
 					  buf, buf_len);
 		++bss_count;
-		break;
-	case SPRD_FRAME_PROBE_REQ:
-		sprd_report_mgmt_probe_req(vif, channel, buf, buf_len);
 		break;
 	default:
 		netdev_err(vif->ndev, "%s invalid frame type: %d!\n",
@@ -4156,7 +4176,7 @@ int sc2355_evt_pw_5gband_backoff(struct sprd_vif *vif, u8 *data, u16 len)
 	}
 
 	channel = *data;
-	value = sprd_pw_backoff_band2value(vif->priv, channel);
+	value = sprd_pw_backoff_band2value(channel);
 
 	if (!value)
 		return -1;
@@ -4220,9 +4240,9 @@ unsigned short sc2355_rx_evt_process(struct sprd_priv *priv, u8 *msg)
 		return plen;
 	}
 
-	if (hdr->cmd_id == EVT_SDIO_FLOWCON)
-		return plen;
-	wl_info("cid %d rx[%s]len: %d,rsp_n=%d\n", ctx_id, evt_str, plen, hdr->rsp_cnt);
+	if (hdr->cmd_id != EVT_SDIO_FLOWCON)
+		wl_info("cid %d rx[%s]len: %d,rsp_n=%d\n", ctx_id,
+			evt_str, plen, hdr->rsp_cnt);
 
 	if (plen < sizeof(struct sprd_cmd_hdr)) {
 		wl_err("%s plen is invalid!\n", __func__);
@@ -4350,7 +4370,8 @@ unsigned short sc2355_rx_evt_process(struct sprd_priv *priv, u8 *msg)
 		break;
 	case EVT_FRESH_POWER_BO:
 		cmdevt_report_update_band_info(hif, vif, data);
-		sc2355_evt_pw_5gband_backoff(vif, data, len);
+		if (hif->hw_type == SPRD_HW_SC2355_SIPC)
+			sc2355_evt_pw_5gband_backoff(vif, data, len);
 		sc2355_evt_pw_backoff(vif, data, len);
 		break;
 	case EVT_REPORT_IP_ADDR:
@@ -4360,14 +4381,16 @@ unsigned short sc2355_rx_evt_process(struct sprd_priv *priv, u8 *msg)
 		cmdevt_report_modem_info(hif, data, len);
 		vendor_report_n79_event(hif, vif);
 		break;
+#ifdef ENABLE_CHR
 	case EVT_CHR:
-		if (priv->chr->chr_status == CHR_UNDEFINE) {
+		if (!priv->chr->sock_flag) {
 			wl_info("%s, CHR: chr mode is closed, can't upload evt!",
 				__func__);
 			break;
 		}
 		cmdevt_report_chr_evt(vif, data, len);
 		break;
+#endif
 #ifdef ENABLE_PAM_WIFI
 	case EVT_PAMWIFI_UL_RESOURCE_EVENT:
 		sprd_pamwifi_ul_resource_event(vif, data, len);
@@ -4445,7 +4468,8 @@ unsigned short sc2355_rx_rsp_process(struct sprd_priv *priv, u8 *msg)
 			wl_err("%s cid %d recv rsp[%s] status[%s]\n",
 			       __func__, hdr->common.mode, cmd_str, err_str);
 			handle_flag = cmdevt_handle_rsp_status_err(hdr->cmd_id,
-								   hdr->status);
+								   hdr->status,
+							priv->hif.hw_type);
 			if (hdr->cmd_id == CMD_TX_MGMT) {
 				wl_err("tx mgmt status : %d\n", hdr->status);
 				priv->tx_mgmt_status = hdr->status;

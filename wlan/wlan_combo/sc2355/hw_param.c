@@ -222,23 +222,20 @@ static struct nvm_name_table sc2355_nvm_table[] = {
 	CF_TAB("roaming_5g_prefer", wifi_param.roaming_param.band_5g_prefer, 1),
 };
 
-#define hw_param_is_digital(key)   \
-	((key >= '0' && key <= '9'))
-
-#define hw_param_is_letter(key)    \
-	((key >= 'a' && key <= 'z') || (key >= 'A' && key <= 'Z'))
-
 static int hw_param_nvm_find_type(char key)
 {
+	if ((key >= 'a' && key <= 'w') ||
+	    (key >= 'y' && key <= 'z') ||
+	    (key >= 'A' && key <= 'W') ||
+	    (key >= 'Y' && key <= 'Z') ||
+	    key == '_')
+		return 1;
+	if ((key >= '0' && key <= '9') || key == '-')
+		return 2;
+	if (key == 'x' || key == 'X' || key == '.')
+		return 3;
 	if (key == '\0' || key == '\r' || key == '\n' || key == '#')
 		return 4;
-	else if (key == 'x' || key == 'X' || key == '.')
-		return 3;
-	else if (hw_param_is_digital(key) || key == '-')
-		return 2;
-	else if (hw_param_is_letter(key) || key == '_')
-		return 1;
-
 	return 0;
 }
 
@@ -283,19 +280,6 @@ static int hw_param_nvm_set_cmd(struct nvm_name_table *ptable,
 	return 0;
 }
 
-static void hw_param_nvm_judge_type(int *buftype, int ctype)
-{
-	if (*buftype == -1) {
-		if (ctype == 2)
-			*buftype = 2;
-		else
-			*buftype = 1;
-	} else if (*buftype == 2) {
-		if (ctype == 1)
-			*buftype = 1;
-	}
-}
-
 static void hw_param_nvm_get_cmd_par(char *str, struct nvm_cali_cmd *cmd)
 {
 	int i, j, buftype, ctype, flag;
@@ -318,7 +302,15 @@ static void hw_param_nvm_get_cmd_par(char *str, struct nvm_cali_cmd *cmd)
 		if (ctype == 1 || ctype == 2 || ctype == 3) {
 			tmp[j] = c;
 			j++;
-			hw_param_nvm_judge_type(&buftype, ctype);
+			if (buftype == -1) {
+				if (ctype == 2)
+					buftype = 2;
+				else
+					buftype = 1;
+			} else if (buftype == 2) {
+				if (ctype == 1)
+					buftype = 1;
+			}
 			continue;
 		}
 		if (-1 != buftype) {

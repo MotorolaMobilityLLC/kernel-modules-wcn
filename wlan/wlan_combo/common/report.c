@@ -88,86 +88,145 @@ void sprd_report_softap(struct sprd_vif *vif, u8 is_connect, u8 *addr,
 	}
 }
 
-static int sprd_check_connection_params(struct sprd_vif *vif,
-					struct sprd_connect_info *conn_info, u8 status_code)
+void sprd_report_connection(struct sprd_vif *vif,
+			    struct sprd_connect_info *conn_info, u8 status_code)
 {
+	struct sprd_priv *priv = vif->priv;
+	struct wiphy *wiphy = priv->wiphy;
+	struct ieee80211_channel *channel;
+	struct ieee80211_mgmt *mgmt;
+	struct cfg80211_bss *bss = NULL;
+	struct cfg80211_bss *other_bss = NULL;
+	struct timespec64 ts;
+	const u8 *ssid_ie, *tmp;
+	u16 band, capability, beacon_interval;
+	u32 freq;
+	u64 tsf;
+	u8 *ie;
+	size_t ielen;
+	int index = 0, ie_channel_number = -1;
+	int hidden_ssid = 0;
+	struct cfg80211_roam_info roam_info;
+	u8 ssid_len = 0, ssid[IEEE80211_MAX_SSID_LEN + 1] = {0};
+	struct sprd_hif *hif = &vif->priv->hif;
+	struct sprd_wlan_dt_config *dt_configs = &vif->priv->dt_configs;
 
 	if (vif->sm_state != SPRD_CONNECTING &&
 	    vif->sm_state != SPRD_CONNECTED) {
 		netdev_err(vif->ndev, "%s Unexpected event! connected(%u).\n",
 		           __func__, vif->wdev.connected);
 
-		return -2;
+		return;
 	}
-
 	if (status_code != SPRD_CONNECT_SUCCESS &&
 	    status_code != SPRD_ROAM_SUCCESS)
-		return -1;
-
+		goto err;
 	if (!conn_info->bssid) {
 		netdev_err(vif->ndev, "%s NULL BSSID!\n", __func__);
-		return -1;
+		goto err;
 	}
 	if (!conn_info->req_ie_len) {
 		netdev_err(vif->ndev, "%s No associate REQ IE!\n", __func__);
-		return -1;
+		goto err;
 	}
 	if (!conn_info->resp_ie_len) {
 		netdev_err(vif->ndev, "%s No associate RESP IE!\n", __func__);
-		return -1;
+		goto err;
 	}
-	return 0;
-}
 
-static  int sprd_parse_connection_ie(struct sprd_vif *vif, u8 *ie,
-				     size_t ielen, u8 *ssid, unsigned char *ssid_len)
-{
-	const u8 *ssid_ie, *tmp;
-	int index = 0, ie_channel_number = -1;
-	int hidden_ssid = 0;
-	/*
-	 * when cfg80211_get_bss_channel in cfg80211_inform_bss,
-	 * channel_number inside WLAN_EID_DS_PARAMS and WLAN_EID_HT_OPERATION
-	 * has the 1st and 2nd priority before ieee80211_channel *channel.
-	 */
-	tmp = cfg80211_find_ie(WLAN_EID_DS_PARAMS, ie, ielen);
-	if (tmp && tmp[1] == 1)
-		ie_channel_number = tmp[2];
+	if (conn_info->bea_ie_len) {
+		band = sprd_channel_to_band(conn_info->chan);
+		freq = ieee80211_channel_to_frequency(conn_info->chan, band);
+		channel = ieee80211_get_channel(wiphy, freq);
+		if (!channel) {
+			netdev_err(vif->ndev, "%s invalid channel %d\n",
+				   __func__, conn_info->chan);
+			goto err;
+		}
 
-	netdev_info(vif->ndev,
-		    "%s update BSS ie_chn(%d).\n", __func__, ie_channel_number);
+		mgmt = (struct ieee80211_mgmt *)conn_info->bea_ie;
+		if (!mgmt) {
+			netdev_err(vif->ndev, "%s NULL frame!\n", __func__);
+			goto err;
+		}
+		if (!ether_addr_equal(conn_info->bssid, mgmt->bssid))
+			netdev_warn(vif->ndev,
+				    "%s BSSID mismatch! %pM, :%pM\n",
+				    __func__, conn_info->bssid, mgmt->bssid);
+		ie = mgmt->u.probe_resp.variable;
+		if (IS_ERR_OR_NULL(ie)) {
+			netdev_err(vif->ndev, "%s Invalid IE in beacon!\n",
+				   __func__);
+			goto err;
+		}
+		ielen = conn_info->bea_ie_len - offsetof(struct ieee80211_mgmt,
+							 u.probe_resp.variable);
+		if (ielen > SPRD_SCAN_RESULT_MAX_IE_LEN) {
+			netdev_err(vif->ndev, "%s Invalid IE length!\n",
+				   __func__);
+			goto err;
+		}
 
-	ssid_ie = cfg80211_find_ie(WLAN_EID_SSID, ie, ielen);
-	if (ssid_ie) {
-		/* for hidden ssid, refer to bug 1370976,
-		 * cp should report prob resp, but sometimes
-		 * cp report beacon with ssid value in zero
-		 * so add these code to cover this issue
+		/*
+		 * when cfg80211_get_bss_channel in cfg80211_inform_bss,
+		 * channel_number inside WLAN_EID_DS_PARAMS and WLAN_EID_HT_OPERATION
+		 * has the 1st and 2nd priority before ieee80211_channel *channel.
 		 */
-		if (ssid_ie[1] != 0) {
-			for (; index < ssid_ie[1]; index++)
-				hidden_ssid |= ssid_ie[2 + index];
+		tmp = cfg80211_find_ie(WLAN_EID_DS_PARAMS, ie, ielen);
+		if (tmp && tmp[1] == 1) {
+			ie_channel_number = tmp[2];
+		}
+		netdev_info(vif->ndev,
+		            "%s update BSS %s(%pM), chn %u, band %d, freq %u, ie_chn(%d).\n",
+		            __func__, vif->ssid, conn_info->bssid,
+		            conn_info->chan, band, freq, ie_channel_number);
 
-			if (!hidden_ssid) {
-				netdev_err(vif->ndev,
-					   "no need update bss for hidden ssid\n");
-				return 1;
+		ssid_ie = cfg80211_find_ie(WLAN_EID_SSID, ie, ielen);
+		if (ssid_ie) {
+			/* for hidden ssid, refer to bug 1370976,
+			 * cp should report prob resp, but sometimes
+			 * cp report beacon with ssid value in zero
+			 * so add these code to cover this issue
+			 */
+			if (ssid_ie[1] != 0) {
+				for (; index < ssid_ie[1]; index++)
+					hidden_ssid |= ssid_ie[2 + index];
+
+				if (!hidden_ssid) {
+					netdev_err(vif->ndev,
+						   "no need update bss for hidden ssid\n");
+					goto done;
+				}
+			}
+
+			if (ssid_ie[1] && ssid_ie[1] <= IEEE80211_MAX_SSID_LEN) {
+				ssid_len = ssid_ie[1];
+				memcpy(ssid, (ssid_ie + 2), ssid_len);
 			}
 		}
+		/* framework use system bootup time */
+		ktime_get_boottime_ts64(&ts);
+		tsf = (u64)ts.tv_sec * 1000000 + div_u64(ts.tv_nsec, 1000);
+		beacon_interval = le16_to_cpu(mgmt->u.probe_resp.beacon_int);
+		capability = le16_to_cpu(mgmt->u.probe_resp.capab_info);
+		netdev_dbg(vif->ndev, "%s, %pM, signal: %d\n",
+			   ieee80211_is_probe_resp(mgmt->frame_control)
+			   ? "proberesp" : "beacon", mgmt->bssid,
+			   conn_info->signal);
 
-		if (ssid_ie[1] && ssid_ie[1] <= IEEE80211_MAX_SSID_LEN) {
-			*ssid_len = ssid_ie[1];
-			memcpy(ssid, (ssid_ie + 2), *ssid_len);
-		}
+		bss = cfg80211_inform_bss(wiphy, channel,
+					  CFG80211_BSS_FTYPE_UNKNOWN,
+					  mgmt->bssid, tsf,
+					  capability, beacon_interval,
+					  ie, ielen, conn_info->signal,
+					  GFP_KERNEL);
+		if (unlikely(!bss))
+			netdev_err(vif->ndev,
+				   "%s failed to inform bss frame!\n",
+				   __func__);
+	} else {
+		netdev_warn(vif->ndev, "%s No Beason IE!\n", __func__);
 	}
-	return 0;
-}
-
-static void sprd_unlink_diff_chan_bss(struct sprd_vif *vif,
-				      struct cfg80211_bss *bss, u8 *ssid, u8 ssid_len)
-{
-	struct wiphy *wiphy = vif->priv->wiphy;
-	struct cfg80211_bss *other_bss = NULL;
 
 	/*
 	  2100599:unlink all bsses that only channel different with the current connected one.
@@ -179,7 +238,6 @@ static void sprd_unlink_diff_chan_bss(struct sprd_vif *vif,
 						     ssid, ssid_len,
 						     IEEE80211_BSS_TYPE_ESS,
 						     IEEE80211_PRIVACY_ANY);
-
 			if (other_bss && other_bss != bss) {
 				wl_info("unlink bss(%pM-%s) %u that only channel different, "
 				        "bss_freq %u.\n",
@@ -192,92 +250,7 @@ static void sprd_unlink_diff_chan_bss(struct sprd_vif *vif,
 				break;
 		}
 	}
-}
-
-static int sprd_inform_connection_bss(struct sprd_vif *vif, struct sprd_connect_info *conn_info,
-				      struct cfg80211_bss **bss)
-{
-	struct wiphy *wiphy = vif->priv->wiphy;
-	struct ieee80211_channel *channel;
-	struct ieee80211_mgmt *mgmt;
-	struct timespec64 ts;
-	u16 band, capability, beacon_interval;
-	u32 freq;
-	u64 tsf;
-	u8 *ie;
-	size_t ielen;
-	u8 ssid_len = 0, ssid[IEEE80211_MAX_SSID_LEN + 1] = {0};
-
-	band = sprd_channel_to_band(conn_info->chan);
-	freq = ieee80211_channel_to_frequency(conn_info->chan, band);
-	channel = ieee80211_get_channel(wiphy, freq);
-	if (!channel) {
-		netdev_err(vif->ndev, "%s invalid channel %d\n",
-			   __func__, conn_info->chan);
-		return -1;
-	}
-
-	mgmt = (struct ieee80211_mgmt *)conn_info->bea_ie;
-	if (!mgmt) {
-		netdev_err(vif->ndev, "%s NULL frame!\n", __func__);
-		return -1;
-	}
-	if (!ether_addr_equal(conn_info->bssid, mgmt->bssid))
-		netdev_warn(vif->ndev,
-			    "%s BSSID mismatch! %pM, :%pM\n",
-			    __func__, conn_info->bssid, mgmt->bssid);
-	ie = mgmt->u.probe_resp.variable;
-	if (IS_ERR_OR_NULL(ie)) {
-		netdev_err(vif->ndev, "%s Invalid IE in beacon!\n",
-			   __func__);
-		return -1;
-	}
-	ielen = conn_info->bea_ie_len - offsetof(struct ieee80211_mgmt,
-						 u.probe_resp.variable);
-	if (ielen > SPRD_SCAN_RESULT_MAX_IE_LEN) {
-		netdev_err(vif->ndev, "%s Invalid IE length!\n",
-			   __func__);
-		return -1;
-	}
-	netdev_info(vif->ndev,
-		    "%s update BSS %s(%pM), chn %u, band %d, freq %u\n",
-		    __func__, vif->ssid, conn_info->bssid,
-		    conn_info->chan, band, freq);
-
-	if (sprd_parse_connection_ie(vif, ie, ielen, ssid, &ssid_len))
-		return 1;
-
-	/* framework use system bootup time */
-	ktime_get_boottime_ts64(&ts);
-	tsf = (u64)ts.tv_sec * 1000000 + div_u64(ts.tv_nsec, 1000);
-	beacon_interval = le16_to_cpu(mgmt->u.probe_resp.beacon_int);
-	capability = le16_to_cpu(mgmt->u.probe_resp.capab_info);
-	netdev_dbg(vif->ndev, "%s, %pM, signal: %d\n",
-		   ieee80211_is_probe_resp(mgmt->frame_control)
-		   ? "proberesp" : "beacon", mgmt->bssid,
-		   conn_info->signal);
-
-	*bss = cfg80211_inform_bss(wiphy, channel,
-				   CFG80211_BSS_FTYPE_UNKNOWN,
-				   mgmt->bssid, tsf,
-				   capability, beacon_interval,
-				   ie, ielen, conn_info->signal,
-				   GFP_KERNEL);
-	if (unlikely(!(*bss)))
-		netdev_err(vif->ndev,
-			   "%s failed to inform bss frame!\n", __func__);
-
-	sprd_unlink_diff_chan_bss(vif, *bss, ssid, ssid_len);
-	return 0;
-}
-
-static int sprd_connect_done(struct sprd_vif *vif,
-			     struct sprd_connect_info *conn_info,
-			     u8 status_code, struct cfg80211_bss *bss)
-{
-	struct cfg80211_roam_info roam_info;
-	struct wiphy *wiphy = vif->priv->wiphy;
-
+done:
 	if (vif->sm_state == SPRD_CONNECTING &&
 		status_code == SPRD_CONNECT_SUCCESS) {
 		cfg80211_connect_result(vif->ndev,
@@ -310,7 +283,7 @@ static int sprd_connect_done(struct sprd_vif *vif,
 	} else {
 		netdev_err(vif->ndev, "%s sm_state (%d), status code (%d)!\n",
 			   __func__, vif->sm_state, status_code);
-		return -1;
+		goto err;
 	}
 
 	if (!(sprd_chip_sync_wmm_param(vif->priv, conn_info)))
@@ -328,16 +301,8 @@ static int sprd_connect_done(struct sprd_vif *vif,
 		    vif->ssid, vif->bssid);
 
 	sprd_evt_adaptive(vif);
-	return 0;
-}
-
-static void sprd_connect_err(struct sprd_vif *vif,
-			     u8 status_code, struct cfg80211_bss *bss)
-{
-	struct wiphy *wiphy = vif->priv->wiphy;
-	struct sprd_hif *hif = &vif->priv->hif;
-	struct sprd_wlan_dt_config *dt_configs = &vif->priv->dt_configs;
-
+	return;
+err:
 	if (status_code == WLAN_STATUS_SUCCESS)
 		status_code = WLAN_STATUS_UNSPECIFIED_FAILURE;
 	if (vif->sm_state == SPRD_CONNECTING)
@@ -357,36 +322,6 @@ static void sprd_connect_err(struct sprd_vif *vif,
 
 	if (bss)
 		cfg80211_put_bss(wiphy, bss);
-}
-
-void sprd_report_connection(struct sprd_vif *vif,
-			    struct sprd_connect_info *conn_info, u8 status_code)
-{
-	struct cfg80211_bss *bss = NULL;
-	int ret;
-
-	ret = sprd_check_connection_params(vif, conn_info, status_code);
-	if (ret == -2)
-		return;
-	else if (ret == -1)
-		goto err;
-
-	if (conn_info->bea_ie_len) {
-		ret = sprd_inform_connection_bss(vif, conn_info, &bss);
-		if (ret == -1)
-			goto err;
-		else if (ret == 1)
-			goto done;
-	} else {
-		netdev_warn(vif->ndev, "%s No Beason IE!\n", __func__);
-	}
-done:
-	ret = sprd_connect_done(vif, conn_info, status_code, bss);
-	if (ret)
-		goto err;
-	return;
-err:
-	 sprd_connect_err(vif, status_code, bss);
 }
 
 void sprd_report_disconnection(struct sprd_vif *vif, u16 reason_code)
@@ -439,7 +374,8 @@ void sprd_report_disconnection(struct sprd_vif *vif, u16 reason_code)
 
 	sprd_fcc_reset_bo(vif->priv);
 
-	sprd_5g_sar_info_reset(vif->priv);
+	if (hif->hw_type == SPRD_HW_SC2355_SIPC)
+		sprd_5g_sar_info_reset();
 
 	if (dt_configs->enable_n79)
 		hif->n79_info.mode_band[vif->mode] = 0;
@@ -530,31 +466,6 @@ void sprd_report_mgmt_disassoc(struct sprd_vif *vif, const u8 *buf, size_t len)
 	memcpy(misc_work->data, buf, len);
 
 	sprd_queue_work(vif->priv, misc_work);
-}
-
-void sprd_report_mgmt_probe_req(struct sprd_vif *vif, u8 chan, const u8 *buf, size_t len)
-{
-	u16 band;
-	int freq;
-	bool ret;
-	const struct ieee80211_mgmt *mgmt;
-
-	mgmt = (const struct ieee80211_mgmt *)buf;
-	if (vif->mode != SPRD_MODE_STATION ||
-		vif->sm_state != SPRD_CONNECTED ||
-		!ieee80211_is_probe_req(mgmt->frame_control) ||
-		chan > 14) {
-		netdev_err(vif->ndev, "%s not station or connected!", __func__);
-		return;
-	}
-
-	band = sprd_channel_to_band(chan);
-	freq = ieee80211_channel_to_frequency(chan, band);
-
-	ret = cfg80211_rx_mgmt(&vif->wdev, freq, 0, buf, len, GFP_ATOMIC);
-	if (!ret)
-		netdev_err(vif->ndev, "%s unregistered frame!", __func__);
-
 }
 
 void sprd_report_cqm(struct sprd_vif *vif, u8 rssi_event)

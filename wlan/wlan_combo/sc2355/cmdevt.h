@@ -92,9 +92,6 @@
 #define SPRD_EXTEND_FEATURE_OCE	   BIT(4)
 #define SPRD_EXTEND_FEATURE_LLSTATE	   BIT(5)
 #define SPRD_EXTEND_SOATAP_WPA3	   BIT(6)
-#define SPRD_EXTEND_FEATURE_APF	   BIT(7)
-#define SPRD_EXTEND_FEATURE_LOW_LATENCY	   BIT(8)
-#define SPRD_EXTEND_CROSS_AKM_ROAMING	 BIT(10)
 
 #define SPRD_SET_SAR	0x10
 
@@ -114,7 +111,6 @@
 #define	SPRD_FRAME_DISASSOC		3
 #define	SPRD_FRAME_SCAN		4
 #define SPRD_FRAME_ROAMING		5
-#define SPRD_FRAME_PROBE_REQ		6
 
 #define	SPRD_SCAN_DONE		1
 #define	SPRD_SCHED_SCAN_DONE		2
@@ -177,12 +173,6 @@
 #define CMD_SNIFFER_LISTEN_CHANNEL	"LISTEN_CHANNEL"
 #define CMD_SNIFFER_FILTER		"FILTER"
 #define CMD_SNIFFER_BAND		"BAND"
-
-#define RESET_CMD_ALLOW(cmd_id)		\
-	((cmd_id) == CMD_SYNC_VERSION ||		\
-	 (cmd_id) == CMD_DOWNLOAD_INI ||		\
-	 (cmd_id) == CMD_GET_INFO ||		\
-	 (cmd_id) == CMD_OPEN)
 
 enum CMD_LIST {
 	CMD_MIN = 0,
@@ -293,12 +283,12 @@ enum CMD_LIST {
 	CMD_SET_SNIFFER = 87,
 	CMD_RESVERED_FOR_FILTER = 88,
 	CMD_EXTENDED_LLSTAT = 89,
-	CMD_PACKET_FILTER = 90, /* apf on marlin3 sipc */
+	CMD_PACKET_FILTER = 90,
 
+#ifdef ENABLE_CHR
 	/* set the chr module */
 	CMD_SET_CHR = 91,
-	CMD_APF = 92, /* apf on marlin3LE sdio */
-
+#endif
 	CMD_MAX
 };
 
@@ -680,8 +670,10 @@ enum EVT_LIST {
 	/* DEBUG/OTHER */
 	EVT_SDIO_SEQ_NUM = 0xE0,
 
+#ifdef ENABLE_CHR
 	/* CHR Module */
 	EVT_CHR = 0xE1,
+#endif
 
 	EVT_BA = 0xf3,
 	/* RTT */
@@ -1048,9 +1040,9 @@ int sc2355_set_sar(struct sprd_priv *priv, struct sprd_vif *vif,
 		   u8 sub_type, s8 value);
 int sc2355_set_power_backoff(struct sprd_priv *priv, struct sprd_vif *vif,
 			     struct sprd_power_backoff *data);
-int sc2355_add_key_data(struct sprd_priv *priv, struct sprd_vif *vif,
-			const u8 *key_data, u8 key_len, bool pairwise, u8 key_index,
-			const u8 *key_seq, u8 cypher_type, const u8 *mac_addr);
+int sc2355_add_key(struct sprd_priv *priv, struct sprd_vif *vif,
+		   const u8 *key_data, u8 key_len, bool pairwise, u8 key_index,
+		   const u8 *key_seq, u8 cypher_type, const u8 *mac_addr);
 int sc2355_enable_miracast(struct sprd_priv *priv,
 			   struct sprd_vif *vif, int val);
 int sc2355_del_key(struct sprd_priv *priv, struct sprd_vif *vif, u8 key_index,
@@ -1151,7 +1143,9 @@ int sc2355_vendor_deinit(struct wiphy *wiphy);
 int sc2355_dump_survey(struct wiphy *wiphy, struct net_device *ndev,
 		       int idx, struct survey_info *s_info);
 int sc2355_set_sniffer(struct net_device *ndev, void __user *data);
+#ifdef ENABLE_CHR
 int sc2355_set_chr(struct sprd_chr *chr);
+#endif
 int sc2355_hif_fill_msdu_dscr(struct sprd_vif *vif,
 			      struct sk_buff *skb, u8 type, u8 offset);
 unsigned char sc2355_find_lut_index(struct sprd_hif *hif, struct sprd_vif *vif);
