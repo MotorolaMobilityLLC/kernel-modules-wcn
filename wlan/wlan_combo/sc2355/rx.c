@@ -507,9 +507,23 @@ int sc2355_mm_fill_buffer(struct sprd_hif *hif)
 	struct mem_mgmt *mm_entry = &rx_mgmt->mm_entry;
 	unsigned int num = 0, alloc_num = 0;
 	unsigned char sprd_max_add_mh_buf_once;
+	struct sprd_priv *priv = hif->priv;
+	struct sprd_vif *vif = NULL, *tmp_vif;
 
-	if (unlikely(hif->exit) || unlikely(hif->cp_asserted)){
-		wl_err("%s hif->exit=%d, hif->cp_asserted=%d", __func__, hif->exit, hif->cp_asserted);
+	spin_lock_bh(&priv->list_lock);
+	list_for_each_entry(tmp_vif, &priv->vif_list, vif_node) {
+		if (tmp_vif->state & VIF_STATE_OPEN) {
+			vif = tmp_vif;
+			break;
+		}
+	}
+	spin_unlock_bh(&priv->list_lock);
+
+
+	if (unlikely(hif->exit) || unlikely(hif->cp_asserted) || !vif
+		|| (hif->suspend_mode != SPRD_PS_RESUMED)) {
+		wl_err("%s exit=%d, cp_asserted=%d, suspend_mode=%d", __func__,
+			    hif->exit, hif->cp_asserted, hif->suspend_mode);
 		return -EINVAL;
 	}
 

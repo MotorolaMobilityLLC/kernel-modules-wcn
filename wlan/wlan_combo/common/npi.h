@@ -12,6 +12,7 @@
 #define SPRD_NPI_CMD_SET_RTS_THRESHOLD    (52)
 */
 #define SPRD_NPI_CMD_GET_CHIPID           (136)
+#define SPRD_NPI_CMD_SET_ADDBA            (197)
 #define SPRD_NPI_CMD_SET_CCA_PARAM        (198)
 #define SPRD_NPI_CMD_SET_RANDOM_MAC       (199)
 #define SPRD_NPI_CMD_SET_COUNTRY          (200)
@@ -114,5 +115,7 @@ void sprd_evt_adaptive(struct sprd_vif *vif);
 void sprd_wifi_adaptive_work(struct sprd_priv *priv, struct sprd_vif *vif);
 void sprd_npi_cmd_set_cca_param(struct sprd_vif *vif, u8 *s_buf,
 			 u16 s_len, u8 *r_buf, u16 r_len);
+int sprd_npi_deal_addba(struct sprd_vif *vif, u8 *s_buf,
+					 u16 s_len, u8 *r_buf, u16 *r_len);
 
 #endif

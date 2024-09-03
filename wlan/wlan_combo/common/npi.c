@@ -183,7 +183,10 @@ static int npi_nl_handler(struct sk_buff *skb_2, struct genl_info *info)
 		r_len = sizeof(*hdr) + hdr->len;
 		memcpy(r_buf, hdr, sizeof(*hdr));
 		memcpy(r_buf + sizeof(*hdr), &ret, hdr->len);
-
+	} else if (hdr->subtype == SPRD_NPI_CMD_SET_ADDBA) {
+		if (s_len < sizeof(struct sprd_npi_cmd_hdr))
+			goto out;
+		sprd_npi_deal_addba(vif, s_buf, s_len, r_buf, &r_len);
 	} else {
 		sprd_npi_send_recv(priv, vif, s_buf, s_len, r_buf, &r_len);
 
@@ -266,6 +269,58 @@ void sprd_npi_cmd_set_cca_param(struct sprd_vif *vif, u8 *s_buf,
 		wl_info("%s type is %d, subtype %d\n", dbgstr, hdr->type,
 			hdr->subtype);
 	}
+}
+
+int sprd_npi_deal_addba(struct sprd_vif *vif, u8 *s_buf,
+					 u16 s_len, u8 *r_buf, u16 *r_len)
+{
+	struct sprd_peer_entry *peer_entry = NULL;
+	struct sprd_hif *hif = NULL;
+	struct sprd_vif *temp_vif = NULL;
+	struct sprd_npi_cmd_hdr hdr = {0};
+	int ret  = 0;
+	u8 *addr = NULL;
+	u8 i, lut_index;
+
+	hif = &vif->priv->hif;
+	addr = vif->bssid;
+
+	/* if current vif->sm_state is not connected, need to find vif with status connected */
+	if (vif->sm_state != SPRD_CONNECTED) {
+		spin_lock_bh(&vif->priv->list_lock);
+		list_for_each_entry(temp_vif, &vif->priv->vif_list, vif_node) {
+			if (temp_vif->sm_state == SPRD_CONNECTED) {
+				addr = temp_vif->bssid;
+				break;
+			}
+		}
+		spin_unlock_bh(&vif->priv->list_lock);
+	}
+
+	/* find peer_entey using bssid */
+	for (i = 0; i < MAX_LUT_NUM; i++) {
+		if (ether_addr_equal(hif->peer_entry[i].tx.da, addr)) {
+			peer_entry = &hif->peer_entry[i];
+			lut_index = peer_entry->lut_index;
+			break;
+		}
+	}
+
+	if (peer_entry) {
+		peer_entry->ip_acquired = 1;
+		pr_info("%s, success set ip_acquired, lut_index: %d\n", __func__, (int)lut_index);
+	} else {
+		pr_err("%s, not set ip_acquired\n", __func__);
+	}
+
+	hdr.len = sizeof(int);
+	hdr.type = SPRD_CP2HT_REPLY;
+	hdr.subtype = SPRD_NPI_CMD_SET_ADDBA;
+	*r_len = sizeof(hdr) + hdr.len;
+	memcpy(r_buf, &hdr, sizeof(hdr));
+	memcpy(r_buf + sizeof(hdr), &ret, hdr.len);
+
+	return ret;
 }
 
 static int npi_nl_get_info_handler(struct sk_buff *skb_2,
