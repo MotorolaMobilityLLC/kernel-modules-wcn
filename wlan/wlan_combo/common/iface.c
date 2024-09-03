@@ -55,12 +55,13 @@ int sprd_wlan_parse_dt(struct sprd_priv *priv)
 		goto exit;
 	}
 
-	if (of_property_read_bool(pdev->dev.of_node, "enable-n79"))
-		dt_configs->enable_n79 = true;
-	else
-		dt_configs->enable_n79 = false;
+	dt_configs->enable_n79 = of_property_read_bool(pdev->dev.of_node,
+						       "sprd,enable-n79");
+	dt_configs->enable_chr = of_property_read_bool(pdev->dev.of_node,
+						       "sprd,enable-chr");
 
-	wl_info("%s n79_en %d.\n", __func__, dt_configs->enable_n79);
+	wl_info("%s n79_en:%d chr_en:%d\n", __func__,
+		dt_configs->enable_n79, dt_configs->enable_chr);
 
 exit:
 	return ret;
@@ -262,6 +263,7 @@ static void iface_set_mac_addr(struct sprd_vif *vif, u8 *pending_addr,
 int sprd_iface_set_power(struct sprd_hif *hif, int val)
 {
 	int ret = 0;
+	struct sprd_wlan_dt_config *dt_configs = &hif->priv->dt_configs;
 
 	if (val) {
 		wl_info("%s Power on WCN (%d time)\n", __func__,
@@ -274,9 +276,9 @@ int sprd_iface_set_power(struct sprd_hif *hif, int val)
 				wl_err("failed to power on WCN!\n");
 			else if (ret == -EIO)
 				wl_err("SYNC cmd error!\n");
-#ifdef ENABLE_CHR
-			CHR_OPENERR_FLAGSET(&hif->chr->open_err_flag, OPEN_ERR_POWER_ON);
-#endif
+			if (dt_configs->enable_chr)
+				CHR_OPENERR_FLAGSET(&hif->chr->open_err_flag,
+						    OPEN_ERR_POWER_ON);
 			return ret;
 		}
 		if (atomic_read(&hif->power_cnt) == 1)
@@ -336,6 +338,7 @@ static int iface_open(struct net_device *ndev)
 {
 	struct sprd_vif *vif = netdev_priv(ndev);
 	struct sprd_hif *hif = &vif->priv->hif;
+	struct sprd_wlan_dt_config *dt_configs = &vif->priv->dt_configs;
 	int ret;
 	int count = 0;
 
@@ -357,9 +360,8 @@ static int iface_open(struct net_device *ndev)
 		atomic_set(&hif->block_cmd_after_close, 0);
 
 	ret = sprd_iface_set_power(hif, true);
-#ifdef ENABLE_CHR
-	sprd_chr_handle_power(hif->chr);
-#endif
+	if (dt_configs->enable_chr)
+		sprd_chr_handle_power(hif->chr);
 	if (ret)
 		return ret;
 
@@ -370,9 +372,8 @@ static int iface_open(struct net_device *ndev)
 	}
 	netif_start_queue(ndev);
 
-#ifdef ENABLE_CHR
-	sprd_chr_handle_open(hif->chr);
-#endif
+	if (dt_configs->enable_chr)
+		sprd_chr_handle_open(hif->chr);
 
 	return 0;
 }
@@ -1824,9 +1825,8 @@ int sprd_iface_probe(struct platform_device *pdev,
 {
 	struct sprd_priv *priv;
 	struct sprd_hif *hif;
-#ifdef ENABLE_CHR
 	struct sprd_chr *chr;
-#endif
+	struct sprd_wlan_dt_config *dt_configs = NULL;
 	int ret = 0;
 
 	wl_info("Spreadtrum WLAN Driver (Ver. %s, %s)\n",
@@ -1846,6 +1846,7 @@ int sprd_iface_probe(struct platform_device *pdev,
 	hif->pdev = pdev;
 	hif->ops = hif_ops;
 	sprd_wlan_parse_dt(priv);
+	dt_configs = &priv->dt_configs;
 
 	ret = sprd_hif_init(hif);
 	if (ret) {
@@ -1853,14 +1854,15 @@ int sprd_iface_probe(struct platform_device *pdev,
 		goto err_hif_init;
 	}
 
-#ifdef ENABLE_CHR
-	chr = sprd_chr_handle_probe(hif);
-	if (!chr) {
-		wl_err("%s, CHR: chr struct malloc failed", __func__);
-		ret = -ENOMEM;
-		goto err_chr_probe;
+	if (dt_configs->enable_chr) {
+		chr = sprd_chr_handle_probe(hif);
+		if (!chr) {
+			wl_err("%s, CHR: chr struct malloc failed", __func__);
+			ret = -ENOMEM;
+			goto err_chr_probe;
+		}
 	}
-#endif
+
 	ret = sprd_iface_set_power(hif, true);
 	if (ret) {
 		wl_err("%s iface_set_power failed : %d", __func__, ret);
@@ -1890,10 +1892,9 @@ err_notify_init:
 err_core_init:
 	sprd_iface_set_power(hif, false);
 err_power_on:
-#ifdef ENABLE_CHR
-	sprd_chr_deinit(chr, PROBE_DEINIT);
+	if (dt_configs->enable_chr)
+		sprd_chr_deinit(chr, PROBE_DEINIT);
 err_chr_probe:
-#endif
 	sprd_hif_deinit(hif);
 err_hif_init:
 	sprd_core_free(priv);
@@ -1904,7 +1905,7 @@ int sprd_iface_remove(struct platform_device *pdev)
 {
 	struct sprd_priv *priv = platform_get_drvdata(pdev);
 	struct sprd_hif *hif = &priv->hif;
-
+	struct sprd_wlan_dt_config *dt_configs = &priv->dt_configs;
 	int ret;
 
 	ret = sprd_iface_set_power(hif, true);
@@ -1914,9 +1915,8 @@ int sprd_iface_remove(struct platform_device *pdev)
 	iface_notify_deinit(priv);
 	iface_core_deinit(priv);
 	sprd_iface_set_power(hif, false);
-#ifdef ENABLE_CHR
-	sprd_chr_deinit(hif->chr, REMOVE_DEINIT);
-#endif
+	if (dt_configs->enable_chr)
+		sprd_chr_deinit(hif->chr, REMOVE_DEINIT);
 	sprd_hif_deinit(hif);
 	sprd_core_free(priv);
 	iface_set_priv(NULL);

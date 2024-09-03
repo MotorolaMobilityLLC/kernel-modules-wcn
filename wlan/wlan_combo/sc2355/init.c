@@ -545,9 +545,7 @@ struct sprd_chip_ops sc2355_chip_ops = {
 	.needed_headroom = sc2355_needed_headroom,
 	.fc_add_share_credit = sc2355_fc_add_share_credit,
 	.set_sniffer = sc2355_set_sniffer,
-#ifdef ENABLE_CHR
 	.set_chr = sc2355_set_chr,
-#endif
 #ifdef ENABLE_DFS
 	.init_dfs_master = sc2355_init_dfs_master,
 	.deinit_dfs_master = sc2355_deinit_dfs_master,

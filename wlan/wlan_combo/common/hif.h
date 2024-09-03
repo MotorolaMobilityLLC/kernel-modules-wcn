@@ -112,9 +112,7 @@ struct sprd_hif {
 	const struct sprd_hif_ops *ops;
 	struct sprd_priv *priv;
 	netdev_features_t feature;
-#ifdef ENABLE_CHR
 	struct sprd_chr *chr;
-#endif
 
 	int exit;
 	atomic_t power_cnt;

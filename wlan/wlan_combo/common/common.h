@@ -37,9 +37,7 @@
 #include "vendor.h"
 #include "npi.h"
 #include "apf.h"
-#ifdef ENABLE_CHR
 #include "chr.h"
-#endif
 
 #define SPRD_DRIVER_VERSION		"v1.0"
 
@@ -179,6 +177,7 @@ struct sprd_chip {
 
 struct sprd_wlan_dt_config {
 	bool enable_n79;
+	bool enable_chr;
 };
 
 struct sprd_priv {
@@ -299,10 +298,8 @@ struct sprd_priv {
 	/*dt config */
 	struct sprd_wlan_dt_config dt_configs;
 
-#ifdef ENABLE_CHR
 	/* chr struct */
 	struct sprd_chr *chr;
-#endif
 };
 
 extern unsigned int wfa_cap;
