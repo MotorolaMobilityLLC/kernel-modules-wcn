@@ -467,6 +467,30 @@ void sprd_report_mgmt_disassoc(struct sprd_vif *vif, const u8 *buf, size_t len)
 	sprd_queue_work(vif->priv, misc_work);
 }
 
+void sprd_report_mgmt_probe_req(struct sprd_vif *vif, u8 chan, const u8 *buf, size_t len)
+{
+	u16 band;
+	int freq;
+	bool ret;
+	const struct ieee80211_mgmt *mgmt;
+
+	mgmt = (const struct ieee80211_mgmt *)buf;
+	if (vif->mode != SPRD_MODE_STATION ||
+		vif->sm_state != SPRD_CONNECTED ||
+		!ieee80211_is_probe_req(mgmt->frame_control) ||
+		chan > 14) {
+		netdev_err(vif->ndev, "%s not station or connected!", __func__);
+		return;
+	}
+
+	band = sprd_channel_to_band(chan);
+	freq = ieee80211_channel_to_frequency(chan, band);
+
+	ret = cfg80211_rx_mgmt(&vif->wdev, freq, 0, buf, len, GFP_ATOMIC);
+	if (!ret)
+		netdev_err(vif->ndev, "%s unregistered frame!", __func__);
+}
+
 void sprd_report_cqm(struct sprd_vif *vif, u8 rssi_event)
 {
 	netdev_info(vif->ndev, "%s rssi_event: %d\n", __func__, rssi_event);

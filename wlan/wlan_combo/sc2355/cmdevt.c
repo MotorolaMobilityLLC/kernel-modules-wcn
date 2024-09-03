@@ -3695,6 +3695,9 @@ static void cmdevt_report_frame_evt(struct sprd_vif *vif, u8 *data, u16 len, int
 					  buf, buf_len);
 		++bss_count;
 		break;
+	case SPRD_FRAME_PROBE_REQ:
+		sprd_report_mgmt_probe_req(vif, channel, buf, buf_len);
+		break;
 	default:
 		netdev_err(vif->ndev, "%s invalid frame type: %d!\n",
 			   __func__, type);
