@@ -560,6 +560,10 @@ struct sprd_chip_ops sc2355_chip_ops = {
 	.abort_cac = sc2355_abort_cac,
 	.reset_beacon = sc2355_reset_beacon,
 #endif
+	.reset_5g_sar_info = sc2355_reset_5g_sar_info,
+	.init_5g_sar_info = sc2355_init_5g_sar_info,
+	.set_5g_sar_info = sc2355_set_5g_sar_info,
+	.pw_backoff_band2value = sc2355_pw_backoff_band2value,
 };
 
 MODULE_DESCRIPTION("Spreadtrum SC2355 WLAN Driver");

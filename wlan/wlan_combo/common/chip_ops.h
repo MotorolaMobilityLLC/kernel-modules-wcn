@@ -172,6 +172,10 @@ struct sprd_chip_ops {
 	int (*reset_beacon)(struct sprd_priv *priv,
 			    struct sprd_vif *vif, const u8 *beacon, u16 len);
 #endif
+	void (*reset_5g_sar_info)(void);
+	void (*init_5g_sar_info)(void);
+	void (*set_5g_sar_info)(unsigned char *data);
+	u8 (*pw_backoff_band2value)(u8 channel);
 };
 
 static
@@ -971,5 +975,31 @@ static inline void sprd_deinit_dfs_master(struct sprd_priv *priv,
 		priv->chip.ops->deinit_dfs_master(vif);
 }
 #endif
+
+static inline void sprd_5g_sar_info_reset(struct sprd_priv *priv)
+{
+	if (priv->chip.ops->reset_5g_sar_info)
+		priv->chip.ops->reset_5g_sar_info();
+}
+
+static inline void sprd_5g_sar_info_init(struct sprd_priv *priv)
+{
+	if (priv->chip.ops->init_5g_sar_info)
+		priv->chip.ops->init_5g_sar_info();
+}
+
+static inline void sprd_5g_sar_info_set(struct sprd_priv *priv, unsigned char *data)
+{
+	if (priv->chip.ops->set_5g_sar_info)
+		priv->chip.ops->set_5g_sar_info(data);
+}
+
+static inline u8 sprd_pw_backoff_band2value(struct sprd_priv *priv, u8 channel)
+{
+	if (priv->chip.ops->pw_backoff_band2value)
+		return priv->chip.ops->pw_backoff_band2value(channel);
+
+	return 0;
+}
 
 #endif

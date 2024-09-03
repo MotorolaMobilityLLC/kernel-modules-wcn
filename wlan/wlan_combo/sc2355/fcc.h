@@ -42,5 +42,9 @@ void sc2355_fcc_fresh_bo_work(struct sprd_priv *priv, void *data, u16 len);
 void sc2355_fcc_match_country(struct sprd_priv *priv, const char *alpha2);
 void sc2355_fcc_reset_bo(void);
 void sc2355_fcc_init(void);
+void sc2355_init_5g_sar_info(void);
+void sc2355_reset_5g_sar_info(void);
+void sc2355_set_5g_sar_info(unsigned char *data);
+u8 sc2355_pw_backoff_band2value(u8 channel);
 #endif
 

@@ -753,8 +753,7 @@ int sprd_cfg80211_stop_ap(struct wiphy *wiphy, struct net_device *ndev)
 #endif
 	sprd_fcc_reset_bo(vif->priv);
 
-	if (hif->hw_type == SPRD_HW_SC2355_SIPC)
-		sprd_5g_sar_info_reset();
+	sprd_5g_sar_info_reset(vif->priv);
 
 	return 0;
 }

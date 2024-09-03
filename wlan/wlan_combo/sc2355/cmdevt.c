@@ -4204,7 +4204,7 @@ int sc2355_evt_pw_5gband_backoff(struct sprd_vif *vif, u8 *data, u16 len)
 	}
 
 	channel = *data;
-	value = sprd_pw_backoff_band2value(channel);
+	value = sprd_pw_backoff_band2value(vif->priv, channel);
 
 	if (!value)
 		return -1;
@@ -4398,8 +4398,7 @@ unsigned short sc2355_rx_evt_process(struct sprd_priv *priv, u8 *msg)
 		break;
 	case EVT_FRESH_POWER_BO:
 		cmdevt_report_update_band_info(hif, vif, data);
-		if (hif->hw_type == SPRD_HW_SC2355_SIPC)
-			sc2355_evt_pw_5gband_backoff(vif, data, len);
+		sc2355_evt_pw_5gband_backoff(vif, data, len);
 		sc2355_evt_pw_backoff(vif, data, len);
 		break;
 	case EVT_REPORT_IP_ADDR:

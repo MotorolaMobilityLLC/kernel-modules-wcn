@@ -112,10 +112,6 @@ void sprd_npi_set_cca_param(struct sprd_priv *priv, struct sprd_vif *vif,
 			    enum sprd_npi_cmd_set_cca_flag flag);
 void sprd_evt_adaptive(struct sprd_vif *vif);
 void sprd_wifi_adaptive_work(struct sprd_priv *priv, struct sprd_vif *vif);
-void sprd_5g_sar_info_init(void);
-void sprd_5g_sar_info_reset(void);
-void sprd_5g_sar_info_set(unsigned char *data);
-u8 sprd_pw_backoff_band2value(u8 channel);
 void sprd_npi_cmd_set_cca_param(struct sprd_vif *vif, u8 *s_buf,
 			 u16 s_len, u8 *r_buf, u16 r_len);
 
