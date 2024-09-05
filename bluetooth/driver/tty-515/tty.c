@@ -165,8 +165,13 @@ int sprd_bt_read_soc_version(char *op_string){
     }
 
     value = of_get_property(hwf, "efuse", NULL);
-    if (strcmp(value, "") == 0) {
-        pr_err("phone soc version is null");
+    if (value != NULL){
+        if (strcmp(value, "") == 0) {
+            pr_err("phone soc version is null");
+            return -EINVAL;
+        }
+    } else{
+        pr_err("value is NULL");
         return -EINVAL;
     }
 
