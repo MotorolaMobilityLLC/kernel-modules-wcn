@@ -1041,9 +1041,7 @@ static int tx_filter_ip_pkt(struct sk_buff *skb, struct net_device *ndev)
 
 	if (IPV4_DHCP(ethhdr, udphdr)) {
 		is_ipv4_dhcp = true;
-		if (skb->data) {
-			memcpy(hif->skb_da, skb->data, ETH_ALEN);
-		}
+		memcpy(hif->skb_da, skb->data, ETH_ALEN);
 		dhcpdata = skb->data + ETHER_HDR_LEN + iphdrlen + 250;
 
 		if (*dhcpdata < 0x07)
