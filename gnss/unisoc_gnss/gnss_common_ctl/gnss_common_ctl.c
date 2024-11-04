@@ -565,6 +565,7 @@ static ssize_t gnss_dump_store(struct device *dev,
 	unsigned long set_value;
 	int ret = -1;
 	int strlen = 0;
+	int subsys_status = 0;
 	char triggerStr[64];
 	struct wcn_match_data *ptr_match_config = get_wcn_match_config();
 
@@ -576,7 +577,15 @@ static ssize_t gnss_dump_store(struct device *dev,
 	strlen = ((count - 2) > 63) ? 63 : (count - 2);
 	memcpy(triggerStr, &buf[2], strlen);
 
-	dev_info(dev, "%s trigStr=%s\n", __func__, triggerStr);
+	if (ptr_match_config && ptr_match_config->unisoc_wcn_integrated) {
+		subsys_status  = wcn_check_module_status(WCN_GNSS);
+		subsys_status |= wcn_check_module_status(WCN_GNSS_BD);
+		subsys_status |= wcn_check_module_status(WCN_GNSS_GAL);
+	} else {
+		subsys_status = wcn_check_module_status(MARLIN_GNSS);
+	}
+
+	dev_info(dev, "%s subsys status[%d], trigStr=%s\n", __func__, subsys_status, triggerStr);
 
 	if (set_value == 1) {
 		if (ptr_match_config && ptr_match_config->unisoc_wcn_integrated)
@@ -584,10 +593,10 @@ static ssize_t gnss_dump_store(struct device *dev,
 		else
 			gnss_dump_mem_ctrl(triggerStr);
 		ret = GNSS_DUMP_DATA_START_UP;
-	} else if(set_value == 4) {
+	} else if((set_value == 4) && subsys_status && !sprdwcn_bus_get_carddump_status()) {
 		wcn_assert_interface(WCN_SOURCE_SP_RESET, triggerStr);
 		ret = GNSS_DUMP_DATA_START_UP;
-	} else if(set_value == 5) {
+	} else if((set_value == 5) && subsys_status && !sprdwcn_bus_get_carddump_status()) {
 		gnss_hold_cpu();
 		ret = 0;
 	} else

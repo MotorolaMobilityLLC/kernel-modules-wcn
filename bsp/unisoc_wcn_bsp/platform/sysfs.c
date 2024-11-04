@@ -665,7 +665,7 @@ static ssize_t wcn_sysfs_show_reset_dump(struct device *dev,
 					 char *buf)
 {
 	ssize_t len = PAGE_SIZE;
-	int reset_prop = wcn_sysfs_get_reset_prop();
+	int reset_prop = atomic_read(&sysfs_info.is_reset);
 
 	if (reset_prop == WCN_ASSERT_ONLY_DUMP)
 		len = snprintf(buf, len, "dump\n");
@@ -711,6 +711,7 @@ static bool shoudl_do_sdio_block_workround(void)
 	}
 
 	if ((now - p_data->last_sdio_blocked_time) < within_blocked_time) {
+		sdiohal_disable_rx_irq(p_data->irq_num);
 		WCN_INFO("force WCN reset\n");
 		return true;
 	}

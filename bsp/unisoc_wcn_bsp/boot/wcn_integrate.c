@@ -1522,6 +1522,20 @@ void mdbg_hold_cpu(u32 value)
 	wcn_soft_reset_release_btwf_cpu(WCN_BTWF_CPU_RESET_RELEASE);
 }
 
+void mdbg_check_clean_cache_done(u32 value)
+{
+	phys_addr_t init_addr;
+	u32 val = 0;
+
+	/* get cache flag */
+	init_addr = wcn_get_btwf_init_status_addr();
+	wcn_read_data_from_phy_addr(init_addr, &val, sizeof(val));
+	if (val != value)
+		WCN_ERR("%s val is %d!, dumpfile maybe unreliable!!\n", __func__, val);
+	else
+		WCN_INFO("%s successful!\n", __func__);
+}
+
 void mdbg_cpu_reset(void)
 {
 	wcn_soft_reset_release_btwf_cpu(WCN_BTWF_CPU_RESET);

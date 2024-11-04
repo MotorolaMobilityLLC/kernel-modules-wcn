@@ -3352,6 +3352,15 @@ static int cmdevt_fw_power_down_ack(struct sprd_priv *priv, struct sprd_vif *vif
 	struct tx_mgmt *tx_mgmt = (struct tx_mgmt *)hif->tx_mgmt;
 	enum sprd_mode mode = SPRD_MODE_NONE;
 	int tx_num = 0;
+	struct sprd_cmd *cmd = &priv->cmd;
+
+	if (hif->suspend_mode != SPRD_PS_RESUMED) {
+		printk_ratelimited("%s not resume, wait\n", __func__);
+		__pm_stay_awake(cmd->wake_lock);
+		cmdevt_report_fw_power_down_evt(vif, NULL, 0);
+		__pm_relax(cmd->wake_lock);
+		return 0;
+	}
 
 	msg = get_cmdbuf(priv, vif, sizeof(*p), CMD_POWER_SAVE);
 	if (!msg)
@@ -4097,7 +4106,7 @@ static void cmdevt_report_wfd_mib_cnt(struct sprd_vif *vif, u8 *data, u16 len)
 	wfd_rate = 2;
 }
 
-static void cmdevt_report_fw_power_down_evt(struct sprd_vif *vif, u8 *data, u16 len)
+void cmdevt_report_fw_power_down_evt(struct sprd_vif *vif, u8 *data, u16 len)
 {
 	struct sprd_work *misc_work;
 

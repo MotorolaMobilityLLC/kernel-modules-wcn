@@ -174,6 +174,21 @@ bool wcn_is_assert(void)
 }
 EXPORT_SYMBOL_GPL(wcn_is_assert);
 
+int wcn_check_module_status(u32 subsys)
+{
+	struct wcn_match_data *g_match_config = get_wcn_match_config();
+
+	if (g_match_config && g_match_config->unisoc_wcn_integrated) {
+		if ((subsys == WCN_GNSS) || (subsys == WCN_GNSS_BD) ||
+			(subsys == WCN_GNSS_GAL))
+			return (s_wcn_device.gnss_device->wcn_open_status & (BIT(subsys)));
+		else
+			return (s_wcn_device.btwf_device->wcn_open_status & (BIT(subsys)));
+	} else
+		return (marlin_get_power() & (BIT(subsys)));
+
+}EXPORT_SYMBOL_GPL(wcn_check_module_status);
+
 void wcn_set_powerdown_flag(u8 flag)
 {
 	mdbg_proc->marlin_powerdown_flag = flag;
@@ -226,7 +241,7 @@ void __wcn_assert_interface(enum wcn_source_type type, char *str)
 		WCN_INFO("no modules open\n");
 		goto out;
 	}
-	if (type == WCN_SOURCE_SP_RESET) {
+	if ((type == WCN_SOURCE_SP_RESET) && (!sprdwcn_bus_get_carddump_status())) {
 		WCN_INFO("SP reset, WCN silen reset!\n");
 		stop_loopcheck();
 		wcn_silent_reset();

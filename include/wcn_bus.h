@@ -346,6 +346,7 @@ extern void wcn_pm_qos_enable(void);
 extern void wcn_pm_qos_disable(void);
 extern void wcn_pm_qos_reset(void);
 extern void gnss_hold_cpu(void);
+extern int wcn_check_module_status(u32 subsys);
 
 static inline
 int sprdwcn_bus_preinit(void)
