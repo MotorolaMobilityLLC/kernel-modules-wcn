@@ -7,46 +7,181 @@
 #include "common/npi.h"
 #include "cmdevt.h"
 
+/* subtype, channel, bw, {mode(2.4g : b,g,n,ac; 5g : a,n,ac), value} */
+
+#define num_ce 8
+#define num_fcc 14
+
+#define power_backoff_ce { \
+	{1, 149, 0, { {0, 127}, {1, 127}, {2, 127}, {3, 127}, {4, 12}, {5, 12}, {6, 12} } }, \
+	{1, 153, 0, { {0, 127}, {1, 127}, {2, 127}, {3, 127}, {4, 12}, {5, 12}, {6, 12} } }, \
+	{1, 157, 0, { {0, 127}, {1, 127}, {2, 127}, {3, 127}, {4, 12}, {5, 12}, {6, 12} } }, \
+	{1, 161, 0, { {0, 127}, {1, 127}, {2, 127}, {3, 127}, {4, 12}, {5, 12}, {6, 12} } }, \
+	{1, 165, 0, { {0, 127}, {1, 127}, {2, 127}, {3, 127}, {4, 12}, {5, 12}, {6, 12} } }, \
+	{1, 151, 1, { {0, 127}, {1, 127}, {2, 127}, {3, 127}, {4, 12}, {5, 12}, {6, 12} } }, \
+	{1, 159, 1, { {0, 127}, {1, 127}, {2, 127}, {3, 127}, {4, 12}, {5, 12}, {6, 12} } }, \
+	{1, 155, 2, { {0, 127}, {1, 127}, {2, 127}, {3, 127}, {4, 12}, {5, 12}, {6, 12} } }, \
+	}
+
+#define power_backoff_fcc { \
+	{1, 1, 0, { {0, 127}, {1, 127}, {2, 15}, {3, 127}, {4, 127}, {5, 127}, {6, 127} } },  \
+	{1, 11, 0, { {0, 127}, {1, 127}, {2, 14}, {3, 127}, {4, 127}, {5, 127}, {6, 127} } }, \
+	{1, 3, 1, { {0, 127}, {1, 127}, {2, 14}, {3, 127}, {4, 127}, {5, 127}, {6, 127} } }, \
+	{1, 9, 1, { {0, 127}, {1, 127}, {2, 13}, {3, 127}, {4, 127}, {5, 127}, {6, 127} } }, \
+	{1, 36, 0, { {0, 127}, {1, 127}, {2, 127}, {3, 127}, {4, 15}, {5, 127}, {6, 127} } }, \
+	{1, 100, 0, { {0, 127}, {1, 127}, {2, 127}, {3, 127}, {4, 15}, {5, 127}, {6, 127} } }, \
+	{1, 36, 0, { {0, 127}, {1, 127}, {2, 127}, {3, 127}, {4, 127}, {5, 127}, {6, 15} } }, \
+	{1, 100, 0, { {0, 127}, {1, 127}, {2, 127}, {3, 127}, {4, 127}, {5, 127}, {6, 15} } }, \
+	{1, 140, 0, { {0, 127}, {1, 127}, {2, 127}, {3, 127}, {4, 127}, {5, 127}, {6, 10} } }, \
+	{1, 38, 1, { {0, 127}, {1, 127}, {2, 127}, {3, 127}, {4, 127}, {5, 127}, {6, 12} } }, \
+	{1, 62, 1, { {0, 127}, {1, 127}, {2, 127}, {3, 127}, {4, 127}, {5, 127}, {6, 12} } }, \
+	{1, 102, 1, { {0, 127}, {1, 127}, {2, 127}, {3, 127}, {4, 127}, {5, 127}, {6, 13} } }, \
+	{1, 42, 2, { {0, 127}, {1, 127}, {2, 127}, {3, 127}, {4, 127}, {5, 127}, {6, 12} } }, \
+	{1, 106, 2, { {0, 127}, {1, 127}, {2, 127}, {3, 127}, {4, 127}, {5, 127}, {6, 12} } }, \
+	}
+
 static struct sprd_fcc_priv fcc_info;
 
 static struct fcc_power_bo g_fcc_power_table[MAX_FCC_COUNTRY_NUM] = {
 	{
+		.country = "AE",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "BR",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "CL",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "CR",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "DE",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "EC",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "ES",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "FR",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "GB",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "IN",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "IT",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "NL",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "PE",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "PL",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "RO",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "RS",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "SA",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "SE",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "TN",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "UA",
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
 		.country = "UY",
-		.num = 4,
-		.power_backoff = {
-			/* subtype, channel, bw, {mode(2.4g : b,g,n,ac; 5g : a,n,ac), value} */
-			{0, 1, 0, { {0, 1}, {1, 2}, {2, 3}, {3, 4}, {4, 5}, {5, 6}, {6, 7} } },
-			{1, 2, 0, { {0, 1}, {1, 2}, {2, 3}, {3, 4}, {4, 5}, {5, 6}, {6, 7} } },
-			{0, 1, 0, { {0, 1}, {1, 2}, {2, 3}, {3, 4}, {4, 5}, {5, 6}, {6, 7} } },
-			{1, 4, 0, { {0, 1}, {1, 2}, {2, 3}, {3, 4}, {4, 5}, {5, 6}, {6, 7} } },
-		},
+		.num = num_ce,
+		.power_backoff = power_backoff_ce,
+	},
+	{
+		.country = "AR",
+		.num = num_fcc,
+		.power_backoff = power_backoff_fcc,
+	},
+	{
+		.country = "AU",
+		.num = num_fcc,
+		.power_backoff = power_backoff_fcc,
+	},
+	{
+		.country = "CO",
+		.num = num_fcc,
+		.power_backoff = power_backoff_fcc,
+	},
+	{
+		.country = "DO",
+		.num = num_fcc,
+		.power_backoff = power_backoff_fcc,
+	},
+	{
+		.country = "GT",
+		.num = num_fcc,
+		.power_backoff = power_backoff_fcc,
 	},
 	{
 		.country = "MX",
-		.num = 4,
-		.power_backoff = {
-			/* subtype, channel, bw, {mode(2.4g : b,g,n,ac; 5g : a,n,ac), value} */
-			{0, 5, 0, { {0, 1}, {1, 2}, {2, 3}, {3, 4}, {4, 5}, {5, 6}, {6, 7} } },
-			{1, 6, 0, { {0, 1}, {1, 2}, {2, 3}, {3, 4}, {4, 5}, {5, 6}, {6, 7} } },
-			{0, 7, 0, { {0, 1}, {1, 2}, {2, 3}, {3, 4}, {4, 5}, {5, 6}, {6, 7} } },
-			{1, 8, 0, { {0, 1}, {1, 2}, {2, 3}, {3, 4}, {4, 5}, {5, 6}, {6, 7} } },
-
-		},
+		.num = num_fcc,
+		.power_backoff = power_backoff_fcc,
 	},
 	{
-		.country = "CN",
-		.num = 8,
-		.power_backoff = {
-			/* subtype, channel, bw, {mode(2.4g : b,g,n,ac; 5g : a,n,ac), value} */
-			{1,   1, 0, { {0, 127}, {1,  13}, {2,  12}, {3, 127}, {4, 127}, {5, 127}, {6, 127} } },
-			{1,   2, 0, { {0, 127}, {1,  13}, {2,  12}, {3, 127}, {4, 127}, {5, 127}, {6, 127} } },
-			{1,  10, 0, { {0, 127}, {1,  13}, {2,  12}, {3, 127}, {4, 127}, {5, 127}, {6, 127} } },
-			{1,  11, 0, { {0, 127}, {1,  13}, {2,  12}, {3, 127}, {4, 127}, {5, 127}, {6, 127} } },
-			{1,  36, 0, { {0, 127}, {1, 127}, {2, 127}, {3, 127}, {4, 127}, {5,  11}, {6,  10} } },
-			{1,  64, 0, { {0, 127}, {1, 127}, {2, 127}, {3, 127}, {4, 127}, {5,  11}, {6,  10} } },
-			{1, 100, 0, { {0, 127}, {1, 127}, {2, 127}, {3, 127}, {4, 127}, {5,  11}, {6,  10} } },
-			{1, 140, 0, { {0, 127}, {1, 127}, {2, 127}, {3, 127}, {4, 127}, {5,  11}, {6,  10} } },
-		},
+		.country = "OM",
+		.num = num_fcc,
+		.power_backoff = power_backoff_fcc,
 	},
 };
 
