@@ -974,6 +974,33 @@ static ssize_t slp_info_show(struct device *dev, struct device_attribute *attr, 
 }
 static DEVICE_ATTR_RW(slp_info);
 
+static ssize_t timer_check_store(struct device *dev, struct device_attribute *attr,
+			const char *buf, size_t count)
+{
+	WCN_INFO("%s: buf=%s, not support to write\n", __func__, buf);
+	return count;
+}
+
+static ssize_t timer_check_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	char at_cmd_timercheck[] = "at+timercheck\r", at_cmd_timercheck_response[128], *ret_t;
+	size_t timer_check_len = WCN_AT_RSP_RAW_FLAG - 1;
+	int ret = 0;
+
+	memset(&at_cmd_timercheck_response, 0, sizeof(at_cmd_timercheck_response));
+	ret = wcn_send_atcmd(at_cmd_timercheck, strlen(at_cmd_timercheck),
+			&at_cmd_timercheck_response, &timer_check_len);
+	if (ret) {
+		WCN_ERR("%s: BTFW is closed or CMD no support!%d\n", __func__, ret);
+		return ret;
+	}
+	ret_t = strstr(at_cmd_timercheck_response, "CHECKERROR");
+	if (ret_t)
+		wcn_assert_interface(WCN_SOURCE_BTWF, "TIMER CHECK ERROR!");
+	return ret;
+}
+static DEVICE_ATTR_RW(timer_check);
+
 static long wcn_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
 {
 	return 0;
@@ -1033,6 +1060,7 @@ static struct attribute *wcn_attrs[] = {
 	&dev_attr_slp_info.attr,
 	&dev_attr_n79_mode.attr,
 	&dev_attr_rf_reg.attr,
+	&dev_attr_timer_check.attr,
 	NULL,
 };
 

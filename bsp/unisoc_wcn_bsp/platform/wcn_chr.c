@@ -2,6 +2,7 @@
 
 static struct task_struct *client_rx_task;
 static atomic_t wcn_chr_enable = ATOMIC_INIT(0);
+static struct semaphore wcn_chr_sema;
 
 struct socket *cl_sock;
 
@@ -9,16 +10,11 @@ static struct wcn_chr_event_list event_list[1] = {
 		{"assert", 0x2501, 0},
 };
 
-int wcn_chr_write(char *buf, size_t len)
+static int wcn_chr_wr2serv(char *buf, size_t len)
 {
 	int ret;
 	struct msghdr send_msg = {0};
 	struct kvec send_vec = {0};
-
-	if (!cl_sock) {
-		WCN_ERR("%s: invalid cl_sock\n", __func__);
-		return -EINVAL;
-	}
 
 	send_vec.iov_base = buf;
 	send_vec.iov_len = len;
@@ -31,6 +27,77 @@ int wcn_chr_write(char *buf, size_t len)
 
 	return len;
 }
+
+static bool wcn_chr_is_enable(char *buf, size_t len)
+{
+	int ret;
+	struct sockaddr_in s_addr;
+
+	if (!cl_sock) {
+		WCN_ERR("%s: invalid cl_sock\n", __func__);
+		return false;
+	}
+
+	if (atomic_read(&wcn_chr_enable) == 1)
+		return true;
+
+	if (strncmp(buf, WCN_CHR_SOCKET_CMD_ENABLE, MIN(len, strlen(WCN_CHR_SOCKET_CMD_ENABLE))) == 0) {
+		s_addr.sin_family = AF_INET;
+		s_addr.sin_port = htons(4756);
+		s_addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+
+		ret = cl_sock->ops->connect(cl_sock, (struct sockaddr *)&s_addr, sizeof(s_addr), 0);
+		if (ret == 0) {
+			up(&wcn_chr_sema);
+			return true;
+		}
+	}
+
+	return false;
+}
+
+int wcn_chr_write(char *buf, size_t len)
+{
+	if (wcn_chr_is_enable(buf, len) == false)
+		return -EINVAL;
+
+	return wcn_chr_wr2serv(buf, len);
+}
+
+int wcn_chr_read(void)
+{
+	int ret = 0;
+	struct sockaddr_in s_addr;
+
+	if (!cl_sock) {
+		WCN_ERR("%s: invalid cl_sock\n", __func__);
+		return -EINVAL;
+	}
+
+	if (atomic_read(&wcn_chr_enable) == 1)
+		return ret;
+
+	s_addr.sin_family = AF_INET;
+	s_addr.sin_port = htons(4756);
+	s_addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+
+	ret = cl_sock->ops->connect(cl_sock, (struct sockaddr *)&s_addr, sizeof(s_addr), 0);
+	if (ret < 0) {
+		WCN_ERR("%s: connect failed with %d\n", __func__, ret);
+		return ret;
+	}
+
+	up(&wcn_chr_sema);
+	ret = wcn_chr_wr2serv(WCN_CHR_SOCKET_CMD_ENABLE, strlen(WCN_CHR_SOCKET_CMD_ENABLE));
+	if (ret < 0) {
+		WCN_ERR("%s: wr2serv failed with %d\n", __func__, ret);
+		return ret;
+	}
+
+	return ret;
+
+}
+
 
 int wcn_chr_report_event(char *str, u32 index)
 {
@@ -140,34 +207,9 @@ static int parse_event(char *buf, int len)
 	return 0;
 }
 
-static __be32 my_aton(const char *str)
-{
-	unsigned int l;
-	unsigned int val;
-	int i;
-
-	l = 0;
-	for (i = 0; i < 4; i++) {
-		l <<= 8;
-		if (*str != '\0') {
-			val = 0;
-				while (*str != '\0' && *str != '.' && *str != '\n') {
-					val *= 10;
-					val += *str - '0';
-					str++;
-				}
-			l |= val;
-			if (*str != '\0')
-				str++;
-		}
-	}
-	return htonl(l);
-}
-
 static int client_rx_thread(void *data)
 {
 	int ret;
-	struct sockaddr_in s_addr;
 	char recv_buf[BUF_SIZE] = {0};
 	struct msghdr recv_msg = {0};
 	struct kvec recv_vec = {0};
@@ -186,15 +228,9 @@ retry:
 		return -EINVAL;
 	}
 
-	s_addr.sin_family = AF_INET;
-	s_addr.sin_port = htons(4756);
-	s_addr.sin_addr.s_addr = my_aton("127.0.0.1");
-
 	WCN_INFO("wait for chr server ready\n");
 
-	//TODO:optimize:block here while server not ready
-	while (cl_sock->ops->connect(cl_sock, (struct sockaddr *)&s_addr, sizeof(s_addr), 0))
-		msleep(1000);
+	down(&wcn_chr_sema);
 
 	WCN_INFO("chr server connected\n");
 	atomic_set(&wcn_chr_enable, 1);
@@ -221,6 +257,8 @@ retry:
 int wcn_chr_init(void)
 {
 	WCN_INFO("%s entry\n", __func__);
+
+	sema_init(&wcn_chr_sema, 0);
 
 	client_rx_task = kthread_create(client_rx_thread, NULL, "wcn_chr_rx");
 	if (IS_ERR_OR_NULL(client_rx_task)) {
