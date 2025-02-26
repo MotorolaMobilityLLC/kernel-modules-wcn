@@ -300,6 +300,9 @@ struct sprd_priv {
 
 	/* chr struct */
 	struct sprd_chr *chr;
+
+	/* npi flag */
+	unsigned char npi_sta_wfa;
 };
 
 extern unsigned int wfa_cap;

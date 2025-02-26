@@ -293,4 +293,5 @@ void sc2355_tx_delba(struct sprd_hif *hif,
 void sc2355_tx_send_addba(struct sprd_vif *vif, void *data, int len);
 void sc2355_tx_send_delba(struct sprd_vif *vif, void *data, int len);
 int sc2355_dis_flush_txlist(struct sprd_hif *hif, u8 lut_index);
+void sc2355_tx_send_action(struct sprd_vif *vif, void *data, int len);
 #endif

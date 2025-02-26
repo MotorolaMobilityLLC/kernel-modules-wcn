@@ -16,6 +16,12 @@
 /*min window size in KB, it's 256KB*/
 #define MIN_WIN		256
 #define SIZE_KB		1024
+#define IS_SAME_PORT_IPV4(ack_info, ack_msg) \
+		(((ack_info)->is_ipv6 == false) && \
+		((ack_info)->dest == (ack_msg)->dest) && \
+		((ack_info)->source == (ack_msg)->source) && \
+		((ack_info)->saddr == (ack_msg)->saddr) && \
+		((ack_info)->daddr == (ack_msg)->daddr))
 
 static void tcp_ack_timeout(struct timer_list *t)
 {
@@ -61,6 +67,17 @@ static int tcp_ack_check_quick(unsigned char *buf, struct tcp_ack_msg *ack_msg)
 		if (!(temp[13] & 0x10))
 			return 0;
 
+		if (temp[13] & 0x2) {
+			ack_msg->syn_ack_flag = true;
+			ack_msg->is_ipv6 = false;
+                        ack_msg->saddr = iphdr->daddr;
+                        ack_msg->daddr = iphdr->saddr;
+                        ack_msg->source = tcphdr->dest;
+                        ack_msg->dest = tcphdr->source;
+                        ack_msg->seq = ntohl(tcphdr->seq);
+			return 1;
+		}
+
 		if (temp[13] & 0x8) {
 			ack_msg->is_ipv6 = false;
 			ack_msg->saddr = iphdr->daddr;
@@ -70,6 +87,8 @@ static int tcp_ack_check_quick(unsigned char *buf, struct tcp_ack_msg *ack_msg)
 			ack_msg->seq = ntohl(tcphdr->seq);
 			return 1;
 		}
+
+
 	} else if (ethhdr->h_proto == htons(ETH_P_IPV6)) {
 		ipv6hdr = (struct ipv6hdr *)(ethhdr + 1);
 		if (ipv6hdr->version != 6 || ipv6hdr->nexthdr != IPPROTO_TCP)
@@ -90,6 +109,7 @@ static int tcp_ack_check_quick(unsigned char *buf, struct tcp_ack_msg *ack_msg)
 			ack_msg->seq = ntohl(tcphdr->seq);
 			return 1;
 		}
+
 	}
 	return 0;
 }
@@ -175,7 +195,7 @@ static int tcp_ack_check(unsigned char *buf, struct tcp_ack_msg *ack_msg,
 		temp = (unsigned char *)(iphdr) + ip_hdr_len;
 		tcphdr = (struct tcphdr *)((unsigned char *)(iphdr) + ip_hdr_len);
 		/* TCP_FLAG_ACK, only indicates whether ack seq is valid, not means ACK packet */
-		if (!(temp[13] & 0x10))
+		if (!(temp[13] & 0x12))
 			return 0;
 
 		tcp_tot_len = ntohs(iphdr->tot_len) - ip_hdr_len;
@@ -273,10 +293,13 @@ static void tcp_ack_update(struct sprd_tcp_ack_manage *ack_m)
 }
 
 /* return val: -1 for no index, others for index */
-static int tcp_ack_alloc_index(struct sprd_tcp_ack_manage *ack_m)
+static int tcp_ack_alloc_index(struct sprd_tcp_ack_manage *ack_m,
+			       struct tcp_ack_msg *ack_msg,
+			       unsigned short *win_scale)
 {
 	int i, ret = -1;
 	struct tcp_ack_info *ack_info;
+	struct tcp_ack_msg *ack;
 	unsigned int start;
 
 	spin_lock_bh(&ack_m->lock);
@@ -286,12 +309,34 @@ static int tcp_ack_alloc_index(struct sprd_tcp_ack_manage *ack_m)
 	}
 
 	if (ack_m->free_index >= 0) {
-		i = ack_m->free_index;
-		ack_m->free_index = -1;
-		ack_m->max_num++;
-		spin_unlock_bh(&ack_m->lock);
-		return i;
+		ack_info = &ack_m->ack_info[ack_m->free_index];
+		ack = &ack_info->ack_msg;
+		if (IS_SAME_PORT_IPV4(ack, ack_msg)){
+			i = ack_m->free_index;
+			ack_m->free_index = -1;
+			ack_m->max_num++;
+			*win_scale = ack_info->win_scale;
+			spin_unlock_bh(&ack_m->lock);
+			return i;
+	    }
 	}
+
+	for (i = 0; ((ret < 0) && (i < SPRD_TCP_ACK_NUM)); i++) {
+		ack_info = &ack_m->ack_info[i];
+		ack = &ack_info->ack_msg;
+		do {
+			start = read_seqbegin(&ack_info->seqlock);
+			ret = -1;
+			if (IS_SAME_PORT_IPV4(ack, ack_msg)) {
+				ack_m->free_index = -1;
+				ack_m->max_num++;
+				*win_scale = ack_info->win_scale;
+				ret = i;
+			}
+		} while (read_seqretry(&ack_info->seqlock, start));
+	}
+	if (ret >= 0)
+		goto out;
 
 	for (i = 0; ((ret < 0) && (i < SPRD_TCP_ACK_NUM)); i++) {
 		ack_info = &ack_m->ack_info[i];
@@ -305,6 +350,8 @@ static int tcp_ack_alloc_index(struct sprd_tcp_ack_manage *ack_m)
 			}
 		} while (read_seqretry(&ack_info->seqlock, start));
 	}
+
+out:
 	spin_unlock_bh(&ack_m->lock);
 
 	return ret;
@@ -325,7 +372,6 @@ static int tcp_ack_handle(struct sprd_msg *new_msg,
 
 	ack_info->last_time = jiffies;
 	ack = &ack_info->ack_msg;
-
 	if (type == 2) {
 		if (SPRD_U32_BEFORE(ack->seq, ack_msg->seq)) {
 			ack->seq = ack_msg->seq;
@@ -343,7 +389,7 @@ static int tcp_ack_handle(struct sprd_msg *new_msg,
 			ack_info->in_send_msg = NULL;
 			ack_info->drop_cnt = atomic_read(&ack_m->max_drop_cnt);
 		} else {
-			wl_err("%s before abnormal ack: %d, %d\n",
+			wl_err("%s before abnormal ack: %u, %u\n",
 			       __func__, ack->seq, ack_msg->seq);
 			drop_msg = new_msg;
 			ret = 1;
@@ -422,6 +468,8 @@ void sc2355_tcp_ack_filter_rx(struct sprd_priv *priv, unsigned char *buf,
 	struct tcp_ack_info *ack_info;
 	struct sprd_tcp_ack_manage *ack_m = &priv->ack_m;
 
+	ack_msg.syn_ack_flag = false;
+
 	if (!atomic_read(&ack_m->enable))
 		return;
 
@@ -429,11 +477,16 @@ void sc2355_tcp_ack_filter_rx(struct sprd_priv *priv, unsigned char *buf,
 		return;
 
 	index = tcp_ack_match(ack_m, &ack_msg);
+
 	if (index >= 0) {
 		ack_info = ack_m->ack_info + index;
 		write_seqlock_bh(&ack_info->seqlock);
 		ack_info->psh_flag = 1;
 		ack_info->psh_seq = ack_msg.seq;
+		if (ack_msg.syn_ack_flag) {
+			wl_info("%s %u, %u\n", __func__, ack_info->ack_msg.seq, ack_msg.seq);
+			ack_info->ack_msg.seq = ack_msg.seq;
+		}
 		write_sequnlock_bh(&ack_info->seqlock);
 	}
 }
@@ -444,7 +497,7 @@ int sc2355_tcp_ack_filter_send(struct sprd_priv *priv, struct sprd_msg *msg,
 {
 	int ret = 0;
 	int index = 0, drop = 0;
-	unsigned short win_scale = 0;
+	unsigned short win_scale = 0, win_scale_init = 1;
 	unsigned int win = 0;
 	struct tcp_ack_msg ack_msg = { 0 };
 	struct tcp_ack_msg *ack = NULL;
@@ -484,8 +537,7 @@ int sc2355_tcp_ack_filter_send(struct sprd_priv *priv, struct sprd_msg *msg,
 
 		goto out;
 	}
-
-	index = tcp_ack_alloc_index(ack_m);
+	index = tcp_ack_alloc_index(ack_m,&ack_msg, &win_scale_init);
 	if (index >= 0) {
 		write_seqlock_bh(&ack_m->ack_info[index].seqlock);
 		ack_m->ack_info[index].busy = 1;
@@ -494,7 +546,7 @@ int sc2355_tcp_ack_filter_send(struct sprd_priv *priv, struct sprd_msg *msg,
 		ack_m->ack_info[index].drop_cnt =
 		    atomic_read(&ack_m->max_drop_cnt);
 		ack_m->ack_info[index].win_scale =
-		    (win_scale != 0) ? win_scale : 1;
+		    (win_scale != 0) ? win_scale : win_scale_init;
 
 		ack = &ack_m->ack_info[index].ack_msg;
 		ack->dest = ack_msg.dest;

@@ -25,6 +25,7 @@ struct tcp_ack_msg {
 	struct in6_addr ipv6_saddr;
 	struct in6_addr ipv6_daddr;
 	bool is_ipv6;
+	bool syn_ack_flag;
 };
 
 struct tcp_ack_info {

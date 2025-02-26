@@ -468,7 +468,7 @@ void sc2355_queue_rx_buff_work(struct sprd_priv *priv, unsigned char id)
 
 void sc2355_rx_down(struct rx_mgmt *rx_mgmt)
 {
-	wait_for_completion(&rx_mgmt->rx_completed);
+	wait_for_completion_interruptible(&rx_mgmt->rx_completed);
 }
 
 void sc2355_rx_up(struct rx_mgmt *rx_mgmt)
@@ -478,7 +478,7 @@ void sc2355_rx_up(struct rx_mgmt *rx_mgmt)
 
 void sc2355_rx_net_down(struct rx_mgmt *rx_mgmt)
 {
-	wait_for_completion(&rx_mgmt->rx_net_completed);
+	wait_for_completion_interruptible(&rx_mgmt->rx_net_completed);
 }
 
 void sc2355_rx_net_up(struct rx_mgmt *rx_mgmt)

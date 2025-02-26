@@ -3515,6 +3515,9 @@ bool sc2355_do_delay_work(struct sprd_work *work)
 	case SPRD_WORK_N79_ABORT_SCAN:
 		sc2355_abort_scan(vif->priv->wiphy, &vif->wdev);
 		break;
+	case SPRD_WORK_ACTION:
+		sc2355_tx_send_action(vif, work->data, work->len);
+		break;
 	default:
 		return false;
 	}
@@ -4588,4 +4591,108 @@ void sc2355_add_to_free_list(struct sprd_priv *priv,
 	spin_lock_bh(&tx_mgmt->xmit_msg_list.free_lock);
 	list_splice_tail(tx_list_head, &tx_mgmt->xmit_msg_list.to_free_list);
 	spin_unlock_bh(&tx_mgmt->xmit_msg_list.free_lock);
+}
+
+/* This function sets the 'frame control' bits in the MAC header of the
+ * input frame to the given 16-bit value.
+ */
+static void sc2355_set_frame_control(u8 *header, u16 fc)
+{
+	header[0] = (u8)(fc & 0x00FF);
+	header[1] = (u8)(fc >> 8);
+}
+
+static void sc2355_prepare_2040_bss_coex_action_request(u8 *data, u8 *bssid, u8 *sa)
+{
+	u16 action = 0xD0;
+	int index = 0;
+
+	/*                        Management Frame Format                        */
+	/* --------------------------------------------------------------------  */
+	/* |Frame Control|Duration|DA|SA|BSSID|Sequence Control|Frame Body|FCS|  */
+	/* --------------------------------------------------------------------  */
+	/* | 2           |2       |6 |6 |6    |2               |0 - 2312  |4  |  */
+	/* --------------------------------------------------------------------  */
+
+	/*                Set the fields in the frame header                     */
+
+	/* All the fields of the Frame Control Field are set to zero. Only the   */
+	/* Type/Subtype field is set.                                            */
+	sc2355_set_frame_control(data, action);
+
+	/* Authentication for STAs  in  IBSS is not handled since this  requires */
+	/* the MAC address  of the STA with  which to  authenticate  as an input */
+	/* from the user. Hence, authentication is performed only by STAs in BSS.*/
+	/* STAs in BSS initiate authentication with the AP.                      */
+
+	/* DA is address of the AP (BSSID) */
+	memcpy(data + 4, bssid, 6);
+
+	/* SA is the dot11MACAddress */
+	memcpy(data + 10, sa, 6);
+
+	/* BSSID */
+	memcpy(data + 16, bssid, 6);
+
+	/*                Set the contents of the frame body                     */
+
+	/*              Authentication Frame (Sequence 1) - Frame Body           */
+	/* --------------------------------------------------------------------  */
+	/* |Auth Algorithm Number|Auth Transaction Sequence Number|Status Code|  */
+	/* --------------------------------------------------------------------  */
+	/* | 2                   |2                               |2          |  */
+	/* --------------------------------------------------------------------  */
+
+	/* Set the Authentication Algorithm Number to Open System or Shared Key, */
+	/* based on the authentication type that has been requested by the user. */
+	/* This is given by 'mget_auth_type' (OPEN_SYSTEM = 0 and SHARED_KEY = 1)*/
+	/* Shared Key authentication may be done only if the MIB attribute       */
+	/* dot11PrivacyOptionImplemented has a value 'True'. If the value is     */
+	/* 'False', authentication type used is OPEN_SYSTEM (0), irrespective of */
+	/* the type requested by the user.                                       */
+	index = 24;
+
+	data[index++] = 4;
+	data[index++] = 0;
+
+	/* VHT Capabilities information field */
+	data[index++] = 72;
+	data[index++] = 1;
+	data[index++] |= BIT(2);
+
+	/* Supported VHT-MCS and NSS Set field */
+	data[index++] = 73;
+	data[index++] = 2;//length
+	data[index++] = 81;//operating class 81:2.4g/ 20m bandwidth/channel set 1~13 Annex E-4
+	data[index++] = 3;//channel list
+}
+
+void sc2355_tx_2040_bss_coex_action(struct sprd_vif *vif, struct ieee80211_mgmt *mgmt, u16 channel)
+{
+	u8 data[34] = {0}; // data[0]:channel data[1-33]:action frame
+	struct sprd_hif *hif = &vif->priv->hif;
+	struct sprd_work *misc_work;
+
+	if (ieee80211_is_probe_resp(mgmt->frame_control) &&
+	    !strncmp(mgmt->bssid, vif->bssid, ETH_ALEN) &&
+	    vif->mode == SPRD_MODE_STATION && vif->sm_state == SPRD_CONNECTED) {
+
+		// 1.prepare action frame.
+		data[0] = channel;
+		sc2355_prepare_2040_bss_coex_action_request(&data[1], mgmt->bssid, mgmt->da);
+
+		// 2.post work to workqueue.
+		misc_work = sprd_alloc_work(sizeof(data));
+		if (!misc_work) {
+			wl_err("%s out of memory\n", __func__);
+			return;
+		}
+		misc_work->vif = vif;
+		misc_work->id = SPRD_WORK_ACTION;
+		misc_work->hw_type = hif->hw_type;
+		misc_work->len = sizeof(data);
+		memcpy(misc_work->data, data, sizeof(data));
+
+		sprd_queue_work(vif->priv, misc_work);
+	}
 }

@@ -93,6 +93,7 @@
 #define SPRD_EXTEND_FEATURE_LLSTATE	   BIT(5)
 #define SPRD_EXTEND_SOATAP_WPA3	   BIT(6)
 #define SPRD_EXTEND_CROSS_AKM_ROAMING	 BIT(10)
+#define SPRD_EXTEND_WFA_11N_5_2_48	 BIT(11)
 #define SPRD_EXTEND_FEATURE_APF	   BIT(7)
 #define SPRD_EXTEND_FEATURE_LOW_LATENCY	   BIT(8)
 
@@ -1156,4 +1157,5 @@ struct sprd_peer_entry
 void sc2355_add_to_free_list(struct sprd_priv *priv,
 			     struct list_head *tx_list_head, int tx_count);
 void cmdevt_report_fw_power_down_evt(struct sprd_vif *vif, u8 *data, u16 len);
+void sc2355_tx_2040_bss_coex_action(struct sprd_vif *vif, struct ieee80211_mgmt *mgmt, u16 channel);
 #endif

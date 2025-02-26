@@ -43,6 +43,7 @@
 #define SPRD_WORK_ADAPTIVE			26
 #define SPRD_WORK_N79_ABORT_SCAN		27
 #define SPRD_WORK_5G_PW_BACKOFF			28
+#define SPRD_WORK_ACTION			29
 
 struct sprd_work {
 	struct list_head list;

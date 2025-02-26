@@ -1183,6 +1183,7 @@ int sc2355_tx_free_pcie_data(unsigned char *data)
 
 	pos = (unsigned char (*)[5])(txc_addr + 1);
 	for (i = 0; i < data_num; i++, pos++) {
+		pcie_addr = 0;
 		memcpy(&pcie_addr, pos, SPRD_PHYS_LEN);
 		pcie_addr -= 0x10;	//Workaround for HW issue
 
@@ -1198,7 +1199,7 @@ int sc2355_tx_free_pcie_data(unsigned char *data)
 		spin_unlock_irqrestore(&tx_mgmt->xmit_msg_list.free_lock, lockflag_txc);
 
 		if (!found) {
-			wl_err("%s: pcie_addr %p not in to free list\n",
+			wl_err("%s: pcie_addr 0x%lx not in to free list\n",
 						__func__, pcie_addr);
 			continue;
 		}

@@ -345,6 +345,17 @@ void mdbg_assert_interface(char *str)
 }
 EXPORT_SYMBOL_GPL(mdbg_assert_interface);
 
+void wcn_dump_again(char *str)
+{
+	if (mdbg_proc->assert_notify_flag) {
+		mdbg_proc->assert_notify_flag = 0;
+		dump_cnt = 0;
+		wcn_notify_fw_error(WCN_SOURCE_CP2_ALIVE, "save dump");
+		msleep(500);
+		__wcn_assert_interface(WCN_SOURCE_BTWF, str);
+	}
+}
+
 int mdbg_assert_read(int channel, struct mbuf_t *head,
 		     struct mbuf_t *tail, int num)
 {
@@ -1022,6 +1033,11 @@ static ssize_t mdbg_proc_write(struct file *filp,
 				g_holdcpu_switch);
 		return count;
 	}
+	if (strncmp(mdbg_proc->write_buf, "wcn_dump_again",
+		strlen("wcn_dump_again")) == 0) {
+		wcn_dump_again(mdbg_proc->write_buf);
+		return count;
+	}
 	if (strncmp(mdbg_proc->write_buf, "at+spatassert=1\r",
 		strlen("at+spatassert=1\r")) == 0) {
 		if (wcn_platform_chip_type() == WCN_PLATFORM_TYPE_SHARKL3) {
@@ -1262,8 +1278,26 @@ static ssize_t mdbg_wcn_chr_write(struct file *filp,
 	return ret;
 }
 
+static ssize_t mdbg_wcn_chr_read(struct file *filp,
+		char __user *buf, size_t count, loff_t *ppos)
+{
+	int ret;
+
+	if (*ppos)
+		return 0;
+
+	WCN_INFO("%s\n", __func__);
+	ret = wcn_chr_read();
+
+	*ppos += count;
+
+	return ret;
+
+}
+
 static const struct proc_ops mdbg_wcn_chr_fops = {
 	.proc_write		= mdbg_wcn_chr_write,
+	.proc_read		= mdbg_wcn_chr_read,
 };
 
 static ssize_t mdbg_assert_cnt_read(struct file *filp,
@@ -1570,7 +1604,7 @@ int proc_fs_init(void)
 	mdbg_proc->wcn_chr.name = "wcn_chr";
 	mdbg_proc->wcn_chr.entry = proc_create_data(
 						mdbg_proc->wcn_chr.name,
-						0220,
+						0644,
 						mdbg_proc->procdir,
 						&mdbg_wcn_chr_fops,
 						&(mdbg_proc->wcn_chr));

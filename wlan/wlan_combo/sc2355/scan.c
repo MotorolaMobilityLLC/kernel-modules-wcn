@@ -685,6 +685,12 @@ void sc2355_report_scan_result(struct sprd_vif *vif, u16 chan, s16 rssi,
 		ieee80211_is_probe_resp(mgmt->frame_control) ? "proberesp" : "beacon   ",
 		mgmt->bssid, ssid, ssid_len, chan, signal, freq, ie_channel_number);
 
+	if (priv->hif.hw_type == SPRD_HW_SC2355_SDIO &&
+	    priv->extend_feature & SPRD_EXTEND_WFA_11N_5_2_48 &&
+	    priv->npi_sta_wfa & BIT(7)) {
+		sc2355_tx_2040_bss_coex_action(vif, mgmt, chan);
+	}
+
 	bss = cfg80211_inform_bss(wiphy, channel, CFG80211_BSS_FTYPE_UNKNOWN,
 				  mgmt->bssid, tsf, capability, beacon_interval,
 				  ie, ielen, signal, GFP_KERNEL);

@@ -1964,7 +1964,7 @@ void sc2355_tx_drop_tcp_msg(struct sprd_chip *chip, struct sprd_msg *msg)
 
 void sc2355_tx_down(struct tx_mgmt *tx_mgmt)
 {
-	wait_for_completion(&tx_mgmt->tx_completed);
+	wait_for_completion_interruptible(&tx_mgmt->tx_completed);
 }
 
 void sc2355_tx_up(struct tx_mgmt *tx_mgmt)
@@ -2461,3 +2461,28 @@ int sc2355_dis_flush_txlist(struct sprd_hif *hif, u8 lut_index)
 			sc2355_flush_tx_qoslist(tx_mgmt, i, j, lut_index);
 	return 0;
 }
+
+void sc2355_tx_send_action(struct sprd_vif *vif, void *data, int len)
+{
+	u8 channel = *(u8 *)data;
+	u8 *buf = (u8 *)data + 1;
+	u32 wait = 0;
+	u8 dont_wait_for_ack = 1;
+	static u64 action_index;
+	int ret = 0;
+	u64 cookie;
+
+	cookie = ++action_index;
+	wl_info("%s cookie %lld, wait %d, ack %d\n", __func__, cookie, wait, dont_wait_for_ack);
+
+	/* send tx mgmt */
+	if (len > 0) {
+		ret = sc2355_tx_mgmt(vif->priv, vif, channel, dont_wait_for_ack, wait, &cookie,
+				     buf, len - 1);
+		if (ret || vif->priv->tx_mgmt_status) {
+			wl_info("%s ret %d, status %d\n", __func__, ret, vif->priv->tx_mgmt_status);
+			vif->priv->tx_mgmt_status = 0;
+		}
+	}
+}
+

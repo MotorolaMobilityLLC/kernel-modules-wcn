@@ -187,6 +187,10 @@ static int npi_nl_handler(struct sk_buff *skb_2, struct genl_info *info)
 		if (s_len < sizeof(struct sprd_npi_cmd_hdr))
 			goto out;
 		sprd_npi_deal_addba(vif, s_buf, s_len, r_buf, &r_len);
+	} else if (hdr->subtype == SPRD_NPI_CMD_SET_STA_WFA) {
+		if (s_len < sizeof(struct sprd_npi_cmd_hdr) + sizeof(unsigned char))
+			goto out;
+		sprd_npi_cmd_set_sta_wfa(vif, s_buf, s_len, r_buf, &r_len);
 	} else {
 		sprd_npi_send_recv(priv, vif, s_buf, s_len, r_buf, &r_len);
 
@@ -321,6 +325,27 @@ int sprd_npi_deal_addba(struct sprd_vif *vif, u8 *s_buf,
 	memcpy(r_buf + sizeof(hdr), &ret, hdr.len);
 
 	return ret;
+}
+
+/* WFA STA case:11n-5.2.48 (bug 2770728)
+ * 20-40-BssCoEx check action frame and action code.
+ * npi_sta_wfa bit7 is flag.
+ */
+void sprd_npi_cmd_set_sta_wfa(struct sprd_vif *vif, u8 *s_buf,
+			      u16 s_len, u8 *r_buf, u16 *r_len)
+{
+	struct sprd_priv *priv = vif->priv;
+	struct sprd_npi_cmd_hdr *hdr = NULL;
+	unsigned char dbgstr[SPRD_NPI_DEBUG_STR_LEN] = { 0 };
+	unsigned char *sta_wfa = s_buf + sizeof(struct sprd_npi_cmd_hdr);
+
+	priv->npi_sta_wfa = *sta_wfa;
+	wl_info("%s npi_sta_wfa: %d\n", __func__, priv->npi_sta_wfa);
+
+	sprd_npi_send_recv(priv, vif, s_buf, s_len, r_buf, r_len);
+	snprintf(dbgstr, sizeof(dbgstr), "[iwnpi][RECV][%d]:", *r_len);
+	hdr = (struct sprd_npi_cmd_hdr *)r_buf;
+	wl_info("%s type is %d, subtype %d\n", dbgstr, hdr->type, hdr->subtype);
 }
 
 static int npi_nl_get_info_handler(struct sk_buff *skb_2,
