@@ -1780,6 +1780,57 @@ int sc2355_set_sar(struct sprd_priv *priv, struct sprd_vif *vif,
 	return send_cmd_recv_rsp(priv, msg, NULL, NULL);
 }
 
+int sc2355_set_sar_as_mode(struct sprd_priv *priv, struct sprd_vif *vif,
+			   u8 sub_type, s8 mode, s8 value)
+{
+	struct sprd_msg *msg;
+	struct cmd_set_sar *p;
+
+	msg = get_cmdbuf(priv, vif, sizeof(*p), CMD_POWER_SAVE);
+	if (!msg)
+		return -ENOMEM;
+
+	p = (struct cmd_set_sar *)msg->data;
+	p->power_save_type = SPRD_SET_SAR;
+	p->sub_type = sub_type;
+	p->value = value;
+	p->mode = mode;
+	wl_info("power_save [SET_SAR]\n");
+	return send_cmd_recv_rsp(priv, msg, NULL, NULL);
+}
+
+int sc2355_set_sar_by_band(struct sprd_priv *priv, struct sprd_vif *vif,
+			   u8 sub_type, s8 band, s8 value)
+{
+	int ret = 0;
+	int index;
+
+	if (band == NL80211_BAND_2GHZ) {
+		wl_info("%s set 2.4G band sar, value:%d\n", __func__, value);
+		for (index = SPRD_SET_SAR_2G_11B; index <= SPRD_SET_SAR_2G_11AC; index++) {
+			ret = sc2355_set_sar_as_mode(priv, vif, sub_type, index, value);
+			if (ret) {
+				wl_err("%s set sar failed, mode:%d!\n", __func__, index);
+				goto out;
+			}
+		}
+	} else if (band == NL80211_BAND_5GHZ) {
+		wl_info("%s set 5G band sar,value:%d\n", __func__, value);
+		for (index = SPRD_SET_SAR_5G_11A; index <= SPRD_SET_SAR_5G_11AC; index++) {
+			ret = sc2355_set_sar_as_mode(priv, vif, sub_type, index, value);
+			if (ret) {
+				wl_err("%s set sar failed, mode:%d!\n", __func__, index);
+				goto out;
+			}
+		}
+	} else {
+		wl_err("%s invalid band value\n", __func__);
+	}
+out:
+	return ret;
+}
+
+
 int sc2355_set_power_backoff(struct sprd_priv *priv, struct sprd_vif *vif,
 			     struct sprd_power_backoff *data)
 {

@@ -930,6 +930,26 @@ static int iface_set_power_save(struct net_device *ndev, void __user *data)
 		netdev_info(ndev, "%s: set sar,value : %d\n",
 			    __func__, value);
 		ret = sprd_set_sar(priv, vif, SPRD_SET_SAR_ABSOLUTE, value);
+	}  else if (!strncasecmp(command, CMD_SET_SAR_2G4,
+				strlen(CMD_SET_SAR_2G4))) {
+		skip = strlen(CMD_SET_SAR_2G4) + 1;
+		ret = kstrtoint(command + skip, 0, &value);
+		if (ret)
+			goto out;
+		netdev_info(ndev, "%s: set sar 2g4,value : %d\n",
+			    __func__, value);
+		ret = sprd_set_sar_by_band(priv, vif, SPRD_SET_SAR_ABSOLUTE,
+					   NL80211_BAND_2GHZ, value);
+	} else if (!strncasecmp(command, CMD_SET_SAR_5G,
+				strlen(CMD_SET_SAR_5G))) {
+		skip = strlen(CMD_SET_SAR_5G) + 1;
+		ret = kstrtoint(command + skip, 0, &value);
+		if (ret)
+			goto out;
+		netdev_info(ndev, "%s: set sar 5g,value : %d\n",
+			    __func__, value);
+		ret = sprd_set_sar_by_band(priv, vif, SPRD_SET_SAR_ABSOLUTE,
+					   NL80211_BAND_5GHZ, value);
 	} else if (!strncasecmp(command, CMD_REDUCE_TX_POWER,
 				strlen(CMD_REDUCE_TX_POWER))) {
 		skip = strlen(CMD_REDUCE_TX_POWER) + 1;
