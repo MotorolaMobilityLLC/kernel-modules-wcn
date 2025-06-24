@@ -238,6 +238,13 @@ static ssize_t chipid_show(struct device *dev,
 						"%s: buf: %s, i = %d",
 						__func__, buf, i);
 		strcat(buf, id_str);
+		/*marlin3_lite new IPD 1, old IPD 0*/
+		if (marlin_get_wcn_xpe_efuse_data() == WCN_XPE_EFUSE_DATA){
+			strcat(buf, "/1");
+		}else{
+			strcat(buf, "/0");
+		}
+
 		i += scnprintf(buf + i, PAGE_SIZE - i, "%s", buf + i);
 		dev_unisoc_bt_info(ttyBT_dev,
 						"%s: buf: %s, i = %d",

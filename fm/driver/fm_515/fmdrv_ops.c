@@ -506,7 +506,9 @@ static int fm_reset(struct notifier_block *this, unsigned long ev, void *ptr)
 {
        pr_info("%s: fm reset callback coming\n", __func__);
        fmdev->fm_invalid = 1;
-       return NOTIFY_DONE;
+       if (stop_marlin(MARLIN_FM) < 0)
+           dev_unisoc_fm_err(fm_miscdev,"fm_reset stop_marlin!");
+        return NOTIFY_DONE;
 }
 
 static struct notifier_block fm_reset_block = {

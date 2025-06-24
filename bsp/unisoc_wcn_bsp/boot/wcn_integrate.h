@@ -103,7 +103,13 @@ struct wcn_dfs_sync_info {
 			u32 btwf_dfs_init:1;
 			u32 btwf_dfs_active:1;
 			u32 btwf_spinlock:1;
-			u32 reserved_btwf:24;
+			u32 reserved_btwf0:3;
+			u32 btwf_ipi_in:1;
+			u32 btwf_dfs_in0:1;
+			u32 btwf_dfs_in1:1;
+			u32 btwf_dfs_in2:1;
+			u32 btwf_dfs_in3:1;
+			u32 reserved_btwf:16;
 		};
 		u32	btwf_dfs_info;
 	};
@@ -114,7 +120,8 @@ struct wcn_dfs_sync_info {
 			u32 gnss_pwr_state:1;
 			u32 gnss_dfs_active:1;
 			u32 gnss_spinlock:1;
-			u32 reserved_gnss:24;
+			u32 reserved_gnss:16;
+			u32 gnss_trig_btwf_assert:8;
 		};
 		u32	gnss_dfs_info;
 	};
@@ -179,10 +186,12 @@ extern struct wcn_special_share_mem *s_wssm_phy_offset_p;
 extern struct wcn_gnss_special_share_mem s_wcngnss_sync_addr;
 extern int ge2_bin_type;
 
+int wcn_check_gnss_dfs_done(struct wcn_device *wcn_dev);
 void wcn_dfs_poweroff_state_clear(struct wcn_device *wcn_dev);
 void wcn_dfs_poweroff_shutdown_clear(struct wcn_device *wcn_dev);
 void wcn_dfs_poweron_status_clear(struct wcn_device *wcn_dev);
 void wcn_dfs_status_clear(void);
+void wcn_dfs_status_get(struct wcn_device *wcn_dev);
 void wcn_rfi_status_clear(void);
 u32 wcn_platform_chip_id(void);
 u32 wcn_platform_chip_type(void);

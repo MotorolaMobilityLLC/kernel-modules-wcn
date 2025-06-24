@@ -46,7 +46,7 @@ extern  int  PCIE;
 void host_wakeup_bt(void)
 {
     __pm_stay_awake(tx_wakelock);
-    if (SIPC || SIPC2) {
+    if (SDIO || PCIE) {
     marlin_set_sleep(MARLIN_BLUETOOTH, FALSE);
     marlin_set_wakeup(MARLIN_BLUETOOTH);
     }

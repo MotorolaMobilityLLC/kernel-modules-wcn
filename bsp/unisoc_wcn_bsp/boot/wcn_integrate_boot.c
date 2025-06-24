@@ -252,8 +252,6 @@ void integ_wcn_chip_power_off(void)
 		wcn_show_dev_status("Assert reset before:");
 		wcn_sys_merlion_soft_reset(s_wcn_device.btwf_device);
 		wcn_dfs_status_clear();
-		wcn_set_module_state(false);
-		wcn_set_loopcheck_state(false);
 		/* WARNING: sblock 3-7 destroy */
 		wcn_sipc_chn_set_status_all_false();
 		wcn_rfi_status_clear();
@@ -265,6 +263,8 @@ void integ_wcn_chip_power_off(void)
 		s_wcn_device.btwf_device->boot_cp_status = 0;
 		s_wcn_device.gnss_device->boot_cp_status = 0;
 		/* wcn_power_enable_merlion_domain(false); */
+		wcn_set_module_state(false);
+		wcn_set_loopcheck_state(false);
 		wcn_sys_power_clock_unsupport(true);
 		sprdwcn_bus_set_carddump_status(false);
 		wcn_show_dev_status("Assert reset after:");
@@ -1816,13 +1816,13 @@ bool gnss_sys_polling_deepsleep(struct wcn_device *wcn_dev)
 	int i = 0;
 
 	/* Polling GNSS SYS wakeup */
-	while (i < GNSS_SYS_DEEPSLEEP_POLLING_COUNT) {
+	while (i < GNSS_SYS_DEEPSLEEP_POLLING_COUNT*5) {
 		if (gnss_sys_is_deepsleep_status(wcn_dev)) {
 			WCN_INFO("gnss sys is deepsleep i=%d!\n",
 					  i);
 			return true;
 		}
-
+		wcn_dfs_status_get(wcn_dev);
 		i++;
 		usleep_range(64, 128);
 	}
@@ -4007,10 +4007,15 @@ int stop_integrate_wcn_module(u32 subsys)
 			if (wcn_subsys_active_num() == 0) {
 				goto force_poweroff;
 			}  else {
-				WCN_ERR("%s GNSS deepsleep failed, BTWF on, Assert\n", __func__);
+				WCN_ERR("%s GNSS deepsleep failed, BTWF on\n", __func__);
+				wcn_debug_bus_show(wcn_dev, "GNSS deepsleep failed");
 				wcn_dev->wcn_open_status |= subsys_bit;
 				mutex_unlock(&wcn_dev->power_lock);
-				return -GNSS_SYS_ABNORMAL;
+				ret = wcn_check_gnss_dfs_done(wcn_dev);
+				if (ret)
+					return -BTWF_SYS_DEEPSLEEP_ABNORMAL;
+				else
+					return -GNSS_SYS_ABNORMAL;
 			}
 		}
 	}

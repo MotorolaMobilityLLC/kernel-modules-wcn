@@ -914,6 +914,35 @@ int wcn_sipc_chn_work_init(struct sipc_chn_info *sipc_chn)
 	return 0;
 }
 
+static void wcn_sipc_chn_queue_reset(struct sipc_chn_info *sipc_chn)
+{
+	struct mbuf_t_list	*push_queue = &sipc_chn->push_queue;
+	struct mbuf_t_list	*pop_queue = &sipc_chn->pop_queue;
+
+	/*
+	* when chn init/deinit, discard all the buf in
+	* push_queue/pop_queue.
+	*/
+	mutex_lock(&sipc_chn->pushq_lock);
+	if(push_queue->mbuf_head) {
+		WCN_INFO("chn[%d] pushq not empty, discard %d mbuf!\n",
+			sipc_chn->index, push_queue->mbuf_num);
+		push_queue->mbuf_head = push_queue->mbuf_tail = NULL;
+		push_queue->mbuf_num = 0;
+	}
+	mutex_unlock(&sipc_chn->pushq_lock);
+
+	mutex_lock(&sipc_chn->popq_lock);
+	if(pop_queue->mbuf_head) {
+		WCN_INFO("chn[%d] popq not empty, discard %d mbuf!\n",
+			sipc_chn->index, pop_queue->mbuf_num);
+		pop_queue->mbuf_head = pop_queue->mbuf_tail = NULL;
+		pop_queue->mbuf_num = 0;
+	}
+	mutex_unlock(&sipc_chn->popq_lock);
+
+}
+
 static int wcn_sipc_chn_init(struct mchn_ops_t *ops)
 {
 	int ret;
@@ -971,6 +1000,7 @@ static int wcn_sipc_chn_init(struct mchn_ops_t *ops)
 			  sipc_chn->sblk.txblocksize,
 			  sipc_chn->sblk.rxblocknum,
 			  sipc_chn->sblk.rxblocksize);
+		wcn_sipc_chn_queue_reset(sipc_chn);
 		/* rx chn record tx chn */
 		sipc_chn->relate_index = sipc_chn->index;
 		if (sipc_chn->chn == 8) {
@@ -1042,6 +1072,7 @@ static int wcn_sipc_chn_deinit(struct mchn_ops_t *ops)
 
 	/* only destroy when chn created fail so it can create again.  */
 	if (SIPC_CHN_TYPE_SBLK(idx)) {
+		wcn_sipc_chn_queue_reset(sipc_chn);
 		if (SIPC_CHN_DIR_TX(idx) && wcn_sipc_sblk_chn_rx_status_check(idx) != 0) {
 			sblock_destroy(sipc_chn->dst, sipc_chn->chn);
 			SIPC_CHN_STATUS(sipc_chn->chn) = SIPC_CHANNEL_UNCREATED;

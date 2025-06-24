@@ -63,6 +63,8 @@ int open_power_ctl(void);
 bool marlin_get_download_status(void);
 void marlin_set_download_status(int f);
 void marlin_chip_en(bool enable, bool reset);
+unsigned int marlin_get_wcn_xpe_efuse_data(void);
+#define WCN_XPE_EFUSE_DATA 1
 int marlin_get_module_status(void);
 int marlin_get_module_status_changed(void);
 int wcn_get_module_status_changed(void);

@@ -410,7 +410,7 @@ int sprdwcn_bus_list_alloc(int chn, struct mbuf_t **head,
 	struct sprdwcn_bus_ops *bus_ops = get_wcn_bus_ops();
 
 	if (!bus_ops || !bus_ops->list_alloc)
-		return 0;
+		return -EFAULT;
 
 	return bus_ops->list_alloc(chn, head, tail, num);
 }

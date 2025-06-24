@@ -25,6 +25,12 @@
 #define SYSTEM_WIFI_AC_CONFIG_FILE "wifi_board_config_ac.ini"
 #define SYSTEM_WIFI_AA_CONFIG_FILE "wifi_board_config_aa.ini"
 
+/* marlin3 lite IPD versions:
+ * 1st source(original): TSMC
+ * 2nd source: Xpeedic
+ */
+#define SYSTEM_WIFI_IPD_XPEEDIC_CONFIG_FILE "wifi_board_config.xpe.ini"
+
 #define CF_TAB(NAME, MEM_OFFSET, TYPE) \
 	{ NAME, (size_t)(&(((struct wifi_conf_t *)(0))->MEM_OFFSET)), TYPE}
 
@@ -473,6 +479,15 @@ int sc2355_get_nvm_table(struct sprd_priv *priv, struct wifi_conf_t *p)
 			SYSTEM_WIFI_AA_CONFIG_FILE);
 		return hw_param_nvm_parse(priv, SYSTEM_WIFI_AA_CONFIG_FILE, (void *)p);
 	}
+
+	if (priv->hif.hw_type == SPRD_HW_SC2355_SDIO &&
+		marlin_get_wcn_xpe_efuse_data() == WCN_XPE_EFUSE_DATA) {
+		wl_info("%s, chip id of marlin3 lite is %d, IPD(%u) open %s\n",
+			__func__, wcn_get_chip_type(), marlin_get_wcn_xpe_efuse_data(),
+			SYSTEM_WIFI_IPD_XPEEDIC_CONFIG_FILE);
+		return hw_param_nvm_parse(priv, SYSTEM_WIFI_IPD_XPEEDIC_CONFIG_FILE, (void *)p);
+	}
+
 	wl_info("%s, chip id of marlin3 lite is %d, open %s\n",
 		__func__, wcn_get_chip_type(), SYSTEM_WIFI_CONFIG_FILE);
 	return hw_param_nvm_parse(priv, SYSTEM_WIFI_CONFIG_FILE, (void *)p);

@@ -3388,7 +3388,7 @@ static int vendor_put_usable_channels_info(struct wiphy *wiphy,
 	const struct ieee80211_reg_rule *reg_rule;
 	enum nl80211_chan_width width;
 
-	wl_err("%s freq %d, channel_cnt %d, iface_mode %d\n",
+	wl_info("%s freq %d, channel_cnt %d, iface_mode %d\n",
 			__func__, freq, channel_cnt, iface_mode);
 
 	channel_info = nla_nest_start(reply, channel_cnt);
@@ -3414,13 +3414,15 @@ static int vendor_put_usable_channels_info(struct wiphy *wiphy,
 	return 0;
 }
 
-static int vendor_usable_channels_reply(struct wiphy *wiphy, u32 band, u32 iface_mode)
+static int vendor_usable_channels_reply(struct wiphy *wiphy, u32 band_flag, u32 iface_mode)
 {
 	struct sk_buff *reply = NULL;
 	struct nlattr *channel_list = NULL;
-	int ret = 0, channel_cnt = 0, i = 0;
-	struct sprd_priv *priv = wiphy_priv(wiphy);
+	int ret = 0, channel_cnt = 0;
 	u32 buf_len = 0;
+	u32 band = 0, channel = 0;
+	struct ieee80211_supported_band *sband;
+	struct ieee80211_channel *chan;
 
 	buf_len = NLA_HDRLEN + 100;
 	buf_len += (ATTR_USABLE_CHANNELS_MAX + 1) * NLA_ALIGN(sizeof(u32));
@@ -3434,37 +3436,33 @@ static int vendor_usable_channels_reply(struct wiphy *wiphy, u32 band, u32 iface
 	if (!channel_list)
 		goto out_put_fail;
 
-	if (band & BIT(NL80211_BAND_2GHZ)) {
-		for (i = 0; i < priv->ch_2g4_info.num_channels; i++) {
-			ret = vendor_put_usable_channels_info(wiphy, reply, channel_cnt,
-					priv->ch_2g4_info.channels[i], iface_mode);
-			if (ret)
-				goto out_put_fail;
+	for (band = 0; band < NUM_NL80211_BANDS; band++) {
+		if (!(BIT(band) & band_flag))
+			continue;
 
-			channel_cnt++;
-		}
-	}
+		sband = wiphy->bands[band];
+		if (!sband)
+			continue;
 
-	if (band & BIT(NL80211_BAND_5GHZ)) {
-		for (i = 0; i < priv->ch_5g_without_dfs_info.num_channels; i++) {
-			ret = vendor_put_usable_channels_info(wiphy, reply, channel_cnt,
-					priv->ch_5g_without_dfs_info.channels[i], iface_mode);
-			if (ret)
-				goto out_put_fail;
+		for (channel = 0; channel < sband->n_channels; channel++) {
+			chan = &sband->channels[channel];
 
-			channel_cnt++;
-		}
+			if (chan->flags & IEEE80211_CHAN_DISABLED)
+				continue;
 
-		if (!(iface_mode & BIT(NL80211_IFTYPE_AP)) &&
-			!(iface_mode & BIT(NL80211_IFTYPE_P2P_GO))) {
-			for (i = 0; i < priv->ch_5g_dfs_info.num_channels; i++) {
-				ret = vendor_put_usable_channels_info(wiphy, reply, channel_cnt,
-						priv->ch_5g_dfs_info.channels[i], iface_mode);
-				if (ret)
-					goto out_put_fail;
-
-				channel_cnt++;
+			if ((iface_mode & BIT(NL80211_IFTYPE_AP)) ||
+				(iface_mode & BIT(NL80211_IFTYPE_P2P_GO))) {
+				if (chan->flags & IEEE80211_CHAN_NO_IR ||
+					chan->flags & IEEE80211_CHAN_RADAR)
+					continue;
 			}
+
+			ret = vendor_put_usable_channels_info(wiphy, reply, channel_cnt,
+						(int)(chan->center_freq), iface_mode);
+			if (ret)
+				goto out_put_fail;
+
+			channel_cnt++;
 		}
 	}
 

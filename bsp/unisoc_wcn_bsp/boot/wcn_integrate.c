@@ -64,15 +64,46 @@ static void wcn_dfs_status_show(struct wcn_dfs_sync_info *dfs_info)
 	WCN_INFO("btwf_dfs_init %d\n", dfs_info->btwf_dfs_init);
 	WCN_INFO("btwf_dfs_active %d\n", dfs_info->btwf_dfs_active);
 	WCN_INFO("btwf_spinlock %d\n", dfs_info->btwf_spinlock);
-
+	WCN_INFO("btwf_btwf_ipi_in %d\n", dfs_info->btwf_ipi_in);
+	WCN_INFO("btwf_btwf_dfs_in0 %d\n", dfs_info->btwf_dfs_in0);
+	WCN_INFO("btwf_btwf_dfs_in1 %d\n", dfs_info->btwf_dfs_in1);
+	WCN_INFO("btwf_btwf_dfs_in2 %d\n", dfs_info->btwf_dfs_in2);
+	WCN_INFO("btwf_btwf_dfs_in3 %d\n", dfs_info->btwf_dfs_in3);
 	WCN_INFO("gnss_clk_req_ack %d\n",
 		 dfs_info->gnss_clk_req_ack);
 	WCN_INFO("gnss_pwr_state %d\n", dfs_info->gnss_pwr_state);
 	WCN_INFO("gnss_dfs_active %d\n", dfs_info->gnss_dfs_active);
 	WCN_INFO("gnss_spinlock %d\n", dfs_info->gnss_spinlock);
+	WCN_INFO("gnss_gnss_trig_btwf %d\n", dfs_info->gnss_trig_btwf_assert);
 	WCN_INFO("wcn_dfs_info: 0x%x-0x%x-0x%x-0x%x\n",
 		dfs_info->btwf_dfs_info, dfs_info->gnss_dfs_info,
 		dfs_info->debugdfs0, dfs_info->debugdfs1);
+}
+
+int wcn_check_gnss_dfs_done(struct wcn_device *wcn_dev)
+{
+	bool is_marlin;
+	phys_addr_t phy_addr;
+	struct wcn_dfs_sync_info dfs_info;
+
+	is_marlin = wcn_dev_is_marlin(wcn_dev);
+	if (is_marlin) {
+		phy_addr = wcn_dev->base_addr + WCN_SYS_DFS_SYNC_ADDR_OFFSET;
+		wcn_read_data_from_phy_addr(phy_addr, &dfs_info,
+			sizeof(struct wcn_dfs_sync_info));
+	} else {
+		phy_addr = wcn_dev->base_addr - WCN_GNSS_DDR_OFFSET
+					+ WCN_SYS_DFS_SYNC_ADDR_OFFSET;
+		wcn_read_data_from_phy_addr(phy_addr, &dfs_info,
+			sizeof(struct wcn_dfs_sync_info));
+	}
+	wcn_dfs_status_show(&dfs_info);
+	if ((dfs_info.debugdfs1 & (1<<27)) && (dfs_info.btwf_record_gnss_current_clk == 8) &&
+		(dfs_info.gnss_clk_req_ack == 2)) {
+		WCN_INFO("%s check dfs done, but GNSS in 319M", __func__);
+		return -1;
+	} else
+		return 0;
 }
 
 void wcn_dfs_poweroff_state_clear(struct wcn_device *wcn_dev)
@@ -169,7 +200,28 @@ void wcn_dfs_poweroff_shutdown_clear(struct wcn_device *wcn_dev)
 		/* reset spinlock */
 	}
 }
+void wcn_dfs_status_get(struct wcn_device *wcn_dev)
+{
+	bool is_marlin;
+	phys_addr_t phy_addr;
+	struct wcn_dfs_sync_info dfs_info;
 
+	is_marlin = wcn_dev_is_marlin(wcn_dev);
+	if (is_marlin) {
+		phy_addr = wcn_dev->base_addr + WCN_SYS_DFS_SYNC_ADDR_OFFSET;
+		wcn_read_data_from_phy_addr(phy_addr, &dfs_info,
+			sizeof(struct wcn_dfs_sync_info));
+		wcn_dfs_status_show(&dfs_info);
+		/* reset spinlock */
+	} else {
+		phy_addr = wcn_dev->base_addr - WCN_GNSS_DDR_OFFSET
+					+ WCN_SYS_DFS_SYNC_ADDR_OFFSET;
+		wcn_read_data_from_phy_addr(phy_addr, &dfs_info,
+			sizeof(struct wcn_dfs_sync_info));
+		wcn_dfs_status_show(&dfs_info);
+		/* reset spinlock */
+	}
+}
 void wcn_dfs_poweron_status_clear(struct wcn_device *wcn_dev)
 {
 	bool is_marlin;
@@ -537,7 +589,7 @@ void wcn_set_module_state(bool status)
 	else
 		wcn_open_module = 0;
 	wcn_set_download_status(status);
-	WCN_INFO("cp2 power status:%d\n", status);
+	WCN_INFO("cp2 power status:%d， wcn_open_status:%d\n", status, wcn_open_module);
 }
 
 void wcn_set_loopcheck_state(bool status)

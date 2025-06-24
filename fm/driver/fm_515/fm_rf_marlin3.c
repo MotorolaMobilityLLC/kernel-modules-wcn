@@ -23,10 +23,12 @@
 #include "unisoc_fm_log.h"
 #include <linux/platform_device.h>
 #include <linux/firmware.h>
+#include "marlin_platform.h"
 
 extern struct device *fm_miscdev;
 
 #define SYSTEM_FM_CONFIG_FILE "fm_board_config.ini"
+#define SYSTEM_FM_CONFIG_FILE_XPE "fm_board_config.xpe.ini"
 
 #define CF_TAB(NAME, MEM_OFFSET, TYPE) \
 	{ NAME, (size_t)(&(((struct fm_config_t *)(0))->MEM_OFFSET)), TYPE}
@@ -246,6 +248,12 @@ static int fm_nvm_parse(const char *path, void *p_data)
 
 int get_fm_config_param(struct fm_config_t *p)
 {
-	return fm_nvm_parse(SYSTEM_FM_CONFIG_FILE, (void *)p);
+	if (marlin_get_wcn_xpe_efuse_data() == WCN_XPE_EFUSE_DATA){
+		dev_unisoc_fm_info(fm_miscdev,"%s ini type %d path:%s\n", __func__, 1, SYSTEM_FM_CONFIG_FILE_XPE);
+		return fm_nvm_parse(SYSTEM_FM_CONFIG_FILE_XPE, (void *)p);
+	}else{
+		dev_unisoc_fm_info(fm_miscdev,"%s ini type %d path:%s\n", __func__, 0, SYSTEM_FM_CONFIG_FILE);
+		return fm_nvm_parse(SYSTEM_FM_CONFIG_FILE, (void *)p);
+	}
 }
 

@@ -239,15 +239,18 @@ void sprd_report_connection(struct sprd_vif *vif,
 						     IEEE80211_BSS_TYPE_ESS,
 						     IEEE80211_PRIVACY_ANY);
 			if (other_bss && other_bss != bss) {
-				wl_info("unlink bss(%pM-%s) %u that only channel different, "
-				        "bss_freq %u.\n",
-				        other_bss->bssid, ssid,
-				        other_bss->channel ? other_bss->channel->center_freq : 0,
-				        bss->channel ? bss->channel->center_freq : 0);
+				wl_info("unlink bss(%pM-%s) %u that only channel different, bss_freq %u.\n",
+					other_bss->bssid, ssid,
+					other_bss->channel ? other_bss->channel->center_freq : 0,
+					bss->channel ? bss->channel->center_freq : 0);
 				cfg80211_unlink_bss(wiphy, other_bss);
 				cfg80211_put_bss(wiphy, other_bss);
-			} else
+			} else {
+				if (other_bss)
+					cfg80211_put_bss(wiphy, other_bss);
+
 				break;
+			}
 		}
 	}
 done:
